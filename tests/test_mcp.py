@@ -1,11 +1,11 @@
 """Tests for APEX MCP support."""
 
 import pytest
-from apex.mcp import MCP_SERVER, MCPClient, MCPManager, mcp_manager, MCPResource, MCPTool
+from apex.mcp import MCPServerConfig, MCPClient, MCPManager, mcp_manager, MCPResource, MCPTool
 
 
 def test_mcp_server_creation():
-    server = MCP_SERVER(
+    server = MCPServerConfig(
         name="test-server",
         command="node",
         args=["server.js"],
@@ -20,8 +20,8 @@ def test_mcp_server_creation():
 def test_mcp_manager_add_server():
     manager = MCPManager()
     manager.add_server("files", "ls", enabled=False)
-    assert "files" in manager._servers
-    assert manager._servers["files"].server.enabled is False
+    assert "files" in manager._configs
+    assert manager._configs["files"].enabled is False
 
 
 def test_mcp_manager_list_servers():
@@ -37,7 +37,7 @@ def test_mcp_manager_list_servers():
 
 
 def test_mcp_tool_schema_format():
-    server = MCP_SERVER(name="test", command="cmd")
+    server = MCPServerConfig(name="test", command="cmd")
     client = MCPClient(server)
     client._tools = [
         MCPTool(name="tool1", description="Does things", input_schema={"type": "object"})
