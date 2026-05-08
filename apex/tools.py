@@ -393,6 +393,75 @@ TOOL_SCHEMAS = [
                 "required": ["question"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_code",
+            "description": "Run code in a sandboxed environment.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "Code to execute"},
+                    "language": {"type": "string", "description": "Language (python, javascript, bash, ruby, go, rust)"},
+                    "args": {"type": "array", "items": {"type": "string"}, "description": "Command line arguments"}
+                },
+                "required": ["code", "language"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "bookmark_session",
+            "description": "Bookmark the current conversation position for later.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Bookmark name"}
+                },
+                "required": ["name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "restore_bookmark",
+            "description": "Restore conversation from a bookmark.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Bookmark name to restore"}
+                },
+                "required": ["name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_history",
+            "description": "Search the conversation history for a query.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_conversation_stats",
+            "description": "Get statistics about the current conversation.",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
     }
 ]
 
@@ -968,6 +1037,66 @@ class ToolExecutor:
         question = args["question"]
         options = args.get("options", [])
         return f"[WAITING FOR USER INPUT]\nQuestion: {question}\nOptions: {options if options else 'Free text answer'}\n\nUse /answer <response> to reply."
+
+    def _execute_run_code(self, args: dict[str, Any]) -> str:
+        code = args["code"]
+        language = args.get("language", "python")
+        cmd_args = args.get("args", [])
+
+        from .sandbox import sandbox
+        return sandbox.run_code(code, language, cmd_args)
+
+    def _execute_bookmark_session(self, args: dict[str, Any]) -> str:
+        from .context_manager import ConversationManager
+        name = args["name"]
+        conv_manager = getattr(self, "_conv_manager", None)
+        if conv_manager is None:
+            conv_manager = ConversationManager()
+            self._conv_manager = conv_manager
+
+        conv_manager.bookmark(name)
+        return f"SUCCESS: Bookmarked current position as '{name}'"
+
+    def _execute_restore_bookmark(self, args: dict[str, Any]) -> str:
+        from .context_manager import ConversationManager
+        name = args["name"]
+        conv_manager = getattr(self, "_conv_manager", None)
+        if conv_manager is None:
+            return "ERROR: No bookmarks exist"
+
+        restored = conv_manager.restore_bookmark(name)
+        if restored is None:
+            return f"ERROR: Bookmark '{name}' not found"
+        return f"[RESTORED from bookmark '{name}']\nMessages: {len(restored)}"
+
+    def _execute_search_history(self, args: dict[str, Any]) -> str:
+        from .context_manager import ConversationManager
+        query = args["query"]
+        conv_manager = getattr(self, "_conv_manager", None)
+        if conv_manager is None:
+            return "ERROR: No conversation history"
+
+        results = conv_manager.search(query)
+        if not results:
+            return f"No results found for: {query}"
+
+        output = [f"Found {len(results)} matching messages:"]
+        for r in results[:10]:
+            msg = r["message"]
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")[:100]
+            output.append(f"  [{role}] #{r['index']}: {content}...")
+
+        return "\n".join(output)
+
+    def _execute_get_conversation_stats(self, args: dict[str, Any]) -> str:
+        from .context_manager import ConversationManager
+        conv_manager = getattr(self, "_conv_manager", None)
+        if conv_manager is None:
+            return "No conversation statistics available"
+
+        stats = conv_manager.get_stats()
+        return f"Conversation stats:\n  Messages: {stats['message_count']}\n  Bookmarks: {stats['bookmarks']}\n  Roles: {stats['roles']}"
 
 
 class AsyncToolExecutor(ToolExecutor):
