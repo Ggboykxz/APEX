@@ -19,14 +19,15 @@ def test_models_exist():
 
 
 def test_model_providers_match():
+    valid_suffixes = ("_API_KEY", "_ACCESS_KEY", "_SECRET_KEY")
     for model, provider in MODEL_PROVIDERS.items():
         if provider is not None:
-            assert provider.endswith("_API_KEY")
+            assert any(provider.endswith(s) for s in valid_suffixes), f"Invalid provider for {model}: {provider}"
 
 
 def test_claude_models():
-    assert "claude-sonnet" in MODELS
-    assert "anthropic/claude" in MODELS["claude-sonnet"]
+    assert "claude-4-sonnet" in MODELS
+    assert "anthropic/claude" in MODELS["claude-4-sonnet"]
 
 
 def test_openai_models():
@@ -35,8 +36,8 @@ def test_openai_models():
 
 
 def test_groq_models():
-    assert "llama-groq" in MODELS
-    assert "groq/llama" in MODELS["llama-groq"]
+    assert "llama-groq-3.3-70b" in MODELS
+    assert "groq/llama" in MODELS["llama-groq-3.3-70b"]
 
 
 def test_ollama_models():
