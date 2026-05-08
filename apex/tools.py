@@ -308,6 +308,91 @@ TOOL_SCHEMAS = [
                 "required": ["manager", "package"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "task",
+            "description": "Delegate a task to a subagent for parallel execution.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "agent": {"type": "string", "description": "Subagent to invoke (general, explore)"},
+                    "task": {"type": "string", "description": "Task description for the subagent"}
+                },
+                "required": ["agent", "task"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "preview_edit",
+            "description": "Preview an edit without applying it. Shows the diff before confirmation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to the file to edit"},
+                    "old_string": {"type": "string", "description": "Unique string to find"},
+                    "new_string": {"type": "string", "description": "String to replace it with"}
+                },
+                "required": ["path", "old_string", "new_string"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "apply_edit",
+            "description": "Apply a previously previewed edit using a preview ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "preview_id": {"type": "string", "description": "ID from preview_edit result"}
+                },
+                "required": ["preview_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "clipboard_read",
+            "description": "Read text from system clipboard.",
+            "parameters": {
+                "type": "object",
+                "properties": {}
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "clipboard_write",
+            "description": "Write text to system clipboard.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to copy to clipboard"}
+                },
+                "required": ["text"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ask_user",
+            "description": "Ask the user a question and wait for their response.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "Question to ask the user"},
+                    "options": {"type": "array", "items": {"type": "string"}, "description": "Optional multiple choice options"}
+                },
+                "required": ["question"]
+            }
+        }
     }
 ]
 
@@ -786,6 +871,103 @@ class ToolExecutor:
             return f"ERROR: {manager} not found"
         except Exception as e:
             return f"ERROR: Installation failed: {e}"
+
+    def _execute_task(self, args: dict[str, Any]) -> str:
+        agent_name = args["agent"]
+        task = args["task"]
+        from .agents import agent_manager
+        if agent_name not in agent_manager.agents:
+            return f"ERROR: Unknown agent: {agent_name}"
+        return f"[Delegated to @{agent_name}]: {task}"
+
+    def _execute_preview_edit(self, args: dict[str, Any]) -> str:
+        import uuid
+        path = self._resolve(args["path"])
+        if not path.exists():
+            return f"ERROR: File not found: {path}"
+
+        try:
+            content = path.read_text()
+            old_string = args["old_string"]
+            new_string = args["new_string"]
+
+            if old_string not in content:
+                return f"ERROR: String not found in file"
+
+            import difflib
+            old_lines = content.splitlines(keepends=True)
+            new_lines = content.replace(old_string, new_string, 1).splitlines(keepends=True)
+
+            diff = list(difflib.unified_diff(old_lines, new_lines, fromfile=str(path), tofile=f"{path} (modified)", lineterm=""))
+            diff_text = "".join(diff)
+
+            preview_id = str(uuid.uuid4())[:8]
+            self._preview_cache = getattr(self, "_preview_cache", {})
+            self._preview_cache[preview_id] = {
+                "path": str(path),
+                "old_string": old_string,
+                "new_string": new_string
+            }
+
+            return f"[PREVIEW {preview_id}]\n{diff_text}\n\nUse apply_edit with preview_id={preview_id} to confirm, or the edit will be discarded."
+        except Exception as e:
+            return f"ERROR: Preview failed: {e}"
+
+    def _execute_apply_edit(self, args: dict[str, Any]) -> str:
+        preview_id = args["preview_id"]
+        cache = getattr(self, "_preview_cache", {})
+
+        if preview_id not in cache:
+            return f"ERROR: Invalid or expired preview ID: {preview_id}"
+
+        preview = cache.pop(preview_id)
+        path = Path(preview["path"])
+
+        try:
+            content = path.read_text()
+            if preview["old_string"] not in content:
+                return "ERROR: File content changed since preview"
+            new_content = content.replace(preview["old_string"], preview["new_string"], 1)
+            path.write_text(new_content)
+            return f"SUCCESS: Applied edit to {path}"
+        except Exception as e:
+            return f"ERROR: Apply failed: {e}"
+
+    def _execute_clipboard_read(self, args: dict[str, Any]) -> str:
+        try:
+            import pyperclip
+            return pyperclip.paste()
+        except ImportError:
+            try:
+                result = subprocess.run(["xclip", "-selection", "clipboard", "-o"], capture_output=True, text=True)
+                if result.returncode == 0:
+                    return result.stdout
+            except:
+                pass
+            return "ERROR: No clipboard tool available. Install pyperclip or xclip."
+        except Exception as e:
+            return f"ERROR: Cannot read clipboard: {e}"
+
+    def _execute_clipboard_write(self, args: dict[str, Any]) -> str:
+        text = args["text"]
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+            return f"SUCCESS: Copied {len(text)} chars to clipboard"
+        except ImportError:
+            try:
+                subprocess.run(["xclip", "-selection", "clipboard"], input=text, text=True, capture_output=True)
+                return f"SUCCESS: Copied {len(text)} chars to clipboard"
+            except:
+                pass
+            return "ERROR: No clipboard tool available. Install pyperclip or xclip."
+        except Exception as e:
+            return f"ERROR: Cannot write to clipboard: {e}"
+
+    def _execute_ask_user(self, args: dict[str, Any]) -> str:
+        question = args["question"]
+        options = args.get("options", [])
+        return f"[WAITING FOR USER INPUT]\nQuestion: {question}\nOptions: {options if options else 'Free text answer'}\n\nUse /answer <response> to reply."
 
 
 class AsyncToolExecutor(ToolExecutor):

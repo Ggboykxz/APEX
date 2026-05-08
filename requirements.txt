@@ -4,3 +4,4 @@ prompt_toolkit>=3.0.0
 python-dotenv>=1.0.0
 pyyaml>=6.0
 aiohttp>=3.9.0
+pyperclip>=1.8.0
