@@ -1,0 +1,277 @@
+import json
+import subprocess
+import os
+from typing import Optional, Dict, Any, List
+from pathlib import Path
+
+
+class LSPClient:
+    def __init__(self, cwd: str, server_command: List[str], env: Optional[Dict[str, str]] = None):
+        self.cwd = cwd
+        self.server_command = server_command
+        self.env = env or {}
+        self.process: Optional[subprocess.Popen] = None
+        self.request_id = 0
+        self.capabilities: Dict[str, Any] = {}
+        self._initialized = False
+
+    def start(self):
+        full_env = {**os.environ.copy(), **self.env}
+        self.process = subprocess.Popen(
+            self.server_command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=self.cwd,
+            env=full_env,
+            text=True,
+        )
+        self._initialized = False
+
+    def _send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.process or not self.process.stdin:
+            raise RuntimeError("LSP server not running")
+
+        self.request_id += 1
+        request = {
+            "jsonrpc": "2.0",
+            "id": self.request_id,
+            "method": method,
+            "params": params,
+        }
+
+        request_json = json.dumps(request) + "\n"
+        self.process.stdin.write(request_json)
+        self.process.stdin.flush()
+
+        return self._read_response()
+
+    def _read_response(self) -> Dict[str, Any]:
+        if not self.process or not self.process.stdout:
+            raise RuntimeError("LSP server not running")
+
+        line = self.process.stdout.readline()
+        while line:
+            if line.strip():
+                return json.loads(line)
+            line = self.process.stdout.readline()
+        return {}
+
+    def initialize(self, root_path: str):
+        result = self._send_request(
+            "initialize",
+            {
+                "processId": os.getpid(),
+                "rootUri": f"file://{root_path}",
+                "capabilities": {},
+            },
+        )
+        self.capabilities = result.get("result", {}).get("capabilities", {})
+        self._initialized = True
+        self._send_request("initialized", {})
+
+    def shutdown(self):
+        if self._initialized:
+            self._send_request("shutdown", {})
+            self._send_request("exit", {})
+        if self.process:
+            self.process.terminate()
+            self.process.wait()
+
+    def get_definitions(self, uri: str, line: int, column: int) -> List[Dict[str, Any]]:
+        if not self._initialized:
+            return []
+
+        result = self._send_request(
+            "textDocument/definition",
+            {
+                "textDocument": {"uri": uri},
+                "position": {"line": line, "character": column},
+            },
+        )
+        return result.get("result", [])
+
+    def get_references(self, uri: str, line: int, column: int) -> List[Dict[str, Any]]:
+        if not self._initialized:
+            return []
+
+        result = self._send_request(
+            "textDocument/references",
+            {
+                "textDocument": {"uri": uri},
+                "position": {"line": line, "character": column},
+                "context": {"includeDeclaration": True},
+            },
+        )
+        return result.get("result", [])
+
+    def get_hover(self, uri: str, line: int, column: int) -> Optional[Dict[str, Any]]:
+        if not self._initialized:
+            return None
+
+        result = self._send_request(
+            "textDocument/hover",
+            {
+                "textDocument": {"uri": uri},
+                "position": {"line": line, "character": column},
+            },
+        )
+        return result.get("result")
+
+    def get_document_symbols(self, uri: str) -> List[Dict[str, Any]]:
+        if not self._initialized:
+            return []
+
+        result = self._send_request(
+            "textDocument/documentSymbol",
+            {"textDocument": {"uri": uri}},
+        )
+        return result.get("result", [])
+
+    def get_workspace_symbols(self, query: str) -> List[Dict[str, Any]]:
+        if not self._initialized:
+            return []
+
+        result = self._send_request("workspace/symbol", {"query": query})
+        return result.get("result", [])
+
+    def get_diagnostics(self, uri: str) -> List[Dict[str, Any]]:
+        if not self._initialized:
+            return []
+
+        result = self._send_request(
+            "textDocument/diagnostic",
+            {"textDocument": {"uri": uri}},
+        )
+        return result.get("result", {}).get("items", [])
+
+
+class LSPManager:
+    def __init__(self, cwd: str):
+        self.cwd = cwd
+        self.servers: Dict[str, LSPClient] = {}
+        self._config: Dict[str, Any] = {}
+
+    def load_config(self, config: Dict[str, Any]):
+        self._config = config
+
+    def add_server(self, name: str, command: List[str], env: Optional[Dict[str, str]] = None):
+        client = LSPClient(self.cwd, command, env)
+        self.servers[name] = client
+
+    def start_all(self):
+        for name, client in self.servers.items():
+            try:
+                client.start()
+                client.initialize(self.cwd)
+            except Exception as e:
+                print(f"Warning: Failed to start LSP server '{name}': {e}")
+
+    def stop_all(self):
+        for client in self.servers.values():
+            try:
+                client.shutdown()
+            except Exception:
+                pass
+
+    def get_tools(self) -> Dict[str, Any]:
+        tools = {}
+        for name, client in self.servers.items():
+            if client._initialized:
+                tools[f"lsp_{name}_definition"] = {
+                    "description": f"Go to definition (LSP: {name})",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "column": {"type": "integer"},
+                        },
+                        "required": ["path"],
+                    },
+                }
+                tools[f"lsp_{name}_references"] = {
+                    "description": f"Find references (LSP: {name})",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "column": {"type": "integer"},
+                        },
+                        "required": ["path"],
+                    },
+                }
+                tools[f"lsp_{name}_hover"] = {
+                    "description": f"Show hover info (LSP: {name})",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "column": {"type": "integer"},
+                        },
+                        "required": ["path"],
+                    },
+                }
+                tools[f"lsp_{name}_diagnostics"] = {
+                    "description": f"Get diagnostics (LSP: {name})",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                        },
+                        "required": ["path"],
+                    },
+                }
+        return tools
+
+    def call_tool(self, name: str, args: Dict[str, Any]) -> Any:
+        parts = name.split("_", 2)
+        if len(parts) < 3:
+            return {"error": "Invalid LSP tool name"}
+
+        server_name = parts[1]
+        operation = parts[2]
+
+        if server_name not in self.servers:
+            return {"error": f"Unknown LSP server: {server_name}"}
+
+        client = self.servers[server_name]
+        path = args.get("path", "")
+        line = args.get("line", 0)
+        column = args.get("column", 0)
+        uri = f"file://{os.path.abspath(path)}"
+
+        try:
+            if operation == "definition":
+                results = client.get_definitions(uri, line, column)
+                return {"definitions": [{"uri": r.get("uri"), "range": r.get("range")} for r in results]}
+            elif operation == "references":
+                results = client.get_references(uri, line, column)
+                return {"references": [{"uri": r.get("uri"), "range": r.get("range")} for r in results]}
+            elif operation == "hover":
+                result = client.get_hover(uri, line, column)
+                if result and result.get("contents"):
+                    content = result["contents"]
+                    if isinstance(content, dict):
+                        return {"content": content.get("value", "")}
+                    return {"content": str(content)}
+                return {"content": ""}
+            elif operation == "diagnostics":
+                results = client.get_diagnostics(uri)
+                return {"diagnostics": [{"message": d.get("message"), "range": d.get("range"), "severity": d.get("severity")} for d in results]}
+            else:
+                return {"error": f"Unknown operation: {operation}"}
+        except Exception as e:
+            return {"error": str(e)}
+
+
+_lsp_manager: Optional[LSPManager] = None
+
+
+def get_lsp_manager(cwd: str) -> LSPManager:
+    global _lsp_manager
+    if _lsp_manager is None:
+        _lsp_manager = LSPManager(cwd)
+    return _lsp_manager

@@ -52,3 +52,17 @@ APEX is built by a Gabonese developer for the world. Every developer deserves a 
 - **Production-ready** — Full error handling, tests, type hints
 - **Language-agnostic** — Python, JavaScript, Rust, Go, etc.
 - **Senior developer mindset** — Opinionated, but effective
+
+## Documentation
+
+- [Installation](installation.md) — Setup guide
+- [Commands](commands.md) — CLI commands and REPL shortcuts
+- [Configuration](configuration.md) — Config file options
+- [Models](models.md) — Supported models and aliases
+- [Tools](tools.md) — Built-in tools reference
+- [Agents](agents.md) — Multi-agent system
+- [Plugins](plugins.md) — Plugin system
+- [Advanced](advanced.md) — MCP, custom tools, workspace awareness
+- [API Reference](api.md) — Python API
+- [Configuration Examples](examples.md) — Complete config examples
+- [Troubleshooting](troubleshooting.md) — Common issues and solutions
