@@ -1,0 +1,37 @@
+site_name: APEX - Agent for Programming EXecution
+site_description: The last coding agent you'll ever need
+site_author: APEX Team
+site_url: https://apex-ai.dev
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: cyan
+      accent: cyan
+    - scheme: slate
+      primary: cyan
+      accent: cyan
+  features:
+    - navigation.instant
+
+repo_url: https://github.com/apex-ai/apex
+repo_name: apex-ai/apex
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Configuration: configuration.md
+  - Commands: commands.md
+  - Tools: tools.md
+  - Models: models.md
+  - API Reference: api.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+
+plugins:
+  - search

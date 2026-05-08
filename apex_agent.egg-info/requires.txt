@@ -1,0 +1,12 @@
+litellm>=1.0.0
+rich>=13.0.0
+prompt_toolkit>=3.0.0
+python-dotenv>=1.0.0
+pyyaml>=6.0
+aiohttp>=3.9.0
+
+[dev]
+pytest>=7.0.0
+pytest-cov>=4.0.0
+ruff>=0.1.0
+mkdocs-material>=8.0.0
