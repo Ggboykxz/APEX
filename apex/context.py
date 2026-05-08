@@ -3,7 +3,6 @@
 import os
 import subprocess
 from pathlib import Path
-from typing import Any
 
 
 def get_repo_map(path: Path | None = None) -> str:
@@ -41,22 +40,22 @@ def get_repo_map(path: Path | None = None) -> str:
         return "ERROR: Permission denied"
 
     if subdirs:
-        lines.append(f"\n[DIRECTORIES]")
+        lines.append("\n[DIRECTORIES]")
         for d in sorted(subdirs)[:10]:
             lines.append(f"  📁 {d}/")
 
     if source_files:
-        lines.append(f"\n[SOURCE FILES]")
+        lines.append("\n[SOURCE FILES]")
         for f in sorted(source_files)[:15]:
             lines.append(f"  • {f}")
 
     if config_files:
-        lines.append(f"\n[CONFIG FILES]")
+        lines.append("\n[CONFIG FILES]")
         for f in sorted(config_files):
             lines.append(f"  ⚙ {f}")
 
     if doc_files:
-        lines.append(f"\n[DOCUMENTATION]")
+        lines.append("\n[DOCUMENTATION]")
         for f in sorted(doc_files)[:5]:
             lines.append(f"  📄 {f}")
 

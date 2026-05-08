@@ -1,10 +1,8 @@
 """Workspace awareness for APEX - Git context, branch, PR information."""
 
 import subprocess
-import json
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -110,7 +108,7 @@ class WorkspaceManager:
             if result.returncode == 0:
                 ctx.tags = result.stdout.strip().split("\n")[:5]
 
-        except:
+        except Exception:
             pass
 
         return ctx

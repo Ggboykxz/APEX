@@ -1,7 +1,6 @@
 """Project initialization for APEX - analyze and set up projects."""
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Any
 

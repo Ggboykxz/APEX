@@ -2,7 +2,6 @@ import json
 import subprocess
 import os
 from typing import Optional, Dict, Any, List
-from pathlib import Path
 
 
 class LSPClient:

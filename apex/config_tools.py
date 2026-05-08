@@ -1,8 +1,7 @@
 """Custom tools defined from configuration for APEX."""
 
-import json
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 from dataclasses import dataclass
 
 

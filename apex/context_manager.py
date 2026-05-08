@@ -130,7 +130,6 @@ class AutoSaveManager:
 
     def save_state(self, state: dict[str, Any]) -> None:
         import time
-        import json
 
         state["timestamp"] = time.time()
         state["version"] = "0.3.0"
@@ -141,14 +140,13 @@ class AutoSaveManager:
         self._last_save = time.time()
 
     def load_state(self) -> dict[str, Any] | None:
-        import json
         if not self._current_file.exists():
             return None
 
         try:
             with open(self._current_file) as f:
                 return json.load(f)
-        except:
+        except Exception:
             return None
 
     def clear(self) -> None:
@@ -156,7 +154,6 @@ class AutoSaveManager:
             self._current_file.unlink()
 
     def list_saves(self) -> list[dict[str, Any]]:
-        import os
         saves = []
         for f in self._save_dir.glob("*.json"):
             stat = f.stat()

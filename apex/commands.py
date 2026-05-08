@@ -1,7 +1,5 @@
-import re
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-import subprocess
+from typing import Optional, Dict, List
 
 
 class Command:

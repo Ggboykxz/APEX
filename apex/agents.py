@@ -1,7 +1,5 @@
 """Multi-agent system for APEX - Primary and subagent support with permissions."""
 
-from typing import Any
-from .config import SYSTEM_PROMPT, MODELS
 
 AGENT_BUILD_PROMPT = """You are APEX Build Agent — the senior developer agent with full tool access.
 
@@ -240,7 +238,6 @@ class AgentManager:
         edit_tools = {"write_file", "edit_file", "delete_file", "create_directory",
                       "run_test", "format_file", "install_package"}
         bash_tools = {"run_command"}
-        task_tools = {"task"}
         web_tools = {"web_search", "fetch_url"}
 
         if tool_name in read_tools:

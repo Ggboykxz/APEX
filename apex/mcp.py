@@ -3,11 +3,9 @@
 import asyncio
 import json
 import subprocess
-import threading
 from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass, field
-from collections.abc import AsyncIterator
 import uuid
 
 
@@ -118,7 +116,7 @@ class MCPClient:
                     buffer = ""
                 else:
                     buffer += char
-        except:
+        except Exception:
             pass
 
     async def _handle_message(self, raw: str) -> None:
@@ -136,7 +134,7 @@ class MCPClient:
                 method = msg["method"]
                 if method in self._notification_handlers:
                     await self._notification_handlers[method](msg.get("params"))
-        except:
+        except Exception:
             pass
 
     async def _send_request(self, method: str, params: dict | None = None) -> Any:
@@ -158,7 +156,7 @@ class MCPClient:
             self.process.stdin.write(json.dumps(request) + "\n")
             self.process.stdin.flush()
             return await asyncio.wait_for(future, timeout=30)
-        except Exception as e:
+        except Exception:
             self._pending_requests.pop(request_id, None)
             return None
 
@@ -175,7 +173,7 @@ class MCPClient:
         try:
             self.process.stdin.write(json.dumps(notification) + "\n")
             self.process.stdin.flush()
-        except:
+        except Exception:
             pass
 
     async def list_tools(self) -> list[MCPTool]:
@@ -263,7 +261,7 @@ class MCPClient:
             self.process.terminate()
             try:
                 self.process.wait(timeout=5)
-            except:
+            except Exception:
                 self.process.kill()
 
 
@@ -300,7 +298,7 @@ class MCPManager:
             try:
                 client_tools = client.get_tool_schemas()
                 tools.extend(client_tools)
-            except:
+            except Exception:
                 pass
         return tools
 

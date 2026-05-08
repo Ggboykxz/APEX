@@ -2,12 +2,10 @@
 
 import importlib.util
 import sys
-import os
 from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
-import json
 
 
 @dataclass
@@ -23,7 +21,7 @@ class PluginBase(ABC):
     info: PluginInfo
 
     @abstractmethod
-    def initialize(self, app: "APEXApp") -> None:
+    def initialize(self, app: Any) -> None:
         pass
 
     @abstractmethod
@@ -153,7 +151,7 @@ class PluginManager:
             if hasattr(plugin, "get_tools"):
                 try:
                     tools.extend(plugin.get_tools())
-                except:
+                except Exception:
                     pass
         return tools
 

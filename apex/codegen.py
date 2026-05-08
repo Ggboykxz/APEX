@@ -98,7 +98,7 @@ class CodeRefactorer:
 
             for pattern, type_hint in type_mappings.items():
                 content = re.sub(f"def (\\w+)\\(({pattern} ", f"def \\1({type_hint} ", content)
-                content = re.sub(f"def (\\w+)\\(([^)]*)\\):", f"def \\1(\\2) -> Any:", content)
+                content = re.sub("def (\\w+)\\(([^)]*)\\):", "def \\1(\\2) -> Any:", content)
 
             path.write_text(content)
             return {"success": True, "file": str(filepath)}
@@ -199,7 +199,7 @@ CMD ["java", "-jar", "target/app.jar"]
 
             lines.append(f"  {name}:")
             lines.append(f"    image: {image}")
-            lines.append(f"    ports:")
+            lines.append("    ports:")
             for p in ports:
                 lines.append(f"      - '{p}'")
 

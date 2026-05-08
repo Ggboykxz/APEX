@@ -3,7 +3,6 @@
 import os
 import re
 import asyncio
-import subprocess
 from pathlib import Path
 from typing import Any, Optional
 from dataclasses import dataclass, field
