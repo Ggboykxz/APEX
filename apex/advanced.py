@@ -41,7 +41,7 @@ class RetryHandler:
                 if asyncio.iscoroutinefunction(func):
                     return await func(*args, **kwargs)
                 return func(*args, **kwargs)
-            except Exception as e:
+            except Exception:
                 if attempt < self.config.max_retries:
                     await asyncio.sleep(delay)
                     delay = min(delay * self.config.backoff_factor, self.config.max_delay)

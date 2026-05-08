@@ -1,6 +1,5 @@
 """UI components for APEX - Rich-based terminal interface."""
 
-import sys
 from typing import Any
 
 from rich.console import Console
@@ -8,8 +7,6 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.markdown import Markdown
 from rich.table import Table
-from rich.style import Style
-from rich.text import Text
 
 
 class UI:

@@ -370,7 +370,7 @@ def main() -> None:
     if args.model:
         if args.model not in MODELS:
             print(f"Error: Unknown model '{args.model}'", file=sys.stderr)
-            print(f"Use --list-models to see available models", file=sys.stderr)
+            print("Use --list-models to see available models", file=sys.stderr)
             sys.exit(1)
         config.model = args.model
     if args.cwd:

@@ -4,11 +4,9 @@ import base64
 import json
 import os
 import re
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
-import aiohttp
 import asyncio
 
 TOOL_SCHEMAS = [
@@ -1491,7 +1489,7 @@ class ToolExecutor:
             old_string = args["old_string"]
             new_string = args["new_string"]
             if old_string not in content:
-                return f"ERROR: String not found in file. Use read_file to see content."
+                return "ERROR: String not found in file. Use read_file to see content."
             new_content = content.replace(old_string, new_string, 1)
             path.write_text(new_content)
             return f"SUCCESS: Edited {path}"
@@ -1534,7 +1532,7 @@ class ToolExecutor:
                 try:
                     size = entry.stat().st_size
                     size_str = f"{size:>10}" if entry.is_file() else "<DIR>    "
-                except:
+                except Exception:
                     size_str = "?          "
                 entries.append(f"{size_str}  {entry.name}")
             return "\n".join(entries) if entries else "[empty directory]"
@@ -1556,7 +1554,7 @@ class ToolExecutor:
                         for i, line in enumerate(lines, 1):
                             if regex.search(line):
                                 results.append(f"{file_path}:{i}: {line.rstrip()}")
-                    except:
+                    except Exception:
                         pass
             return "\n".join(results) if results else "[no matches found]"
         except re.error as e:
@@ -1791,7 +1789,7 @@ class ToolExecutor:
                 if head.startswith("ref: "):
                     head = head[5:]
                 lines.append(f"\n[GIT] Branch: {head}")
-            except:
+            except Exception:
                 pass
 
         return "\n".join(lines)
@@ -1879,7 +1877,7 @@ class ToolExecutor:
                     return f"SUCCESS: Formatted {path}"
                 return f"ERROR: {result.stderr}"
         except FileNotFoundError:
-            return f"ERROR: Formatter not found. Install it first."
+            return "ERROR: Formatter not found. Install it first."
         except Exception as e:
             return f"ERROR: Formatting failed: {e}"
 
@@ -1935,7 +1933,7 @@ class ToolExecutor:
             new_string = args["new_string"]
 
             if old_string not in content:
-                return f"ERROR: String not found in file"
+                return "ERROR: String not found in file"
 
             import difflib
             old_lines = content.splitlines(keepends=True)
@@ -1985,7 +1983,7 @@ class ToolExecutor:
                 result = subprocess.run(["xclip", "-selection", "clipboard", "-o"], capture_output=True, text=True)
                 if result.returncode == 0:
                     return result.stdout
-            except:
+            except Exception:
                 pass
             return "ERROR: No clipboard tool available. Install pyperclip or xclip."
         except Exception as e:
@@ -2001,7 +1999,7 @@ class ToolExecutor:
             try:
                 subprocess.run(["xclip", "-selection", "clipboard"], input=text, text=True, capture_output=True)
                 return f"SUCCESS: Copied {len(text)} chars to clipboard"
-            except:
+            except Exception:
                 pass
             return "ERROR: No clipboard tool available. Install pyperclip or xclip."
         except Exception as e:
@@ -2032,7 +2030,6 @@ class ToolExecutor:
         return f"SUCCESS: Bookmarked current position as '{name}'"
 
     def _execute_restore_bookmark(self, args: dict[str, Any]) -> str:
-        from .context_manager import ConversationManager
         name = args["name"]
         conv_manager = getattr(self, "_conv_manager", None)
         if conv_manager is None:
@@ -2044,7 +2041,6 @@ class ToolExecutor:
         return f"[RESTORED from bookmark '{name}']\nMessages: {len(restored)}"
 
     def _execute_search_history(self, args: dict[str, Any]) -> str:
-        from .context_manager import ConversationManager
         query = args["query"]
         conv_manager = getattr(self, "_conv_manager", None)
         if conv_manager is None:
@@ -2064,7 +2060,6 @@ class ToolExecutor:
         return "\n".join(output)
 
     def _execute_get_conversation_stats(self, args: dict[str, Any]) -> str:
-        from .context_manager import ConversationManager
         conv_manager = getattr(self, "_conv_manager", None)
         if conv_manager is None:
             return "No conversation statistics available"
@@ -2194,7 +2189,6 @@ class ToolExecutor:
         return json.dumps(result)
 
     def _execute_plan_approve(self, args: dict[str, Any]) -> str:
-        from .commands import PlanApproval
         plan_approval = getattr(self, "_plan_approval", None)
         if plan_approval is None:
             return "ERROR: No pending plan to approve"
@@ -2202,7 +2196,6 @@ class ToolExecutor:
         return "APPROVED: Plan has been approved. Proceeding with execution..."
 
     def _execute_plan_reject(self, args: dict[str, Any]) -> str:
-        from .commands import PlanApproval
         plan_approval = getattr(self, "_plan_approval", None)
         if plan_approval is None:
             return "ERROR: No pending plan to reject"
@@ -2344,7 +2337,7 @@ class ToolExecutor:
         title = args.get("title", "")
         body = args.get("body", "")
         base = args.get("base", "main")
-        return f"Creating PR: {title}\nBase: {base}\n\n(Note: Use gh CLI or GitHub API for actual PR creation)"
+        return f"Creating PR: {title}\nBase: {base}\nBody: {body}\n\n(Note: Use gh CLI or GitHub API for actual PR creation)"
 
     def _execute_get_completions(self, args: dict[str, Any]) -> str:
         ctype = args.get("type", "file")

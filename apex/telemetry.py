@@ -132,7 +132,7 @@ class Logger:
 
     def print_summary(self) -> None:
         stats = self.get_stats()
-        print(f"\n=== Session Summary ===")
+        print("\n=== Session Summary ===")
         print(f"Session: {stats['session_id']}")
         print(f"Total Events: {stats['total_events']}")
         print(f"Tool Calls: {sum(stats['tool_calls'].values())}")

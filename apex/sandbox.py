@@ -5,7 +5,6 @@ import tempfile
 import os
 import uuid
 from pathlib import Path
-from typing import Any
 
 
 class CodeSandbox:
@@ -138,7 +137,7 @@ class ShellSession:
             self.process.terminate()
             try:
                 self.process.wait(timeout=5)
-            except:
+            except Exception:
                 self.process.kill()
 
 

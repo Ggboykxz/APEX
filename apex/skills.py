@@ -113,15 +113,15 @@ class DiffTool:
     def three_way_diff(self, base: str, local: str, remote: str) -> str:
         import subprocess
         b = self.cwd / base
-        l = self.cwd / local
+        local_path = self.cwd / local
         r = self.cwd / remote
 
-        if not all(p.exists() for p in [b, l, r]):
+        if not all(p.exists() for p in [b, local_path, r]):
             return "ERROR: One or more files not found"
 
         try:
             result = subprocess.run(
-                ["diff3", "-m", "-E", str(b), str(l), str(r)],
+                ["diff3", "-m", "-E", str(b), str(local_path), str(r)],
                 capture_output=True,
                 text=True
             )
@@ -181,9 +181,9 @@ class CodeAnalyzer:
             analysis = {
                 "path": path,
                 "lines": len(lines),
-                "blank_lines": sum(1 for l in lines if not l.strip()),
-                "code_lines": sum(1 for l in lines if l.strip() and not l.strip().startswith("#")),
-                "comment_lines": sum(1 for l in lines if l.strip().startswith("#")),
+                "blank_lines": sum(1 for ln in lines if not ln.strip()),
+                "code_lines": sum(1 for ln in lines if ln.strip() and not ln.strip().startswith("#")),
+                "comment_lines": sum(1 for ln in lines if ln.strip().startswith("#")),
                 "functions": [],
                 "classes": [],
                 "imports": [],

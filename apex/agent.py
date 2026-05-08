@@ -8,10 +8,10 @@ from typing import Any, AsyncGenerator
 import litellm
 from litellm import BadRequestError, RateLimitError, AuthenticationError
 
-from .config import Config, MODELS, DEFAULT_MODEL
+from .config import Config, MODELS
 from .tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
 from .ui import UI
-from .agents import agent_manager, AgentConfig
+from .agents import agent_manager
 
 
 class Agent:
