@@ -1320,6 +1320,122 @@ TOOL_SCHEMAS = [
                 }
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "refactor_code",
+            "description": "Refactor code (add types, make async, extract method).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File to refactor"},
+                    "function": {"type": "string", "description": "Function name"},
+                    "style": {"type": "string", "description": "Style: async, type_hints, modern"}
+                },
+                "required": ["path", "function"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_db_model",
+            "description": "Generate database model from table schema.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "table": {"type": "string", "description": "Table name"},
+                    "columns": {"type": "array", "items": {"type": "object"}, "description": "Column definitions"}
+                },
+                "required": ["table", "columns"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_dockerfile",
+            "description": "Generate Dockerfile for language.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "language": {"type": "string", "description": "Language: python, node, go, rust, java"}
+                },
+                "required": ["language"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_docker_compose",
+            "description": "Generate docker-compose.yml.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "services": {"type": "array", "items": {"type": "object"}, "description": "Service definitions"}
+                },
+                "required": ["services"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_api_client",
+            "description": "Generate API client from OpenAPI spec.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "spec": {"type": "string", "description": "Path to OpenAPI spec"}
+                },
+                "required": ["spec"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_docs",
+            "description": "Generate documentation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "description": "Type: readme, api, markdoc"},
+                    "path": {"type": "string", "description": "File path for api docs"}
+                },
+                "required": ["type"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "profile_code",
+            "description": "Profile code complexity and performance.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File to profile"}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "optimize_code",
+            "description": "Get optimization suggestions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File to analyze"}
+                },
+                "required": ["path"]
+            }
+        }
     }
 ]
 
@@ -2713,6 +2829,98 @@ Ctrl+R     - Search history
             return "\n".join(lines)
         else:
             return f"Issues: {result}"
+
+    def _execute_refactor_code(self, args: dict[str, Any]) -> str:
+        from .codegen import CodeRefactorer
+        path = args["path"]
+        function = args["function"]
+        style = args.get("style", "modern")
+        
+        cr = CodeRefactorer(str(self.cwd))
+        result = cr.refactor_function(path, function, style)
+        
+        if "error" in result:
+            return f"ERROR: {result['error']}"
+        return f"SUCCESS: Refactored {function} with {style} style"
+
+    def _execute_generate_db_model(self, args: dict[str, Any]) -> str:
+        from .codegen import DatabaseManager
+        table = args["table"]
+        columns = args["columns"]
+        
+        dm = DatabaseManager(str(self.cwd))
+        code = dm.generate_model(table, columns)
+        return f"Generated model for {table}:\n\n{code}"
+
+    def _execute_generate_dockerfile(self, args: dict[str, Any]) -> str:
+        from .codegen import DockerManager
+        language = args["language"]
+        
+        dm = DockerManager(str(self.cwd))
+        dockerfile = dm.generate_dockerfile(language)
+        return dockerfile
+
+    def _execute_generate_docker_compose(self, args: dict[str, Any]) -> str:
+        from .codegen import DockerManager
+        services = args.get("services", [])
+        
+        dm = DockerManager(str(self.cwd))
+        compose = dm.generate_docker_compose(services)
+        return compose
+
+    def _execute_generate_api_client(self, args: dict[str, Any]) -> str:
+        from .codegen import APIClientGenerator
+        spec = args["spec"]
+        
+        acg = APIClientGenerator(str(self.cwd))
+        code = acg.generate_from_openapi(spec)
+        return code
+
+    def _execute_generate_docs(self, args: dict[str, Any]) -> str:
+        from .codegen import DocumentationGenerator
+        dtype = args["type"]
+        path = args.get("path")
+        
+        dg = DocumentationGenerator(str(self.cwd))
+        
+        if dtype == "readme":
+            return dg.generate_readme()
+        elif dtype == "api" and path:
+            return dg.generate_api_docs(path)
+        elif dtype == "markdoc":
+            return dg.generate_markdoc()
+        
+        return "ERROR: Invalid doc type or missing path"
+
+    def _execute_profile_code(self, args: dict[str, Any]) -> str:
+        from .codegen import PerformanceProfiler
+        path = args["path"]
+        
+        pp = PerformanceProfiler(str(self.cwd))
+        result = pp.profile_file(path)
+        
+        if "error" in result:
+            return result["error"]
+        
+        lines = ["Code Profile", "=" * 40]
+        lines.append(f"Lines: {result['lines']}")
+        lines.append(f"Functions: {result['functions']}")
+        lines.append(f"Classes: {result['classes']}")
+        lines.append(f"Imports: {result['imports']}")
+        lines.append(f"Complexity: {result['complexity_score']}")
+        return "\n".join(lines)
+
+    def _execute_optimize_code(self, args: dict[str, Any]) -> str:
+        from .codegen import PerformanceProfiler
+        path = args["path"]
+        
+        pp = PerformanceProfiler(str(self.cwd))
+        suggestions = pp.suggest_optimizations(path)
+        
+        lines = ["Optimization Suggestions", "=" * 40]
+        for s in suggestions:
+            lines.append(f"- {s}")
+        return "\n".join(lines)
 
 
 class AsyncToolExecutor(ToolExecutor):

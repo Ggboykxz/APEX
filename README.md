@@ -5,7 +5,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
-  <img src="https://img.shields.io/badge/Version-1.2.0-purple.svg" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.3.0-purple.svg" alt="Version">
   <img src="https://img.shields.io/github/stars/Ggboykxz/APEX?style=social" alt="Stars">
 </p>
 
@@ -45,7 +45,7 @@ APEX is designed to be objectively better than OpenCode, Claude Code, Aider, and
 
 - **85+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more
 - **Multi-Agent System** — Build, Plan, Explore, General agents with permission controls
-- **65+ Tools** — File ops, git, web, sandbox, MCP, LSP, undo/redo, shell, branches, skills, batch, security
+- **75+ Tools** — File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB, docs
 - **LSP Integration** — Go to definition, references, hover, diagnostics, code actions
 - **Project Initialization** — Analyze and create AGENTS.md with smart context
 - **Undo/Redo** — Revert and reapply file changes
@@ -77,6 +77,13 @@ APEX is designed to be objectively better than OpenCode, Claude Code, Aider, and
 - **History Search** — Fuzzy search conversation history
 - **Workspace Validation** — Config and structure validation
 - **Security Audit** — Scan for security vulnerabilities
+- **Code Refactoring** — AI-powered refactoring (async, types, extract)
+- **Database Models** — Generate SQLAlchemy models from schema
+- **Docker Generation** — Dockerfile and docker-compose generator
+- **API Client Generator** — Generate client from OpenAPI spec
+- **Documentation Generator** — Auto-generate README, API docs
+- **Performance Profiling** — Code complexity analysis
+- **Optimization Suggestions** — AI-powered performance tips
 - **File Caching** — Cache file reads for performance
 - **Rich Terminal UI** — Syntax highlighting, markdown, panels
 - **Session Persistence** — Save/load conversations
