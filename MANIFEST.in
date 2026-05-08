@@ -1,0 +1,11 @@
+include README.md
+include LICENSE
+include pyproject.toml
+include requirements.txt
+include MANIFEST.in
+recursive-include apex *.py
+recursive-include docs *.md
+recursive-include .github *.yml
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .pytest_cache

@@ -1,3 +1,34 @@
+Metadata-Version: 2.4
+Name: apex-agent
+Version: 0.1.0
+Summary: The last coding agent you'll ever need
+Author-email: APEX Team <apex@example.com>
+License: MIT
+Project-URL: Homepage, https://apex-ai.dev
+Project-URL: Repository, https://github.com/apex-ai/apex
+Project-URL: Documentation, https://apex-ai.dev/docs
+Keywords: ai,coding,agent,llm,litellm,claude,gpt
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Software Assistants
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: litellm>=1.0.0
+Requires-Dist: rich>=13.0.0
+Requires-Dist: prompt_toolkit>=3.0.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: aiohttp>=3.9.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mkdocs-material>=8.0.0; extra == "dev"
+
 # APEX — Agent for Programming EXecution
 
 *The last coding agent you'll ever need.*
