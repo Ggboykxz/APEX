@@ -1,6 +1,6 @@
 """APEX - The last coding agent you'll ever need."""
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __author__ = "APEX Team"
 
 from .config import MODELS, MODEL_PROVIDERS, Config, SYSTEM_PROMPT
@@ -26,6 +26,7 @@ from .mentions import MentionParser, get_mention_parser, get_file_completer
 from .skills import SkillManager, get_skill_manager, DiffTool, SearchReplace, CodeAnalyzer
 from .advanced import RetryHandler, BatchOperation, StreamingOutput, ToolTimeout, ContextOptimizer, FileOperationCache, get_retry_handler, get_file_cache
 from .extras import ShellExpander, EnvManager, TaskQueue, HistorySearch, WorkspaceValidator, SecurityAuditor, get_env_manager, get_task_queue, get_history_search
+from .codegen import CodeRefactorer, DatabaseManager, DockerManager, APIClientGenerator, DocumentationGenerator, PerformanceProfiler
 
 __all__ = [
     "MODELS",
@@ -105,4 +106,10 @@ __all__ = [
     "get_env_manager",
     "get_task_queue",
     "get_history_search",
+    "CodeRefactorer",
+    "DatabaseManager",
+    "DockerManager",
+    "APIClientGenerator",
+    "DocumentationGenerator",
+    "PerformanceProfiler",
 ]
