@@ -1,11 +1,14 @@
-"""MCP (Model Context Protocol) client for APEX - Connect to external tools and services."""
+"""MCP (Model Context Protocol) client for APEX - Full stdio-based implementation."""
 
 import asyncio
 import json
 import subprocess
+import threading
 from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass, field
+from collections.abc import AsyncIterator
+import uuid
 
 
 @dataclass
@@ -24,74 +27,156 @@ class MCPTool:
 
 
 @dataclass
-class MCP_SERVER:
+class MCPServerConfig:
     name: str
     command: str
     args: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
     enabled: bool = True
+    transport: str = "stdio"
+
+
+@dataclass
+class MCPMessage:
+    jsonrpc: str = "2.0"
+    id: str | int | None = None
+    method: str | None = None
+    params: dict | None = None
+    result: Any = None
+    error: dict | None = None
 
 
 class MCPClient:
-    def __init__(self, server: MCP_SERVER):
-        self.server = server
+    def __init__(self, config: MCPServerConfig):
+        self.config = config
         self.process: subprocess.Popen | None = None
         self._tools: list[MCPTool] = []
         self._resources: list[MCPResource] = []
+        self._capabilities: dict = {}
         self._request_id = 0
+        self._pending_requests: dict[str, asyncio.Future] = {}
+        self._reader_task: asyncio.Task | None = None
+        self._notification_handlers: dict[str, Callable] = {}
 
     async def connect(self) -> bool:
-        if not self.server.enabled:
+        if not self.config.enabled:
             return False
 
         try:
+            env = {**subprocess.os.environ.copy(), **self.config.env}
             self.process = subprocess.Popen(
-                [self.server.command] + self.server.args,
+                [self.config.command] + self.config.args,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                env=self.server.env,
-                text=True,
+                env=env,
+                bufsize=0,
             )
-            await asyncio.sleep(0.5)
 
-            initialized = await self._send_request("initialize", {
+            self._reader_task = asyncio.create_task(self._read_messages())
+
+            response = await self._send_request("initialize", {
                 "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "apex", "version": "0.1.0"}
+                "capabilities": {
+                    "tools": {},
+                    "resources": {},
+                    "prompts": {},
+                },
+                "clientInfo": {
+                    "name": "apex",
+                    "version": "0.5.0"
+                }
             })
-            return initialized is not None
-        except Exception:
+
+            if response:
+                self._capabilities = response.get("capabilities", {})
+                await self._send_notification("initialized", {})
+                return True
             return False
 
-    async def disconnect(self) -> None:
-        if self.process:
-            self.process.terminate()
-            self.process.wait(timeout=5)
+        except Exception as e:
+            print(f"MCP connection error: {e}")
+            return False
+
+    async def _read_messages(self) -> None:
+        if not self.process or not self.process.stdout:
+            return
+
+        buffer = ""
+        try:
+            while True:
+                if self.process.stdout is None:
+                    break
+                char = self.process.stdout.read(1)
+                if not char:
+                    await asyncio.sleep(0.01)
+                    continue
+
+                if char == "\n":
+                    if buffer.strip():
+                        await self._handle_message(buffer)
+                    buffer = ""
+                else:
+                    buffer += char
+        except:
+            pass
+
+    async def _handle_message(self, raw: str) -> None:
+        try:
+            msg = json.loads(raw)
+            msg_id = msg.get("id")
+
+            if msg_id and str(msg_id) in self._pending_requests:
+                future = self._pending_requests.pop(str(msg_id))
+                if "result" in msg:
+                    future.set_result(msg["result"])
+                elif "error" in msg:
+                    future.set_exception(Exception(msg["error"].get("message", "Error")))
+            elif "method" in msg:
+                method = msg["method"]
+                if method in self._notification_handlers:
+                    await self._notification_handlers[method](msg.get("params"))
+        except:
+            pass
 
     async def _send_request(self, method: str, params: dict | None = None) -> Any:
-        if not self.process or not self.process.stdin or not self.process.stdout:
+        if not self.process or not self.process.stdin:
             return None
 
-        self._request_id += 1
+        request_id = str(uuid.uuid4())
         request = {
             "jsonrpc": "2.0",
-            "id": self._request_id,
+            "id": request_id,
+            "method": method,
+            "params": params or {}
+        }
+
+        future = asyncio.get_event_loop().create_future()
+        self._pending_requests[request_id] = future
+
+        try:
+            self.process.stdin.write(json.dumps(request) + "\n")
+            self.process.stdin.flush()
+            return await asyncio.wait_for(future, timeout=30)
+        except Exception as e:
+            self._pending_requests.pop(request_id, None)
+            return None
+
+    async def _send_notification(self, method: str, params: dict | None = None) -> None:
+        if not self.process or not self.process.stdin:
+            return
+
+        notification = {
+            "jsonrpc": "2.0",
             "method": method,
             "params": params or {}
         }
 
         try:
-            self.process.stdin.write(json.dumps(request) + "\n")
+            self.process.stdin.write(json.dumps(notification) + "\n")
             self.process.stdin.flush()
-
-            response_line = self.process.stdout.readline()
-            if response_line:
-                response = json.loads(response_line)
-                return response.get("result")
-        except Exception:
+        except:
             pass
-        return None
 
     async def list_tools(self) -> list[MCPTool]:
         result = await self._send_request("tools/list")
@@ -133,13 +218,26 @@ class MCPClient:
             return self._format_content(result["contents"])
         return "ERROR: Resource not found"
 
+    async def list_prompts(self) -> list[dict]:
+        result = await self._send_request("prompts/list")
+        return result.get("prompts", []) if result else []
+
+    async def get_prompt(self, name: str, args: dict | None = None) -> str:
+        result = await self._send_request("prompts/get", {"name": name, "arguments": args or {}})
+        if result and "messages" in result:
+            return self._format_content(result["messages"])
+        return "ERROR: Prompt not found"
+
     def _format_content(self, contents: list[dict]) -> str:
         parts = []
         for item in contents:
             if item.get("type") == "text":
                 parts.append(item.get("text", ""))
-            elif item.get("type") == "blob":
-                parts.append(f"[{item.get('mimeType', 'unknown')} data]")
+            elif item.get("type") == "image":
+                mime = item.get("mimeType", "unknown")
+                parts.append(f"[Image: {mime}]")
+            elif item.get("type") == "resource":
+                parts.append(f"[Resource: {item.get('resource', {}).get('uri', 'unknown')}]")
         return "\n".join(parts)
 
     def get_tool_schemas(self) -> list[dict]:
@@ -147,28 +245,44 @@ class MCPClient:
             {
                 "type": "function",
                 "function": {
-                    "name": f"mcp_{self.server.name}_{tool.name}",
-                    "description": f"[{self.server.name}] {tool.description}",
+                    "name": f"mcp_{self.config.name}_{tool.name}",
+                    "description": f"[{self.config.name}] {tool.description}",
                     "parameters": tool.input_schema
                 }
             }
             for tool in self._tools
         ]
 
+    def register_notification_handler(self, method: str, handler: Callable) -> None:
+        self._notification_handlers[method] = handler
+
+    async def disconnect(self) -> None:
+        if self._reader_task:
+            self._reader_task.cancel()
+        if self.process:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=5)
+            except:
+                self.process.kill()
+
 
 class MCPManager:
     def __init__(self):
         self._servers: dict[str, MCPClient] = {}
+        self._configs: dict[str, MCPServerConfig] = {}
 
-    def add_server(self, name: str, command: str, args: list[str] | None = None, env: dict | None = None, enabled: bool = True) -> None:
-        server = MCP_SERVER(
+    def add_server(self, name: str, command: str, args: list[str] | None = None,
+                   env: dict | None = None, enabled: bool = True) -> None:
+        config = MCPServerConfig(
             name=name,
             command=command,
             args=args or [],
             env=env or {},
             enabled=enabled
         )
-        self._servers[name] = MCPClient(server)
+        self._configs[name] = config
+        self._servers[name] = MCPClient(config)
 
     async def connect_all(self) -> dict[str, bool]:
         results = {}
@@ -183,8 +297,11 @@ class MCPManager:
     def get_all_tools(self) -> list[dict]:
         tools = []
         for name, client in self._servers.items():
-            client_tools = client.get_tool_schemas()
-            tools.extend(client_tools)
+            try:
+                client_tools = client.get_tool_schemas()
+                tools.extend(client_tools)
+            except:
+                pass
         return tools
 
     async def call_tool(self, full_name: str, arguments: dict) -> str:
@@ -202,8 +319,13 @@ class MCPManager:
 
     def list_servers(self) -> list[dict]:
         return [
-            {"name": name, "enabled": client.server.enabled}
-            for name, client in self._servers.items()
+            {
+                "name": name,
+                "enabled": config.enabled,
+                "tools_count": len(client._tools) if client in self._servers else 0
+            }
+            for name, config in self._configs.items()
+            for client in [self._servers.get(name)]
         ]
 
     def get_all_resources(self) -> list[dict]:
@@ -242,5 +364,5 @@ def load_mcp_config(config_path: Path) -> None:
                 env=server_config.get("env", {}),
                 enabled=server_config.get("enabled", True)
             )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Failed to load MCP config: {e}")
