@@ -1,13 +1,13 @@
 """APEX - The last coding agent you'll ever need."""
 
-__version__ = "0.6.0"
+__version__ = "1.2.0"
 __author__ = "APEX Team"
 
 from .config import MODELS, MODEL_PROVIDERS, Config, SYSTEM_PROMPT
 from .agent import Agent
 from .tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
 from .ui import UI
-from .session import SessionManager
+from .session import SessionManager, UndoManager
 from .memory import Memory
 from .context import get_repo_map
 from .agents import agent_manager, AgentConfig, BUILTIN_AGENTS
@@ -18,6 +18,14 @@ from .plugins import PluginManager, PluginBase, plugin_manager, load_plugins_fro
 from .telemetry import logger, perf_monitor, Logger, PerformanceMonitor
 from .config_tools import custom_tool_manager, CustomToolManager, load_custom_tools
 from .workspace import workspace_manager, WorkspaceManager, WorkspaceContext, GitContext
+from .lsp import LSPManager, get_lsp_manager
+from .commands import CommandManager, get_command_manager, PlanApproval
+from .project import ProjectInitializer, FileWatcher, get_project_initializer
+from .slash import SlashCommandManager, get_slash_command_manager
+from .mentions import MentionParser, get_mention_parser, get_file_completer
+from .skills import SkillManager, get_skill_manager, DiffTool, SearchReplace, CodeAnalyzer
+from .advanced import RetryHandler, BatchOperation, StreamingOutput, ToolTimeout, ContextOptimizer, FileOperationCache, get_retry_handler, get_file_cache
+from .extras import ShellExpander, EnvManager, TaskQueue, HistorySearch, WorkspaceValidator, SecurityAuditor, get_env_manager, get_task_queue, get_history_search
 
 __all__ = [
     "MODELS",
@@ -30,6 +38,7 @@ __all__ = [
     "TOOL_SCHEMAS",
     "UI",
     "SessionManager",
+    "UndoManager",
     "Memory",
     "get_repo_map",
     "agent_manager",
@@ -61,4 +70,39 @@ __all__ = [
     "WorkspaceManager",
     "WorkspaceContext",
     "GitContext",
+    "LSPManager",
+    "get_lsp_manager",
+    "CommandManager",
+    "get_command_manager",
+    "PlanApproval",
+    "ProjectInitializer",
+    "FileWatcher",
+    "get_project_initializer",
+    "SlashCommandManager",
+    "get_slash_command_manager",
+    "MentionParser",
+    "get_mention_parser",
+    "get_file_completer",
+    "SkillManager",
+    "get_skill_manager",
+    "DiffTool",
+    "SearchReplace",
+    "CodeAnalyzer",
+    "RetryHandler",
+    "BatchOperation",
+    "StreamingOutput",
+    "ToolTimeout",
+    "ContextOptimizer",
+    "FileOperationCache",
+    "get_retry_handler",
+    "get_file_cache",
+    "ShellExpander",
+    "EnvManager",
+    "TaskQueue",
+    "HistorySearch",
+    "WorkspaceValidator",
+    "SecurityAuditor",
+    "get_env_manager",
+    "get_task_queue",
+    "get_history_search",
 ]

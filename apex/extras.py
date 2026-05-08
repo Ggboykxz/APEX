@@ -1,0 +1,287 @@
+"""Extra features for APEX - shell expansion, task queue, history search."""
+
+import os
+import re
+import asyncio
+import subprocess
+from pathlib import Path
+from typing import Any, Optional
+from dataclasses import dataclass, field
+
+
+class ShellExpander:
+    VAR_PATTERN = re.compile(r'\$\{?([a-zA-Z_][a-zA-Z0-9_]*)\}?')
+
+    @classmethod
+    def expand(cls, text: str, env: dict = None) -> str:
+        env = env or os.environ
+
+        def replace_var(match):
+            var_name = match.group(1)
+            return env.get(var_name, match.group(0))
+
+        return cls.VAR_PATTERN.sub(replace_var, text)
+
+    @classmethod
+    def expand_path(cls, path: str) -> str:
+        path = cls.expand(path)
+        path = os.path.expanduser(path)
+        path = os.path.expandvars(path)
+        return os.path.abspath(path)
+
+    @classmethod
+    def expand_command(cls, command: str) -> str:
+        return cls.expand(command)
+
+
+class EnvManager:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+        self._local_env: dict[str, str] = {}
+
+    def get(self, key: str, default: str = None) -> str:
+        return self._local_env.get(key, os.environ.get(key, default))
+
+    def set(self, key: str, value: str):
+        self._local_env[key] = value
+
+    def unset(self, key: str):
+        if key in self._local_env:
+            del self._local_env[key]
+
+    def list(self) -> dict[str, str]:
+        return {**os.environ, **self._local_env}
+
+    def save_to_file(self, filepath: str = ".env.apex"):
+        env_path = self.cwd / filepath
+        lines = [f"{k}={v}" for k, v in self._local_env.items()]
+        env_path.write_text("\n".join(lines))
+        return str(env_path)
+
+    def load_from_file(self, filepath: str = ".env.apex"):
+        env_path = self.cwd / filepath
+        if not env_path.exists():
+            return
+
+        for line in env_path.read_text().split("\n"):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, value = line.split("=", 1)
+                self._local_env[key.strip()] = value.strip()
+
+
+@dataclass
+class Task:
+    id: str
+    name: str
+    status: str = "pending"
+    result: Any = None
+    error: str = None
+    created_at: float = field(default_factory=lambda: __import__("time").time())
+
+
+class TaskQueue:
+    def __init__(self):
+        self._tasks: dict[str, Task] = {}
+        self._queue: asyncio.Queue = asyncio.Queue()
+        self._running = False
+
+    async def add(self, name: str, func, *args, **kwargs) -> str:
+        import uuid
+        task_id = str(uuid.uuid4())[:8]
+        task = Task(id=task_id, name=name)
+        self._tasks[task_id] = task
+
+        asyncio.create_task(self._run_task(task, func, args, kwargs))
+        return task_id
+
+    async def _run_task(self, task: Task, func, args, kwargs):
+        task.status = "running"
+        try:
+            if asyncio.iscoroutinefunction(func):
+                task.result = await func(*args, **kwargs)
+            else:
+                task.result = func(*args, **kwargs)
+            task.status = "completed"
+        except Exception as e:
+            task.error = str(e)
+            task.status = "failed"
+
+    def get(self, task_id: str) -> Optional[Task]:
+        return self._tasks.get(task_id)
+
+    def list(self) -> list[dict]:
+        return [
+            {"id": t.id, "name": t.name, "status": t.status, "result": str(t.result)[:100] if t.result else None}
+            for t in self._tasks.values()
+        ]
+
+    def cancel(self, task_id: str) -> bool:
+        if task_id in self._tasks:
+            self._tasks[task_id].status = "cancelled"
+            return True
+        return False
+
+
+class HistorySearch:
+    def __init__(self, max_items: int = 1000):
+        self.max_items = max_items
+        self._history: list[dict[str, Any]] = []
+
+    def add(self, query: str, response: str = "", metadata: dict = None):
+        self._history.append({
+            "query": query,
+            "response": response,
+            "timestamp": __import__("time").time(),
+            "metadata": metadata or {}
+        })
+
+        if len(self._history) > self.max_items:
+            self._history = self._history[-self.max_items:]
+
+    def search(self, query: str, fuzzy: bool = True) -> list[dict]:
+        results = []
+        query_lower = query.lower()
+
+        for item in self._history:
+            text = (item["query"] + " " + item["response"]).lower()
+
+            if fuzzy:
+                if any(word in text for word in query_lower.split()):
+                    results.append(item)
+            else:
+                if query_lower in text:
+                    results.append(item)
+
+        return sorted(results, key=lambda x: x["timestamp"], reverse=True)[:10]
+
+    def fuzzy_match(self, query: str, threshold: float = 0.6) -> list[dict]:
+        import difflib
+        results = []
+
+        for item in self._history:
+            similarity = difflib.SequenceMatcher(None, query.lower(), item["query"].lower()).ratio()
+            if similarity >= threshold:
+                item["similarity"] = similarity
+                results.append(item)
+
+        return sorted(results, key=lambda x: x["similarity"], reverse=True)[:10]
+
+
+class WorkspaceValidator:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+        self._rules: list[dict] = []
+
+    def add_rule(self, name: str, check: callable, message: str):
+        self._rules.append({"name": name, "check": check, "message": message})
+
+    def validate(self) -> dict[str, Any]:
+        results = {"passed": [], "failed": [], "warnings": []}
+
+        for rule in self._rules:
+            try:
+                if rule["check"](self.cwd):
+                    results["passed"].append(rule["name"])
+                else:
+                    results["failed"].append({"name": rule["name"], "message": rule["message"]})
+            except Exception as e:
+                results["warnings"].append(f"{rule['name']}: {e}")
+
+        return results
+
+    def validate_config(self) -> dict[str, Any]:
+        issues = []
+
+        config_files = [".apex.yaml", ".apex.yml", "apex.config.yaml", "apex.config.json"]
+        has_config = any((self.cwd / f).exists() for f in config_files)
+
+        if not has_config:
+            issues.append("No APEX config file found")
+
+        py_files = list(self.cwd.glob("*.py"))
+        if not py_files:
+            issues.append("No Python files found in project")
+
+        git_dir = self.cwd / ".git"
+        if not git_dir.exists():
+            issues.append("Not a git repository")
+
+        return {
+            "valid": len(issues) == 0,
+            "issues": issues
+        }
+
+
+class SecurityAuditor:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+
+    def audit_file(self, filepath: Path) -> list[dict]:
+        issues = []
+
+        try:
+            content = filepath.read_text()
+
+            dangerous_patterns = [
+                (r'eval\s*\(', "Use of eval() is dangerous"),
+                (r'exec\s*\(', "Use of exec() is dangerous"),
+                (r'shell\s*=\s*True', "shell=True is a security risk"),
+                (r'os\.system\s*\(', "os.system() is insecure"),
+                (r'subprocess.*shell\s*=\s*True', "shell=True in subprocess"),
+                (r'pickle\.load', "Unpickling untrusted data"),
+                (r'yaml\.load.*Loader\s*=\s*None', "Unsafe YAML loading"),
+                (r'password\s*=\s*["\'][^"\']+["\']', "Hardcoded password"),
+                (r'api[_-]?key\s*=\s*["\'][^"\']+["\']', "Hardcoded API key"),
+                (r'secret\s*=\s*["\'][^"\']+["\']', "Hardcoded secret"),
+            ]
+
+            for pattern, message in dangerous_patterns:
+                if re.search(pattern, content, re.IGNORECASE):
+                    issues.append({"type": "security", "severity": "high", "message": message})
+
+        except Exception:
+            pass
+
+        return issues
+
+    def audit_project(self) -> dict[str, Any]:
+        results = {"files": [], "total_issues": 0}
+
+        for filepath in self.cwd.rglob("*.py"):
+            file_issues = self.audit_file(filepath)
+            if file_issues:
+                results["files"].append({
+                    "path": str(filepath.relative_to(self.cwd)),
+                    "issues": file_issues
+                })
+                results["total_issues"] += len(file_issues)
+
+        return results
+
+
+_env_manager: Optional[EnvManager] = None
+_task_queue: Optional[TaskQueue] = None
+_history_search: Optional[HistorySearch] = None
+
+
+def get_env_manager(cwd: str) -> EnvManager:
+    global _env_manager
+    _env_manager = EnvManager(cwd)
+    return _env_manager
+
+
+def get_task_queue() -> TaskQueue:
+    global _task_queue
+    if _task_queue is None:
+        _task_queue = TaskQueue()
+    return _task_queue
+
+
+def get_history_search() -> HistorySearch:
+    global _history_search
+    if _history_search is None:
+        _history_search = HistorySearch()
+    return _history_search
