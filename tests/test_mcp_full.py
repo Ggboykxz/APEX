@@ -16,7 +16,10 @@ class TestDataClasses:
         assert t.name == "tool"
 
     def test_mcp_server_config(self):
-        c = MCPServerConfig(name="srv", command="echo", args=["arg"], env={"K": "v"}, enabled=True, transport="stdio")
+        c = MCPServerConfig(
+            name="srv", command="echo", args=["arg"],
+            env={"K": "v"}, enabled=True, transport="stdio"
+        )
         assert c.name == "srv"
         assert c.enabled is True
 
