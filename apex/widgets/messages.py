@@ -84,3 +84,11 @@ class ClearChat(Message):
 
     def __init__(self) -> None:
         super().__init__()
+
+
+class FilePreviewRequest(Message):
+    """Request to preview a file in the chat."""
+
+    def __init__(self, file_path: str) -> None:
+        super().__init__()
+        self.file_path = file_path

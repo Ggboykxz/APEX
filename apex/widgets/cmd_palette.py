@@ -3,6 +3,7 @@
 from textual.widgets import Input, Static
 from textual.widget import Widget
 from textual.message import Message
+from textual.screen import ModalScreen
 
 
 class CommandPaletteItem(Widget):
@@ -17,18 +18,18 @@ class CommandPaletteItem(Widget):
         yield Static(self.description, classes="palette-item-desc")
 
 
-class CommandPalette(Widget):
+class CommandPalette(ModalScreen):
     commands = [
-        ("/model", "Switch model"),
-        ("/models", "List models"),
-        ("/clear", "Clear conversation"),
-        ("/save", "Save session"),
-        ("/load", "Load session"),
-        ("/cwd", "Change directory"),
-        ("/history", "Show history"),
-        ("/cost", "Show token usage"),
-        ("/help", "Show help"),
-        ("/agent", "Switch agent"),
+        ("/model", "Switch to a specific model"),
+        ("/models", "List all available models"),
+        ("/clear", "Clear the conversation"),
+        ("/save", "Save current session"),
+        ("/load", "Load a saved session"),
+        ("/cwd", "Show/change working directory"),
+        ("/theme", "Toggle between themes"),
+        ("/history", "Show message history"),
+        ("/cost", "Show token usage and cost"),
+        ("/help", "Show keyboard shortcuts"),
     ]
 
     def __init__(self, **kwargs):
@@ -37,13 +38,18 @@ class CommandPalette(Widget):
         self.selected_index = 0
 
     def compose(self):
-        yield Static("⌘ APEX Commands", id="palette-title")
-        yield Static("[ESC]", id="palette-close")
-        yield Input(placeholder="Rechercher...", id="palette-search")
-        yield Static(id="palette-results")
+        yield Static("╔════════════════════════════════════════╗", classes="palette-border-top")
+        yield Static("║ ⌘ APEX Commands                    [ESC] ║", classes="palette-header")
+        yield Static("╠════════════════════════════════════════╣", classes="palette-border")
+        yield Input(placeholder="Type to search commands...", id="palette-search", classes="palette-input")
+        yield Static("╠════════════════════════════════════════╣", classes="palette-border")
+        yield Static(id="palette-results", classes="palette-results")
+        yield Static("╚════════════════════════════════════════╝", classes="palette-border-bottom")
 
     def on_mount(self) -> None:
         self._refresh_results()
+        search_input = self.query_one("#palette-search", Input)
+        search_input.focus()
 
     def on_input_changed(self, event: Input.Changed) -> None:
         query = event.value.lower()
@@ -75,12 +81,15 @@ class CommandPalette(Widget):
     def _refresh_results(self) -> None:
         container = self.query_one("#palette-results", Static)
         if not self.filtered_commands:
-            container.update("No commands found")
+            container.update("║ No commands found                      ║")
             return
-        lines = []
+        lines = ["║"]
         for i, (cmd, desc) in enumerate(self.filtered_commands):
-            marker = ">" if i == self.selected_index else " "
-            lines.append(f"{marker} {cmd:20} {desc}")
+            marker = "▶" if i == self.selected_index else " "
+            cmd_padded = cmd.ljust(18)
+            desc_padded = desc[:25].ljust(25)
+            lines.append(f"║  {marker} {cmd_padded}  {desc_padded}║")
+        lines.append("╚" + "═" * 42 + "╝")
         container.update("\n".join(lines))
 
     def _update_selection(self) -> None:
