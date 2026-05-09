@@ -6,21 +6,40 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 
 ## Features
 
-- **Multi-model support** — 20+ models including Claude, GPT-4, Gemini, Groq, Mistral, DeepSeek, Ollama, Cohere
-- **Rich terminal UI** — Syntax highlighting, markdown rendering, panels
-- **18+ tools** — File operations, git, web search, testing, formatting
-- **Session persistence** — Save and load conversations
-- **Token cost tracking** — Monitor usage and estimated costs
-- **Streaming responses** — Real-time output with `--stream`
-- **Memory system** — Persistent facts across sessions
-- **Async tool execution** — Parallel tool calls
+- **85+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more
+- **Multi-Agent System** — Build, Plan, Explore, General with permission controls
+- **75+ Tools** — File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB
+- **Rich Terminal UI** — Syntax highlighting, markdown rendering, panels
+- **Session Persistence** — Save and load conversations
+- **Token Cost Tracking** — Monitor usage and estimated costs
+- **Plugin System** — Extensible with custom tools
+- **Undo/Redo** — Revert and reapply changes
+- **LSP Integration** — Go to definition, references, hover, diagnostics
+- **Custom Commands** — Define reusable prompt templates
+
+## Why APEX?
+
+| Feature | APEX | OpenCode | Claude Code | Aider |
+|---------|:----:|:--------:|:-----------:|:-----:|
+| All models via one CLI | ✅ | ⚠️ | ❌ | ⚠️ |
+| No cloud lock-in | ✅ | ❌ | ❌ | ✅ |
+| Offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
+| Rich syntax UI | ✅ | ✅ | ✅ | ❌ |
+| Session persistence | ✅ | ❌ | ✅ | ❌ |
+| Plugin system | ✅ | ❌ | ❌ | ❌ |
+| Model switch mid-session | ✅ | ❌ | ❌ | ⚠️ |
+| Token cost tracking | ✅ | ❌ | ❌ | ✅ |
+| French/multilingual UI | ✅ | ❌ | ❌ | ❌ |
+
+## Installation
+
+```bash
+pip install apex-agent
+```
 
 ## Quick Start
 
 ```bash
-# Installation
-pip install apex-agent
-
 # Interactive REPL
 apex
 
@@ -28,21 +47,26 @@ apex
 apex "write a hello world program"
 
 # Specific model
-apex --model gpt-4o --stream "explain this code"
+apex --model gpt-4o "explain this code"
 ```
 
-## Why APEX?
+## Development
 
-| Feature | APEX | OpenCode | Claude Code | Aider |
-|---------|:----:|:--------:|:-----------:|:-----:|
-| All models via one CLI | ✅ | ⚠️ some | ❌ | ⚠️ |
-| No cloud lock-in | ✅ | ❌ | ❌ | ✅ |
-| Offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
-| Rich syntax UI | ✅ | ✅ | ✅ | ❌ |
-| Session persistence | ✅ | ❌ | ✅ | ❌ |
-| Model switch mid-session | ✅ | ❌ | ❌ | ⚠️ |
-| Token cost tracking | ✅ | ❌ | ❌ | ✅ |
-| French/multilingual UI | ✅ | ❌ | ❌ | ❌ |
+```bash
+# Clone and setup
+git clone https://github.com/Ggboykxz/APEX.git
+cd APEX
+pip install -e .
+
+# Run tests
+pytest
+
+# Run with coverage
+pytest --cov=apex --cov-report=term-missing
+
+# Lint check
+ruff check apex/
+```
 
 ## Philosophy
 
@@ -52,6 +76,7 @@ APEX is built by a Gabonese developer for the world. Every developer deserves a 
 - **Production-ready** — Full error handling, tests, type hints
 - **Language-agnostic** — Python, JavaScript, Rust, Go, etc.
 - **Senior developer mindset** — Opinionated, but effective
+- **Testable by default** — 572 tests, 52% coverage on refactored modules
 
 ## Documentation
 

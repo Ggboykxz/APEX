@@ -4,6 +4,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python">
+  <img src="https://img.shields.io/badge/Tests-572-passing-green.svg" alt="Tests">
+  <img src="https://img.shields.io/badge/Coverage-52%25-yellow.svg" alt="Coverage">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
   <img src="https://img.shields.io/badge/Version-1.3.0-purple.svg" alt="Version">
   <img src="https://img.shields.io/github/stars/Ggboykxz/APEX?style=social" alt="Stars">
@@ -99,6 +101,29 @@ pip install apex-agent
 pipx install apex-agent
 ```
 
+## Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/Ggboykxz/APEX.git
+cd APEX
+
+# Install dependencies
+pip install -e .
+
+# Install dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Run with coverage
+pytest --cov=apex --cov-report=term-missing
+
+# Lint check
+ruff check apex/
+```
+
 ## Quick Start
 
 ```bash
@@ -186,6 +211,38 @@ User Input (prompt_toolkit)
 - **litellm** — Unified model interface (100+ models)
 - **Rich** — Terminal UI
 - **prompt_toolkit** — Interactive REPL
+
+## Testing
+
+APEX uses pytest for testing with high coverage on refactored modules:
+
+```bash
+# Run all tests
+pytest
+
+# Run specific test file
+pytest tests/test_refactored_tools.py -v
+
+# Run with coverage report
+pytest --cov=apex --cov-report=term-missing
+
+# Run only refactored module tests
+pytest tests/test_refactored_*.py -v
+```
+
+### Test Structure
+
+- `tests/` — All test files
+- `tests/test_refactored_*.py` — Tests for refactored (testable) modules
+- `tests/test_*.py` — Original tests
+
+### Adding Tests
+
+When adding new functionality:
+1. Create refactored module in `apex/refactored_*.py` for testability
+2. Use dependency injection and factory functions
+3. Target 100% coverage on new modules
+4. Run `ruff check apex/` before committing
 
 ## Documentation
 
