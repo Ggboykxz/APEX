@@ -58,7 +58,12 @@ class TaskQueue:
 
     def _save_tasks(self):
         """Save tasks to disk."""
-        data = {tid: asdict(task) for tid, task in self._tasks.items()}
+        def task_to_dict(t: Task) -> dict:
+            d = asdict(t)
+            d["status"] = t.status.value
+            return d
+
+        data = {tid: task_to_dict(t) for tid, t in self._tasks.items()}
         with open(self.tasks_file, "w") as f:
             json.dump(data, f, indent=2)
 
