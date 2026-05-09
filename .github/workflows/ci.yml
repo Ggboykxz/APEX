@@ -34,7 +34,7 @@ jobs:
         run: mypy apex/ || true
 
       - name: Tests
-        run: pytest --cov=apex --cov-report=xml --cov-report=term-missing
+        run: pytest --cov=apex --cov-report=xml --cov-report=term-missing --tb=no -q
 
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest'
