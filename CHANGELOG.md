@@ -2,7 +2,52 @@
 
 All notable changes to APEX will be documented in this file.
 
-## [1.3.0] - 2026-05-09 (Today!)
+## [1.4.0] - 2026-05-09
+
+### Security (Major)
+
+- **Shell Command Analysis** — Dangerous commands automatically blocked
+  - Pattern detection for `rm -rf /`, fork bombs, download-and-execute
+  - Command classification by category (file, network, system, etc.)
+  - Configurable allowlist/blocklist
+
+- **Permission System** — Ruleset-based tool access control
+  - `ALLOW`, `DENY`, `ASK` actions
+  - Wildcard pattern matching
+  - Request/approve flow for interactive confirmation
+  - Remember decisions with expiration
+
+- **Rate Limiting** — Database-backed request throttling
+  - Memory or SQLite storage backends
+  - Configurable limits (per minute/hour/day)
+  - Per-key rate limiting for API
+
+- **API Key Management** — Workspace-based authentication
+  - Secure key generation with SHA-256 hashing
+  - Expiration and rate limits per key
+  - Workspace isolation
+
+- **Billing System** — Cost tracking and quota management
+  - Model-specific pricing (Claude, GPT-4, Gemini, etc.)
+  - Usage history and summaries
+  - Plan management (Free/Pro/Enterprise)
+
+- **HTTP API Security** — Secure headless agent access
+  - Bearer token or X-API-Key authentication
+  - Rate limiting per endpoint
+  - Automatic cost tracking
+  - Shell security integration
+
+### Documentation
+
+- Enhanced SECURITY.md with full API documentation
+- Security section in README.md
+- Security API reference in docs/api.md
+- Updated docs/index.md with security features
+
+---
+
+## [1.3.0] - 2026-05-09
 
 ### Added
 - **100+ Model Support** via litellm integration
@@ -28,4 +73,4 @@ All notable changes to APEX will be documented in this file.
 
 ---
 
-*Welcome to APEX! Built with ❤️ in Gabon 🇬🇦 for the world.*
+*Built with ❤️ in Gabon 🇬🇦 for the world.*
