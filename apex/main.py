@@ -49,7 +49,8 @@ def list_models(ui: UI) -> None:
     ui.show_models(Config().model)
 
 
-def handle_command(command: str, agent: Agent, ui: UI, session: Any = None, use_stream: bool = False) -> bool:
+def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = None, session: Any = None, use_stream: bool = False) -> bool:
+    config = config or Config()
     global memory
     parts = command.split(maxsplit=1)
     cmd = parts[0].lower()
@@ -58,9 +59,13 @@ def handle_command(command: str, agent: Agent, ui: UI, session: Any = None, use_
     match cmd:
         case "/model":
             if not arg:
-                ui.print_error("Usage: /model <alias>")
+                ui.print_error("Usage: /model <alias> or /model auto")
                 return True
-            if agent.switch_model(arg):
+            if arg == "auto":
+                config.auto_model = True
+                ui.print_success("Auto model selection enabled")
+            elif agent.switch_model(arg):
+                config.auto_model = False
                 ui.print_success(f"Switched to model: {arg}")
             else:
                 ui.print_error(f"Unknown model: {arg}")
@@ -68,6 +73,16 @@ def handle_command(command: str, agent: Agent, ui: UI, session: Any = None, use_
 
         case "/models":
             ui.show_models(agent.model)
+            return True
+
+        case "/reasoning":
+            level = agent.cycle_reasoning_effort()
+            ui.print_success(f"Reasoning effort: {level}")
+            return True
+
+        case "/reason":
+            level = agent.cycle_reasoning_effort()
+            ui.print_success(f"Reasoning effort: {level}")
             return True
 
         case "/cwd":
@@ -209,6 +224,110 @@ def handle_command(command: str, agent: Agent, ui: UI, session: Any = None, use_
                 ui.print_success(f"Switched to agent: {arg}")
             else:
                 ui.print_error(f"Unknown agent: {arg}. Use /agent to list available agents.")
+            return True
+
+        case "/yolo":
+            from .agents import agent_manager
+            if "yolo" in agent_manager.agents:
+                agent.switch_agent("yolo")
+                config.agent_mode = "yolo"
+                ui.print_success("YOLO mode enabled - auto-approved execution")
+            else:
+                ui.print_error("YOLO agent not available")
+            return True
+
+        case "/plan":
+            agent.switch_agent("plan")
+            config.agent_mode = "plan"
+            ui.print_success("Plan mode enabled - read-only")
+            return True
+
+        case "/build":
+            agent.switch_agent("build")
+            config.agent_mode = "agent"
+            ui.print_success("Build mode enabled - interactive with approval")
+            return True
+
+        case "/restore":
+            from .workspace_rollback import WorkspaceRollback
+            wb = WorkspaceRollback(agent.cwd)
+            if arg:
+                success = wb.restore_snapshot(arg)
+                if success:
+                    ui.print_success(f"Restored snapshot: {arg}")
+                else:
+                    ui.print_error(f"Failed to restore: {arg}")
+            else:
+                snapshots = wb.list_snapshots()
+                if snapshots:
+                    ui.console.print("[cyan]Available snapshots:[/cyan]")
+                    for s in snapshots[-10:]:
+                        ui.console.print(f"  {s['name']} - {s.get('label', '')}")
+                else:
+                    ui.print_info("No snapshots available")
+            return True
+
+        case "/revert":
+            from .workspace_rollback import TurnTracker
+            tt = TurnTracker(agent.cwd)
+            turns = int(arg) if arg.isdigit() else 1
+            if tt.revert_turn(turns):
+                ui.print_success(f"Reverted {turns} turn(s)")
+            else:
+                ui.print_error("Failed to revert turn")
+            return True
+
+        case "/sessionsave":
+            from .session import SessionManager
+            sm = SessionManager()
+            name = arg or "default"
+            path = sm.save(agent, name)
+            ui.print_success(f"Session saved: {path}")
+            return True
+
+        case "/sessionload":
+            from .session import SessionManager
+            sm = SessionManager()
+            if arg:
+                session = sm.load(arg)
+                if session:
+                    agent.history = session.get("history", [])
+                    ui.print_success(f"Loaded session: {arg}")
+                else:
+                    ui.print_error(f"Session not found: {arg}")
+            else:
+                sessions = sm.list_sessions()
+                ui.console.print("[cyan]Saved sessions:[/cyan]")
+                for s in sessions:
+                    ui.console.print(f"  {s['name']} - {s['timestamp']}")
+            return True
+
+        case "/tasks":
+            from .task_queue import TaskQueue
+            tq = TaskQueue()
+            tasks = tq.list_tasks(limit=10)
+            if tasks:
+                ui.console.print("[cyan]Task queue:[/cyan]")
+                for t in tasks:
+                    status = t.status.value
+                    ui.console.print(f"  {t.id}: {t.name} [{status}]")
+            else:
+                ui.print_info("No tasks in queue")
+            return True
+
+        case "/http":
+            if arg == "start":
+                ui.print_info("Starting HTTP API server...")
+            else:
+                ui.print_info("Usage: /http start - Start HTTP API server")
+            return True
+
+        case "/cost":
+            usage = agent.usage
+            ui.console.print("[cyan]Token usage:[/cyan]")
+            ui.console.print(f"  Prompt: {usage.get('prompt_tokens', 0)}")
+            ui.console.print(f"  Completion: {usage.get('completion_tokens', 0)}")
+            ui.console.print(f"  Total: {usage.get('total_tokens', 0)}")
             return True
 
         case "/agents":

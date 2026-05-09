@@ -93,6 +93,25 @@ Use tools effectively:
 Deliver complete solutions. Don't just describe what needs to be done — do it."""
 
 
+AGENT_YOLO_PROMPT = """You are APEX YOLO Agent — fully autonomous execution with auto-approval.
+
+Your principles:
+- Execute immediately without asking for confirmation
+- Make decisions on behalf of the user when reasonable
+- Deliver complete solutions without requiring user input
+- Use your best judgment for all operations
+
+You have FULL tool access - no restrictions:
+- Write, edit, delete files without prompting
+- Run commands and tests without confirmation
+- Execute any operation needed to complete the task
+- Make assumptions when uncertain and proceed
+
+When done, provide a summary of what was accomplished.
+If something fails, try alternatives automatically.
+Your goal is to COMPLETE tasks, not just attempt them."""
+
+
 PERMISSION_ALLOW = "allow"
 PERMISSION_ASK = "ask"
 PERMISSION_DENY = "deny"
@@ -194,6 +213,24 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
             "websearch": PERMISSION_ALLOW,
         },
         color="magenta",
+    ),
+    "yolo": AgentConfig(
+        name="yolo",
+        description="Auto-approved autonomous execution mode",
+        system_prompt=AGENT_YOLO_PROMPT,
+        mode="primary",
+        permission={
+            "read": PERMISSION_ALLOW,
+            "edit": PERMISSION_ALLOW,
+            "glob": PERMISSION_ALLOW,
+            "grep": PERMISSION_ALLOW,
+            "list": PERMISSION_ALLOW,
+            "bash": PERMISSION_ALLOW,
+            "task": PERMISSION_ALLOW,
+            "webfetch": PERMISSION_ALLOW,
+            "websearch": PERMISSION_ALLOW,
+        },
+        color="red",
     ),
 }
 

@@ -364,6 +364,73 @@ class Config:
         self._data["auto_commit"] = value
         self.save()
 
+    @property
+    def auto_model(self) -> bool:
+        return self._data.get("auto_model", False)
+
+    @auto_model.setter
+    def auto_model(self, value: bool) -> None:
+        self._data["auto_model"] = value
+        self.save()
+
+    @property
+    def reasoning_effort(self) -> str:
+        return self._data.get("reasoning_effort", "off")
+
+    @reasoning_effort.setter
+    def reasoning_effort(self, value: str) -> None:
+        if value not in ("off", "high", "max"):
+            value = "off"
+        self._data["reasoning_effort"] = value
+        self.save()
+
+    @property
+    def agent_mode(self) -> str:
+        return self._data.get("agent_mode", "agent")
+
+    @agent_mode.setter
+    def agent_mode(self, value: str) -> None:
+        if value not in ("plan", "agent", "yolo"):
+            value = "agent"
+        self._data["agent_mode"] = value
+        self.save()
+
+    @property
+    def context_max_tokens(self) -> int:
+        return self._data.get("context_max_tokens", 1000000)
+
+    @context_max_tokens.setter
+    def context_max_tokens(self, value: int) -> None:
+        self._data["context_max_tokens"] = value
+        self.save()
+
+    @property
+    def http_api(self) -> bool:
+        return self._data.get("http_api", False)
+
+    @http_api.setter
+    def http_api(self, value: bool) -> None:
+        self._data["http_api"] = value
+        self.save()
+
+    @property
+    def http_port(self) -> int:
+        return self._data.get("http_port", 8080)
+
+    @http_port.setter
+    def http_port(self, value: int) -> None:
+        self._data["http_port"] = value
+        self.save()
+
+    @property
+    def locale(self) -> str:
+        return self._data.get("locale", "auto")
+
+    @locale.setter
+    def locale(self, value: str) -> None:
+        self._data["locale"] = value
+        self.save()
+
     def get(self, key: str, default: Any = None) -> Any:
         return self._data.get(key, default)
 
