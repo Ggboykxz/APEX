@@ -1,0 +1,552 @@
+/* ════════════════════════════════════════════════════════════════════════════════
+   APEX TUI — Textual CSS Theme
+   Better than OpenCode · Better than Claude Code
+   ════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── APEX Theme Variables ──────────────────────────────────────────────────────── */
+$apex-bg:       #0d1117;
+$apex-elevated: #161b22;
+$apex-surface:  #21262d;
+$apex-accent:   #00e5ff;
+$apex-success:  #00ff88;
+$apex-error:    #ff4444;
+$apex-warning:  #ffaa00;
+$apex-text:     #e6edf3;
+$apex-muted:    #7d8590;
+$apex-border:   #30363d;
+
+/* ── Gabon Theme ───────────────────────────────────────────────────────────────── */
+$apex-gabon:    #009e60;
+$apex-gabon-yellow: #fcd116;
+$apex-gabon-blue: #3a75c4;
+
+/* ── App Root ─────────────────────────────────────────────────────────────────── */
+Screen {
+    background: $apex-bg;
+    color: $apex-text;
+    layers: base overlay notification;
+}
+
+/* ── Main Grid Layout ─────────────────────────────────────────────────────────── */
+#app-grid {
+    layout: grid;
+    grid-size: 1 3;
+    grid-rows: 3 1fr 2;
+    height: 100%;
+}
+
+#main-pane {
+    layout: horizontal;
+    height: 1fr;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────────── */
+#sidebar {
+    width: 26;
+    min-width: 20;
+    max-width: 40;
+    background: $apex-elevated;
+    border-right: solid $apex-border;
+    layout: vertical;
+}
+
+#sidebar-title {
+    color: $apex-muted;
+    text-style: bold;
+    padding: 1 0 0 0;
+    height: 2;
+}
+
+#file-tree-container {
+    height: 70%;
+    border-bottom: solid $apex-border;
+    overflow-y: auto;
+    padding: 0 1;
+}
+
+#tool-log-container {
+    height: 30%;
+    padding: 0 1;
+    overflow-y: auto;
+}
+
+/* ── Chat Area ───────────────────────────────────────────────────────────────── */
+#chat-area {
+    width: 1fr;
+    layout: vertical;
+    background: $apex-bg;
+}
+
+#chat-scroll {
+    height: 1fr;
+    overflow-y: auto;
+    padding: 1 2;
+}
+
+#chat-header {
+    height: 3;
+    background: $apex-surface;
+    border-bottom: solid $apex-border;
+    padding: 0 2;
+    layout: horizontal;
+    align: left middle;
+}
+
+/* ── HeaderBar ───────────────────────────────────────────────────────────────── */
+HeaderBar {
+    height: 3;
+    background: $apex-elevated;
+    border-bottom: solid $apex-accent;
+    layout: horizontal;
+    align: left middle;
+    padding: 0 1;
+}
+
+#logo {
+    color: $apex-accent;
+    text-style: bold;
+    margin-right: 2;
+    width: auto;
+}
+
+#model-select {
+    width: 20;
+    background: $apex-surface;
+    border: solid $apex-border;
+    color: $apex-text;
+}
+
+#model-select:focus {
+    border: solid $apex-accent;
+}
+
+#cwd-label {
+    color: $apex-muted;
+    width: auto;
+    margin: 0 2;
+}
+
+#token-label {
+    color: $apex-success;
+    width: auto;
+    margin: 0 1;
+}
+
+#token-label.warn {
+    color: $apex-warning;
+}
+
+#token-label.danger {
+    color: $apex-error;
+}
+
+#cost-label {
+    color: $apex-muted;
+    width: auto;
+    margin: 0 1;
+}
+
+/* ── FileTree ────────────────────────────────────────────────────────────────── */
+DirectoryTree {
+    background: transparent;
+    color: $apex-text;
+}
+
+DirectoryTree .tree--guides {
+    color: $apex-border;
+}
+
+DirectoryTree .tree--cursor {
+    background: $apex-surface;
+    color: $apex-accent;
+}
+
+/* ── ToolLog ─────────────────────────────────────────────────────────────────── */
+ToolLogItem {
+    height: auto;
+    layout: horizontal;
+    padding: 0 0;
+}
+
+.tool-log-icon {
+    width: 2;
+}
+
+.tool-log-icon.pending {
+    color: $apex-warning;
+}
+
+.tool-log-icon.running {
+    color: $apex-accent;
+}
+
+.tool-log-icon.success {
+    color: $apex-success;
+}
+
+.tool-log-icon.error {
+    color: $apex-error;
+}
+
+.tool-log-name {
+    color: $apex-text;
+    width: auto;
+}
+
+.tool-log-args {
+    color: $apex-muted;
+}
+
+.tool-log-time {
+    color: $apex-muted;
+    dock: right;
+}
+
+/* ── MessageBubble ────────────────────────────────────────────────────────────── */
+MessageBubble {
+    margin: 1 0;
+    border: solid $apex-border;
+    border-left: tall $apex-accent;
+    background: $apex-elevated;
+    padding: 1 2;
+}
+
+MessageBubble.user {
+    border-left: tall $apex-surface;
+    background: $apex-surface;
+    margin-left: 8;
+}
+
+MessageBubble.assistant {
+    border-left: tall $apex-accent;
+    margin-right: 4;
+}
+
+.msg-header {
+    color: $apex-muted;
+    text-style: bold;
+    height: 1;
+    margin-bottom: 1;
+}
+
+.msg-header .role-apex {
+    color: $apex-accent;
+}
+
+.msg-header .role-user {
+    color: $apex-text;
+}
+
+.msg-timestamp {
+    color: $apex-muted;
+    dock: right;
+}
+
+.msg-content {
+    height: auto;
+}
+
+.msg-code-block {
+    background: $apex-bg;
+    border: solid $apex-border;
+    padding: 0 1;
+    margin: 1 0;
+}
+
+.msg-copy-btn {
+    dock: right;
+    color: $apex-muted;
+    width: auto;
+}
+
+.msg-copy-btn:hover {
+    color: $apex-accent;
+}
+
+/* ── ToolCard ─────────────────────────────────────────────────────────────────── */
+ToolCard {
+    margin: 0 0 1 0;
+    border: solid $apex-border;
+    background: $apex-bg;
+    padding: 1 2;
+}
+
+ToolCard.pending {
+    border: solid $apex-warning;
+    border-left: tall $apex-warning;
+}
+
+ToolCard.running {
+    border: solid $apex-accent;
+    border-left: tall $apex-accent;
+}
+
+ToolCard.success {
+    border: solid $apex-success;
+    border-left: tall $apex-success;
+}
+
+ToolCard.error {
+    border: solid $apex-error;
+    border-left: tall $apex-error;
+}
+
+.tool-header {
+    layout: horizontal;
+    height: 1;
+    margin-bottom: 1;
+}
+
+.tool-name {
+    color: $apex-accent;
+    text-style: bold;
+    width: auto;
+}
+
+.tool-duration {
+    color: $apex-muted;
+    dock: right;
+}
+
+.tool-command {
+    color: $apex-text;
+    background: $apex-surface;
+    padding: 0 1;
+    margin-bottom: 1;
+}
+
+.tool-output {
+    height: auto;
+    color: $apex-muted;
+}
+
+.tool-output.collapsed {
+    height: 3;
+}
+
+.tool-expand-btn {
+    color: $apex-muted;
+    width: auto;
+}
+
+/* ── ThinkingIndicator ───────────────────────────────────────────────────────── */
+ThinkingIndicator {
+    layout: horizontal;
+    height: 3;
+    align: center middle;
+    padding: 1 2;
+}
+
+.thinking-spinner {
+    color: $apex-accent;
+    width: 2;
+}
+
+.thinking-text {
+    color: $apex-muted;
+}
+
+/* ── InputBar ────────────────────────────────────────────────────────────────── */
+#input-container {
+    height: 3;
+    background: $apex-surface;
+    border-top: solid $apex-border;
+    layout: horizontal;
+    align: left middle;
+    padding: 0 1;
+}
+
+#input-prefix {
+    color: $apex-accent;
+    width: 2;
+    text-style: bold;
+}
+
+#chat-input {
+    width: 1fr;
+    background: transparent;
+    border: none;
+    color: $apex-text;
+}
+
+#chat-input:focus {
+    border: none;
+}
+
+#chat-input.thinking {
+    color: $apex-muted;
+}
+
+/* ── StatusBar ───────────────────────────────────────────────────────────────── */
+StatusBar {
+    height: 2;
+    background: $apex-elevated;
+    border-top: solid $apex-border;
+    padding: 0 1;
+    layout: horizontal;
+    align: left middle;
+}
+
+.status-model-dot {
+    color: $apex-muted;
+    width: 1;
+}
+
+.status-model-dot.active {
+    color: $apex-accent;
+}
+
+.shortcut-hint {
+    color: $apex-muted;
+    margin: 0 2;
+}
+
+.shortcut-key {
+    color: $apex-text;
+    text-style: bold;
+}
+
+/* ── CommandPalette ──────────────────────────────────────────────────────────── */
+CommandPalette {
+    background: $apex-elevated;
+    border: solid $apex-accent;
+    width: 60%;
+    max-width: 80;
+    height: auto;
+    max-height: 60%;
+    layer: overlay;
+    offset: 20% 10%;
+}
+
+#palette-header {
+    height: 2;
+    background: $apex-surface;
+    padding: 0 1;
+    layout: horizontal;
+    align: left middle;
+}
+
+#palette-title {
+    color: $apex-accent;
+    text-style: bold;
+}
+
+#palette-close {
+    dock: right;
+    color: $apex-muted;
+}
+
+#palette-search {
+    border-bottom: solid $apex-border;
+    background: $apex-surface;
+    padding: 1;
+}
+
+#palette-results {
+    overflow-y: auto;
+    height: auto;
+}
+
+.palette-item {
+    padding: 0 2;
+    height: 2;
+    layout: horizontal;
+    align: left middle;
+}
+
+.palette-item:hover, .palette-item.--highlight {
+    background: $apex-surface;
+}
+
+.palette-item-icon {
+    width: 2;
+    color: $apex-accent;
+}
+
+.palette-item-cmd {
+    color: $apex-accent;
+    width: 28;
+}
+
+.palette-item-desc {
+    color: $apex-muted;
+}
+
+.palette-empty {
+    color: $apex-muted;
+    padding: 2;
+}
+
+/* ── ScrollBar ───────────────────────────────────────────────────────────────── */
+ScrollBar {
+    background: transparent;
+}
+
+ScrollBar > .scrollbar--bar {
+    color: #30363d;
+}
+
+ScrollBar > .scrollbar--bar:hover {
+    color: #484f58;
+}
+
+/* ── Progress Bar ───────────────────────────────────────────────────────────── */
+ProgressBar {
+    height: 1;
+    background: $apex-surface;
+}
+
+ProgressBar > .bar--bar {
+    background: $apex-accent;
+    color: $apex-accent;
+}
+
+/* ── Modal/Dialog ────────────────────────────────────────────────────────────── */
+ApexModal {
+    background: $apex-elevated;
+    border: solid $apex-accent;
+    width: 50%;
+    height: auto;
+    layer: overlay;
+    offset: 25% 20%;
+}
+
+.modal-header {
+    height: 2;
+    background: $apex-surface;
+    padding: 0 1;
+    layout: horizontal;
+    align: left middle;
+}
+
+.modal-title {
+    color: $apex-accent;
+    text-style: bold;
+}
+
+.modal-close {
+    dock: right;
+    color: $apex-muted;
+}
+
+.modal-body {
+    padding: 1 2;
+}
+
+/* ── Resize Handle ───────────────────────────────────────────────────────────── */
+#sidebar-resize-handle {
+    width: 1;
+    background: $apex-border;
+}
+
+#sidebar-resize-handle:hover {
+    background: $apex-accent;
+}
+
+/* ── Animations ───────────────────────────────────────────────────────────────── */
+.thinking-active {
+    opacity: 0.8;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+/* Note: Textual CSS does not support @media queries - handled in Python */

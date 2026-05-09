@@ -3,6 +3,9 @@
 import argparse
 import os
 import sys
+import json
+import subprocess
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +40,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--one-shot", "-1", action="store_true", help="One-shot mode (non-interactive)")
     parser.add_argument("--stream", "-s", action="store_true", help="Enable streaming responses")
     parser.add_argument("--auto-commit", action="store_true", dest="auto_commit", help="Auto commit after successful task")
+    parser.add_argument("--ui", action="store_true", help="Launch Textual TUI (original APEX UI)")
+    parser.add_argument("--tui", "-t", action="store_true", help="Launch OpenTUI (better than OpenCode)")
     return parser.parse_args()
 
 
@@ -364,6 +369,91 @@ def run_one_shot(prompt: str, agent: Agent, ui: UI, use_stream: bool = False) ->
         ui.print_response(response)
 
 
+def run_textual_tui(agent: Agent, ui: UI) -> None:
+    """Run APEX Textual TUI - The best terminal UI ever built."""
+    try:
+        from .tui import ApexApp
+        ui.print_info("Starting APEX Textual TUI (Ctrl+C to exit)...")
+        app = ApexApp(
+            model=agent.config.model,
+            cwd=str(agent.config.cwd),
+            agent=agent,
+        )
+        app.run()
+    except ImportError as e:
+        ui.print_error(f"Textual TUI not available: {e}")
+    except Exception as e:
+        ui.print_error(f"TUI error: {e}")
+
+
+def run_apex_tui(agent: Agent, ui: UI) -> None:
+    """Run APEX OpenTUI - Better than OpenCode!"""
+    tui_path = Path(__file__).parent.parent / "tui-frontend" / "index.ts"
+    if not tui_path.exists():
+        ui.print_error("OpenTUI not found. Run: cd tui-frontend && bun install")
+        return
+
+    ui.print_info("Starting APEX TUI with OpenTUI (Ctrl+C to exit)...")
+
+    bun_path = Path.home() / ".bun" / "bin" / "bun"
+    if not bun_path.exists():
+        ui.print_error("Bun not found. Install: curl -fsSL https://bun.sh/install | bash")
+        return
+
+    env = os.environ.copy()
+    env["PATH"] = str(bun_path.parent) + ":" + env.get("PATH", "")
+
+    try:
+        proc = subprocess.Popen(
+            [str(bun_path), str(tui_path)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            text=True,
+            bufsize=1,
+        )
+
+        proc.stdin.write(json.dumps({"type": "welcome", "content": "Connected to APEX!"}) + "\n")
+        proc.stdin.flush()
+
+        def read_output():
+            try:
+                for line in iter(proc.stdout.readline, ""):
+                    if not line.strip():
+                        continue
+                    try:
+                        msg = json.loads(line)
+                        if msg.get("type") == "user_input":
+                            user_input = msg.get("content", "")
+                            if user_input.startswith("/"):
+                                handle_command(user_input, agent, ui)
+                            else:
+                                ui.print_user(user_input)
+                                response = agent.chat(user_input)
+                                proc.stdin.write(json.dumps({"type": "ai_message", "content": response}) + "\n")
+                                proc.stdin.flush()
+                        elif msg.get("type") == "quit":
+                            proc.terminate()
+                            return
+                    except json.JSONDecodeError:
+                        continue
+            except Exception:
+                pass
+
+        thread = threading.Thread(target=read_output, daemon=True)
+        thread.start()
+
+        while proc.poll() is None:
+            import time
+            time.sleep(0.1)
+
+    except FileNotFoundError:
+        ui.print_error("Bun not found. Install: curl -fsSL https://bun.sh/install | bash")
+    except Exception as e:
+        ui.print_error(f"OpenTUI error: {e}")
+
+
 def main() -> None:
     args = parse_args()
     config = Config()
@@ -383,7 +473,11 @@ def main() -> None:
         list_models(ui)
         sys.exit(0)
 
-    if args.prompt:
+    if args.ui:
+        run_textual_tui(agent, ui)
+    elif args.tui:
+        run_apex_tui(agent, ui)
+    elif args.prompt:
         run_one_shot(args.prompt, agent, ui, args.stream)
     else:
         run_repl(agent, ui, args.stream)
