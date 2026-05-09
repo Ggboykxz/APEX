@@ -1,6 +1,5 @@
 """Tests for refactored_tools module."""
 
-import os
 import tempfile
 import pytest
 from pathlib import Path
@@ -308,7 +307,7 @@ class TestWebOperations:
     @pytest.fixture
     def web_ops(self):
         """Create WebOperations instance."""
-        return WebOperations()
+        return WebOperations(cwd=".")
 
     def test_fetch_url_invalid(self, web_ops):
         """Test fetching invalid URL."""

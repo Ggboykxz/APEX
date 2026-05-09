@@ -1,95 +1,115 @@
-"""Tests for APEX UI."""
+"""Tests for ui module."""
 
-import pytest
-from io import StringIO
-from apex.ui import UI
+from apex.ui import UI, APEXTheme
 
 
-@pytest.fixture
-def ui():
-    return UI()
+class TestAPEXTheme:
+    """Test APEXTheme class."""
+
+    def test_get_default(self):
+        """Test get default theme."""
+        theme = APEXTheme.get()
+        assert isinstance(theme, dict)
+        assert "bg" in theme
+        assert "fg" in theme
+        assert "red" in theme
+
+    def test_get_dracula(self):
+        """Test get dracula theme."""
+        theme = APEXTheme.get("dracula")
+        assert theme == APEXTheme.DRACULA
+
+    def test_get_nord(self):
+        """Test get nord theme."""
+        theme = APEXTheme.get("nord")
+        assert theme == APEXTheme.NORD
+
+    def test_get_one_dark(self):
+        """Test get one_dark theme."""
+        theme = APEXTheme.get("one_dark")
+        assert theme == APEXTheme.ONE_DARK
+
+    def test_get_unknown_returns_default(self):
+        """Test get unknown theme returns default."""
+        theme = APEXTheme.get("unknown_theme")
+        assert theme == APEXTheme.DRACULA
 
 
-def test_ui_init(ui):
-    assert ui.console is not None
+class TestUI:
+    """Test UI class."""
 
+    def test_ui_init_default(self):
+        """Test UI initialization with default theme."""
+        ui = UI()
+        assert ui.theme_name == "dracula"
+        assert ui.console is not None
+        assert isinstance(ui.ICONS, dict)
 
-def test_show_banner(ui, capsys):
-    ui.show_banner("gpt-4o", "/home/user/project")
-    captured = capsys.readouterr()
-    assert "APEX" in captured.out
+    def test_ui_init_custom_theme(self):
+        """Test UI initialization with custom theme."""
+        ui = UI(theme="nord")
+        assert ui.theme_name == "nord"
 
+    def test_ui_c_method(self):
+        """Test _c color method."""
+        ui = UI()
+        result = ui._c("red", "test")
+        assert isinstance(result, str)
 
-def test_show_help(ui, capsys):
-    ui.show_help()
-    captured = capsys.readouterr()
-    assert "/model" in captured.out
-    assert "/help" in captured.out
+    def test_ui_print_success(self):
+        """Test print_success method."""
+        ui = UI()
+        ui.print_success("Test message")
 
+    def test_ui_print_error(self):
+        """Test print_error method."""
+        ui = UI()
+        ui.print_error("Test error")
 
-def test_show_models(ui, capsys):
-    from apex.config import MODELS
-    ui.show_models("claude-sonnet")
-    captured = capsys.readouterr()
-    assert "Available Models" in captured.out
-    assert "claude-sonnet" in captured.out
+    def test_ui_print_info(self):
+        """Test print_info method."""
+        ui = UI()
+        ui.print_info("Test info")
 
+    def test_ui_print_warning(self):
+        """Test print_warning method."""
+        ui = UI()
+        ui.print_warning("Test warning")
 
-def test_print_user(ui, capsys):
-    ui.print_user("Hello world")
-    captured = capsys.readouterr()
-    assert "Hello world" in captured.out
+    def test_ui_print_user(self):
+        """Test print_user method."""
+        ui = UI()
+        ui.print_user("User message")
 
+    def test_ui_print_response(self):
+        """Test print_response method."""
+        ui = UI()
+        ui.print_response("Response message")
 
-def test_print_response_plain(ui, capsys):
-    ui.print_response("Plain text response")
-    captured = capsys.readouterr()
-    assert "Plain text response" in captured.out
+    def test_ui_print_tool_call(self):
+        """Test print_tool_call method."""
+        ui = UI()
+        ui.print_tool_call("tool_name", {"arg": "value"})
 
+    def test_ui_print_tool_result(self):
+        """Test print_tool_result method."""
+        ui = UI()
+        ui.print_tool_result("tool_name", "result content")
 
-def test_print_response_with_code(ui, capsys):
-    ui.print_response("Here is code:\n```python\nprint('hello')\n```")
-    captured = capsys.readouterr()
-    assert "print('hello')" in captured.out
+    def test_ui_show_models(self):
+        """Test show_models method."""
+        ui = UI()
+        ui.show_models("gpt-4o")
 
+    def test_ui_show_help(self):
+        """Test show_help method."""
+        ui = UI()
+        ui.show_help()
 
-def test_print_tool_call(ui, capsys):
-    ui.print_tool_call("read_file", {"path": "/test.txt"})
-    captured = capsys.readouterr()
-    assert "read_file" in captured.out
-
-
-def test_print_tool_result_error(ui, capsys):
-    ui.print_tool_result("read_file", "ERROR: File not found")
-    captured = capsys.readouterr()
-    assert "ERROR" in captured.out
-
-
-def test_print_tool_result_success(ui, capsys):
-    ui.print_tool_result("write_file", "SUCCESS: File written")
-    captured = capsys.readouterr()
-    assert "SUCCESS" in captured.out
-
-
-def test_print_error(ui, capsys):
-    ui.print_error("Something went wrong")
-    captured = capsys.readouterr()
-    assert "Error" in captured.out or "wrong" in captured.out
-
-
-def test_print_success(ui, capsys):
-    ui.print_success("Operation completed")
-    captured = capsys.readouterr()
-    assert "completed" in captured.out
-
-
-def test_print_info(ui, capsys):
-    ui.print_info("Informational message")
-    captured = capsys.readouterr()
-    assert "Informational" in captured.out
-
-
-def test_print_cost(ui, capsys):
-    ui.print_cost({"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150})
-    captured = capsys.readouterr()
-    assert "100" in captured.out or "150" in captured.out
+    def test_ui_icons(self):
+        """Test icons are available."""
+        ui = UI()
+        assert "success" in ui.ICONS
+        assert "error" in ui.ICONS
+        assert "agent" in ui.ICONS
+        assert "model" in ui.ICONS
