@@ -118,6 +118,20 @@ MODELS: dict[str, str] = {
     "ollama-qwen2.5": "ollama/qwen2.5",
     "ollama-mistral": "ollama/mistral",
     "ollama-gemma2": "ollama/gemma2",
+
+    # OpenRouter (paid, use OPENROUTER_API_KEY)
+    "or-gpt4o": "openrouter/openai/gpt-4o",
+    "or-gpt4o-mini": "openrouter/openai/gpt-4o-mini",
+    "or-claude": "openrouter/anthropic/claude-3.5-sonnet",
+    "or-deepseek": "openrouter/deepseek/deepseek-chat",
+    "or-llama": "openrouter/meta-llama/llama-3.3-70b-versatile",
+
+    # OpenRouter FREE models (no credit card required)
+    "free-router": "openrouter/free",
+    "deepseek-r1-free": "deepseek/deepseek-reasoner:free",
+    "llama-3.2-3b-free": "meta-llama/llama-3.2-3b-instruct:free",
+    "llama-3.1-8b-free": "meta-llama/llama-3.1-8b-instruct:free",
+    "qwen-2.5-7b-free": "qwen/qwen2.5-7b-instruct:free",
 }
 
 MODEL_PROVIDERS: dict[str, str] = {
@@ -233,9 +247,23 @@ MODEL_PROVIDERS: dict[str, str] = {
     "ollama-qwen2.5": None,
     "ollama-mistral": None,
     "ollama-gemma2": None,
+
+    # OpenRouter (use OPENROUTER_API_KEY)
+    "or-gpt4o": "OPENROUTER_API_KEY",
+    "or-gpt4o-mini": "OPENROUTER_API_KEY",
+    "or-claude": "OPENROUTER_API_KEY",
+    "or-deepseek": "OPENROUTER_API_KEY",
+    "or-llama": "OPENROUTER_API_KEY",
+
+    # OpenRouter FREE (don't support tools)
+    "free-router": "OPENROUTER_API_KEY",
+    "deepseek-r1-free": "OPENROUTER_API_KEY",
+    "llama-3.2-3b-free": "OPENROUTER_API_KEY",
+    "llama-3.1-8b-free": "OPENROUTER_API_KEY",
+    "qwen-2.5-7b-free": "OPENROUTER_API_KEY",
 }
 
-DEFAULT_MODEL = "claude-4-sonnet"
+DEFAULT_MODEL = "or-gpt4o-mini"
 
 SYSTEM_PROMPT = """You are APEX, an expert coding agent built in Gabon for the world.
 
