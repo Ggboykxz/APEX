@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Any
 
-from .messages import AgentToolCall, AgentToolResult
+from .messages import AgentToolCall, AgentToolResult, FilePreviewRequest
 
 
 class FileTreeWidget(Widget):
@@ -16,10 +16,17 @@ class FileTreeWidget(Widget):
 
     def compose(self):
         yield Static("📁 Files", classes="sidebar-section-title")
+        yield Button("+", id="btn-refresh-tree", variant="default", classes="tree-refresh-btn")
         yield DirectoryTree(str(self.root_path), id="file-tree")
 
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected) -> None:
-        pass
+        file_path = str(event.path)
+        self.post_message(FilePreviewRequest(file_path))
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "btn-refresh-tree":
+            tree = self.query_one("#file-tree", DirectoryTree)
+            tree.refresh()
 
 
 class ToolLogItem(Widget):
