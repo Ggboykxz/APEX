@@ -1,277 +1,331 @@
-# APEX — Agent for Programming EXecution
+<div align="center">
 
-*The last coding agent you'll ever need.*
+# ◆ APEX
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python">
-  <img src="https://img.shields.io/badge/Tests-572-passing-green.svg" alt="Tests">
-  <img src="https://img.shields.io/badge/Coverage-52%25-yellow.svg" alt="Coverage">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
-  <img src="https://img.shields.io/badge/Version-1.3.0-purple.svg" alt="Version">
-  <img src="https://img.shields.io/github/stars/Ggboykxz/APEX?style=social" alt="Stars">
-</p>
+**The universal AI coding agent. Every model. One terminal.**
 
-APEX is a production-grade, terminal-native AI coding agent built in **Gabon 🇬🇦 for the world**. It works with **any LLM** via litellm, making it the most flexible coding assistant available.
+[![PyPI version](https://img.shields.io/pypi/v/apex-agent?color=00e5ff&style=flat-square)](https://pypi.org/project/apex-agent)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-00e5ff?style=flat-square)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-00ff88?style=flat-square)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/Ggboykxz/APEX?color=ffaa00&style=flat-square)](https://github.com/Ggboykxz/APEX/stargazers)
+[![Tests](https://img.shields.io/badge/tests-1125%20passing-00ff88?style=flat-square)](https://github.com/Ggboykxz/APEX/actions)
+[![Coverage](https://img.shields.io/badge/coverage-56%25-ffaa00?style=flat-square)](https://github.com/Ggboykxz/APEX)
 
-## Why APEX?
+<br/>
 
-APEX is designed to be objectively better than OpenCode, Claude Code, Aider, and Cursor CLI combined:
+[**Install**](#installation) ·
+[**Docs**](https://apex-agent.dev/docs) ·
+[**Demo**](#demo) ·
+[**Models**](#models) ·
+[**Sponsor**](#sponsors)
 
-| Feature | APEX | OpenCode | Claude Code | Aider |
-|---------|:----:|:--------:|:-----------:|:-----:|
-| All models via one CLI | ✅ | ⚠️ | ❌ | ⚠️ |
-| No cloud lock-in | ✅ | ❌ | ❌ | ✅ |
-| Offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
-| Rich syntax UI | ✅ | ✅ | ✅ | ❌ |
+</div>
+
+---
+
+> APEX runs **any LLM** in your terminal as a coding agent — Anthropic, OpenAI,
+> Google, Groq, Mistral, DeepSeek, Ollama (local), and 100+ more via litellm.
+> Switch models mid-session. Track costs live. Never leave your terminal.
+
+---
+
+## ✨ Why APEX?
+
+| | APEX | OpenCode | Claude Code | Aider |
+|---|:---:|:---:|:---:|:---:|
+| Every model (100+) | ✅ | ⚠️ | ❌ | ⚠️ |
+| Switch model mid-session | ✅ | ❌ | ❌ | ❌ |
+| Works offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
+| Beautiful TUI | ✅ | ✅ | ✅ | ❌ |
+| File tree + tool log | ✅ | ❌ | ❌ | ❌ |
+| Command palette (⌘K) | ✅ | ❌ | ❌ | ❌ |
+| Live token cost tracker | ✅ | ❌ | ❌ | ✅ |
 | Session persistence | ✅ | ❌ | ✅ | ❌ |
-| Session sharing | ✅ | ✅ | ❌ | ❌ |
-| Undo/Redo | ✅ | ✅ | ❌ | ❌ |
-| LSP integration | ✅ | ✅ | ❌ | ❌ |
-| Code actions/fixes | ✅ | ✅ | ❌ | ❌ |
-| Plan approval workflow | ✅ | ✅ | ❌ | ❌ |
-| Project initialization | ✅ | ✅ | ❌ | ❌ |
-| Slash commands | ✅ | ✅ | ❌ | ❌ |
-| @Mentions | ✅ | ✅ | ❌ | ❌ |
-| Auto-completion | ✅ | ✅ | ❌ | ❌ |
-| Persistent shell | ✅ | ❌ | ❌ | ❌ |
-| Git branch ops | ✅ | ❌ | ❌ | ✅ |
-| Inline editing | ✅ | ✅ | ❌ | ❌ |
-| Plugin system | ✅ | ❌ | ❌ | ❌ |
-| Model switch mid-session | ✅ | ❌ | ❌ | ⚠️ |
-| Token cost tracking | ✅ | ❌ | ❌ | ✅ |
-| Custom commands | ✅ | ✅ | ❌ | ❌ |
-| Multi-file selection | ✅ | ❌ | ❌ | ❌ |
-| French/multilingual UI | ✅ | ❌ | ❌ | ❌ |
+| `pip install` | ✅ | ❌ | ❌ | ✅ |
+| Built in Africa 🇬🇦 | ✅ | ❌ | ❌ | ❌ |
 
-## Features
+---
 
-- **85+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more
-- **Multi-Agent System** — Build, Plan, Explore, General agents with permission controls
-- **75+ Tools** — File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB, docs
-- **LSP Integration** — Go to definition, references, hover, diagnostics, code actions
-- **Project Initialization** — Analyze and create AGENTS.md with smart context
-- **Undo/Redo** — Revert and reapply file changes
-- **Session Sharing** — Share sessions via link for collaboration
-- **Plan Approval** — Approve/reject plans before execution
-- **Plugin System** — Extensible with custom tools and security scanner
-- **Custom Commands** — Define reusable prompt templates
-- **Persistent Shell** — Interactive shell sessions across commands
-- **Multi-file Selection** — Select files by glob patterns for context
-- **Slash Commands** — 20+ commands like /agent, /model, /git, /init
-- **@Mentions** — @file for file context, @agent for subagents
-- **Auto-completion** — Tab completion for files, commands, agents, models
-- **Git Branch Operations** — Create, switch, delete branches, PR creation
-- **Inline Editing** — Edit at specific line number
-- **Skills System** — Reusable prompt templates
-- **Diff Tool** — Compare files and 3-way merge
-- **Search & Replace** — Regex replace across files
-- **Code Analysis** — Functions, classes, complexity
-- **Test Generation** — Auto-generate pytest/jest tests
-- **Git Hooks** — Configure pre-commit hooks
-- **Batch Operations** — Read/write multiple files at once
-- **File Watching** — Watch for file changes in real-time
-- **Retry with Backoff** — Automatic retry for failed operations
-- **Tool Timeout** — Configure per-tool timeouts
-- **Context Optimization** — Smart message prioritization
-- **Shell Expansion** — Variable expansion in commands
-- **Environment Manager** — Manage env variables per workspace
-- **Task Queue** — Async task execution
-- **History Search** — Fuzzy search conversation history
-- **Workspace Validation** — Config and structure validation
-- **Security Audit** — Scan for security vulnerabilities
-- **Code Refactoring** — AI-powered refactoring (async, types, extract)
-- **Database Models** — Generate SQLAlchemy models from schema
-- **Docker Generation** — Dockerfile and docker-compose generator
-- **API Client Generator** — Generate client from OpenAPI spec
-- **Documentation Generator** — Auto-generate README, API docs
-- **Performance Profiling** — Code complexity analysis
-- **Optimization Suggestions** — AI-powered performance tips
-- **File Caching** — Cache file reads for performance
-- **Rich Terminal UI** — Syntax highlighting, markdown, panels
-- **Session Persistence** — Save/load conversations
-- **Token Cost Tracking** — Monitor usage and estimated costs
-- **Workspace Awareness** — Git context, branch, PR information
-- **One-shot Mode** — Run prompts non-interactively
+## 🎬 Demo
 
-## Installation
+<div align="center">
 
-```bash
-pip install apex-agent
-# or
-pipx install apex-agent
-```
+![APEX Demo](https://apex-agent.dev/demo.gif)
 
-## Development Setup
+*APEX fixing a bug using Claude Sonnet, then switching to GPT-4o mid-session*
 
-```bash
-# Clone the repository
-git clone https://github.com/Ggboykxz/APEX.git
-cd APEX
+</div>
 
-# Install dependencies
-pip install -e .
+---
 
-# Install dev dependencies
-pip install -e ".[dev]"
+## ⚡ Installation
 
-# Run tests
-pytest
+### One-line install (recommended)
 
-# Run with coverage
-pytest --cov=apex --cov-report=term-missing
+=== "macOS / Linux"
+    ```bash
+    curl -fsSL https://apex-agent.dev/install.sh | bash
+    ```
 
-# Lint check
-ruff check apex/
-```
+=== "Windows (PowerShell)"
+    ```powershell
+    irm https://apex-agent.dev/install.ps1 | iex
+    ```
 
-## Quick Start
+=== "pipx (isolated)"
+    ```bash
+    pipx install apex-agent
+    ```
+
+=== "pip"
+    ```bash
+    pip install apex-agent
+    ```
+
+=== "uv (fastest)"
+    ```bash
+    uv tool install apex-agent
+    ```
+
+=== "Homebrew"
+    ```bash
+    brew install apex-agent
+    ```
+
+=== "conda"
+    ```bash
+    conda install -c conda-forge apex-agent
+    ```
+
+=== "winget"
+    ```bash
+    winget install apex-agent
+    ```
+
+=== "Scoop"
+    ```bash
+    scoop install apex-agent
+    ```
+
+=== "nix"
+    ```bash
+    nix-env -iA nixpkgs.apex-agent
+    ```
+
+=== "Docker"
+    ```bash
+    docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex
+    ```
+
+=== "From source"
+    ```bash
+    git clone https://github.com/Ggboykxz/APEX
+    cd APEX
+    pip install -e ".[dev]"
+    ```
+
+=== "Termux (Android)"
+    ```bash
+    pkg update && pkg install python
+    pip install apex-agent
+    ```
+
+=== "GitHub Codespaces"
+    APEX is pre-configured in `.devcontainer.json` — just open in Codespaces!
+
+---
+
+## 🚀 Quick Start
 
 ```bash
-# Interactive REPL
+# 1. Set your API key
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# 2. Launch APEX
 apex
 
-# One-shot prompt
-apex "fix the bug in app.py"
-
-# Specific model
-apex --model gpt-4o "write a hello world program"
-
-# List available models
-apex --list-models
+# 3. Ask anything
+> fix the authentication bug in auth.py
+> add TypeScript types to all functions
+> write tests for the payment module
 ```
 
-## Configuration
+Switch models anytime:
+```bash
+apex --model gpt-4o       # Start with GPT-4o
+apex --model gemini-2     # Start with Gemini 2
+apex --model ollama-llama3 # Local, no API key needed
+```
 
-Create `~/.apex/config.json`:
-```json
+---
+
+## 🤖 Supported Models
+
+<details>
+<summary>Anthropic (Claude)</summary>
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+apex --model claude-sonnet   # Recommended
+apex --model claude-opus     # Most powerful
+apex --model claude-haiku    # Fastest
+```
+</details>
+
+<details>
+<summary>OpenAI</summary>
+
+```bash
+export OPENAI_API_KEY=sk-...
+apex --model gpt-4o
+apex --model o1
+apex --model o3-mini
+```
+</details>
+
+<details>
+<summary>Google Gemini</summary>
+
+```bash
+export GEMINI_API_KEY=...
+apex --model gemini-2
+apex --model gemini-flash
+```
+</details>
+
+<details>
+<summary>Groq (Ultra-fast inference)</summary>
+
+```bash
+export GROQ_API_KEY=gsk_...
+apex --model llama-groq
+apex --model mixtral-groq
+```
+</details>
+
+<details>
+<summary>🔒 Ollama (100% local, no API key)</summary>
+
+```bash
+# Install Ollama first: https://ollama.com
+ollama pull llama3
+apex --model ollama-llama3   # No API key needed!
+```
+</details>
+
+<details>
+<summary>DeepSeek</summary>
+
+```bash
+export DEEPSEEK_API_KEY=...
+apex --model deepseek-chat
+apex --model deepseek-coder
+```
+</details>
+
+<details>
+<summary>Meta Llama</summary>
+
+```bash
+apex --model llama-3
+apex --model llama-3.1
+```
+</details>
+
+<details>
+<summary>Mistral & Mixtral</summary>
+
+```bash
+export MISTRAL_API_KEY=...
+apex --model mistral
+apex --model mixtral
+```
+</details>
+
+<details>
+<summary>Qwen</summary>
+
+```bash
+apex --model qwen2
+apex --model qwen2.5
+```
+</details>
+
+---
+
+## 🛠️ What APEX Can Do
+
+- **Read & edit files** — understands your whole codebase
+- **Run commands** — tests, builds, installs, git
+- **Search code** — grep-style across your project
+- **Fix bugs** — diagnoses, patches, and verifies
+- **Write features** — complete implementations
+- **Refactor code** — preserves your style
+- **Write tests** — pytest, jest, go test, and more
+- **Explain code** — line by line if needed
+
+---
+
+## 🎨 Configuration
+
+```bash
+# ~/.apex/config.json
 {
-  "model": "claude-4-sonnet",
-  "cwd": "/home/user/projects",
+  "model": "claude-sonnet",
+  "theme": "apex-dark",
+  "auto_commit": false,
   "max_tool_rounds": 20
 }
 ```
 
-Create `~/.apex/.env` with your API keys:
 ```bash
+# .env (project or ~/.apex/.env)
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=...
 GROQ_API_KEY=gsk_...
-DEEPSEEK_API_KEY=...
 ```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `/agent [name]` | Switch agent (build/plan) |
-| `/agents` | List all agents |
-| `/subagents` | List subagents |
-| `/model <alias>` | Switch model |
-| `/models` | List all models |
-| `/cwd <path>` | Change directory |
-| `/map` | Show repository map |
-| `/git` | Show git status |
-| `/clear` | Clear history |
-| `/save [name]` | Save session |
-| `/load <name]` | Load session |
-| `/help` | Show help |
-
-## Architecture
-
-```
-User Input (prompt_toolkit)
-       │
-       ▼
-  ┌─────────────┐
-  │  main.py    │  ← Parses /commands, routes to agent
-  └──────┬──────┘
-         │
-         ▼
-  ┌─────────────┐       ┌──────────────────┐
-  │  agent.py   │──────▶│  litellm.completion│  ← All models unified
-  └──────┬──────┘       └──────────────────┘
-         │
-         │  tool_calls? ──▶ ToolExecutor (tools.py)
-         │                       ├── read_file
-         │                       ├── write_file
-         │                       ├── edit_file
-         │                       ├── run_command
-         │                       └── ... (31+ tools)
-         │
-         ▼
-  ┌─────────────┐
-  │    ui.py    │  ← Rich rendering
-  └─────────────┘
-```
-
-## Tech Stack
-
-- **Python 3.11+** — Core language
-- **litellm** — Unified model interface (100+ models)
-- **Rich** — Terminal UI
-- **prompt_toolkit** — Interactive REPL
-
-## Testing
-
-APEX uses pytest for testing with high coverage on refactored modules:
-
-```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_refactored_tools.py -v
-
-# Run with coverage report
-pytest --cov=apex --cov-report=term-missing
-
-# Run only refactored module tests
-pytest tests/test_refactored_*.py -v
-```
-
-### Test Structure
-
-- `tests/` — All test files
-- `tests/test_refactored_*.py` — Tests for refactored (testable) modules
-- `tests/test_*.py` — Original tests
-
-### Adding Tests
-
-When adding new functionality:
-1. Create refactored module in `apex/refactored_*.py` for testability
-2. Use dependency injection and factory functions
-3. Target 100% coverage on new modules
-4. Run `ruff check apex/` before committing
-
-## Documentation
-
-See the [docs/](docs/) directory for complete documentation:
-
-| Document | Description |
-|----------|-------------|
-| [docs/installation.md](docs/installation.md) | Installation and setup |
-| [docs/commands.md](docs/commands.md) | CLI commands and REPL shortcuts |
-| [docs/configuration.md](docs/configuration.md) | Config file options |
-| [docs/models.md](docs/models.md) | Supported models and aliases |
-| [docs/tools.md](docs/tools.md) | Built-in tools reference |
-| [docs/agents.md](docs/agents.md) | Multi-agent system |
-| [docs/plugins.md](docs/plugins.md) | Plugin system |
-| [docs/advanced.md](docs/advanced.md) | MCP, custom tools, workspace awareness |
-| [docs/api.md](docs/api.md) | Python API |
-| [docs/examples.md](docs/examples.md) | Complete config examples |
-| [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues and solutions |
-
-## Contributing
-
-Contributions are welcome! Please read the contributing guidelines before submitting PRs.
-
-## License
-
-MIT — Built in Gabon 🇬🇦 for the world.
 
 ---
 
-<p align="center">
-  Made with ❤️ in Gabon 🇬🇦
-</p>
+## 💖 Sponsors
+
+APEX is free and open source. If it saves you time, consider sponsoring.
+
+<div align="center">
+
+### 🥇 Gold Sponsors
+*Your logo here — [become a sponsor](https://github.com/sponsors/ggboykxz)*
+
+### 🥈 Silver Sponsors
+*Your logo here*
+
+### 🥉 Individual Backers
+*[Sponsor APEX →](https://github.com/sponsors/ggboykxz)*
+
+</div>
+
+---
+
+## 🤝 Contributing
+
+```bash
+git clone https://github.com/Ggboykxz/APEX
+cd APEX
+pip install -e ".[dev]"
+pytest
+textual run apex/tui.py --dev
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+---
+
+## 📄 License
+
+MIT — built with ❤️ in Gabon 🇬🇦 by [@Ggboykxz](https://github.com/Ggboykxz)
+
+---
+
+<div align="center">
+<sub>If APEX helps you, please ⭐ the repo — it means everything to an indie developer.</sub>
+</div>

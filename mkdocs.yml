@@ -1,37 +1,97 @@
-site_name: APEX - Agent for Programming EXecution
-site_description: The last coding agent you'll ever need
-site_author: APEX Team
-site_url: https://apex-ai.dev
+site_name: APEX Documentation
+site_url: https://apex-agent.dev/docs
+site_description: Universal AI coding agent — every model, one terminal
+site_author: Ggboykxz
+repo_url: https://github.com/Ggboykxz/APEX
+repo_name: Ggboykxz/APEX
+edit_uri: edit/main/docs/
 
 theme:
   name: material
   palette:
-    - scheme: default
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
       primary: cyan
       accent: cyan
-    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
       primary: cyan
       accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  logo: assets/apex.svg
+  favicon: assets/favicon.ico
   features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
     - navigation.instant
+    - navigation.indexes
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - toc.integrate
 
-repo_url: https://github.com/apex-ai/apex
-repo_name: apex-ai/apex
-
-nav:
-  - Home: index.md
-  - Installation: installation.md
-  - Configuration: configuration.md
-  - Commands: commands.md
-  - Tools: tools.md
-  - Models: models.md
-  - API Reference: api.md
+plugins:
+  - search:
+      separator: '[\s\-\.]+'
+  - social:
+      cards_layout_options:
+        background_color: "#0d1117"
+        color: "#00e5ff"
+  - git-revision-date-localized:
+      enable_creation_date: true
 
 markdown_extensions:
   - admonition
-  - codehilite
-  - toc:
-      permalink: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.emoji:
+      emoji_index: flang
+  - attr_list
+  - md_in_html
 
-plugins:
-  - search
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+  - Guides:
+      - Models: guides/models.md
+      - Using Tools: guides/tools.md
+      - TUI Interface: guides/tui.md
+      - Tips & Tricks: guides/tips.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Config File: reference/config.md
+      - API: reference/api.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Ggboykxz/APEX
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/apex
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/apex_agent
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+  version:
+    provider: mike
+
+copyright: "© 2024-2026 APEX. Built with ❤️ in Gabon 🇬🇦"

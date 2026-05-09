@@ -2,141 +2,71 @@
 
 Thank you for your interest in contributing to APEX! This guide will help you get started.
 
-## Code of Conduct
-
-Please be respectful and professional. We're building a tool for developers worldwide.
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.11+
-- pip or pipx
-- Git
-
-### Development Setup
+## Development Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/Ggboykxz/APEX.git
+git clone https://github.com/Ggboykxz/APEX
 cd APEX
 
-# Install in development mode
+# Install dependencies
 pip install -e .
 
-# Install dev dependencies (testing, linting)
+# Install dev dependencies
 pip install -e ".[dev]"
 
-# Verify installation
-apex --version
+# Run tests
+pytest
+
+# Run with coverage
+pytest --cov=apex --cov-report=term-missing
+
+# Lint check
+ruff check apex/
 ```
 
-## Making Changes
+## Code Style
 
-### 1. Create a branch
+- We use **ruff** for linting and formatting
+- Target Python 3.11+
+- Maximum line length: 100 characters
+- Type hints are encouraged but not strictly required for new code
 
-```bash
-git checkout -b feature/your-feature-name
-# or
-git checkout -b fix/bug-description
-```
+## Testing
 
-### 2. Make your changes
-
-Follow the coding standards:
-- Use type hints on all functions
-- Use f-strings, never % formatting
-- Use pathlib.Path for file operations
-- Use dataclasses for structured data
-
-### 3. Test your changes
+All new features should include tests. We use pytest with:
 
 ```bash
 # Run all tests
 pytest
 
 # Run specific test file
-pytest tests/test_refactored_your_module.py -v
+pytest tests/test_refactored_tools.py -v
 
 # Run with coverage
 pytest --cov=apex --cov-report=term-missing
 ```
 
-### 4. Lint your code
-
-```bash
-# Check for issues
-ruff check apex/
-
-# Auto-fix issues
-ruff check --fix apex/
-```
-
-### 5. Commit your changes
-
-Follow the commit message format:
-
-```
-type(scope): description
-
-Examples:
-- feat(tools): add new file operation
-- fix(agent): handle timeout gracefully
-- refactor(workspace): improve git detection
-- docs(readme): update installation guide
-- test(sandbox): add timeout tests
-- chore(deps): update litellm version
-```
-
 ## Pull Request Process
 
-1. **Ensure tests pass** — All tests must pass before submitting PR
-2. **Update documentation** — If you add features, update relevant docs
-3. **Describe your changes** — Explain what you changed and why
-4. **Keep PRs focused** — One feature/fix per PR
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and add tests
+4. Run `ruff check apex/` to ensure lint passes
+5. Commit with descriptive messages
+6. Push to your fork and submit a PR
 
-## Project Structure
+## Issue Types
 
-```
-APEX/
-├── apex/              # Source code
-│   ├── refactored_*.py  # Testable modules
-│   └── original_*.py    # Original modules
-├── tests/             # Test suite
-├── docs/              # Documentation
-└── pyproject.toml     # Project config
-```
+- 🐛 **Bug**: Something isn't working
+- 💡 **Feature**: New functionality
+- 📖 **Documentation**: Docs improvements
+- 🎨 **Refactoring**: Code improvements
 
-## Testing Guidelines
+## Code of Conduct
 
-- Write tests for new functionality
-- Use descriptive test names
-- Test edge cases and error conditions
-- Target high coverage on new code
-
-### Test File Structure
-
-```python
-# tests/test_refactored_example.py
-import pytest
-from apex.refactored_example import MyClass
-
-class TestMyClass:
-    def test_basic_functionality(self):
-        # Test implementation
-        pass
-    
-    def test_edge_case(self):
-        # Test edge case
-        pass
-```
-
-## Questions?
-
-- Open an issue for bugs or feature requests
-- Join our community (if available)
-- Check existing issues before creating new ones
+Please read our [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before participating.
 
 ---
 
-*Thank you for contributing to APEX! 🇬🇦*
+*Made with ❤️ in Gabon 🇬🇦*
