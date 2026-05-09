@@ -20,8 +20,10 @@ pipx install apex-agent
 ## Install from source
 
 ```bash
-git clone https://github.com/apex-ai/apex.git
-cd apex
+git clone https://github.com/Ggboykxz/APEX.git
+cd APEX
+pip install -e .
+# or with dev dependencies
 pip install -e ".[dev]"
 ```
 
