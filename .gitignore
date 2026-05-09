@@ -12,6 +12,7 @@ node_modules
 
 # testing
 /coverage
+.coverage
 
 # next.js
 /.next/
@@ -19,6 +20,7 @@ node_modules
 
 # production
 /build
+/dist/
 
 # misc
 .DS_Store
@@ -31,24 +33,68 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
 
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-local-*
-.claude
-.z-ai-config
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# Logs
 *.log
 dev.log
 dev.out.log
+server.log
+
+# IDE
+.vscode/
+.idea/
+
+# Local / temp
+local-*
+.claude
+.z-ai-config
 test
 prompt
 
-server.log
 # Skills directory
 /skills/
+
+# Uploads
+/upload/
+
+# Mini services
+/mini-services/
+
+# DB
+db/
+prisma/
+
+# Examples
+/examples/
+
+# Worklog
+worklog.md
+
+# Z scripts
+/.zscripts/
+
+# Caddy
+Caddyfile
