@@ -9,15 +9,16 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-00ff88?style=flat-square)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Ggboykxz/APEX?color=ffaa00&style=flat-square)](https://github.com/Ggboykxz/APEX/stargazers)
 [![Tests](https://img.shields.io/badge/tests-1125%20passing-00ff88?style=flat-square)](https://github.com/Ggboykxz/APEX/actions)
-[![Coverage](https://img.shields.io/badge/coverage-56%25-ffaa00?style=flat-square)](https://github.com/Ggboykxz/APEX)
+[![Security](https://img.shields.io/badge/security-comprehensive-ff6b6b?style=flat-square)](SECURITY.md)
 
 <br/>
 
 [**Install**](#installation) ·
 [**Docs**](https://apex-agent.dev/docs) ·
 [**Demo**](#demo) ·
-[**Models**](#models) ·
-[**Sponsor**](#sponsors)
+[**Security**](#-security) ·
+[**Models**](#-supported-models) ·
+[**Sponsor**](#-sponsors)
 
 </div>
 
@@ -41,8 +42,78 @@
 | Command palette (⌘K) | ✅ | ❌ | ❌ | ❌ |
 | Live token cost tracker | ✅ | ❌ | ❌ | ✅ |
 | Session persistence | ✅ | ❌ | ✅ | ❌ |
+| **Shell security** | ✅ | ❌ | ❌ | ❌ |
+| **Permission system** | ✅ | ❌ | ❌ | ❌ |
+| **Rate limiting** | ✅ | ❌ | ❌ | ❌ |
+| **API key management** | ✅ | ❌ | ❌ | ❌ |
 | `pip install` | ✅ | ❌ | ❌ | ✅ |
 | Built in Africa 🇬🇦 | ✅ | ❌ | ❌ | ❌ |
+
+---
+
+## 🔒 Security
+
+APEX includes comprehensive security features to protect your system:
+
+### Shell Command Analysis
+
+APEX analyzes shell commands before execution and blocks dangerous patterns:
+
+```python
+from apex.shell_security import shell_analyzer
+
+analysis = shell_analyzer.analyze("rm -rf /tmp/test")
+# safe: False, category: DANGEROUS, warnings: [...]
+```
+
+**Blocked patterns:**
+- `rm -rf /` — System-wide deletion
+- `curl | sh` — Download and execute
+- Fork bombs, direct disk writes
+
+### Permission System
+
+Ruleset-based permission control for tool execution:
+
+```python
+from apex.permission import permission_manager, PermissionAction
+
+# Add custom rules
+permission_manager.add_rule("run_command", PermissionAction.ASK)
+
+# Check permission
+can_execute, reason = permission_manager.can_execute_tool("run_command")
+```
+
+### Rate Limiting & API Keys
+
+Database-backed rate limiting with workspace-based API keys:
+
+```python
+from apex.rate_limiter import create_rate_limiter
+from apex.api_key import create_key_manager
+
+limiter = create_rate_limiter(use_sqlite=True)
+manager = create_key_manager()
+
+# Create API key
+workspace = manager.create_workspace("my-project", "user_123")
+api_key, info = manager.create_key(workspace.workspace_id, "prod")
+```
+
+### HTTP API Security
+
+```python
+from apex.http_api import HTTPServer
+
+server = HTTPServer(
+    host="127.0.0.1",
+    port=8080,
+    require_auth=True,  # API key required
+)
+```
+
+See [SECURITY.md](SECURITY.md) for full documentation.
 
 ---
 
