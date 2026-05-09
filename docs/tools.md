@@ -1,20 +1,20 @@
 # Tools
 
-APEX provides 40+ tools for file operations, git, web, testing, LSP, and more.
+APEX provides **40+ built-in tools** for file operations, git, web, testing, LSP, and more. These tools are automatically selected by the AI based on your requests.
 
 ## File Operations
 
-| Tool | Description |
-|------|-------------|
-| `read_file` | Read file with line numbers |
-| `write_file` | Create or overwrite file |
-| `edit_file` | Replace unique string in file |
-| `delete_file` | Delete file or empty directory |
-| `create_directory` | Create directory tree |
-| `list_files` | List directory with file sizes |
-| `search_in_files` | Regex search across files |
-| `glob_search` | Find files by pattern |
-| `apply_patch` | Apply patch/diff to files |
+| Tool | Description | Example |
+|------|-------------|---------|
+| `read_file` | Read file with line numbers | "Read src/main.py" |
+| `write_file` | Create or overwrite file | "Create config.json" |
+| `edit_file` | Replace unique string in file | "Fix the bug on line 42" |
+| `delete_file` | Delete file or directory | "Delete old_file.txt" |
+| `create_directory` | Create directory tree | "Create src/utils/" |
+| `list_files` | List directory contents | "List files in src/" |
+| `search_in_files` | Regex search | "Find all TODO comments" |
+| `glob_search` | Find by pattern | "Find all .py files" |
+| `apply_patch` | Apply diff/patch | "Apply the fix" |
 
 ## Advanced Tools
 
@@ -36,49 +36,41 @@ APEX provides 40+ tools for file operations, git, web, testing, LSP, and more.
 | `undo_info` | Show what can be undone |
 | `redo_info` | Show what can be redone |
 
-## Session Management
-
-| Tool | Description |
-|------|-------------|
-| `share_session` | Share session as link |
-| `bookmark_session` | Bookmark current position |
-| `restore_bookmark` | Restore from bookmark |
-
 ## Git Tools
 
-| Tool | Description |
-|------|-------------|
-| `get_git_status` | Git status output |
-| `get_git_log` | Recent commits |
-| `git_diff` | Working tree diff |
-| `git_branch` | Branch info |
-| `git_remote` | Remote info |
+| Tool | Description | Example |
+|------|-------------|---------|
+| `get_git_status` | Git status output | "Show git status" |
+| `get_git_log` | Recent commits | "Show recent commits" |
+| `git_diff` | Working tree diff | "Show changes" |
+| `git_branch` | Branch info | "Current branch?" |
+| `git_remote` | Remote info | "Show remote URL" |
 
 ## Web Tools
 
-| Tool | Description |
-|------|-------------|
-| `web_search` | Search the web |
-| `fetch_url` | Fetch and clean webpage |
+| Tool | Description | Example |
+|------|-------------|---------|
+| `web_search` | Search the web | "Search for Python asyncio" |
+| `fetch_url` | Fetch webpage content | "Read this documentation" |
 
 ## LSP Tools
 
-| Tool | Description |
-|------|-------------|
-| `lsp_definition` | Go to definition |
-| `lsp_references` | Find references |
-| `lsp_hover` | Show hover info |
-| `lsp_diagnostics` | Get diagnostic errors |
+| Tool | Description | Example |
+|------|-------------|---------|
+| `lsp_definition` | Go to definition | "Go to definition of function" |
+| `lsp_references` | Find references | "Find all references" |
+| `lsp_hover` | Show hover info | "What's this function?" |
+| `lsp_diagnostics` | Get errors/warnings | "Show all errors" |
 
 ## Development Tools
 
-| Tool | Description |
-|------|-------------|
-| `run_command` | Execute shell command |
-| `run_test` | Run pytest/jest/cargo tests |
-| `format_file` | Format with black/prettier/rustfmt |
-| `install_package` | Install pip/npm/cargo package |
-| `run_code` | Run code in sandbox |
+| Tool | Description | Example |
+|------|-------------|---------|
+| `run_command` | Execute shell command | "Run pytest" |
+| `run_test` | Run test suite | "Run all tests" |
+| `format_file` | Format code | "Format this file" |
+| `install_package` | Install dependency | "Install requests" |
+| `run_code` | Run code in sandbox | "Test this snippet" |
 
 ## Plan Workflow
 
@@ -94,16 +86,39 @@ APEX provides 40+ tools for file operations, git, web, testing, LSP, and more.
 | `list_commands` | List available custom commands |
 | `run_command_custom` | Execute custom command |
 
-## Usage
+## How Tools Work
 
-APEX automatically uses tools based on your prompts:
+APEX automatically selects and uses tools based on your natural language requests:
 
 ```
-"Read the file at src/main.py"
+"You can read the file at src/main.py"
 "Create a new file called utils.py with helper functions"
-"Search for all TODO comments"
-"Go to definition of function foo"
+"Search for all TODO comments in the project"
+"Go to the definition of the login function"
 "Find all references to this variable"
+"Show me the git status"
+"Run the tests to see what's failing"
 "Undo the last change"
-"Share this session"
+"Share this session so my colleague can review"
 ```
+
+### Tool Selection
+
+The agent analyzes your request and selects the appropriate tool:
+
+1. **File operations** → For reading/writing/editing files
+2. **Git tools** → For version control operations
+3. **LSP tools** → For code navigation and diagnostics
+4. **Web tools** → For searching and fetching online content
+5. **Development tools** → For running commands and tests
+
+### Error Handling
+
+If a tool fails, APEX will:
+1. Show the error message
+2. Try an alternative approach
+3. Ask for clarification if needed
+
+---
+
+*See [Commands](commands.md) for slash commands and keyboard shortcuts.*
