@@ -89,13 +89,23 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
             if not arg:
                 ui.print_info(f"Current directory: {agent.cwd}")
                 return True
-            new_cwd = Path(arg).expanduser().resolve()
+            try:
+                new_cwd = Path(arg).expanduser().resolve()
+            except (ValueError, OSError) as e:
+                ui.print_error(f"Invalid path: {e}")
+                return True
             if not new_cwd.exists():
                 ui.print_error(f"Directory does not exist: {new_cwd}")
                 return True
             if not new_cwd.is_dir():
                 ui.print_error(f"Not a directory: {new_cwd}")
                 return True
+            try:
+                new_cwd.relative_to(agent.cwd.resolve())
+            except ValueError:
+                if os.environ.get("APEX_ALLOW_OUTSIDE_CWD") != "true":
+                    ui.print_error(f"Path outside working directory not allowed")
+                    return True
             agent.cwd = new_cwd
             os.chdir(new_cwd)
             ui.print_success(f"Changed directory to: {new_cwd}")
