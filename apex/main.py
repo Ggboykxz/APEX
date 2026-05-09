@@ -277,6 +277,91 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
                 ui.print_error("Failed to revert turn")
             return True
 
+        case "/undo":
+            from .git_undo import GitUndoManager
+            gum = GitUndoManager(agent.cwd)
+            if not gum.can_undo():
+                ui.print_info("Nothing to undo")
+                return True
+            steps = int(arg) if arg.isdigit() else 1
+            snapshot_id = gum.undo(steps)
+            if snapshot_id:
+                ui.print_success(f"Undone {steps} step(s)")
+            else:
+                ui.print_error("Failed to undo")
+            return True
+
+        case "/redo":
+            from .git_undo import GitUndoManager
+            gum = GitUndoManager(agent.cwd)
+            if not gum.can_redo():
+                ui.print_info("Nothing to redo")
+                return True
+            steps = int(arg) if arg.isdigit() else 1
+            snapshot_id = gum.redo(steps)
+            if snapshot_id:
+                ui.print_success(f"Redone {steps} step(s)")
+            else:
+                ui.print_error("Failed to redo")
+            return True
+
+        case "/skills":
+            from .skills_system import skills_manager
+            skills = skills_manager.list_skills()
+            if skills:
+                ui.console.print("[cyan]Available skills:[/cyan]")
+                for s in skills:
+                    ui.console.print(f"  {s['name']} - {s['description']}")
+            else:
+                ui.print_info("No skills available")
+            return True
+
+        case "/github":
+            from .github_integration import gh_automation
+            if not arg:
+                ui.print_info("Usage: /github <command> [args]")
+                ui.print_info("Commands: issues, prs, create-issue, create-pr")
+                return True
+            parts = arg.split(maxsplit=1)
+            cmd = parts[0]
+            if cmd == "issues":
+                issues = gh_automation.client.list_issues()
+                for issue in issues:
+                    ui.console.print(f"  #{issue.get('number')}: {issue.get('title')}")
+            elif cmd == "prs":
+                prs = gh_automation.client.list_prs()
+                for pr in prs:
+                    ui.console.print(f"  PR #{pr.get('number')}: {pr.get('title')}")
+            else:
+                ui.print_error(f"Unknown github command: {cmd}")
+            return True
+
+        case "/cost":
+            from .cost_local import cost_tracker
+            usage = agent.usage
+            cost_info = cost_tracker.get_session_cost()
+            ui.console.print("[cyan]Session Cost:[/cyan]")
+            ui.console.print(f"  Input tokens: {cost_info['input_tokens']}")
+            ui.console.print(f"  Output tokens: {cost_info['output_tokens']}")
+            ui.console.print(f"  Total: ${cost_info['total_cost']:.6f}")
+            return True
+
+        case "/local":
+            from .cost_local import local_manager
+            if arg == "enable":
+                local_manager.enable_local()
+                ui.print_success("Local execution enabled")
+            elif arg == "disable":
+                local_manager.disable_local()
+                ui.print_success("Local execution disabled")
+            else:
+                providers = local_manager.get_available_providers()
+                status = "enabled" if local_manager.is_enabled() else "disabled"
+                ui.console.print(f"Local execution: {status}")
+                if providers:
+                    ui.console.print(f"Available: {', '.join(providers.keys())}")
+            return True
+
         case "/sessionsave":
             from .session import SessionManager
             sm = SessionManager()
