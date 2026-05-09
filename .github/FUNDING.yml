@@ -1,44 +1,6 @@
-# APEX - Agent for Programming EXecution
-
-*The last coding agent you'll ever need.*
-
-## About
-
-APEX is a production-grade, terminal-native AI coding agent built in **Gabon 🇬🇦 for the world**. It works with **any LLM** via litellm, making it the most flexible coding assistant available.
-
-## Features
-
-- **85+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, and more
-- **31+ Tools** — File operations, git, web search, code execution, MCP
-- **Multi-Agent System** — Build, Plan, Explore, General agents with permissions
-- **Rich Terminal UI** — Syntax highlighting, markdown, panels
-- **Plugin System** — Extensible with custom tools and security scanner
-- **100% Open Source** — No vendor lock-in
-
-## Why APEX?
-
-| Feature | APEX | OpenCode | Claude Code | Aider |
-|---------|:----:|:--------:|:-----------:|:-----:|
-| All models via one CLI | ✅ | ⚠️ | ❌ | ⚠️ |
-| No cloud lock-in | ✅ | ❌ | ❌ | ✅ |
-| Offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
-| Model switch mid-session | ✅ | ❌ | ❌ | ⚠️ |
-| Plugin system | ✅ | ❌ | ❌ | ❌ |
-| French/multilingual UI | ✅ | ❌ | ❌ | ❌ |
-
-## Quick Start
-
-```bash
-pip install apex-agent
-apex --model gpt-4o "write a hello world program"
-```
-
-## Links
-
-- [Documentation](https://apex-ai.dev/docs)
-- [Discord Community](https://discord.gg/apex)
-- [Report Issues](https://github.com/Ggboykxz/APEX/issues)
-
----
-
-*Built with ❤️ in Gabon 🇬🇦*
+github: ggboykxz
+open_collective: apex-agent
+ko_fi: ggboykxz
+custom:
+  - https://apex-agent.dev/sponsors
+  - https://github.com/sponsors/ggboykxz
