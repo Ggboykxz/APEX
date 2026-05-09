@@ -80,14 +80,25 @@ APEX is built by a Gabonese developer for the world. Every developer deserves a 
 
 ## Documentation
 
-- [Installation](installation.md) — Setup guide
-- [Commands](commands.md) — CLI commands and REPL shortcuts
-- [Configuration](configuration.md) — Config file options
-- [Models](models.md) — Supported models and aliases
-- [Tools](tools.md) — Built-in tools reference
-- [Agents](agents.md) — Multi-agent system
-- [Plugins](plugins.md) — Plugin system
-- [Advanced](advanced.md) — MCP, custom tools, workspace awareness
-- [API Reference](api.md) — Python API
-- [Configuration Examples](examples.md) — Complete config examples
-- [Troubleshooting](troubleshooting.md) — Common issues and solutions
+| Guide | Description |
+|-------|-------------|
+| [Quick Start](quickstart.md) | Get running in 5 minutes |
+| [Installation](installation.md) | Setup guide |
+| [Commands](commands.md) | Slash commands, @mentions, shortcuts |
+| [Configuration](configuration.md) | Config file options |
+| [Models](models.md) | 85+ supported models |
+| [Tools](tools.md) | 40+ built-in tools reference |
+| [Agents](agents.md) | Multi-agent system |
+| [Plugins](plugins.md) | Plugin system |
+| [Advanced](advanced.md) | MCP, custom tools, workspace |
+| [API Reference](api.md) | Python API |
+| [Examples](examples.md) | Complete config examples |
+| [Troubleshooting](troubleshooting.md) | Common issues |
+
+## Contributing
+
+| File | Description |
+|------|-------------|
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Contribution guidelines |
+| [CHANGELOG.md](../CHANGELOG.md) | Version history |
+| [SECURITY.md](../SECURITY.md) | Security policy |
