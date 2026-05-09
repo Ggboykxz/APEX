@@ -1,8 +1,37 @@
 """Refactored sandbox module - More testable."""
 
 import subprocess
+import shlex
+import logging
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+ALLOWED_SHELL_COMMANDS = {
+    "git", "npm", "node", "python", "python3", "pip", "ruff", "pytest",
+    "cargo", "go", "make", "ls", "cat", "head", "tail", "grep", "find",
+    "curl", "wget", "touch", "mkdir", "rm", "cp", "mv", "chmod", "pwd",
+    "echo", "env", "which", "whoami", "uname", "df", "du", "ps", "top"
+}
+
+BLOCKED_PATTERNS = [
+    r"\$\(", r"`", r"\$\{", r"\|\s*sh", r"rm\s+-rf", r"chmod\s+777",
+    r">\s*/etc/", r"curl.*-X\s+(POST|PUT|DELETE)", r"wget.*--execute"
+]
+
+
+def _check_command_safety(command: str) -> tuple[bool, str]:
+    import re
+    for pattern in BLOCKED_PATTERNS:
+        if re.search(pattern, command):
+            return False, f"Blocked pattern: {pattern}"
+    
+    parts = command.strip().split()
+    if parts and parts[0] not in ALLOWED_SHELL_COMMANDS:
+        return False, f"Command '{parts[0]}' not allowed"
+    
+    return True, ""
 
 
 class CodeExecutor:
@@ -51,6 +80,11 @@ class CodeExecutor:
     
     def execute_shell(self, command: str) -> str:
         """Execute shell command."""
+        safe, msg = _check_command_safety(command)
+        if not safe:
+            logger.warning(f"Blocked shell command: {msg}")
+            return f"ERROR: {msg}"
+        
         try:
             result = subprocess.run(
                 command, shell=True, cwd=self.cwd, 
@@ -62,6 +96,7 @@ class CodeExecutor:
         except subprocess.TimeoutExpired:
             return "ERROR: Command timed out"
         except Exception as e:
+            logger.error(f"Shell execution error: {e}")
             return f"ERROR: {e}"
 
 
@@ -102,6 +137,11 @@ class ShellSession:
     
     def run(self, command: str, cwd: Optional[str] = None) -> str:
         """Run a shell command."""
+        safe, msg = _check_command_safety(command)
+        if not safe:
+            logger.warning(f"Blocked shell command in session: {msg}")
+            return f"ERROR: {msg}"
+        
         work_dir = Path(cwd) if cwd else self.cwd
         try:
             result = subprocess.run(
@@ -112,6 +152,7 @@ class ShellSession:
         except subprocess.TimeoutExpired:
             return "ERROR: Command timed out"
         except Exception as e:
+            logger.error(f"Shell session error: {e}")
             return f"ERROR: {e}"
     
     def close(self) -> None:

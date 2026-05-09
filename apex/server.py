@@ -5,20 +5,47 @@ Can be run with Bun/Node.js or standalone Python.
 
 import json
 import asyncio
+import hashlib
+import secrets
+import logging
+import os
 from datetime import datetime
-import uuid
+from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class APEXClient:
     """Represents a connected client."""
+    
+    _rate_limit = 60
+    _window = 60
+    _request_times: dict[str, list[float]] = {}
 
-    def __init__(self, client_id: str, name: str = "anonymous"):
+    def __init__(self, client_id: str, name: str = "anonymous", token: Optional[str] = None):
         self.id = client_id
         self.name = name
+        self.token = token
         self.connected_at = datetime.now().isoformat()
         self.last_activity = datetime.now().isoformat()
         self.model = "gpt-4o-mini"
         self.agent_mode = "build"
+    
+    def rate_check(self) -> bool:
+        now = datetime.now().timestamp()
+        if self.id not in self._request_times:
+            self._request_times[self.id] = []
+        
+        self._request_times[self.id] = [
+            t for t in self._request_times[self.id]
+            if now - t < self._window
+        ]
+        
+        if len(self._request_times[self.id]) >= self._rate_limit:
+            return False
+        
+        self._request_times[self.id].append(now)
+        return True
 
     def to_dict(self) -> dict:
         return {
@@ -31,27 +58,60 @@ class APEXClient:
         }
 
 
+class APIKeyManager:
+    def __init__(self):
+        self._tokens: dict[str, dict] = {}
+        tokens_env = os.environ.get("APEX_SERVER_TOKENS", "")
+        if tokens_env:
+            for token in tokens_env.split(","):
+                token = token.strip()
+                if token:
+                    token_hash = hashlib.sha256(token.encode()).hexdigest()
+                    self._tokens[token_hash] = {
+                        "token": token,
+                        "created_at": datetime.now().timestamp()
+                    }
+        self._require_auth = bool(self._tokens) or os.environ.get("APEX_REQUIRE_AUTH", "").lower() == "true"
+    
+    def is_valid(self, token: str) -> bool:
+        if not self._require_auth:
+            return True
+        if not token:
+            return False
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        return token_hash in self._tokens
+
+
 class APEXServer:
     """Multi-client APEX server with WebSocket support."""
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 8080):
+    def __init__(self, host: str = "127.0.0.1", port: int = 8080):
         self.host = host
         self.port = port
         self.clients: dict[str, APEXClient] = {}
         self._agent = None
         self._runner = None
         self._websockets = set()
+        self._key_manager = APIKeyManager()
 
     def set_agent(self, agent):
         """Set the agent instance for this server."""
         self._agent = agent
 
-    async def handle_websocket(self, ws, path: str = "/ws"):
+    async def handle_websocket(self, ws, path: str = "/ws", token: Optional[str] = None):
         """Handle WebSocket connections."""
+        if self._key_manager._require_auth and not self._key_manager.is_valid(token):
+            logger.warning(f"Unauthorized WebSocket connection attempt")
+            await ws.send_json({"type": "error", "message": "Unauthorized"})
+            await ws.close()
+            return
+        
+        import uuid
         client_id = str(uuid.uuid4())
-        client = APEXClient(client_id)
+        client = APEXClient(client_id, token=token)
         self.clients[client_id] = client
         self._websockets.add(ws)
+        logger.info(f"Client {client_id} connected")
 
         try:
             await ws.send_json({
@@ -61,14 +121,18 @@ class APEXServer:
             })
 
             async for msg in ws:
+                if not client.rate_check():
+                    await ws.send_json({"type": "error", "message": "Rate limit exceeded"})
+                    continue
                 if isinstance(msg, str):
                     await self._handle_message(client_id, msg, ws)
 
         except Exception as e:
-            print(f"WebSocket error: {e}")
+            logger.error(f"WebSocket error for client {client_id}: {e}")
         finally:
             self.clients.pop(client_id, None)
             self._websockets.discard(ws)
+            logger.info(f"Client {client_id} disconnected")
 
     async def _handle_message(self, client_id: str, msg: str, ws):
         """Handle incoming WebSocket message."""
@@ -103,8 +167,10 @@ class APEXServer:
             self.clients[client_id].last_activity = datetime.now().isoformat()
 
         except json.JSONDecodeError:
+            logger.warning(f"Invalid JSON from client {client_id}: {msg[:100]}")
             await ws.send_json({"type": "error", "message": "Invalid JSON"})
         except Exception as e:
+            logger.error(f"Error handling message from {client_id}: {e}")
             await ws.send_json({"type": "error", "message": str(e)})
 
     async def _process_chat(self, client_id: str, data: dict) -> dict:
@@ -136,11 +202,14 @@ class APEXServer:
 
     async def broadcast(self, message: dict):
         """Broadcast message to all connected clients."""
+        failed = set()
         for ws in self._websockets:
             try:
                 await ws.send_json(message)
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to broadcast to client: {e}")
+                failed.add(ws)
+        self._websockets -= failed
 
     async def get_status(self) -> dict:
         """Get server status."""

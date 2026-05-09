@@ -3,6 +3,17 @@
 from pathlib import Path
 from typing import Callable
 from dataclasses import dataclass
+import logging
+import re
+
+logger = logging.getLogger(__name__)
+
+ALLOWED_COMMANDS = {
+    "git", "npm", "node", "python", "python3", "pip", "ruff", "pytest",
+    "cargo", "go", "make", "ls", "cat", "head", "tail", "grep", "find",
+    "curl", "wget", "touch", "mkdir", "rm", "cp", "mv", "chmod", "pwd",
+    "echo", "env", "which", "whoami", "uname", "df", "du", "ps"
+}
 
 
 @dataclass
@@ -85,12 +96,26 @@ def load_custom_tools(config_path: Path) -> None:
             command = tool_config.get("command", "")
             cwd = tool_config.get("cwd", ".")
 
+            parts = command.strip().split()
+            if parts and parts[0] not in ALLOWED_COMMANDS:
+                logger.warning(f"Custom tool '{tool_name}' blocked: command '{parts[0]}' not in allowlist")
+                continue
+
             def make_handler(cmd: str, wd: str):
                 def handler(args: dict) -> str:
                     import subprocess
                     try:
+                        safe_cmd = cmd.format(**args)
+                        parts_check = safe_cmd.strip().split()
+                        if parts_check and parts_check[0] not in ALLOWED_COMMANDS:
+                            return f"ERROR: Command '{parts_check[0]}' not allowed"
+                        
+                        for pattern in [r"\$\(", r"`", r"rm\s+-rf", r"chmod\s+777"]:
+                            if re.search(pattern, safe_cmd):
+                                return f"ERROR: Dangerous pattern blocked"
+                        
                         result = subprocess.run(
-                            cmd.format(**args),
+                            safe_cmd,
                             shell=True,
                             cwd=wd,
                             capture_output=True,
@@ -99,6 +124,7 @@ def load_custom_tools(config_path: Path) -> None:
                         )
                         return result.stdout or result.stderr or "[no output]"
                     except Exception as e:
+                        logger.error(f"Custom tool '{tool_name}' error: {e}")
                         return f"ERROR: {e}"
                 return handler
 
@@ -109,4 +135,4 @@ def load_custom_tools(config_path: Path) -> None:
                 handler=make_handler(command, cwd)
             )
     except Exception as e:
-        print(f"Failed to load custom tools: {e}")
+        logger.error(f"Failed to load custom tools: {e}")

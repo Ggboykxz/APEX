@@ -113,8 +113,8 @@ class DatabaseManager:
     def get_connection_string(self, db_type: str) -> str:
         strings = {
             "sqlite": "sqlite:///db.sqlite",
-            "postgres": "postgresql://user:pass@localhost:5432/db",
-            "mysql": "mysql://user:pass@localhost:3306/db",
+            "postgres": "postgresql://user:password@localhost:5432/db",
+            "mysql": "mysql://user:password@localhost:3306/db",
             "mongodb": "mongodb://localhost:27017/db",
         }
         return strings.get(db_type, "")
