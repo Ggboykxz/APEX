@@ -2,12 +2,17 @@
 
 import base64
 import json
+import logging
 import os
 import re
 import subprocess
 from pathlib import Path
 from typing import Any
 import asyncio
+
+from .shell_security import shell_analyzer, CommandCategory
+
+logger = logging.getLogger(__name__)
 
 TOOL_SCHEMAS = [
     {
@@ -1498,6 +1503,21 @@ class ToolExecutor:
 
     def _execute_run_command(self, args: dict[str, Any]) -> str:
         command = args["command"]
+
+        analysis = shell_analyzer.analyze(command)
+
+        if analysis.category == CommandCategory.DANGEROUS:
+            logger.warning(f"DANGEROUS command blocked: {command}")
+            return f"ERROR: DANGEROUS command blocked: {'; '.join(analysis.warnings)}"
+
+        if analysis.requires_confirmation and analysis.category not in [
+            CommandCategory.WORKING_DIR,
+            CommandCategory.FILE_READ,
+            CommandCategory.BUILD,
+        ]:
+            logger.warning(f"Restricted command: {command}")
+            return f"WARNING: This command requires confirmation. Category: {analysis.category.value}, Warnings: {'; '.join(analysis.warnings)}"
+
         try:
             result = subprocess.run(
                 command,
