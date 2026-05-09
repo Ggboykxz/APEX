@@ -12,6 +12,17 @@ from .config import Config, MODELS
 from .tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
 from .ui import UI
 from .agents import agent_manager
+from .permission import permission_manager, get_tool_permission
+
+from .permission import PermissionRequestDenied
+
+
+class PermissionRequestDenied(Exception):
+    def __init__(self, tool_name: str, permission: str, request_id: str):
+        self.tool_name = tool_name
+        self.permission = permission
+        self.request_id = request_id
+        super().__init__(f"Permission required for {tool_name}: {permission}")
 
 
 class Agent:
@@ -23,9 +34,11 @@ class Agent:
         self._ui = UI()
         self.history: list[dict[str, Any]] = []
         self._usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        self._pending_permissions: dict[str, dict] = {}
 
         self._current_agent = "build"
         self._set_agent_system_prompt()
+        permission_manager.initialize()
 
     def _set_agent_system_prompt(self) -> None:
         agent_config = agent_manager.get(self._current_agent)
@@ -82,7 +95,56 @@ class Agent:
         self._usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
     def _check_tool_permission(self, tool_name: str) -> tuple[bool, str]:
-        return agent_manager.can_execute_tool(self._current_agent, tool_name)
+        permission = get_tool_permission(tool_name)
+        can_execute, reason = permission_manager.can_execute_tool(tool_name)
+        return can_execute, reason
+
+    def _request_permission(self, tool_name: str, tool_args: dict, tc_id: str) -> str:
+        """Request permission for a tool."""
+        permission = get_tool_permission(tool_name)
+        request_id = permission_manager.request_permission(
+            tool_name=tool_name,
+            args=tool_args,
+            permission=permission,
+        )
+        self._pending_permissions[request_id] = {
+            "tool_name": tool_name,
+            "tool_args": tool_args,
+            "tc_id": tc_id,
+        }
+        return request_id
+
+    def approve_permission(self, request_id: str, remember: bool = False, expires_in: int | None = None) -> bool:
+        """Approve a pending permission request."""
+        if request_id not in self._pending_permissions:
+            return False
+        result = permission_manager.approve_request(request_id, remember=remember, expires_in=expires_in)
+        if result:
+            del self._pending_permissions[request_id]
+        return result
+
+    def deny_permission(self, request_id: str) -> bool:
+        """Deny a pending permission request."""
+        if request_id not in self._pending_permissions:
+            return False
+        result = permission_manager.deny_request(request_id)
+        if result:
+            del self._pending_permissions[request_id]
+        return result
+
+    def get_pending_permissions(self) -> list[dict]:
+        """Get all pending permission requests."""
+        pending = permission_manager.get_pending_requests()
+        return [
+            {
+                "request_id": req.request_id,
+                "tool_name": req.tool_name,
+                "permission": req.permission,
+                "args": req.args,
+                "timestamp": req.timestamp,
+            }
+            for req in pending
+        ]
 
     def _parse_subagent_invocation(self, user_input: str) -> tuple[str | None, str]:
         match = re.match(r"^@(\w+)\s+(.+)$", user_input.strip())
