@@ -1,6 +1,5 @@
 """Tests for APEX MCP support."""
 
-import pytest
 from apex.mcp import MCPServerConfig, MCPClient, MCPManager, mcp_manager, MCPResource, MCPTool
 
 

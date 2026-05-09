@@ -1,7 +1,6 @@
 """Extended tests for APEX tools - git, web, and more."""
 
 import pytest
-from pathlib import Path
 from apex.tools import ToolExecutor, TOOL_SCHEMAS
 
 
@@ -107,7 +106,6 @@ def test_get_repo_map(executor, tmp_path):
 
 
 def test_read_image(executor, tmp_path):
-    from pathlib import Path
     img_path = tmp_path / "test.png"
     img_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"x" * 100)
 

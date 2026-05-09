@@ -1,7 +1,5 @@
 """Tests for refactored slash module."""
 
-import pytest
-from unittest.mock import MagicMock
 
 from apex.refactored_slash import (
     Command, SlashCommandManager, create_command_manager

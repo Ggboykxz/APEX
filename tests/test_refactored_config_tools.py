@@ -1,8 +1,6 @@
 """Tests for refactored config_tools module."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from apex.refactored_config_tools import (
     CustomTool, CustomToolManager,

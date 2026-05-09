@@ -1,9 +1,8 @@
 """Tests for refactored main module."""
 
-import pytest
 from argparse import Namespace
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from apex.refactored_main import (
     create_parser,

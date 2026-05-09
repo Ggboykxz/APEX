@@ -1,7 +1,6 @@
 """Tests for APEX new tools - task, preview_edit, clipboard, ask_user."""
 
 import pytest
-from pathlib import Path
 from apex.tools import ToolExecutor
 
 

@@ -1,8 +1,5 @@
 """Tests for refactored commands module."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock
 
 from apex.refactored_commands import (
     Command, CommandManager, PlanApproval,

@@ -1,6 +1,5 @@
 """Tests for APEX multi-agent system."""
 
-import pytest
 from apex.agents import (
     AgentConfig,
     AgentManager,
@@ -8,7 +7,6 @@ from apex.agents import (
     agent_manager,
     PERMISSION_ALLOW,
     PERMISSION_DENY,
-    PERMISSION_ASK,
 )
 
 

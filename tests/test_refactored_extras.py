@@ -1,8 +1,5 @@
 """Tests for refactored extras module."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock
 
 from apex.refactored_extras import (
     ShellExpander, EnvManager, Task, TaskQueue, HistorySearch,
@@ -115,7 +112,7 @@ class TestEnvManager:
         manager = EnvManager(str(tmp_path), env_provider=lambda: {})
         manager.set("KEY", "value")
         
-        filepath = manager.save_to_file(".env.test")
+        manager.save_to_file(".env.test")
         
         assert (tmp_path / ".env.test").exists()
         assert "KEY=value" in (tmp_path / ".env.test").read_text()

@@ -1,8 +1,7 @@
 """Tests for refactored sandbox module."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from apex.refactored_sandbox import (
     CodeExecutor, CodeSandbox, ShellSession,

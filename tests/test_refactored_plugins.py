@@ -1,7 +1,5 @@
 """Tests for refactored plugins module."""
 
-import pytest
-from pathlib import Path
 from unittest.mock import Mock
 
 from apex.refactored_plugins import (

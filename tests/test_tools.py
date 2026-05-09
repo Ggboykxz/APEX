@@ -1,7 +1,6 @@
 """Tests for APEX tools."""
 
 import pytest
-from pathlib import Path
 
 from apex.tools import ToolExecutor, TOOL_SCHEMAS
 

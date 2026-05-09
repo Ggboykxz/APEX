@@ -1,9 +1,8 @@
 """Tests for refactored session module."""
 
 import json
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from datetime import datetime
 
 from apex.refactored_session import (
