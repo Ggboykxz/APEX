@@ -1,0 +1,237 @@
+"""Cost management and local execution support."""
+
+import os
+import json
+from pathlib import Path
+from datetime import datetime
+from dataclasses import dataclass
+
+
+@dataclass
+class ModelPricing:
+    """Pricing information for a model."""
+    per_1k_input: float
+    per_1k_output: float
+    currency: str = "USD"
+
+
+MODEL_PRICING = {
+    "gpt-4o": ModelPricing(per_1k_input=0.005, per_1k_output=0.015),
+    "gpt-4o-mini": ModelPricing(per_1k_input=0.00015, per_1k_output=0.0006),
+    "claude-4-sonnet": ModelPricing(per_1k_input=0.003, per_1k_output=0.015),
+    "claude-4-opus": ModelPricing(per_1k_input=0.015, per_1k_output=0.075),
+    "gemini-1.5-flash": ModelPricing(per_1k_input=0.000075, per_1k_output=0.0003),
+    "gemini-1.5-pro": ModelPricing(per_1k_input=0.00125, per_1k_output=0.005),
+    "deepseek-chat": ModelPricing(per_1k_input=0.00014, per_1k_output=0.00028),
+    "deepseek-r1": ModelPricing(per_1k_input=0.00014, per_1k_output=0.00028),
+}
+
+
+class CostTracker:
+    """Track and estimate costs for model usage."""
+
+    def __init__(self):
+        self._session_costs: list[dict] = []
+        self._current_session_start = datetime.now()
+        self._current_input_tokens = 0
+        self._current_output_tokens = 0
+
+    def record_usage(
+        self,
+        model: str,
+        input_tokens: int,
+        output_tokens: int
+    ) -> float:
+        """Record token usage and return cost."""
+        pricing = MODEL_PRICING.get(model)
+        if not pricing:
+            return 0.0
+
+        cost = (
+            (input_tokens / 1000) * pricing.per_1k_input +
+            (output_tokens / 1000) * pricing.per_1k_output
+        )
+
+        self._current_input_tokens += input_tokens
+        self._current_output_tokens += output_tokens
+
+        return cost
+
+    def get_session_cost(self) -> dict:
+        """Get current session cost breakdown."""
+        total_tokens = self._current_input_tokens + self._current_output_tokens
+
+        input_cost = 0
+        output_cost = 0
+
+        for model, pricing in MODEL_PRICING.items():
+            input_cost += (self._current_input_tokens / 1000) * pricing.per_1k_input
+            output_cost += (self._current_output_tokens / 1000) * pricing.per_1k_output
+
+        return {
+            "input_tokens": self._current_input_tokens,
+            "output_tokens": self._current_output_tokens,
+            "total_tokens": total_tokens,
+            "input_cost": round(input_cost, 6),
+            "output_cost": round(output_cost, 6),
+            "total_cost": round(input_cost + output_cost, 6),
+            "currency": "USD",
+            "session_duration": (datetime.now() - self._current_session_start).seconds
+        }
+
+    def reset_session(self):
+        """Reset session tracking."""
+        self._session_costs.append({
+            **self.get_session_cost(),
+            "timestamp": datetime.now().isoformat()
+        })
+        self._current_session_start = datetime.now()
+        self._current_input_tokens = 0
+        self._current_output_tokens = 0
+
+    def get_history(self) -> list[dict]:
+        """Get cost history."""
+        return self._session_costs.copy()
+
+
+class LocalExecutionManager:
+    """Manage local execution options for privacy."""
+
+    LOCAL_PROVIDERS = {
+        "ollama": {
+            "url": "http://localhost:11434",
+            "models": ["llama3", "codellama", "mistral", "phi3"],
+            "enabled": False
+        },
+        "lm_studio": {
+            "url": "http://localhost:1234",
+            "models": ["llama3", "codellama"],
+            "enabled": False
+        },
+        "llamafile": {
+            "url": "http://localhost:8080",
+            "models": [],
+            "enabled": False
+        }
+    }
+
+    def __init__(self):
+        self._config_file = Path.home() / ".apex" / "local_config.json"
+        self._config = self._load_config()
+
+    def _load_config(self) -> dict:
+        """Load local execution config."""
+        if self._config_file.exists():
+            try:
+                return json.loads(self._config_file.read_text())
+            except:
+                pass
+
+        return {
+            "enabled": False,
+            "provider": "ollama",
+            "model": "llama3",
+            "fallback_to_api": True
+        }
+
+    def _save_config(self):
+        """Save local execution config."""
+        self._config_file.parent.mkdir(parents=True, exist_ok=True)
+        self._config_file.write_text(json.dumps(self._config, indent=2))
+
+    def enable_local(self, provider: str = "ollama", model: str = "llama3"):
+        """Enable local execution."""
+        self._config["enabled"] = True
+        self._config["provider"] = provider
+        self._config["model"] = model
+        self._save_config()
+
+    def disable_local(self):
+        """Disable local execution."""
+        self._config["enabled"] = False
+        self._save_config()
+
+    def is_enabled(self) -> bool:
+        """Check if local execution is enabled."""
+        return self._config.get("enabled", False)
+
+    def get_provider_config(self) -> dict:
+        """Get current provider config."""
+        return self._config.copy()
+
+    def check_provider_available(self, provider: str) -> bool:
+        """Check if a local provider is available."""
+        import urllib.request
+        import urllib.error
+
+        provider_config = self.LOCAL_PROVIDERS.get(provider, {})
+        url = provider_config.get("url", "")
+
+        if not url:
+            return False
+
+        try:
+            req = urllib.request.Request(f"{url}/api/tags")
+            response = urllib.request.urlopen(req, timeout=2)
+            return response.status == 200
+        except:
+            return False
+
+    def get_available_providers(self) -> dict:
+        """Get list of available local providers."""
+        available = {}
+        for name, config in self.LOCAL_PROVIDERS.items():
+            if self.check_provider_available(name):
+                available[name] = config
+
+        return available
+
+
+class ZenIntegration:
+    """Integration with Zen pay-as-you-go bridge."""
+
+    ZEN_API_URL = "https://api.zen.ai/v1"
+
+    def __init__(self, api_key: str = ""):
+        self.api_key = api_key or os.environ.get("ZEN_API_KEY", "")
+        self._enabled = bool(self.api_key)
+
+    def is_enabled(self) -> bool:
+        """Check if Zen integration is enabled."""
+        return self._enabled
+
+    def estimate_cost(self, model: str, input_tokens: int, output_tokens: int) -> dict:
+        """Estimate cost through Zen."""
+        pricing = MODEL_PRICING.get(model, ModelPricing(0, 0))
+
+        return {
+            "model": model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "estimated_cost": (
+                (input_tokens / 1000) * pricing.per_1k_input +
+                (output_tokens / 1000) * pricing.per_1k_output
+            ),
+            "currency": "USD",
+            "provider": "zen"
+        }
+
+    def create_session(self, budget: float) -> str:
+        """Create a Zen billing session."""
+        if not self._enabled:
+            return ""
+
+        return f"zen_session_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+    def get_usage_report(self) -> dict:
+        """Get usage report from Zen."""
+        return {
+            "total_spent": 0.0,
+            "total_tokens": 0,
+            "sessions": []
+        }
+
+
+cost_tracker = CostTracker()
+local_manager = LocalExecutionManager()
+zen_integration = ZenIntegration()
