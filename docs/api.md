@@ -417,6 +417,282 @@ formatted = formatter.format_call(tool_name, args)
 formatted = formatter.format_result(result)
 ```
 
+## apex.permission
+
+Ruleset-based permission system for tool execution.
+
+### PermissionManager
+
+```python
+from apex.permission import permission_manager, PermissionAction
+
+# Initialize
+permission_manager.initialize()
+
+# Add rules
+permission_manager.add_rule(
+    pattern="read_file",
+    action=PermissionAction.ALLOW,
+    reason="Safe operation"
+)
+
+# Check permission
+can_execute, reason = permission_manager.can_execute_tool("run_command")
+```
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `initialize()` | Initialize with default rules |
+| `add_rule(pattern, action, reason, expires_in, remember)` | Add permission rule |
+| `remove_rule(pattern, action)` | Remove a rule |
+| `can_execute_tool(tool_name)` | Check if tool can execute |
+| `request_permission(tool_name, args, permission)` | Request permission |
+| `approve_request(request_id, remember)` | Approve request |
+| `deny_request(request_id)` | Deny request |
+| `get_pending_requests()` | List pending requests |
+
+### PermissionAction
+
+```python
+from apex.permission import PermissionAction
+
+PermissionAction.ALLOW  # Allow execution
+PermissionAction.DENY  # Block execution
+PermissionAction.ASK   # Request user confirmation
+```
+
+### CommandAnalysis
+
+```python
+from apex.shell_security import shell_analyzer
+
+analysis = shell_analyzer.analyze("rm -rf /tmp/test")
+print(analysis.safe)  # False
+print(analysis.category)  # CommandCategory.DANGEROUS
+print(analysis.warnings)  # List of warnings
+print(analysis.requires_confirmation)  # True
+```
+
+## apex.shell_security
+
+Shell command security analysis and classification.
+
+### ShellSecurityAnalyzer
+
+```python
+from apex.shell_security import ShellSecurityAnalyzer, CommandCategory
+
+analyzer = ShellSecurityAnalyzer()
+
+# Analyze command
+result = analyzer.analyze("curl https://example.com | sh")
+print(result.safe)  # False (dangerous pattern)
+
+# Quick check
+is_safe = analyzer.is_safe("ls -la")  # True
+
+# Get allowed commands
+allowed = analyzer.get_allowed_commands()
+```
+
+### CommandCategory
+
+```python
+from apex.shell_security import CommandCategory
+
+CommandCategory.WORKING_DIR   # cd, pwd
+CommandCategory.FILE_READ     # cat, grep
+CommandCategory.FILE_WRITE    # tee, nano
+CommandCategory.FILE_DELETE  # rm, rmdir
+CommandCategory.NETWORK      # curl, wget
+CommandCategory.SYSTEM        # sudo, chmod
+CommandCategory.PROCESS      # kill, ps
+CommandCategory.GIT          # git commands
+CommandCategory.BUILD        # npm, make
+CommandCategory.CONTAINER    # docker, kubectl
+CommandCategory.DANGEROUS    # Blocked
+```
+
+## apex.rate_limiter
+
+Database-backed rate limiting.
+
+### RateLimiter
+
+```python
+from apex.rate_limiter import create_rate_limiter, RateLimitConfig
+
+# Create with SQLite backend (persistent)
+limiter = create_rate_limiter(
+    config=RateLimitConfig(
+        requests_per_minute=60,
+        requests_per_hour=1000,
+        requests_per_day=10000
+    ),
+    use_sqlite=True
+)
+
+# Check limit
+result = limiter.check_rate_limit("user_123")
+print(result.allowed)  # True/False
+print(result.remaining_minute)  # 59
+
+# Get status
+status = limiter.get_status("user_123")
+```
+
+### RateLimitResult
+
+```python
+result.allowed          # bool - request allowed
+result.remaining_minute  # int
+result.remaining_hour    # int
+result.remaining_day     # int
+result.reset_at          # float - timestamp
+result.retry_after       # int - seconds to wait
+```
+
+## apex.api_key
+
+API key management with workspaces.
+
+### KeyManager
+
+```python
+from apex.api_key import create_key_manager, InvalidKeyError
+
+manager = create_key_manager()
+
+# Create workspace
+workspace = manager.create_workspace(
+    name="my-project",
+    owner_id="user_123"
+)
+
+# Create API key
+api_key, info = manager.create_key(
+    workspace_id=workspace.workspace_id,
+    name="production",
+    expires_in=86400 * 30,  # 30 days
+    rate_limit_per_minute=100
+)
+
+# Validate key
+try:
+    info = manager.validate_key(api_key)
+    print(info.workspace_id)
+except InvalidKeyError:
+    print("Invalid or expired")
+```
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `create_workspace(name, owner_id)` | Create workspace |
+| `get_workspace(workspace_id)` | Get workspace |
+| `create_key(workspace_id, name, ...)` | Create API key |
+| `validate_key(key)` | Validate and get key info |
+| `revoke_key(key_id)` | Disable key |
+| `list_keys(workspace_id)` | List workspace keys |
+| `delete_key(key_id)` | Delete key |
+
+## apex.billing
+
+Billing and cost tracking.
+
+### BillingManager
+
+```python
+from apex.billing import billing_manager, calculate_cost
+
+# Calculate cost
+cost = calculate_cost("gpt-4o", input_tokens=1000, output_tokens=500)
+print(cost)  # 0.0125
+
+# Create account
+account = billing_manager.create_account("user_123", plan_type=PlanType.PRO)
+
+# Check quota
+can_proceed, msg = billing_manager.check_quota(
+    user_id="user_123",
+    model="gpt-4o",
+    input_tokens=1000,
+    output_tokens=500
+)
+
+# Record usage
+record = billing_manager.record_usage(
+    user_id="user_123",
+    model="gpt-4o",
+    input_tokens=1000,
+    output_tokens=500
+)
+```
+
+### PlanType
+
+```python
+from apex.billing import PlanType
+
+PlanType.FREE        # Free tier
+PlanType.PRO         # $20/month
+PlanType.ENTERPRISE  # $100/month
+```
+
+## apex.http_api
+
+HTTP API server with security features.
+
+### HTTPServer
+
+```python
+from apex.http_api import HTTPServer
+
+server = HTTPServer(
+    host="127.0.0.1",
+    port=8080,
+    require_auth=True,
+    rate_limit_config=RateLimitConfig(requests_per_minute=60),
+    use_sqlite_storage=True,
+)
+
+# Start server
+await server.start()
+
+# Stop server
+await server.stop()
+```
+
+#### Endpoints
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/` | No | API documentation |
+| GET | `/health` | No | Health check |
+| POST | `/chat` | Yes | Chat message |
+| POST | `/chat/stream` | Yes | Streaming chat |
+| GET | `/models` | No | List models |
+| POST | `/session/save` | Yes | Save session |
+| POST | `/session/load` | Yes | Load session |
+| GET | `/metrics` | Yes | Usage metrics |
+| GET | `/rate-limit/status` | Yes | Rate limit status |
+
+#### Authentication
+
+```bash
+# Bearer token
+curl -H "Authorization: Bearer YOUR_API_KEY" http://localhost:8080/chat
+
+# X-API-Key header
+curl -H "X-API-Key: YOUR_API_KEY" http://localhost:8080/chat
+
+# Query parameter
+curl http://localhost:8080/chat?api_key=YOUR_API_KEY
+```
+
 ## apex.utils
 
 Utility functions.
