@@ -1,8 +1,7 @@
 """Tests for refactored context module."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from apex.refactored_context import (
     ContextBuilder, get_repo_map, get_git_info, get_language_stats,

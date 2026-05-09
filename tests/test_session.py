@@ -1,8 +1,6 @@
 """Tests for APEX session management."""
 
 import pytest
-import json
-from pathlib import Path
 from apex.session import SessionManager
 from apex.agent import Agent
 from apex.config import Config

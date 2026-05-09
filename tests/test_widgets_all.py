@@ -2,7 +2,6 @@
 
 import pytest
 from textual.app import App
-from textual.widgets import Static, Button, Input
 from apex.widgets import SidebarPane, ChatPane, InputBar, StatusBar
 
 
@@ -39,7 +38,7 @@ class StatusTestApp(App):
 async def test_sidebar_pane_init():
     """Test SidebarPane initializes."""
     app = SidebarTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         sidebar = app.query_one(SidebarPane)
         assert sidebar is not None
         assert sidebar.cwd == "."
@@ -49,7 +48,7 @@ async def test_sidebar_pane_init():
 async def test_sidebar_pane_update_cwd():
     """Test SidebarPane update_cwd method."""
     app = SidebarTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         sidebar = app.query_one(SidebarPane)
         sidebar.update_cwd("/new/path")
         assert sidebar.cwd == "/new/path"
@@ -60,7 +59,7 @@ async def test_sidebar_pane_update_cwd():
 async def test_chat_pane_init():
     """Test ChatPane initializes."""
     app = ChatTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         chat = app.query_one(ChatPane)
         assert chat is not None
         assert chat.messages == []
@@ -70,7 +69,7 @@ async def test_chat_pane_init():
 async def test_chat_pane_add_user_message():
     """Test adding user message (does not raise)."""
     app = ChatTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         chat = app.query_one(ChatPane)
         chat.add_user_message("Hello")
 
@@ -79,7 +78,7 @@ async def test_chat_pane_add_user_message():
 async def test_chat_pane_add_ai_message():
     """Test adding AI message (does not raise)."""
     app = ChatTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         chat = app.query_one(ChatPane)
         chat.add_ai_message("Hi there", "gpt-4o")
 
@@ -88,7 +87,7 @@ async def test_chat_pane_add_ai_message():
 async def test_chat_pane_clear():
     """Test clearing chat."""
     app = ChatTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         chat = app.query_one(ChatPane)
         chat.add_user_message("Hello")
         chat.clear()
@@ -99,7 +98,7 @@ async def test_chat_pane_clear():
 async def test_chat_pane_scroll_end():
     """Test scroll_end method."""
     app = ChatTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         chat = app.query_one(ChatPane)
         chat.scroll_end()
 
@@ -109,7 +108,7 @@ async def test_chat_pane_scroll_end():
 async def test_input_bar_init():
     """Test InputBar initializes."""
     app = InputTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         input_bar = app.query_one(InputBar)
         assert input_bar is not None
         assert input_bar.is_thinking is False
@@ -120,7 +119,7 @@ async def test_input_bar_init():
 async def test_input_bar_set_thinking():
     """Test set_thinking method."""
     app = InputTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         input_bar = app.query_one(InputBar)
         input_bar.set_thinking(True)
         assert input_bar.is_thinking is True
@@ -131,7 +130,7 @@ async def test_input_bar_set_thinking():
 async def test_status_bar_init():
     """Test StatusBar initializes."""
     app = StatusTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         status = app.query_one(StatusBar)
         assert status is not None
 
@@ -140,7 +139,7 @@ async def test_status_bar_init():
 async def test_status_bar_update_status():
     """Test update_status method."""
     app = StatusTestApp()
-    async with app.run_test() as pilot:
+    async with app.run_test() as _:
         status = app.query_one(StatusBar)
         status.update_status(True, "gpt-4o")
         assert status.is_thinking is True

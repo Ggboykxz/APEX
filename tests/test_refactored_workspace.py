@@ -1,7 +1,5 @@
 """Tests for refactored workspace module."""
 
-import pytest
-import tempfile
 import subprocess
 from pathlib import Path
 

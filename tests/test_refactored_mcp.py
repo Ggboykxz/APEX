@@ -1,8 +1,6 @@
 """Tests for refactored MCP module."""
 
-import pytest
 import asyncio
-from pathlib import Path
 
 from apex.refactored_mcp import (
     MCPResource, MCPTool, MCPServerConfig,

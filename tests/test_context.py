@@ -1,6 +1,5 @@
 """Tests for APEX context builder."""
 
-import pytest
 from pathlib import Path
 from apex.context import get_repo_map, get_language_stats, get_git_info, generate_ctags
 

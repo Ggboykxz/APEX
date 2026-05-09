@@ -1,6 +1,5 @@
 """Tests for APEX context manager and sandbox."""
 
-import pytest
 from apex.context_manager import ContextWindow, ConversationManager, AutoSaveManager
 from apex.sandbox import CodeSandbox, ShellSession
 

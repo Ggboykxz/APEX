@@ -1,6 +1,5 @@
 """Tests for widgets/messages.py - Textual message classes."""
 
-import pytest
 from apex.widgets.messages import (
     AgentThinking,
     AgentToolCall,

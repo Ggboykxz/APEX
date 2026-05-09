@@ -1,8 +1,5 @@
 """Tests for refactored telemetry module."""
 
-import pytest
-from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 from apex.refactored_telemetry import (
     EventType, TelemetryEvent, Logger, PerformanceMonitor,

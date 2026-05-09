@@ -1,6 +1,5 @@
 """Tests for refactored TUI modules."""
 
-import pytest
 from apex.refactored_tui_core import (
     TUIState,
     ThemeManager,

@@ -1,8 +1,6 @@
 """Tests for refactored mentions module."""
 
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock
 
 from apex.refactored_mentions import (
     FileMention, AgentMention, MentionParser, FileMentionCompleter,
