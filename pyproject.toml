@@ -56,7 +56,7 @@ dev = [
     "ruff>=0.4.0",
     "mypy>=1.10.0",
     "mkdocs-material>=8.0.0",
-    "mkdocs-git-revision-date-localized>=1.2.0",
+    "mkdocs-git-revision-date-localized-plugin",
 ]
 
 [project.scripts]
