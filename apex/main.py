@@ -271,7 +271,7 @@ async def run_repl_streaming(agent: Agent, ui: UI) -> None:
         history=FileHistory(str(history_file)),
         key_bindings=bindings,
         style=style,
-        prompt_message="› ",
+        message="› ",
     )
 
     ui.show_banner(agent.model, str(agent.cwd), agent.current_agent)
@@ -325,7 +325,7 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
         history=FileHistory(str(history_file)),
         key_bindings=bindings,
         style=style,
-        prompt_message="› ",
+        message="› ",
     )
 
     ui.show_banner(agent.model, str(agent.cwd), agent.current_agent)
