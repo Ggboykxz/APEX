@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="apex-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00e5ff"/>
+      <stop offset="100%" stop-color="#00ff88"/>
+    </linearGradient>
+  </defs>
+  <polygon points="32,4 60,56 4,56" stroke="url(#apex-grad)" stroke-width="4" fill="none" stroke-linejoin="round"/>
+  <polygon points="32,16 50,48 14,48" fill="url(#apex-grad)" opacity="0.15"/>
+  <circle cx="32" cy="40" r="4" fill="url(#apex-grad)"/>
+</svg>
