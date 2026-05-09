@@ -7,7 +7,7 @@ import {
   Github, ExternalLink, Code2, Wrench, Users, Star, GitBranch,
   Cpu, Globe, Lock, Eye, FileCode, Search, Play, Command,
   Layers, Sparkles, Box, Activity, Clock, Heart, BookOpen,
-  Menu, X, ChevronRight, Home, Settings, Puzzle, AlertCircle,
+  Menu, X, ChevronRight, HomeIcon, Settings, Puzzle, AlertCircle,
   ArrowLeft, Hash
 } from 'lucide-react'
 
@@ -853,6 +853,84 @@ const DOC_CONTENT: Record<DocSection, React.ReactNode> = {
 }
 
 
+/* ──────────── SHARED NAV COMPONENT ──────────── */
+
+function NavBar({ pageView, setPageView, scrolled, mobileMenuOpen, setMobileMenuOpen }: {
+  pageView: PageView
+  setPageView: (v: PageView) => void
+  scrolled: boolean
+  mobileMenuOpen: boolean
+  setMobileMenuOpen: (v: boolean) => void
+}) {
+  return (
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      scrolled ? 'bg-background/80 backdrop-blur-xl border-b border-border' : 'bg-transparent'
+    }`}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-16">
+          <button onClick={() => setPageView('landing')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className="w-7 h-7">
+              <defs>
+                <linearGradient id="nav-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stopColor="#00e5ff"/>
+                  <stop offset="100%" stopColor="#00ff88"/>
+                </linearGradient>
+              </defs>
+              <polygon points="32,4 60,56 4,56" stroke="url(#nav-grad)" strokeWidth="4" fill="none" strokeLinejoin="round"/>
+              <circle cx="32" cy="40" r="4" fill="url(#nav-grad)"/>
+            </svg>
+            <span className="font-mono font-bold text-lg">APEX</span>
+          </button>
+
+          <div className="hidden md:flex items-center gap-6">
+            {pageView === 'landing' ? (
+              <>
+                <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+                <a href="#agents" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Agents</a>
+                <a href="#models" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Models</a>
+                <a href="#tools" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tools</a>
+                <button onClick={() => setPageView('docs')} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                  <BookOpen className="w-4 h-4" /> Docs
+                </button>
+              </>
+            ) : (
+              <button onClick={() => setPageView('landing')} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                <HomeIcon className="w-4 h-4" /> Home
+              </button>
+            )}
+            <a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <Github className="w-4 h-4" /> GitHub
+            </a>
+            {pageView === 'landing' && (
+              <a href="#install"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-apex-cyan text-background text-sm font-medium hover:bg-apex-cyan/90 transition-colors">
+                <ArrowRight className="w-3.5 h-3.5" /> Install
+              </a>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 md:hidden">
+            {pageView === 'landing' && (
+              <button onClick={() => setPageView('docs')} className="p-2 text-muted-foreground hover:text-foreground">
+                <BookOpen className="w-5 h-5" />
+              </button>
+            )}
+            {pageView === 'docs' && (
+              <button onClick={() => setPageView('landing')} className="p-2 text-muted-foreground hover:text-foreground">
+                <HomeIcon className="w-5 h-5" />
+              </button>
+            )}
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-muted-foreground hover:text-foreground">
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  )
+}
+
 /* ──────────── MAIN PAGE ──────────── */
 
 export default function Home() {
@@ -886,81 +964,11 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  /* ─── Shared Nav ─── */
-  const Nav = () => (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      scrolled ? 'bg-background/80 backdrop-blur-xl border-b border-border' : 'bg-transparent'
-    }`}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-16">
-          <button onClick={() => setPageView('landing')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className="w-7 h-7">
-              <defs>
-                <linearGradient id="nav-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stopColor="#00e5ff"/>
-                  <stop offset="100%" stopColor="#00ff88"/>
-                </linearGradient>
-              </defs>
-              <polygon points="32,4 60,56 4,56" stroke="url(#nav-grad)" strokeWidth="4" fill="none" strokeLinejoin="round"/>
-              <circle cx="32" cy="40" r="4" fill="url(#nav-grad)"/>
-            </svg>
-            <span className="font-mono font-bold text-lg">APEX</span>
-          </button>
-
-          <div className="hidden md:flex items-center gap-6">
-            {pageView === 'landing' ? (
-              <>
-                <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
-                <a href="#agents" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Agents</a>
-                <a href="#models" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Models</a>
-                <a href="#tools" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tools</a>
-                <button onClick={() => setPageView('docs')} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                  <BookOpen className="w-4 h-4" /> Docs
-                </button>
-              </>
-            ) : (
-              <button onClick={() => setPageView('landing')} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                <Home className="w-4 h-4" /> Home
-              </button>
-            )}
-            <a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <Github className="w-4 h-4" /> GitHub
-            </a>
-            {pageView === 'landing' && (
-              <a href="#install"
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-apex-cyan text-background text-sm font-medium hover:bg-apex-cyan/90 transition-colors">
-                <ArrowRight className="w-3.5 h-3.5" /> Install
-              </a>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 md:hidden">
-            {pageView === 'landing' && (
-              <button onClick={() => setPageView('docs')} className="p-2 text-muted-foreground hover:text-foreground">
-                <BookOpen className="w-5 h-5" />
-              </button>
-            )}
-            {pageView === 'docs' && (
-              <button onClick={() => setPageView('landing')} className="p-2 text-muted-foreground hover:text-foreground">
-                <Home className="w-5 h-5" />
-              </button>
-            )}
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-muted-foreground hover:text-foreground">
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
-        </div>
-      </div>
-    </nav>
-  )
-
-
   /* ─── DOCS VIEW ─── */
   if (pageView === 'docs') {
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <Nav />
+        <NavBar pageView={pageView} setPageView={setPageView} scrolled={scrolled} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
         <div className="flex flex-1 pt-16">
           {/* Sidebar */}
           <aside className={`fixed md:sticky top-16 left-0 bottom-0 z-40 w-64 shrink-0 border-r border-border bg-background overflow-y-auto transition-transform duration-200 ${
@@ -1033,7 +1041,7 @@ export default function Home() {
   /* ─── LANDING VIEW ─── */
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Nav />
+      <NavBar pageView={pageView} setPageView={setPageView} scrolled={scrolled} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
 
       {/* ─── HERO ─── */}
       <section className="relative pt-32 pb-20 overflow-hidden">
