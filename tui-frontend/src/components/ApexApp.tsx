@@ -175,7 +175,7 @@ export function ApexApp() {
           activeModel={activeModel}
           isGenerating={isGenerating}
         />
-        <ToolPanel visible={toolPanelVisible} />
+        <ToolPanel visible={toolPanelVisible} activeAgent={activeAgent} />
       </box>
 
       <StatusBar
@@ -193,6 +193,7 @@ export function ApexApp() {
         onSelect={setActiveModel}
         onClose={() => setModelSelectorVisible(false)}
         activeModel={activeModel}
+        activeAgent={activeAgent}
       />
 
       <HelpPanel
@@ -200,6 +201,7 @@ export function ApexApp() {
         onClose={() => setHelpVisible(false)}
         tab={helpTab}
         onTabChange={setHelpTab}
+        activeAgent={activeAgent}
       />
     </box>
   )

@@ -1,13 +1,27 @@
 import { TextAttributes } from "@opentui/core"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_TOOLS } from "../data/apex-data.js"
-import { APEX_AGENTS } from "../data/apex-data.js"
 
 interface ToolPanelProps {
   visible: boolean
+  activeAgent?: string
 }
 
-export function ToolPanel({ visible }: ToolPanelProps) {
+const CATEGORY_COLORS: Record<string, string> = {
+  File: apexTheme.cyan,
+  Code: apexTheme.green,
+  Shell: apexTheme.warning,
+  Git: "#f97316",
+  Web: "#3b82f6",
+  Database: "#8b5cf6",
+  Docker: "#2496ed",
+  K8s: "#326ce5",
+  Security: apexTheme.error,
+  Analysis: "#ec4899",
+  Cloud: "#f59e0b",
+}
+
+export function ToolPanel({ visible, activeAgent = "coder" }: ToolPanelProps) {
   if (!visible) return null
 
   const categories = Array.from(new Set(APEX_TOOLS.map((t) => t.category)))
@@ -29,7 +43,7 @@ export function ToolPanel({ visible }: ToolPanelProps) {
         <text>
           <span style={{ fg: apexTheme.green, attributes: TextAttributes.BOLD }}>⚡ Tools</span>
           <span style={{ fg: apexTheme.textMuted }}> </span>
-          <span style={{ fg: apexTheme.cyan }}>{totalTools}+</span>
+          <span style={{ fg: apexTheme.cyan }}>{totalTools}</span>
           <span style={{ fg: apexTheme.textMuted }}> available</span>
         </text>
         <text style={{ fg: apexTheme.textDim }}>
@@ -53,32 +67,17 @@ export function ToolPanel({ visible }: ToolPanelProps) {
       >
         {categories.map((category) => {
           const catTools = APEX_TOOLS.filter((t) => t.category === category).slice(0, 6)
-          const categoryColors: Record<string, string> = {
-            File: apexTheme.cyan,
-            Code: apexTheme.green,
-            Shell: apexTheme.warning,
-            Git: "#f97316",
-            Web: "#3b82f6",
-            Database: "#8b5cf6",
-            Docker: "#2496ed",
-            K8s: "#326ce5",
-            Security: apexTheme.error,
-            Analysis: "#ec4899",
-            Cloud: "#f59e0b",
-          }
           return (
             <box key={category} style={{ marginBottom: 1, paddingLeft: 1 }}>
               <text>
-                <span style={{ fg: categoryColors[category] ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>
+                <span style={{ fg: CATEGORY_COLORS[category] ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>
                   ─ {category}
                 </span>
               </text>
-              {"\n"}
-              {catTools.map((tool, i) => (
+              {catTools.map((tool) => (
                 <text key={tool.id}>
                   <span style={{ fg: apexTheme.textMuted }}>  • </span>
                   <span style={{ fg: apexTheme.textDim }}>{tool.name}</span>
-                  {i < catTools.length - 1 ? "\n" : ""}
                 </text>
               ))}
             </box>
@@ -98,28 +97,14 @@ export function ToolPanel({ visible }: ToolPanelProps) {
         <text>
           <span style={{ fg: apexTheme.green }}>●</span>
           <span style={{ fg: apexTheme.textMuted }}> </span>
-          <span style={{ fg: apexTheme.text }}>Filesystem MCP</span>
+          <span style={{ fg: apexTheme.text }}>Servers connected</span>
         </text>
       </box>
       <box style={{ height: 1, paddingLeft: 1 }}>
         <text>
-          <span style={{ fg: apexTheme.green }}>●</span>
+          <span style={{ fg: apexTheme.textMuted }}>○</span>
           <span style={{ fg: apexTheme.textMuted }}> </span>
-          <span style={{ fg: apexTheme.text }}>GitHub MCP</span>
-        </text>
-      </box>
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text>
-          <span style={{ fg: apexTheme.green }}>●</span>
-          <span style={{ fg: apexTheme.textMuted }}> </span>
-          <span style={{ fg: apexTheme.text }}>TS LSP</span>
-        </text>
-      </box>
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text>
-          <span style={{ fg: apexTheme.warning }}>○</span>
-          <span style={{ fg: apexTheme.textMuted }}> </span>
-          <span style={{ fg: apexTheme.textDim }}>Python LSP</span>
+          <span style={{ fg: apexTheme.textDim }}>No servers configured</span>
         </text>
       </box>
     </box>
