@@ -1,0 +1,23 @@
+{
+  "name": "github",
+  "type": "dark",
+  "colors": {
+    "bg": "#0d1117",
+    "fg": "#c9d1d9",
+    "accent": "#58a6ff",
+    "error": "#f85149",
+    "warning": "#d29922",
+    "success": "#3fb950",
+    "border": "#30363d",
+    "selection": "#388bfd26",
+    "cursor": "#c9d1d9",
+    "lineNumbers": "#6e7681",
+    "comment": "#8b949e",
+    "keyword": "#ff7b72",
+    "string": "#a5d6ff",
+    "function": "#d2a8ff",
+    "variable": "#79c0ff",
+    "constant": "#ffa657",
+    "type": "#7ee787"
+  }
+}
