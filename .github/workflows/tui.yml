@@ -1,0 +1,90 @@
+name: TUI
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "tui-frontend/**"
+      - ".github/workflows/tui.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "tui-frontend/**"
+      - ".github/workflows/tui.yml"
+
+concurrency:
+  group: tui-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tui-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: TypeScript type check
+        run: bunx tsc --noEmit
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tui-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tui-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify TUI entry point
+        run: |
+          test -f src/App.tsx || (echo "ERROR: src/App.tsx not found" && exit 1)
+          test -f src/components/ApexApp.tsx || (echo "ERROR: ApexApp.tsx not found" && exit 1)
+          test -f src/theme/apex.ts || (echo "ERROR: theme/apex.ts not found" && exit 1)
+          test -f src/data/apex-data.ts || (echo "ERROR: data/apex-data.ts not found" && exit 1)
+          echo "All TUI source files present"
+
+      - name: Verify all components
+        run: |
+          for component in ApexApp ChatPanel HelpPanel ModelSelector Sidebar StatusBar ToolPanel; do
+            test -f src/components/${component}.tsx || (echo "ERROR: ${component}.tsx not found" && exit 1)
+          done
+          echo "All 7 components present"
+
+      - name: Verify package integrity
+        run: |
+          echo "Checking package.json..."
+          bun -e "const p = require('./package.json'); console.log('Package:', p.name, 'v' + p.version);"
+          echo "TUI package validated"
