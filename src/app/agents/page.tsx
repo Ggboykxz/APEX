@@ -24,7 +24,7 @@ function NavBar() {
   )
 }
 
-function Footer() { return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">MIT License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>) }
+function Footer() { return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">Proprietary License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>) }
 
 function CodeBlock({ code, language = 'bash' }: { code: string; language?: string }) {
   const [copied, setCopied] = useState(false)
@@ -41,12 +41,20 @@ const AGENTS = [
     workflow: 'Use the Coder agent for everyday coding tasks — fixing bugs, adding features, refactoring code, and running tests. It has full access to all tools.',
   },
   {
-    name: 'Architect', mode: 'Primary', color: '#ffaa00', icon: Eye,
+    name: 'Architect', mode: 'Primary', color: '#a855f7', icon: Eye,
+    access: 'Read-only (architecture & design)', default: false,
+    desc: 'Analyzes your codebase architecture and creates high-level design decisions. Focuses on system design, dependency mapping, and architectural patterns.',
+    capabilities: ['Read and analyze all files', 'Map project dependencies and architecture', 'Identify architectural patterns and anti-patterns', 'Suggest structural improvements', 'Design system boundaries and interfaces', 'Evaluate technology choices'],
+    switch: '/agent architect',
+    workflow: 'Switch to Architect when you need high-level design guidance: understanding system architecture, evaluating technology choices, or planning structural changes.',
+  },
+  {
+    name: 'Planner', mode: 'Primary', color: '#ffaa00', icon: Search,
     access: 'Read-only (analysis & planning)', default: false,
     desc: 'Analyzes your codebase and creates detailed implementation plans before any code is written. Perfect for complex features that need careful thought before execution.',
     capabilities: ['Read and analyze all files', 'Search code patterns', 'Create detailed implementation plans', 'Suggest improvements and refactoring', 'Identify potential issues', 'Map project dependencies'],
-    switch: '/agent architect',
-    workflow: 'Switch to Architect when you need to understand a codebase before making changes. It will read files, analyze patterns, and produce a step-by-step plan.',
+    switch: '/agent planner',
+    workflow: 'Switch to Planner when you need to understand a codebase before making changes. It will read files, analyze patterns, and produce a step-by-step plan.',
   },
   {
     name: 'Reviewer', mode: 'Subagent', color: '#00ff88', icon: Search,
@@ -57,29 +65,21 @@ const AGENTS = [
     workflow: 'Invoke Reviewer as a subagent when you need code review: "Review the changes in src/api/", "Check auth.py for security issues", "Review PR #42 for best practices".',
   },
   {
-    name: 'DevOps', mode: 'Primary', color: '#d946ef', icon: Layers,
+    name: 'Shell', mode: 'Primary', color: '#ff6b35', icon: Layers,
     access: 'Full (infrastructure focused)', default: false,
     desc: 'Handles DevOps and infrastructure tasks — CI/CD, Docker, Kubernetes, cloud deployments, and environment configuration. Explains what each command does before running.',
     capabilities: ['Configure CI/CD pipelines', 'Manage Docker containers and images', 'Deploy to cloud platforms', 'Set up monitoring and logging', 'Configure environment variables', 'Handle infrastructure as code'],
-    switch: '/agent devops',
-    workflow: 'Use DevOps for infrastructure tasks: "Set up a GitHub Actions pipeline", "Configure Docker for this project", "Deploy to AWS", "Add monitoring to the staging environment".',
-  },
-  {
-    name: 'Analyst', mode: 'Subagent', color: '#ff4444', icon: Activity,
-    access: 'Read-only (data & metrics)', default: false,
-    desc: 'Analyzes project metrics, test coverage, dependencies, and code quality. Provides data-driven insights and recommendations for improvement.',
-    capabilities: ['Analyze test coverage and gaps', 'Check dependency versions and vulnerabilities', 'Measure code complexity metrics', 'Track technical debt indicators', 'Generate project health reports', 'Compare metrics across branches'],
-    switch: '@analyst "analyze test coverage"',
-    workflow: 'Invoke Analyst when you need data-driven insights: "What\'s our test coverage?", "Analyze our dependency health", "Check for technical debt in the auth module", "Generate a project health report".',
+    switch: '/agent shell',
+    workflow: 'Use Shell for infrastructure tasks: "Set up a GitHub Actions pipeline", "Configure Docker for this project", "Deploy to AWS", "Add monitoring to the staging environment".',
   },
 ]
 
 const PERMISSION_MATRIX = [
-  { tool: 'read', tools: 'read_file, list_files, search_in_files, glob_search', coder: 'allow', architect: 'allow', reviewer: 'allow', devops: 'allow', analyst: 'allow' },
-  { tool: 'edit', tools: 'write_file, edit_file, delete_file', coder: 'allow', architect: 'deny', reviewer: 'deny', devops: 'ask', analyst: 'deny' },
-  { tool: 'bash', tools: 'run_command', coder: 'ask', architect: 'deny', reviewer: 'deny', devops: 'ask', analyst: 'deny' },
-  { tool: 'websearch', tools: 'web_search, fetch_url', coder: 'ask', architect: 'allow', reviewer: 'deny', devops: 'allow', analyst: 'deny' },
-  { tool: 'task', tools: 'subagent invocation', coder: 'ask', architect: 'deny', reviewer: 'deny', devops: 'ask', analyst: 'deny' },
+  { tool: 'read', tools: 'read_file, list_files, search_in_files, glob_search', coder: 'allow', architect: 'allow', reviewer: 'allow', shell: 'allow', planner: 'allow' },
+  { tool: 'edit', tools: 'write_file, edit_file, delete_file', coder: 'allow', architect: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
+  { tool: 'bash', tools: 'run_command', coder: 'ask', architect: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
+  { tool: 'websearch', tools: 'web_search, fetch_url', coder: 'ask', architect: 'allow', reviewer: 'deny', shell: 'allow', planner: 'deny' },
+  { tool: 'task', tools: 'subagent invocation', coder: 'ask', architect: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
 ]
 
 export default function AgentsPage() {
@@ -95,7 +95,7 @@ export default function AgentsPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Multi-Agent System</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4"><span className="animated-gradient-text">5 Specialized</span> Agents</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">5 built-in agents with granular permission controls. Coder, Architect, Reviewer, DevOps, and Analyst — each optimized for their domain.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">5 built-in agents with granular permission controls. Coder, Architect, Planner, Reviewer, and Shell — each optimized for their domain.</p>
             </motion.div>
           </div>
         </section>
@@ -159,8 +159,8 @@ export default function AgentsPage() {
                     <th className="text-center p-3 font-mono text-muted-foreground">Coder</th>
                     <th className="text-center p-3 font-mono text-muted-foreground">Architect</th>
                     <th className="text-center p-3 font-mono text-muted-foreground">Reviewer</th>
-                    <th className="text-center p-3 font-mono text-muted-foreground">DevOps</th>
-                    <th className="text-center p-3 font-mono text-muted-foreground">Analyst</th>
+                    <th className="text-center p-3 font-mono text-muted-foreground">Shell</th>
+                    <th className="text-center p-3 font-mono text-muted-foreground">Planner</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -168,7 +168,7 @@ export default function AgentsPage() {
                     <tr key={row.tool} className={`border-b border-border/30 ${i % 2 === 0 ? 'bg-card/20' : ''}`}>
                       <td className="p-3 font-mono font-bold text-foreground">{row.tool}</td>
                       <td className="p-3 font-mono text-muted-foreground text-xs">{row.tools}</td>
-                      {[row.coder, row.architect, row.reviewer, row.devops, row.analyst].map((val, j) => (
+                      {[row.coder, row.architect, row.reviewer, row.shell, row.planner].map((val, j) => (
                         <td key={j} className="p-3 text-center font-mono"><span className={`px-2 py-0.5 rounded text-xs ${val === 'allow' ? 'bg-apex-green/10 text-apex-green' : val === 'ask' ? 'bg-apex-yellow/10 text-apex-yellow' : val === 'config' ? 'bg-apex-cyan/10 text-apex-cyan' : 'bg-apex-red/10 text-apex-red'}`}>{val}</span></td>
                       ))}
                     </tr>
@@ -186,17 +186,17 @@ export default function AgentsPage() {
             <div className="grid sm:grid-cols-3 gap-4">
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">Slash Command</h3>
-                <CodeBlock code="/agent coder\n/agent architect\n/agent devops" />
+                <CodeBlock code="/agent coder\n/agent architect\n/agent shell" />
                 <p className="text-sm text-muted-foreground mt-2">Type <code className="text-apex-cyan">/agent</code> followed by the agent name.</p>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">Tab Key</h3>
                 <CodeBlock language="text" code="Press Tab to cycle\nthrough primary agents" />
-                <p className="text-sm text-muted-foreground mt-2">Quickly cycle between Coder, Architect, and DevOps.</p>
+                <p className="text-sm text-muted-foreground mt-2">Tab to cycle between Coder, Architect, Planner, Reviewer, and Shell.</p>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">@Mention</h3>
-                <CodeBlock code='@reviewer "review auth.py"\n@analyst "analyze test coverage"' />
+                <CodeBlock code='@reviewer "review auth.py"\n@planner "analyze test coverage"' />
                 <p className="text-sm text-muted-foreground mt-2">Invoke subagents inline with @mention.</p>
               </div>
             </div>
@@ -208,7 +208,7 @@ export default function AgentsPage() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Bot className="w-6 h-6 text-apex-cyan" /> Custom Agent Creation</h2>
             <p className="text-muted-foreground mb-6">Create custom agents with specific permissions and system prompts in your configuration file.</p>
-            <CodeBlock language="yaml" code={`# .apex/config.yaml\nagents:\n  # Code Reviewer - read-only, focused on security\n  reviewer:\n    description: Code review agent focused on security\n    mode: subagent\n    permission:\n      read: allow\n      edit: deny\n      bash: deny\n      websearch: allow\n    prompt: |\n      You are a code reviewer focused on security vulnerabilities.\n      Always check for: SQL injection, XSS, CSRF, auth issues.\n      Provide specific line numbers and fixes.\n\n  # Test Writer - can write test files only\n  test-writer:\n    description: Writes comprehensive test suites\n    mode: subagent\n    permission:\n      read: allow\n      edit: allow      # Can write test files\n      bash: allow      # Can run tests\n      websearch: deny\n    prompt: |\n      You are a test writing specialist.\n      Write comprehensive pytest test suites.\n      Aim for 90%+ coverage on all new code.\n      Use fixtures, parametrize, and mocking.\n\n  # DevOps Agent - handles infrastructure\n  devops:\n    description: DevOps and deployment agent\n    mode: primary\n    permission:\n      read: allow\n      edit: ask\n      bash: ask\n      websearch: allow\n    prompt: |\n      You are a DevOps specialist.\n      Help with CI/CD, Docker, Kubernetes, and cloud deployments.\n      Always explain what each command does before running.`} />
+            <CodeBlock language="yaml" code={`# .apex/config.yaml\nagents:\n  # Code Reviewer - read-only, focused on security\n  reviewer:\n    description: Code review agent focused on security\n    mode: subagent\n    permission:\n      read: allow\n      edit: deny\n      bash: deny\n      websearch: allow\n    prompt: |\n      You are a code reviewer focused on security vulnerabilities.\n      Always check for: SQL injection, XSS, CSRF, auth issues.\n      Provide specific line numbers and fixes.\n\n  # Test Writer - can write test files only\n  test-writer:\n    description: Writes comprehensive test suites\n    mode: subagent\n    permission:\n      read: allow\n      edit: allow      # Can write test files\n      bash: allow      # Can run tests\n      websearch: deny\n    prompt: |\n      You are a test writing specialist.\n      Write comprehensive pytest test suites.\n      Aim for 90%+ coverage on all new code.\n      Use fixtures, parametrize, and mocking.\n\n  # Shell Agent - handles infrastructure\n  shell:\n    description: Shell and deployment agent\n    mode: primary\n    permission:\n      read: allow\n      edit: ask\n      bash: ask\n      websearch: allow\n    prompt: |\n      You are a Shell/DevOps specialist.\n      Help with CI/CD, Docker, Kubernetes, and cloud deployments.\n      Always explain what each command does before running.`} />
           </div>
         </section>
 
@@ -218,10 +218,10 @@ export default function AgentsPage() {
             <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><BookOpen className="w-6 h-6 text-apex-cyan" /> Best Practices</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               {[
-                { title: 'Plan Before Coding', desc: 'Use the Architect agent first for complex features. It analyzes your codebase and creates a step-by-step plan before any code is written.' },
-                { title: 'Leverage Subagents', desc: 'Use @reviewer for code reviews and @analyst for data-driven insights. This keeps your main conversation focused.' },
+                { title: 'Plan Before Coding', desc: 'Use the Planner agent first for complex features. It analyzes your codebase and creates a step-by-step plan before any code is written.' },
+                { title: 'Leverage Subagents', desc: 'Use @reviewer for code reviews and @planner for planning insights. This keeps your main conversation focused.' },
                 { title: 'Configure Permissions', desc: 'Customize the permission matrix for your security needs. Use "ask" mode for sensitive operations and "deny" for destructive ones.' },
-                { title: 'Switch Contextually', desc: 'Switch to Architect for analysis, Coder for implementation, and DevOps for infrastructure. Each agent is optimized for its domain.' },
+                { title: 'Switch Contextually', desc: 'Switch to Planner for analysis, Coder for implementation, and Shell for infrastructure. Each agent is optimized for its domain.' },
               ].map(bp => (
                 <div key={bp.title} className="p-4 rounded-lg border border-border/50 bg-card/30">
                   <h4 className="font-bold font-mono text-apex-cyan mb-1">{bp.title}</h4>
@@ -258,8 +258,8 @@ export default function AgentsPage() {
                 <p className="text-sm text-muted-foreground leading-relaxed">Share sessions via Base64-encoded apex://share/{'{id}'} links. Recipients can load shared sessions to review conversations, tool calls, and outcomes.</p>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
-                <h3 className="font-bold font-mono text-foreground mb-2">Coder & Architect Agents</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">The Coder agent has full access to all tools. The Architect agent is read-only — it analyzes and proposes without touching any file. Switch with /agent coder or /agent architect.</p>
+                <h3 className="font-bold font-mono text-foreground mb-2">Coder & Planner Agents</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">The Coder agent has full access to all tools. The Planner agent is read-only — it analyzes and proposes without touching any file. Switch with /agent coder or /agent planner.</p>
               </div>
             </div>
           </div>

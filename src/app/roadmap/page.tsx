@@ -39,7 +39,7 @@ const VERSIONS = [
     version: 'v1.0.0', name: 'First Stable Release', status: 'released' as const, progress: 100, color: '#00e5ff',
     desc: 'First stable release of APEX — the universal AI coding agent. 100+ models, 75+ tools, 5 specialized agents, OpenCode architecture with snapshots and undo/redo, custom commands, event bus, and security system.',
     features: [
-      { text: '5 Specialized Agents (Coder, Architect, Reviewer, DevOps, Analyst)', done: true },
+      { text: '5 Specialized Agents (Coder, Architect, Planner, Reviewer, Shell)', done: true },
       { text: '100+ Model Support via litellm', done: true },
       { text: '75+ Built-in Tools across 13 categories', done: true },
       { text: 'OpenCode Architecture (Routes, Components, Contexts)', done: true },
@@ -58,17 +58,33 @@ const VERSIONS = [
     ]
   },
   {
-    version: 'v1.1.0', name: 'Power', status: 'released' as const, progress: 100, color: '#00ff88',
-    desc: 'HTTP SSE backend, real-time token streaming, live cost tracking, context %, agent-colored theming, unified server code.',
+    version: 'v1.1.0', name: 'TUI & Agent Update', status: 'released' as const, progress: 100, color: '#00ff88',
+    desc: 'TUI overhaul with HTTP SSE backend, real-time token streaming, per-message cost tracking, agent-colored theming, and 8 new models added.',
     features: [
-      { text: 'HTTP SSE Backend (real-time token streaming)', done: true },
-      { text: 'Live Cost Tracking (per-message + session total)', done: true },
-      { text: 'Context Percentage Monitoring', done: true },
-      { text: 'Agent-Colored Theming (titlebar, statusbar, borders)', done: true },
-      { text: 'Model Switch via HTTP with Error Feedback', done: true },
-      { text: 'Unified HTTP Server (start_tui_server in http_api.py)', done: true },
-      { text: '8 Models Added (claude-3.7-sonnet, llama-3.3-70b, etc.)', done: true },
-      { text: 'Ctrl+L to Clear Messages and Reset Metrics', done: true },
+      { text: 'HTTP SSE Backend for TUI (replaces stdin/stdout IPC)', done: true },
+      { text: 'Real-Time Token Streaming (prompt/completion counts)', done: true },
+      { text: 'Per-Message Cost Tracking with model-specific pricing', done: true },
+      { text: 'Context Percentage (live context window utilization)', done: true },
+      { text: 'Agent-Colored Theming (5 agent colors)', done: true },
+      { text: 'Model Switch via HTTP API', done: true },
+      { text: 'Connection Error Banner with auto-dismiss', done: true },
+      { text: 'Ctrl+L to Clear messages and metrics', done: true },
+      { text: 'Model Pricing Matrix (32+ models)', done: true },
+      { text: '8 New Models (claude-3.7-sonnet, llama-3.3-70b, etc.)', done: true },
+      { text: 'Unified HTTP Server (start_tui_server/stop_tui_server)', done: true },
+      { text: 'Model Validation (400 error for unknown models)', done: true },
+      { text: 'Agent Rename: DevOps→Shell, Analyst→Planner', done: true },
+    ]
+  },
+  {
+    version: 'v1.4.0', name: 'Power', status: 'next' as const, progress: 60, color: '#00ff88',
+    desc: 'Streaming responses, git tools, web search, persistent memory, and model benchmarking — more powerful workflows.',
+    features: [
+      { text: 'Streaming Responses (SSE for web frontend)', done: false },
+      { text: 'Git Tools Integration (blame, log, diff)', done: false },
+      { text: 'Web Search & Fetch', done: false },
+      { text: 'Persistent Memory (cross-session)', done: false },
+      { text: 'Model Benchmarking', done: false },
     ]
   },
   {
