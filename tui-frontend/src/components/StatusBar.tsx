@@ -21,34 +21,37 @@ export function StatusBar({ activeAgent, activeModel, totalTokens, messageCount,
         height: 1,
         flexDirection: "row",
         justifyContent: "space-between",
-        backgroundColor: apexTheme.bgSurface,
+        backgroundColor: agent?.color ?? apexTheme.cyan,
         paddingLeft: 1,
         paddingRight: 1,
       }}
     >
       <text>
-        <span style={{ fg: agent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>
+        <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>
           {agent?.name ?? "APEX"}
         </span>
-        <span style={{ fg: apexTheme.textMuted }}> | </span>
-        <span style={{ fg: apexTheme.textDim }}>{model?.name ?? "No Model"}</span>
+        <span style={{ fg: "#000000" }}> │ </span>
+        <span style={{ fg: "#000000" }}>{model?.name ?? "No Model"}</span>
       </text>
 
-      <text>
-        <span style={{ fg: apexTheme.textMuted }}>Msgs:</span>
-        <span style={{ fg: apexTheme.text }}> {messageCount} </span>
-        <span style={{ fg: apexTheme.textMuted }}>Tok:</span>
-        <span style={{ fg: apexTheme.green }}> {totalTokens} </span>
-        <span style={{ fg: apexTheme.textDim }}>{sessionDuration}</span>
+      <text style={{ fg: "#000000" }}>
+        <span>Messages: </span>
+        <span style={{ attributes: TextAttributes.BOLD }}>{messageCount}</span>
+        <span> │ Tokens: </span>
+        <span style={{ attributes: TextAttributes.BOLD }}>{totalTokens.toLocaleString()}</span>
+        <span> │ Time: </span>
+        <span style={{ attributes: TextAttributes.BOLD }}>{sessionDuration}</span>
       </text>
 
-      <text>
-        <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>Ctrl+K</span>
-        <span style={{ fg: apexTheme.textMuted }}> Model </span>
-        <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>Tab</span>
-        <span style={{ fg: apexTheme.textMuted }}> Agent </span>
-        <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>?</span>
-        <span style={{ fg: apexTheme.textMuted }}> Help</span>
+      <text style={{ fg: "#000000" }}>
+        <span style={{ attributes: TextAttributes.BOLD }}>⌘K</span>
+        <span> Models  </span>
+        <span style={{ attributes: TextAttributes.BOLD }}>Tab</span>
+        <span> Agents  </span>
+        <span style={{ attributes: TextAttributes.BOLD }}>?</span>
+        <span> Help  </span>
+        <span style={{ attributes: TextAttributes.BOLD }}>⌘Q</span>
+        <span> Quit</span>
       </text>
     </box>
   )

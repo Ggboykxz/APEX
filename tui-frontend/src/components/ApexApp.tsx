@@ -70,6 +70,7 @@ export function ApexApp() {
     }
     if (key.ctrl && key.name === "l") {
       setMessages([])
+      setInputValue("")
       return
     }
   })
@@ -85,29 +86,36 @@ export function ApexApp() {
         "I'll analyze the code and make the necessary changes. Let me search for the relevant files first.",
         "The implementation looks good. I've refactored the code to follow best practices and added type safety.",
         "I've created the new module with proper error handling and comprehensive tests.",
+        "Let me check the current architecture and propose an optimal solution for this feature.",
       ],
       architect: [
         "Based on the requirements, I recommend a microservices architecture with event-driven communication.",
         "The current architecture has a coupling issue. Let me propose a cleaner separation of concerns.",
+        "After analysis, the optimal approach would be a hexagonal architecture with dependency injection.",
       ],
       reviewer: [
         "I found 3 potential issues: a memory leak in the event handler, an unhandled promise rejection, and a race condition.",
         "The code quality is good overall, but I suggest adding input validation and improving error messages.",
+        "Security audit complete: 1 critical vulnerability found. I'll recommend a patch immediately.",
       ],
       devops: [
         "I've set up the Docker configuration with multi-stage builds for optimal image size.",
         "The CI/CD pipeline is configured with automated testing and deployment stages.",
+        "Kubernetes manifests generated with auto-scaling policies and health checks.",
       ],
       analyst: [
         "Based on the data analysis, the performance bottleneck is in the database queries.",
-        "The metrics show a 23% improvement after the optimization.",
+        "The metrics show a 23% improvement after the optimization. Here's the detailed report.",
+        "Research complete: the optimal strategy is to implement caching at the API layer.",
       ],
     }
     const agentResponses = responses[activeAgent] ?? responses["coder"]!
     const responseText = agentResponses[Math.floor(Math.random() * agentResponses.length)]!
 
+    const toolCallDelay = 200 + Math.random() * 400
+
     setTimeout(() => {
-      const tokens = Math.floor(Math.random() * 500) + 100
+      const tokens = Math.floor(Math.random() * 600) + 150
       const assistantMessage: ChatMessage = {
         id: `msg-${Date.now()}`,
         role: "assistant",
@@ -120,7 +128,7 @@ export function ApexApp() {
       setMessages((prev) => [...prev, assistantMessage])
       setTotalTokens((prev) => prev + tokens)
       setIsGenerating(false)
-    }, 800 + Math.random() * 1200)
+    }, 600 + Math.random() * 1000)
   }, [activeAgent, activeModel])
 
   const handleSubmit = useCallback(() => {
@@ -138,16 +146,21 @@ export function ApexApp() {
 
   return (
     <box id="apex-root" style={{ flexDirection: "column", flexGrow: 1, backgroundColor: apexTheme.bg }}>
-      <box id="apex-titlebar" style={{ height: 1, flexDirection: "row", justifyContent: "center", backgroundColor: apexTheme.bgSurface }}>
+      <box id="apex-titlebar" style={{ height: 1, flexDirection: "row", justifyContent: "center", backgroundColor: agent?.color ?? apexTheme.cyan }}>
         <text>
-          <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>APEX</span>
-          <span style={{ fg: apexTheme.textMuted }}> - AI-Powered Engineering eXtended</span>
-          <span style={{ fg: apexTheme.textMuted }}> | </span>
-          <span style={{ fg: apexTheme.green }}>100+ Models</span>
-          <span style={{ fg: apexTheme.textMuted }}> </span>
-          <span style={{ fg: apexTheme.cyan }}>75+ Tools</span>
-          <span style={{ fg: apexTheme.textMuted }}> </span>
-          <span style={{ fg: apexTheme.warning }}>5 Agents</span>
+          <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>▲ APEX</span>
+          <span style={{ fg: "#000000" }}> — {agent?.name ?? "Coder"} · {model?.name ?? "No Model"}</span>
+          <span style={{ fg: "#000000" }}> │ </span>
+          <span style={{ fg: "#000000" }}>{messages.length} messages</span>
+          <span style={{ fg: "#000000" }}> │ </span>
+          <span style={{ fg: "#000000" }}>{totalTokens.toLocaleString()} tokens</span>
+          <span style={{ fg: "#000000" }}> │ </span>
+          <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>Ctrl+K</span>
+          <span style={{ fg: "#000000" }}> Models  </span>
+          <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>Tab</span>
+          <span style={{ fg: "#000000" }}> Agents  </span>
+          <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>?</span>
+          <span style={{ fg: "#000000" }}> Help</span>
         </text>
       </box>
 
