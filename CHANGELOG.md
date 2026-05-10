@@ -72,3 +72,28 @@ The first stable release of APEX — the universal AI coding agent. Every model,
 - **Caddyfile** — Reverse proxy configuration for production deployment
 - **mkdocs.yml** — Documentation site with Material theme
 - **Comprehensive .gitignore** — Python, Node, IDE, OS, build artifacts
+
+---
+
+## [1.1.0] - 2026-05-10
+
+### TUI (OpenTUI React)
+
+- **HTTP SSE Backend**: TUI now connects to a local HTTP server (`127.0.0.1:8080`) via Server-Sent Events instead of stdin/stdout IPC
+- **Real-Time Token Streaming**: Live prompt/completion token counts update as tokens arrive from the LLM
+- **Per-Message Cost Tracking**: Each message shows `+prompt/+completion · $cost` with model-specific pricing (input/output per 1K tokens)
+- **Context Percentage**: Live context window utilization (`X.X% ctx`) based on model's context limit
+- **Session Metrics**: Title bar shows message count, context %, and total spent. Status bar shows In/Out/Total tokens, context %, and total cost
+- **Agent-Colored Theming**: Title bar, status bar, and panel borders dynamically change color based on the active agent (Coder, Architect, Planner, Reviewer, Shell)
+- **Model Switch via HTTP**: Ctrl+K model selector sends model changes through HTTP API (`/chat/stream` POST body)
+- **Connection Error Banner**: Shows specific server error messages (e.g., `"Unknown model: xxx"`), auto-dismisses after 5 seconds
+- **Ctrl+L to Clear**: Resets all messages and zeros out prompt/completion/spent metrics
+- **Model Pricing Matrix**: 32+ models with hardcoded `inputCostPer1K` and `outputCostPer1K` (local models = $0)
+- **TypeScript Clean**: `tsc --noEmit` passes with no errors, proper `jsxImportSource: "@opentui/react"` in tsconfig
+
+### Backend
+
+- **Unified HTTP Server**: `start_tui_server()` / `stop_tui_server()` moved from `main.py` to `http_api.py` to avoid duplication
+- **Model Validation**: HTTP server returns `400 {"error": "Unknown model: xxx"}` for invalid model IDs
+- **8 Models Added**: `claude-3.7-sonnet`, `llama-3.3-70b`, `mistral-medium`, `mistral-large`, `grok-3-mini`, `qwen3-32b`, `qwen2.5-coder-32b`, `phi-4` — all now recognized by backend `MODELS` dict
+- **`agent.switch_model()` Strict Check**: Returns `False` if model alias not in `MODELS` keys (was failing silently before)
