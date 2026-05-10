@@ -5,6 +5,7 @@
     "lib": ["ESNext", "DOM"],
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
+    "jsxImportSource": "@opentui/react",
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,

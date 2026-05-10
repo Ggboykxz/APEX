@@ -18,7 +18,7 @@ function AgentItem({ agent, active, onSelect }: { agent: ApexAgent; active: bool
         <span style={{ fg: agent.color, attributes: TextAttributes.BOLD }}>{agent.icon}</span>
         <span style={{ fg: active ? agent.color : apexTheme.textDim }}> {agent.name}</span>
       </text>
-      <text style={{ textAlign: "right" }}>
+      <text>
         <span style={{ fg: agent.color }}>{active ? "●" : "○"}</span>
       </text>
     </box>
