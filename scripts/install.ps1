@@ -52,7 +52,7 @@ switch ($choice) {
             irm https://astral.sh/uv/install.ps1 | iex
         }
         Write-Host "$CYAN Installing with uv...$NC"
-        uv tool install apex-agent
+        uv tool install apex-ai
     }
     "2" {
         $hasPipx = Get-Command pipx -ErrorAction SilentlyContinue
@@ -61,11 +61,11 @@ switch ($choice) {
             pip install pipx
         }
         Write-Host "$CYAN Installing with pipx...$NC"
-        pipx install apex-agent
+        pipx install apex-ai
     }
     "3" {
         Write-Host "$CYAN Installing with pip (user)...$NC"
-        pip install --user apex-agent
+        pip install --user apex-ai
     }
     "4" {
         Write-Host "$CYAN Pulling Docker image...$NC"
@@ -87,5 +87,5 @@ Write-Host ""
 Write-Host "  $CYAN Get started:$NC  apex"
 Write-Host "  $CYAN Set API key:$NC  `$env:ANTHROPIC_API_KEY='sk-ant-...'"
 Write-Host "  $CYAN TUI mode:$NC     apex --tui"
-Write-Host "  $CYAN Docs:$NC         https://apex-agent.dev/docs"
+Write-Host "  $CYAN Docs:$NC         https://apex-ai.dev/docs"
 Write-Host ""

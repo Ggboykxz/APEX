@@ -47,7 +47,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
       { name: 'read_file', desc: 'Read a file with line numbers. Returns the full content with line-by-line numbering.', params: 'path: str, start_line?: int, end_line?: int', example: '"Read src/main.py"' },
       { name: 'write_file', desc: 'Create or overwrite a file with the given content. Creates parent directories automatically.', params: 'path: str, content: str', example: '"Create config.json with default settings"' },
       { name: 'edit_file', desc: 'Replace a unique string in a file. Finds the exact match and replaces it. Safer than write_file for targeted changes.', params: 'path: str, old_string: str, new_string: str', example: '"Fix the bug on line 42 in auth.py"' },
-      { name: 'delete_file', desc: 'Delete a file or directory. Requires confirmation unless in YOLO mode.', params: 'path: str', example: '"Delete old_file.txt"' },
+      { name: 'delete_file', desc: 'Delete a file or directory. Requires confirmation before deletion.', params: 'path: str', example: '"Delete old_file.txt"' },
       { name: 'create_directory', desc: 'Create a directory tree. Creates all parent directories as needed.', params: 'path: str', example: '"Create src/utils/helpers/"' },
       { name: 'list_files', desc: 'List files and directories at the given path. Shows names, types, and sizes.', params: 'path: str, recursive?: bool', example: '"List all files in src/"' },
       { name: 'search_in_files', desc: 'Regex search across files. Returns matching lines with file paths and line numbers.', params: 'pattern: str, path?: str, file_pattern?: str', example: '"Find all TODO comments in the project"' },

@@ -1,23 +1,30 @@
 # APEX Public Roadmap
 
-## ✅ v1.3.0 — Foundation (released May 8, 2026)
+## ✅ v1.0.0 — First Stable Release (released May 10, 2026)
 - 100+ model support via litellm
-- Multi-agent system (Build, Plan, Explore, General)
+- 5 specialized agents (Coder, Architect, Reviewer, DevOps, Analyst)
 - 75+ built-in tools
-- Beautiful TUI (Textual 8)
-- `pip install apex-agent`
+- Beautiful TUI (OpenTUI + React)
+- `pip install apex-ai`
 - MIT license
 - Session persistence
 - Plugin system
 - Command palette
 - Auto-completion
+- Shell security analysis
+- Permission system (ALLOW/DENY/ASK)
+- Rate limiting
+- API key management
+- Docker image (ghcr.io/ggboykxz/apex)
+- CI/CD pipeline (7 workflows)
 
-## 🔧 v1.4.0 — Power (Next)
+## 🔧 v1.1.0 — Power (Next)
 - Streaming responses (real-time output)
-- Git tools (status/log/diff/commit/branch)
+- Enhanced git tools (status/log/diff/commit/branch)
 - Web search tool
 - Session save/load improvements
 - `/memory` persistent context
+- Homebrew formula
 
 ## 🎯 v2.0.0 — Intelligence
 - Repo map (understand full codebase structure)
@@ -47,4 +54,3 @@ Check out our [CONTRIBUTING.md](CONTRIBUTING.md) and help us build the future of
 ---
 
 *Built with ❤️ in Gabon 🇬🇦 for the world.*
-*Day 1 of APEX — the journey begins!*

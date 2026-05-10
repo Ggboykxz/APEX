@@ -8,7 +8,7 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 
 ### Core
 - **100+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more
-- **Multi-Agent System** — Build, Plan, Explore, General with permission controls
+- **Multi-Agent System** — Coder, Architect, Reviewer, DevOps, Analyst with permission controls
 - **75+ Tools** — File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB
 - **Rich Terminal UI** — Syntax highlighting, markdown rendering, panels
 - **Session Persistence** — Save and load conversations
@@ -52,7 +52,7 @@ apex --tui      # Bun-based OpenTUI
 ## Installation
 
 ```bash
-pip install apex-agent
+pip install apex-ai
 ```
 
 ## Quick Start

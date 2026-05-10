@@ -8,11 +8,11 @@ Common issues and solutions for APEX.
 
 ```bash
 # Check if installed
-pip show apex-agent
+pip show apex-ai
 
 # Reinstall
-pip uninstall apex-agent
-pip install apex-agent
+pip uninstall apex-ai
+pip install apex-ai
 
 # Or use python module
 python -m apex.main --version
@@ -130,21 +130,21 @@ Increase timeout in config:
 
 ### "Unknown agent"
 
-Available agents: build, plan, explore, general
+Available agents: coder, architect, reviewer, devops, analyst
 
 ```bash
 /agents
-/agent build
+/agent coder
 ```
 
 ### Permission denied errors
 
 Some tools are blocked for certain agents:
 
-- Plan agent: Cannot use write_file, edit_file, run_command
-- Explore agent: Cannot modify any files
+- Architect agent: Cannot use write_file, edit_file, run_command
+- Reviewer agent: Cannot modify any files
 
-Switch to build agent for full access.
+Switch to coder agent for full access.
 
 ## Performance Issues
 

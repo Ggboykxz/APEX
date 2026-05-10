@@ -7,13 +7,13 @@ Get up and running with APEX in 5 minutes.
 ### Option A: pip (recommended)
 
 ```bash
-pip install apex-agent
+pip install apex-ai
 ```
 
 ### Option B: pipx (isolated environment)
 
 ```bash
-pipx install apex-agent
+pipx install apex-ai
 ```
 
 ### Option C: From source
@@ -53,7 +53,7 @@ You should see the banner:
 ║   The last coding agent you'll ever need             ║
 ╚═══════════════════════════════════════════════════════╝
 
-Agent: build  Model: gpt-4o-mini  CWD: /home/user
+Agent: coder  Model: gpt-4o-mini  CWD: /home/user
 ›
 ```
 
@@ -115,8 +115,8 @@ Agent: build  Model: gpt-4o-mini  CWD: /home/user
 |---------|--------------|
 | `/help` | Show all commands |
 | `/models` | List available models |
-| `/agent build` | Switch to build agent |
-| `/agent plan` | Switch to plan (read-only) agent |
+| `/agent coder` | Switch to coder agent |
+| `/agent architect` | Switch to architect (read-only) agent |
 | `@filename` | Include file in context |
 | `/clear` | Clear conversation history |
 | `/exit` | Exit APEX |

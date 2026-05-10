@@ -35,10 +35,10 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 const SECURITY_FEATURES = [
   {
     title: 'Permission System', icon: Lock, color: '#00e5ff',
-    desc: 'Ruleset-based permission system where each tool can be set to ALLOW, DENY, or ASK. Supports wildcards and per-agent configuration. Custom agents get their own permission profiles.',
+    desc: 'Ruleset-based permission system where each tool can be set to ALLOW, DENY, or ASK. Supports wildcards and per-agent configuration. Each agent has its own permission profile.',
     details: [
       'Per-tool permission controls (read, edit, bash, websearch, task)',
-      'Per-agent permission profiles (Build, Plan, Explore, General, YOLO, Custom)',
+      'Per-agent permission profiles (Coder, Architect, Reviewer, DevOps, Analyst)',
       'Three permission levels: ALLOW (always permit), ASK (prompt user), DENY (block completely)',
       'Wildcard pattern support for flexible rule matching',
       'Configurable via .apex/config.yaml or CLI flags',
@@ -141,10 +141,7 @@ const SECURITY_FEATURES = [
 ]
 
 const SUPPORTED_VERSIONS = [
-  { version: 'v1.3.2', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
-  { version: 'v1.3.1', status: 'Maintenance', support: 'Security patches only', color: '#ffaa00' },
-  { version: 'v1.2.x', status: 'EOL', support: 'End of life — upgrade recommended', color: '#ff4444' },
-  { version: 'v1.0.x', status: 'EOL', support: 'End of life — no longer supported', color: '#ff4444' },
+  { version: 'v1.0.0', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
 ]
 
 export default function SecurityPage() {
@@ -209,7 +206,7 @@ export default function SecurityPage() {
               <p className="text-muted-foreground mb-4 leading-relaxed">We take security seriously. If you discover a vulnerability, please report it responsibly.</p>
               <ol className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2"><span className="text-apex-yellow font-bold">1.</span> Do NOT publicly disclose the vulnerability.</li>
-                <li className="flex items-start gap-2"><span className="text-apex-yellow font-bold">2.</span> Email <a href="mailto:security@apex-agent.dev" className="text-apex-cyan hover:underline">security@apex-agent.dev</a> with details.</li>
+                <li className="flex items-start gap-2"><span className="text-apex-yellow font-bold">2.</span> Email <a href="mailto:security@apex-ai.dev" className="text-apex-cyan hover:underline">security@apex-ai.dev</a> with details.</li>
                 <li className="flex items-start gap-2"><span className="text-apex-yellow font-bold">3.</span> Include: affected version, steps to reproduce, potential impact.</li>
                 <li className="flex items-start gap-2"><span className="text-apex-yellow font-bold">4.</span> We will acknowledge within 48 hours and provide a fix timeline.</li>
                 <li className="flex items-start gap-2"><span className="text-apex-yellow font-bold">5.</span> We will credit you in the security advisory (unless you prefer to remain anonymous).</li>

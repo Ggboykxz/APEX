@@ -174,7 +174,6 @@ irm https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.ps1 | iex
 | **uv** (fastest) | `uv tool install apex-ai` |
 | **pipx** (isolated) | `pipx install apex-ai` |
 | **pip** | `pip install apex-ai` |
-| **Homebrew** | `brew install apex-ai` |
 | **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` |
 
 ### From source

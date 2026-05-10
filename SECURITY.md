@@ -7,7 +7,7 @@ If you discover a security vulnerability in APEX, please report it responsibly.
 ### How to Report
 
 1. **Do NOT** create a public GitHub issue for security vulnerabilities
-2. Email the details to: apex@example.com
+2. Email the details to: security@apex-ai.dev
 3. Include:
    - Description of the vulnerability
    - Steps to reproduce
@@ -199,9 +199,8 @@ The HTTP API server (`apex.http_api`) includes:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.4.x   | ✅ Current         |
-| 1.3.x   | ⚠️ Security only  |
-| < 1.3   | ❌ Not supported   |
+| 1.0.x   | ✅ Current         |
+| < 1.0   | ❌ Not supported   |
 
 ---
 

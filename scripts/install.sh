@@ -22,7 +22,7 @@ echo ""
 
 if [ "$(uname -s)" = "Windows_NT" ]; then
     echo -e "${YELLOW}For Windows, use PowerShell instead:${NC}"
-    echo "  irm https://apex-agent.dev/install.ps1 | iex"
+    echo "  irm https://apex-ai.dev/install.ps1 | iex"
     exit 1
 fi
 
@@ -58,26 +58,26 @@ case $choice in
     1)
         if command -v uv &>/dev/null; then
             echo -e "${CYAN}Installing with uv...${NC}"
-            uv tool install apex-agent
+            uv tool install apex-ai
         else
             echo -e "${YELLOW}uv not found. Installing...${NC}"
             curl -LsSf https://astral.sh/uv/install.sh | sh
-            uv tool install apex-agent
+            uv tool install apex-ai
         fi
         ;;
     2)
         if command -v pipx &>/dev/null; then
             echo -e "${CYAN}Installing with pipx...${NC}"
-            pipx install apex-agent
+            pipx install apex-ai
         else
             echo -e "${YELLOW}pipx not found. Installing...${NC}"
             pip3 install pipx
-            pipx install apex-agent
+            pipx install apex-ai
         fi
         ;;
     3)
         echo -e "${CYAN}Installing with pip (user)...${NC}"
-        pip3 install --user apex-agent
+        pip3 install --user apex-ai
         ;;
     4)
         echo -e "${CYAN}Pulling Docker image...${NC}"
@@ -99,5 +99,5 @@ echo ""
 echo -e "  ${CYAN}Get started:${NC}  apex"
 echo -e "  ${CYAN}Set API key:${NC}  export ANTHROPIC_API_KEY=sk-ant-..."
 echo -e "  ${CYAN}TUI mode:${NC}     apex --tui"
-echo -e "  ${CYAN}Docs:${NC}         https://apex-agent.dev/docs"
+echo -e "  ${CYAN}Docs:${NC}         https://apex-ai.dev/docs"
 echo ""

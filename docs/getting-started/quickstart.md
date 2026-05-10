@@ -7,7 +7,7 @@ Getting up and running with APEX takes just a few minutes. This guide walks you 
 APEX requires at least one LLM provider API key to function. The most common choice is OpenAI, but APEX supports 100+ models across providers including Anthropic, Google, and local Ollama instances. Export your key as an environment variable:
 
 ```bash
-export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
 You can also add the key to a `.env` file in your project root or configure it through the `config.json` file. Multiple keys can be set simultaneously, and APEX will route requests to the correct provider based on the selected model.
@@ -27,9 +27,13 @@ This opens the APEX TUI — a rich terminal interface built with OpenTUI and Rea
 Once the TUI is running, type your request in the input bar at the bottom of the screen. For example:
 
 ```
-Refactor the authentication module in src/auth.py to use JWT tokens instead of session cookies.
+Fix the authentication bug in auth.py
 ```
 
-APEX will analyze your project context, select the appropriate agent and tools, and begin executing the task. You can observe tool calls in real time, switch between agents with `Tab`, and review the full change set before accepting. Press `?` at any time to see all available keybindings.
+APEX will analyze your project context, select the appropriate agent (Coder, Architect, Reviewer, DevOps, or Analyst), and begin executing the task. You can observe tool calls in real time, switch between agents with `Tab`, and review the full change set before accepting. Press `?` at any time to see all available keybindings.
+
+## Switching Models
+
+You can switch between any of the 100+ supported models mid-session using `Ctrl+K`. This allows you to compare outputs from different providers, optimize costs, or use a local Ollama model when you don't have internet access.
 
 Congratulations — you are now using APEX! Explore the rest of the documentation to learn about model selection, tool configuration, and advanced workflows.

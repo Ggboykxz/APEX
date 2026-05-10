@@ -42,7 +42,7 @@ function NavBar() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between py-1.5">
           <span className="text-xs font-mono text-muted-foreground">Edition {getEditionDate()}</span>
           <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
-            <span>apex-agent.dev</span>
+            <span>apex-ai.dev</span>
             <span className="text-border">·</span>
             <div className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full pulse-dot ${apiStatus === 'online' ? 'bg-apex-green' : apiStatus === 'offline' ? 'bg-apex-red' : 'bg-apex-yellow'}`} />

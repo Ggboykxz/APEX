@@ -569,8 +569,8 @@ result = limiter.check_rate_limit("user_123")
 ## Installation
 
 ```bash
-pip install apex-agent
-pipx install apex-agent
+pip install apex-ai
+pipx install apex-ai
 git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e .
 ```
 
