@@ -7,7 +7,8 @@ import {
   Github, Cpu, Wrench, Users, Star, Lock,
   Activity, Radio, Loader2, Menu, X, Code2, Eye, Search, Layers,
   GitBranch, Globe, FileCode, Play, Command, Clock, Sparkles, BookOpen,
-  CircleDot, GitPullRequest, Tag, Box
+  CircleDot, GitPullRequest, Tag, Box, MessageSquare, Heart, ExternalLink,
+  ChevronRight
 } from 'lucide-react'
 
 /* ──── TYPES ──── */
@@ -97,7 +98,13 @@ function AnimatedCounter({ value, suffix = '' }: { value: string; suffix?: strin
     }
     requestAnimationFrame(step)
   }, [inView, num])
-  return <span ref={ref} className="animated-gradient-text font-bold">{prefix}{count}{suffix}</span>
+  return <span ref={ref} className="animated-gradient-text font-bold tabular-nums">{prefix}{count}{suffix}</span>
+}
+
+/* ──── Edition date helper ──── */
+function getEditionDate(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 }
 
 function NavBar({ scrolled, mobileMenuOpen, setMobileMenuOpen, apiStatus }: {
@@ -105,6 +112,21 @@ function NavBar({ scrolled, mobileMenuOpen, setMobileMenuOpen, apiStatus }: {
 }) {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-background/80 backdrop-blur-xl border-b border-border' : 'bg-transparent'}`}>
+      {/* Edition Bar — top row */}
+      <div className="bg-card/80 backdrop-blur border-b border-border/50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between py-1.5">
+          <span className="text-xs font-mono text-muted-foreground">Edition {getEditionDate()}</span>
+          <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
+            <span>apex-agent.dev</span>
+            <span className="text-border">·</span>
+            <div className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full pulse-dot ${apiStatus === 'online' ? 'bg-apex-green' : apiStatus === 'offline' ? 'bg-apex-red' : 'bg-apex-yellow'}`} />
+              <span className={apiStatus === 'online' ? 'text-apex-green' : apiStatus === 'offline' ? 'text-apex-red' : 'text-apex-yellow'}>API · {apiStatus === 'online' ? 'Online' : apiStatus === 'offline' ? 'Offline' : 'Sync'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Main nav — bottom row */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
@@ -125,15 +147,10 @@ function NavBar({ scrolled, mobileMenuOpen, setMobileMenuOpen, apiStatus }: {
             <a href="/activity" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"><Activity className="w-3.5 h-3.5" /> Activity</a>
             <a href="/roadmap" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"><GitBranch className="w-3.5 h-3.5" /> Roadmap</a>
             <a href="/contribute" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Contribute</a>
-            <div className="flex items-center gap-1.5 text-xs font-mono">
-              <span className={`w-1.5 h-1.5 rounded-full pulse-dot ${apiStatus === 'online' ? 'bg-apex-green' : apiStatus === 'offline' ? 'bg-apex-red' : 'bg-apex-yellow'}`} />
-              <span className={apiStatus === 'online' ? 'text-apex-green' : apiStatus === 'offline' ? 'text-apex-red' : 'text-apex-yellow'}>API · {apiStatus === 'online' ? 'Online' : apiStatus === 'offline' ? 'Offline' : 'Sync'}</span>
-            </div>
             <a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"><Github className="w-4 h-4" /> GitHub</a>
             <a href="#install" className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-apex-cyan text-background text-sm font-medium hover:bg-apex-cyan/90 transition-colors"><ArrowRight className="w-3.5 h-3.5" /> Install</a>
           </div>
           <div className="flex items-center gap-2 md:hidden">
-            <span className={`w-1.5 h-1.5 rounded-full pulse-dot ${apiStatus === 'online' ? 'bg-apex-green' : apiStatus === 'offline' ? 'bg-apex-red' : 'bg-apex-yellow'}`} />
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-muted-foreground hover:text-foreground">{mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}</button>
           </div>
         </div>
@@ -185,16 +202,33 @@ export default function Home() {
 
   const handleCopy = (text: string) => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }
 
+  /* ──── Dispatch helpers ──── */
+  const dispatchHighlights = githubData ? [
+    ...githubData.releases.slice(0, 2).map(r => ({ type: 'release' as const, title: r.tag_name, desc: r.name || 'New release', number: 0 })),
+    ...githubData.pullRequests.filter(p => p.merged_at).slice(0, 2).map(p => ({ type: 'merged' as const, title: p.title, desc: `PR #${p.number} by ${p.user.login}`, number: p.number })),
+    ...githubData.issues.filter(i => i.state === 'open').slice(0, 2).map(i => ({ type: 'open' as const, title: i.title, desc: `Issue #${i.number}`, number: i.number })),
+  ].slice(0, 5) : []
+
+  const dispatchMovers = githubData ? [
+    ...githubData.issues.slice(0, 3).map(i => ({ number: i.number, title: i.title })),
+    ...githubData.pullRequests.slice(0, 2).map(p => ({ number: p.number, title: p.title })),
+  ] : []
+
+  const recentActivity = githubData ? [
+    ...githubData.issues.slice(0, 3).map(i => ({ type: 'Issue' as const, number: i.number, time: timeAgo(i.created_at), title: i.title, state: i.state, author: i.user.login })),
+    ...githubData.pullRequests.slice(0, 2).map(p => ({ type: 'Pull' as const, number: p.number, time: timeAgo(p.created_at), title: p.title, state: p.merged_at ? 'merged' : p.state, author: p.user.login })),
+  ].sort((a, b) => a.time.localeCompare(b.time)).slice(0, 5) : []
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <NavBar scrolled={scrolled} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} apiStatus={apiStatus} />
 
       {/* LIVE TICKER */}
-      <div className="relative pt-16">
+      <div className="relative pt-[6.5rem]">
         <div className="bg-card/80 border-b border-border/50 overflow-hidden">
           <div className="flex items-center">
-            <div className="shrink-0 px-3 py-2 bg-apex-cyan/10 border-r border-border/50 flex items-center gap-1.5">
-              <Radio className="w-3 h-3 text-apex-cyan" /><span className="text-xs font-mono font-bold text-apex-cyan uppercase">Live</span>
+            <div className="shrink-0 px-3 py-2 ticker-label-dark flex items-center gap-1.5">
+              <Radio className="w-3 h-3 text-apex-cyan" /><span className="text-xs font-mono font-bold text-apex-cyan uppercase tracking-wider">Live</span>
             </div>
             <div className="overflow-hidden flex-1">
               {githubLoading ? (
@@ -262,6 +296,13 @@ export default function Home() {
                 <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-apex-green" /> Security First</span>
               </div>
             </div>
+
+            {/* CTA + Support link */}
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+              <a href="/install" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-apex-cyan text-background font-medium hover:bg-apex-cyan/90 transition-colors"><Zap className="w-4 h-4" /> Install Now</a>
+              <a href="/docs" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-card transition-colors"><BookOpen className="w-4 h-4" /> Read the Docs</a>
+              <a href="https://buymeacoffee.com/ggboykxz" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-card transition-colors"><Heart className="w-4 h-4 text-apex-pink" /> Support ↗</a>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -299,11 +340,115 @@ export default function Home() {
             {STATS.map((stat, i) => (
               <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.1 }} className="text-center">
                 <stat.icon className="w-5 h-5 mx-auto mb-2 text-apex-cyan" />
-                <div className="text-2xl font-bold font-mono"><AnimatedCounter value={stat.value} /></div>
+                <div className="text-2xl font-bold font-mono tabular-nums"><AnimatedCounter value={stat.value} /></div>
                 <div className="text-xs text-muted-foreground font-mono mt-1">{stat.label}</div>
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ──── TODAY'S DISPATCH ──── */}
+      <section className="py-16 border-t border-b border-border/50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold font-mono">Today&apos;s Dispatch</h2>
+                <p className="text-sm text-muted-foreground font-mono mt-1">{getEditionDate()}</p>
+              </div>
+              <span className="text-xs font-mono text-muted-foreground">Curated by apex · 5min cron</span>
+            </div>
+
+            {githubLoading ? (
+              <div className="grid md:grid-cols-12 gap-8">
+                <div className="md:col-span-7 space-y-4">
+                  {[...Array(4)].map((_, i) => <div key={i} className="h-12 rounded-lg bg-card/50 animate-pulse" />)}
+                </div>
+                <div className="md:col-span-5 space-y-3">
+                  {[...Array(5)].map((_, i) => <div key={i} className="h-10 rounded-lg bg-card/50 animate-pulse" />)}
+                </div>
+              </div>
+            ) : githubData ? (
+              <div className="grid md:grid-cols-12 gap-8">
+                {/* Left column — Main dispatch */}
+                <div className="md:col-span-7">
+                  {/* Headline */}
+                  <h3 className="text-xl font-bold font-mono mb-3">
+                    {githubData.releases.length > 0 ? `${githubData.releases[0].tag_name} released` : 'Latest updates merged'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-6">
+                    {githubData.releases.length > 0
+                      ? `${githubData.releases[0].name || 'New release'} — ${githubData.pullRequests.filter(p => p.merged_at).length} PRs merged, ${githubData.issues.filter(i => i.state === 'open').length} issues open. Activity continues across the project.`
+                      : `${githubData.pullRequests.length} pull requests and ${githubData.issues.length} issues tracked. Development is active.`}
+                  </p>
+
+                  {/* Highlights */}
+                  <div className="mb-6">
+                    <h4 className="eyebrow mb-3">Highlights</h4>
+                    <div className="space-y-2">
+                      {dispatchHighlights.map((h, i) => (
+                        <a key={i} href={h.number ? `https://github.com/Ggboykxz/APEX/issues/${h.number}` : `https://github.com/Ggboykxz/APEX/releases`} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 p-2 rounded-lg hover:bg-card/50 transition-colors group">
+                          <span className={`shrink-0 mt-0.5 ${h.type === 'release' ? 'pill-hot' : h.type === 'merged' ? 'pill-jade' : 'pill-ghost'}`}>{h.type}</span>
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium group-hover:text-apex-cyan transition-colors">{h.title}</span>
+                            <span className="text-xs text-muted-foreground ml-2">{h.desc}</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Movers */}
+                  {dispatchMovers.length > 0 && (
+                    <div>
+                      <h4 className="eyebrow mb-3">Movers</h4>
+                      <div className="space-y-1.5">
+                        {dispatchMovers.map((m, i) => (
+                          <a key={i} href={`https://github.com/Ggboykxz/APEX/issues/${m.number}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm hover:text-apex-cyan transition-colors">
+                            <span className="text-xs font-mono text-muted-foreground">#{m.number}</span>
+                            <span className="truncate">{m.title}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right column — Recent Activity sidebar */}
+                <div className="md:col-span-5">
+                  <div className="rounded-xl border border-border/50 bg-card/30 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-card/80 border-b border-border/50">
+                      <h4 className="text-sm font-bold font-mono">Latest Activity</h4>
+                      <a href="/activity" className="text-xs text-muted-foreground hover:text-apex-cyan transition-colors flex items-center gap-1">All <ChevronRight className="w-3 h-3" /></a>
+                    </div>
+                    <div className="divide-y divide-border/30">
+                      {recentActivity.map((item, i) => (
+                        <a key={i} href={`https://github.com/Ggboykxz/APEX/issues/${item.number}`} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 px-4 py-3 hover:bg-card/50 transition-colors">
+                          <span className={`shrink-0 text-[0.6rem] font-mono font-bold uppercase mt-0.5 ${item.type === 'Pull' ? 'text-apex-magenta' : 'text-apex-green'}`}>{item.type}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground mb-0.5">
+                              <span>#{item.number}</span>
+                              <span>·</span>
+                              <span>{item.time}</span>
+                            </div>
+                            <p className="text-sm truncate">{item.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`pill-ghost text-[0.55rem]`}>{item.state}</span>
+                              <span className="text-xs text-muted-foreground">{item.author}</span>
+                            </div>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground font-mono text-sm">Unable to load dispatch</div>
+            )}
+          </motion.div>
         </div>
       </section>
 
@@ -329,6 +474,116 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ──── WHAT IT ACTUALLY IS ──── */}
+      <section className="py-20 bg-card/30 border-t border-b border-border/50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
+            <div className="flex items-center gap-3 mb-12">
+              <span className="seal">△</span>
+              <h2 className="text-3xl md:text-4xl font-bold font-mono">What it actually is</h2>
+            </div>
+            <div className="grid md:grid-cols-3 col-rule">
+              <div className="md:pr-8">
+                <p className="eyebrow mb-2">01 · Terminal Agent</p>
+                <h3 className="text-lg font-bold font-mono mb-3">A coding agent, not a chat box</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Same loop as Claude Code or Codex CLI. It reads, edits, runs tests, reports back.</p>
+              </div>
+              <div className="md:px-8 pt-6 md:pt-0">
+                <p className="eyebrow mb-2">02 · Sandbox Protection</p>
+                <h3 className="text-lg font-bold font-mono mb-3">Five agents, one approval system</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Plan reads, Build asks, YOLO doesn&apos;t. Sandboxed via landlock (Linux), seatbelt (macOS), restricted tokens (Windows).</p>
+              </div>
+              <div className="md:pl-8 pt-6 md:pt-0">
+                <p className="eyebrow mb-2">03 · Model Freedom</p>
+                <h3 className="text-lg font-bold font-mono mb-3">100+ models by default</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Use any LLM from any provider. Swap with /model command mid-session.</p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ──── HOW IT WORKS ──── */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
+            <div className="flex items-center gap-3 mb-12">
+              <span className="seal">△</span>
+              <h2 className="text-3xl md:text-4xl font-bold font-mono">How it works</h2>
+            </div>
+            <div className="rounded-xl border border-border/50 bg-card/30 p-6 md:p-10 overflow-x-auto">
+              {/* Architecture Diagram SVG */}
+              <svg viewBox="0 0 900 380" className="w-full max-w-4xl mx-auto" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ minWidth: '600px' }}>
+                {/* ── Arrows ── */}
+                {/* You type → Engine */}
+                <line x1="220" y1="70" x2="370" y2="70" stroke="#00e5ff" strokeWidth="2" markerEnd="url(#arrowCyan)" />
+                <text x="295" y="62" textAnchor="middle" fill="#7d8590" fontSize="11" fontFamily="monospace">input</text>
+
+                {/* Engine → LLM API */}
+                <line x1="520" y1="50" x2="640" y2="50" stroke="#00e5ff" strokeWidth="2" markerEnd="url(#arrowCyan)" />
+                <text x="580" y="42" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">HTTPS / SSE</text>
+
+                {/* Engine → Tools */}
+                <line x1="520" y1="90" x2="640" y2="150" stroke="#00e5ff" strokeWidth="2" markerEnd="url(#arrowCyan)" />
+                <text x="570" y="118" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">tool call</text>
+
+                {/* Tools → Approval */}
+                <line x1="810" y1="170" x2="810" y2="230" stroke="#00e5ff" strokeWidth="2" markerEnd="url(#arrowCyan)" />
+                <text x="838" y="205" fill="#7d8590" fontSize="10" fontFamily="monospace">confirm</text>
+
+                {/* Approval → Engine (loop back) */}
+                <path d="M810 280 L810 310 L445 310 L445 100" stroke="#00ff88" strokeWidth="2" fill="none" strokeDasharray="6 3" markerEnd="url(#arrowGreen)" />
+                <text x="628" y="328" textAnchor="middle" fill="#00ff88" fontSize="10" fontFamily="monospace">Y/N → loop</text>
+
+                {/* Tools → Sandbox */}
+                <line x1="720" y1="195" x2="720" y2="260" stroke="#ffaa00" strokeWidth="2" markerEnd="url(#arrowYellow)" />
+                <text x="738" y="232" fill="#7d8590" fontSize="10" fontFamily="monospace">exec</text>
+
+                {/* ── Arrow markers ── */}
+                <defs>
+                  <marker id="arrowCyan" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#00e5ff" /></marker>
+                  <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#00ff88" /></marker>
+                  <marker id="arrowYellow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#ffaa00" /></marker>
+                </defs>
+
+                {/* ── Nodes ── */}
+                {/* You type */}
+                <rect x="40" y="45" width="180" height="50" rx="8" fill="#161b22" stroke="#30363d" strokeWidth="1.5" />
+                <text x="130" y="65" textAnchor="middle" fill="#e6edf3" fontSize="13" fontWeight="bold" fontFamily="monospace">You type</text>
+                <text x="130" y="82" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">TUI · Terminal</text>
+
+                {/* Engine */}
+                <rect x="370" y="35" width="150" height="70" rx="8" fill="#161b22" stroke="#00e5ff" strokeWidth="2" />
+                <text x="445" y="65" textAnchor="middle" fill="#00e5ff" fontSize="13" fontWeight="bold" fontFamily="monospace">Engine</text>
+                <text x="445" y="82" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">turn loop + tools</text>
+
+                {/* LLM API */}
+                <rect x="640" y="25" width="200" height="50" rx="8" fill="#161b22" stroke="#30363d" strokeWidth="1.5" />
+                <text x="740" y="46" textAnchor="middle" fill="#e6edf3" fontSize="13" fontWeight="bold" fontFamily="monospace">LLM API</text>
+                <text x="740" y="62" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">100+ models</text>
+
+                {/* Tools */}
+                <rect x="640" y="120" width="200" height="75" rx="8" fill="#161b22" stroke="#30363d" strokeWidth="1.5" />
+                <text x="740" y="145" textAnchor="middle" fill="#e6edf3" fontSize="13" fontWeight="bold" fontFamily="monospace">Tools</text>
+                <text x="740" y="162" textAnchor="middle" fill="#7d8590" fontSize="9" fontFamily="monospace">read_file · edit_file</text>
+                <text x="740" y="176" textAnchor="middle" fill="#7d8590" fontSize="9" fontFamily="monospace">grep · exec_shell · mcp_server</text>
+
+                {/* Approval */}
+                <rect x="740" y="230" width="140" height="50" rx="8" fill="#161b22" stroke="#ffaa00" strokeWidth="1.5" />
+                <text x="810" y="252" textAnchor="middle" fill="#ffaa00" fontSize="13" fontWeight="bold" fontFamily="monospace">Approval</text>
+                <text x="810" y="268" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">Y / N</text>
+
+                {/* Sandbox */}
+                <rect x="600" y="260" width="220" height="50" rx="8" fill="#161b22" stroke="#ff4444" strokeWidth="1.5" />
+                <text x="710" y="282" textAnchor="middle" fill="#ff4444" fontSize="12" fontWeight="bold" fontFamily="monospace">Sandbox</text>
+                <text x="710" y="298" textAnchor="middle" fill="#7d8590" fontSize="9" fontFamily="monospace">seatbelt · landlock · win32</text>
+              </svg>
+              <p className="text-center text-xs text-muted-foreground font-mono mt-6">Rendered with APEX architecture standard syntax.</p>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
       {/* PAGE LINKS */}
       <section className="py-20 bg-card/30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -349,37 +604,106 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+      {/* ──── JOIN IN CTA ──── */}
+      <section className="py-20 bg-[#0a0e14]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
-            <h2 className="text-3xl md:text-5xl font-bold font-mono mb-6">Ready to <span className="animated-gradient-text">APEX</span>?</h2>
-            <p className="text-lg text-muted-foreground mb-8 max-w-xl mx-auto leading-relaxed">The last coding agent you&apos;ll ever need. Install in 30 seconds and start coding with any model.</p>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <a href="/install" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-apex-cyan text-background font-medium hover:bg-apex-cyan/90 transition-colors"><Zap className="w-4 h-4" /> Install Now</a>
-              <a href="/docs" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-card transition-colors"><BookOpen className="w-4 h-4" /> Read the Docs</a>
-              <a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-card transition-colors"><Github className="w-4 h-4" /> View Source</a>
+            <div className="grid md:grid-cols-12 gap-10 md:gap-12">
+              {/* Left */}
+              <div className="md:col-span-5">
+                <p className="eyebrow text-apex-cyan mb-4">Join in</p>
+                <h2 className="text-3xl md:text-4xl font-bold font-mono mb-4">This is a small project.<br />Your patch matters.</h2>
+                <p className="text-muted-foreground leading-relaxed">No CLA. No sponsor lockouts. The maintainer reads everything personally. Issues triaged in the open. Releases cut from main.</p>
+              </div>
+              {/* Right — 3 cards */}
+              <div className="md:col-span-7">
+                <div className="grid sm:grid-cols-3 gap-px bg-border/20 rounded-xl overflow-hidden">
+                  <a href="https://github.com/Ggboykxz/APEX/issues" target="_blank" rel="noopener noreferrer" className="group p-6 bg-card/80 hover:bg-apex-cyan/10 transition-colors duration-300">
+                    <h3 className="font-bold font-mono mb-2 group-hover:text-apex-cyan transition-colors">Open an issue</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Bug, feature, or just a sharp question.</p>
+                    <span className="text-xs font-mono text-muted-foreground group-hover:text-apex-cyan transition-colors flex items-center gap-1">GitHub Issues <ExternalLink className="w-3 h-3" /></span>
+                  </a>
+                  <a href="/contribute" className="group p-6 bg-card/80 hover:bg-apex-cyan/10 transition-colors duration-300">
+                    <h3 className="font-bold font-mono mb-2 group-hover:text-apex-cyan transition-colors">Send a PR</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Fork, branch, conventional commit, open PR.</p>
+                    <span className="text-xs font-mono text-muted-foreground group-hover:text-apex-cyan transition-colors flex items-center gap-1">Contribute <ArrowRight className="w-3 h-3" /></span>
+                  </a>
+                  <a href="https://github.com/Ggboykxz/APEX/discussions" target="_blank" rel="noopener noreferrer" className="group p-6 bg-card/80 hover:bg-apex-cyan/10 transition-colors duration-300">
+                    <h3 className="font-bold font-mono mb-2 group-hover:text-apex-cyan transition-colors">Start a discussion</h3>
+                    <p className="text-sm text-muted-foreground mb-4">Roadmap, design, anything that&apos;s not a bug.</p>
+                    <span className="text-xs font-mono text-muted-foreground group-hover:text-apex-cyan transition-colors flex items-center gap-1">GitHub Discussions <ExternalLink className="w-3 h-3" /></span>
+                  </a>
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="border-t border-border py-8 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className="w-5 h-5"><defs><linearGradient id="footer-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#00e5ff"/><stop offset="100%" stopColor="#00ff88"/></linearGradient></defs><polygon points="32,4 60,56 4,56" stroke="url(#footer-grad)" strokeWidth="4" fill="none" strokeLinejoin="round"/><circle cx="32" cy="40" r="4" fill="url(#footer-grad)"/></svg>
-              <span className="text-xs text-muted-foreground font-mono">MIT License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></span>
+      {/* ──── RICH 5-COLUMN FOOTER ──── */}
+      <footer className="border-t border-border bg-card/30 mt-auto">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+          <div className="grid grid-cols-2 md:grid-cols-12 gap-8 md:gap-6">
+            {/* Brand column */}
+            <div className="col-span-2 md:col-span-4">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="seal">△</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className="w-5 h-5"><defs><linearGradient id="footer-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#00e5ff"/><stop offset="100%" stopColor="#00ff88"/></linearGradient></defs><polygon points="32,4 60,56 4,56" stroke="url(#footer-grad)" strokeWidth="4" fill="none" strokeLinejoin="round"/><circle cx="32" cy="40" r="4" fill="url(#footer-grad)"/></svg>
+                <span className="font-mono font-bold text-lg">APEX</span>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-3">Open-source universal AI coding agent. MIT licensed. Maintained from Gabon. Pull requests welcome.</p>
+              <p className="text-xs text-muted-foreground font-mono">Made with care · Built in Africa 🇬🇦</p>
             </div>
-            <div className="flex items-center gap-6">
-              <a href="/docs" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Docs</a>
-              <a href="/install" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Install</a>
-              <a href="/agents" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Agents</a>
-              <a href="/models" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Models</a>
-              <a href="/tools" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Tools</a>
-              <a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a>
+
+            {/* Product */}
+            <div className="md:col-span-2">
+              <h4 className="font-bold font-mono text-sm mb-4">Product</h4>
+              <ul className="space-y-2.5">
+                <li><a href="/install" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Install</a></li>
+                <li><a href="/docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Documentation</a></li>
+                <li><a href="/roadmap" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Roadmap</a></li>
+                <li><a href="https://github.com/Ggboykxz/APEX/releases" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Releases</a></li>
+              </ul>
             </div>
+
+            {/* Community */}
+            <div className="md:col-span-2">
+              <h4 className="font-bold font-mono text-sm mb-4">Community</h4>
+              <ul className="space-y-2.5">
+                <li><a href="https://github.com/Ggboykxz/APEX/issues" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Issues</a></li>
+                <li><a href="https://github.com/Ggboykxz/APEX/pulls" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Pull Requests</a></li>
+                <li><a href="https://github.com/Ggboykxz/APEX/discussions" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Discussions</a></li>
+                <li><a href="/contribute" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Contribute</a></li>
+                <li><a href="https://buymeacoffee.com/ggboykxz" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">Support APEX <Heart className="w-3 h-3 text-apex-pink" /></a></li>
+              </ul>
+            </div>
+
+            {/* Resources */}
+            <div className="md:col-span-2">
+              <h4 className="font-bold font-mono text-sm mb-4">Resources</h4>
+              <ul className="space-y-2.5">
+                <li><a href="/activity" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Activity Feed</a></li>
+                <li><a href="https://github.com/Ggboykxz/APEX/blob/main/CODE_OF_CONDUCT.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Code of Conduct</a></li>
+                <li><a href="https://github.com/Ggboykxz/APEX/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Security</a></li>
+                <li><a href="https://github.com/Ggboykxz/APEX/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">License (MIT)</a></li>
+              </ul>
+            </div>
+
+            {/* Social / Connect */}
+            <div className="md:col-span-2">
+              <h4 className="font-bold font-mono text-sm mb-4">Connect</h4>
+              <ul className="space-y-2.5">
+                <li><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"><Github className="w-3.5 h-3.5" /> GitHub</a></li>
+                <li><a href="https://buymeacoffee.com/ggboykxz" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5"><Heart className="w-3.5 h-3.5 text-apex-pink" /> Sponsor</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        {/* Bottom bar */}
+        <div className="border-t border-border/50">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground font-mono">© 2026 · APEX · Ggboykxz</span>
+            <span className="text-xs text-muted-foreground font-mono">Maintained with APEX</span>
           </div>
         </div>
       </footer>

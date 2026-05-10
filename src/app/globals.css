@@ -239,3 +239,102 @@ html {
   border-radius: 8px;
   font-family: var(--font-geist-mono), monospace;
 }
+
+/* ──── NEW UTILITY CLASSES ──── */
+
+/* Seal/glyph decorative element */
+.seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--font-geist-mono), monospace;
+  background: linear-gradient(135deg, #00e5ff, #00ff88);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  flex-shrink: 0;
+}
+
+/* Column rule dividers between grid children */
+.col-rule > * + * {
+  border-left: 1px solid var(--border);
+}
+
+/* Eyebrow label — uppercase, small, wide-tracked */
+.eyebrow {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  font-family: var(--font-geist-mono), monospace;
+}
+
+/* Big display number */
+.bignum {
+  font-size: 2.25rem;
+  font-weight: 700;
+  font-family: var(--font-geist-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Pill badges */
+.pill-hot {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: var(--font-geist-mono), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(0, 229, 255, 0.15);
+  color: #00e5ff;
+}
+
+.pill-ghost {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: var(--font-geist-mono), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.pill-jade {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-family: var(--font-geist-mono), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(0, 255, 136, 0.15);
+  color: #00ff88;
+}
+
+/* Ticker live label — dark bg */
+.ticker-label-dark {
+  background: #0a0e14;
+  border-right: 1px solid var(--border);
+}
+
+/* Tabular nums for numeric displays */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
