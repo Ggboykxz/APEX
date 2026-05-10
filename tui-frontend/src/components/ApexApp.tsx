@@ -116,7 +116,6 @@ export function ApexApp() {
     setMessages((prev) => [...prev, userMsg])
 
     const assistantId = `msg-${Date.now()}-a`
-    const startTime = Date.now()
 
     try {
       const response = await fetch(`${API_BASE}/chat/stream`, {
