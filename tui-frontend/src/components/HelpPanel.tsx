@@ -7,12 +7,15 @@ interface HelpPanelProps {
   onClose: () => void
   tab: "keybindings" | "agents" | "tools"
   onTabChange: (tab: "keybindings" | "agents" | "tools") => void
+  activeAgent?: string
 }
 
-export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps) {
+export function HelpPanel({ visible, onClose, tab, onTabChange, activeAgent = "coder" }: HelpPanelProps) {
   if (!visible) return null
 
-  const currentAgent = APEX_AGENTS[0]
+  const agent = APEX_AGENTS.find((a) => a.id === activeAgent)
+  const agentColor = agent?.color ?? apexTheme.cyan
+
   const navKbs = APEX_KEYBINDINGS.filter((kb) => kb.category === "Navigation")
   const chatKbs = APEX_KEYBINDINGS.filter((kb) => kb.category === "Chat")
   const viewKbs = APEX_KEYBINDINGS.filter((kb) => kb.category === "View")
@@ -29,14 +32,16 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
         flexDirection: "column",
         backgroundColor: apexTheme.bgSurface,
         border: true,
-        borderColor: currentAgent?.color ?? apexTheme.cyan,
+        borderColor: agentColor,
         borderStyle: "double",
         zIndex: 200,
       }}
     >
       <box style={{ height: 1, paddingLeft: 1, backgroundColor: apexTheme.bgOverlay, flexDirection: "row", alignItems: "center" }}>
-        <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>▲ APEX Help</span>
-        <span style={{ fg: apexTheme.textMuted }}> - Press Esc to close</span>
+        <text>
+          <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>▲ APEX Help</span>
+          <span style={{ fg: apexTheme.textMuted }}> - Press Esc to close</span>
+        </text>
       </box>
 
       <box style={{ height: 1, flexDirection: "row", paddingLeft: 1 }}>
@@ -49,19 +54,21 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
             }}
             onMouseDown={() => onTabChange(t)}
           >
-            <span
-              style={{
-                fg: tab === t ? (currentAgent?.color ?? apexTheme.cyan) : apexTheme.textMuted,
-                attributes: tab === t ? TextAttributes.BOLD : 0,
-              }}
-            >
-              {tab === t ? "▸" : " "} {t}
-            </span>
+            <text>
+              <span
+                style={{
+                  fg: tab === t ? agentColor : apexTheme.textMuted,
+                  attributes: tab === t ? TextAttributes.BOLD : undefined,
+                }}
+              >
+                {tab === t ? "▸" : " "} {t}
+              </span>
+            </text>
           </box>
         ))}
       </box>
 
-      <box style={{ height: 1, backgroundColor: currentAgent?.color ?? apexTheme.cyan, opacity: 0.3 }} />
+      <box style={{ height: 1, backgroundColor: agentColor, opacity: 0.3 }} />
 
       <scrollbox
         style={{
@@ -71,7 +78,7 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
           scrollbarOptions: {
             showArrows: false,
             trackOptions: {
-              foregroundColor: currentAgent?.color ?? apexTheme.cyan,
+              foregroundColor: agentColor,
               backgroundColor: apexTheme.scrollbarTrack,
             },
           },
@@ -79,27 +86,39 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
       >
         {tab === "keybindings" && (
           <box style={{ flexDirection: "column", paddingLeft: 1 }}>
-            <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>══ NAVIGATION ══</span>
+            <text>
+              <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>══ NAVIGATION ══</span>
+            </text>
             {navKbs.map((kb, i) => (
               <box key={i} style={{ height: 1 }}>
-                <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>{kb.key.padEnd(16)}</span>
-                <span style={{ fg: apexTheme.text }}>{kb.action}</span>
+                <text>
+                  <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>{kb.key.padEnd(16)}</span>
+                  <span style={{ fg: apexTheme.text }}>{kb.action}</span>
+                </text>
               </box>
             ))}
             <box style={{ height: 1 }} />
-            <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>══ CHAT ══</span>
+            <text>
+              <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>══ CHAT ══</span>
+            </text>
             {chatKbs.map((kb, i) => (
               <box key={i} style={{ height: 1 }}>
-                <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>{kb.key.padEnd(16)}</span>
-                <span style={{ fg: apexTheme.text }}>{kb.action}</span>
+                <text>
+                  <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>{kb.key.padEnd(16)}</span>
+                  <span style={{ fg: apexTheme.text }}>{kb.action}</span>
+                </text>
               </box>
             ))}
             <box style={{ height: 1 }} />
-            <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>══ VIEW ══</span>
+            <text>
+              <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>══ VIEW ══</span>
+            </text>
             {viewKbs.map((kb, i) => (
               <box key={i} style={{ height: 1 }}>
-                <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>{kb.key.padEnd(16)}</span>
-                <span style={{ fg: apexTheme.text }}>{kb.action}</span>
+                <text>
+                  <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>{kb.key.padEnd(16)}</span>
+                  <span style={{ fg: apexTheme.text }}>{kb.action}</span>
+                </text>
               </box>
             ))}
           </box>
@@ -107,11 +126,15 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
 
         {tab === "agents" && (
           <box style={{ flexDirection: "column", paddingLeft: 1 }}>
-            <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>══ AVAILABLE AGENTS ══</span>
-            {APEX_AGENTS.map((agent) => (
-              <box key={agent.id} style={{ height: 2, marginBottom: 1 }}>
-                <span style={{ fg: agent.color, attributes: TextAttributes.BOLD }}>{agent.icon} {agent.name}</span>
-                <span style={{ fg: apexTheme.textMuted }}> - {agent.role}</span>
+            <text>
+              <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>══ AVAILABLE AGENTS ══</span>
+            </text>
+            {APEX_AGENTS.map((a) => (
+              <box key={a.id} style={{ height: 2, marginBottom: 1 }}>
+                <text>
+                  <span style={{ fg: a.color, attributes: TextAttributes.BOLD }}>{a.icon} {a.name}</span>
+                  <span style={{ fg: apexTheme.textMuted }}> - {a.role}</span>
+                </text>
               </box>
             ))}
           </box>
@@ -119,11 +142,15 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
 
         {tab === "tools" && (
           <box style={{ flexDirection: "column", paddingLeft: 1 }}>
-            <span style={{ fg: apexTheme.green, attributes: TextAttributes.BOLD }}>══ {APEX_TOOLS.length}+ TOOLS ══</span>
+            <text>
+              <span style={{ fg: apexTheme.green, attributes: TextAttributes.BOLD }}>══ {APEX_TOOLS.length} TOOLS ══</span>
+            </text>
             {Array.from(new Set(APEX_TOOLS.map((t) => t.category))).map((category) => (
               <box key={category} style={{ height: 2, marginBottom: 1 }}>
-                <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>- {category}</span>
-                <span style={{ fg: apexTheme.textDim }}> {APEX_TOOLS.filter((t) => t.category === category).slice(0, 5).map((t) => t.name).join(", ")}</span>
+                <text>
+                  <span style={{ fg: agentColor, attributes: TextAttributes.BOLD }}>- {category}</span>
+                  <span style={{ fg: apexTheme.textDim }}> {APEX_TOOLS.filter((t) => t.category === category).slice(0, 5).map((t) => t.name).join(", ")}</span>
+                </text>
               </box>
             ))}
           </box>
@@ -131,7 +158,7 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
       </scrollbox>
 
       <box style={{ height: 1, backgroundColor: apexTheme.bgOverlay }}>
-        <span style={{ fg: apexTheme.textMuted }}>Press Esc to close</span>
+        <text style={{ fg: apexTheme.textMuted }}>Press Esc to close</text>
       </box>
     </box>
   )
