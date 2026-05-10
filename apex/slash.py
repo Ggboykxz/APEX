@@ -21,132 +21,116 @@ class SlashCommandManager:
         self._register_default_commands()
 
     def _register_default_commands(self):
-        self.register(Command(
-            name="agent",
-            description="Switch to a different agent",
-            handler=self._cmd_agent,
-            args=["agent_name"],
-            requires_argument=True
-        ))
-        self.register(Command(
-            name="model",
-            description="Switch to a different model",
-            handler=self._cmd_model,
-            args=["model_name"],
-            requires_argument=True
-        ))
-        self.register(Command(
-            name="cwd",
-            description="Change working directory",
-            handler=self._cmd_cwd,
-            args=["path"],
-            requires_argument=True
-        ))
-        self.register(Command(
-            name="clear",
-            description="Clear conversation history",
-            handler=self._cmd_clear
-        ))
-        self.register(Command(
-            name="save",
-            description="Save current session",
-            handler=self._cmd_save,
-            args=["name"]
-        ))
-        self.register(Command(
-            name="load",
-            description="Load a saved session",
-            handler=self._cmd_load,
-            args=["name"],
-            requires_argument=True
-        ))
-        self.register(Command(
-            name="share",
-            description="Share current session",
-            handler=self._cmd_share
-        ))
-        self.register(Command(
-            name="undo",
-            description="Undo last change",
-            handler=self._cmd_undo
-        ))
-        self.register(Command(
-            name="redo",
-            description="Redo last undone change",
-            handler=self._cmd_redo
-        ))
-        self.register(Command(
-            name="git",
-            description="Show git status",
-            handler=self._cmd_git
-        ))
-        self.register(Command(
-            name="map",
-            description="Show repository map",
-            handler=self._cmd_map
-        ))
-        self.register(Command(
-            name="help",
-            description="Show available commands",
-            handler=self._cmd_help
-        ))
-        self.register(Command(
-            name="cost",
-            description="Show token cost summary",
-            handler=self._cmd_cost
-        ))
-        self.register(Command(
-            name="agents",
-            description="List all agents",
-            handler=self._cmd_agents
-        ))
-        self.register(Command(
-            name="subagents",
-            description="List all subagents",
-            handler=self._cmd_subagents
-        ))
-        self.register(Command(
-            name="models",
-            description="List all available models",
-            handler=self._cmd_models
-        ))
-        self.register(Command(
-            name="init",
-            description="Initialize project (create AGENTS.md)",
-            handler=self._cmd_init
-        ))
-        self.register(Command(
-            name="analyze",
-            description="Analyze project structure",
-            handler=self._cmd_analyze
-        ))
-        self.register(Command(
-            name="approve",
-            description="Approve pending plan",
-            handler=self._cmd_approve
-        ))
-        self.register(Command(
-            name="reject",
-            description="Reject pending plan",
-            handler=self._cmd_reject,
-            args=["reason"]
-        ))
-        self.register(Command(
-            name="redo",
-            description="Redo last undone change",
-            handler=self._cmd_redo
-        ))
-        self.register(Command(
-            name="shell",
-            description="Start interactive shell",
-            handler=self._cmd_shell,
-            args=["shell_name"]
-        ))
-        self.register(Command(
-            name="commands",
-            description="List custom commands",
-            handler=self._cmd_commands
-        ))
+        self.register(
+            Command(
+                name="agent",
+                description="Switch to a different agent",
+                handler=self._cmd_agent,
+                args=["agent_name"],
+                requires_argument=True,
+            )
+        )
+        self.register(
+            Command(
+                name="model",
+                description="Switch to a different model",
+                handler=self._cmd_model,
+                args=["model_name"],
+                requires_argument=True,
+            )
+        )
+        self.register(
+            Command(
+                name="cwd",
+                description="Change working directory",
+                handler=self._cmd_cwd,
+                args=["path"],
+                requires_argument=True,
+            )
+        )
+        self.register(
+            Command(name="clear", description="Clear conversation history", handler=self._cmd_clear)
+        )
+        self.register(
+            Command(
+                name="save",
+                description="Save current session",
+                handler=self._cmd_save,
+                args=["name"],
+            )
+        )
+        self.register(
+            Command(
+                name="load",
+                description="Load a saved session",
+                handler=self._cmd_load,
+                args=["name"],
+                requires_argument=True,
+            )
+        )
+        self.register(
+            Command(name="share", description="Share current session", handler=self._cmd_share)
+        )
+        self.register(Command(name="undo", description="Undo last change", handler=self._cmd_undo))
+        self.register(
+            Command(name="redo", description="Redo last undone change", handler=self._cmd_redo)
+        )
+        self.register(Command(name="git", description="Show git status", handler=self._cmd_git))
+        self.register(Command(name="map", description="Show repository map", handler=self._cmd_map))
+        self.register(
+            Command(name="help", description="Show available commands", handler=self._cmd_help)
+        )
+        self.register(
+            Command(name="cost", description="Show token cost summary", handler=self._cmd_cost)
+        )
+        self.register(
+            Command(name="agents", description="List all agents", handler=self._cmd_agents)
+        )
+        self.register(
+            Command(name="subagents", description="List all subagents", handler=self._cmd_subagents)
+        )
+        self.register(
+            Command(
+                name="models", description="List all available models", handler=self._cmd_models
+            )
+        )
+        self.register(
+            Command(
+                name="init",
+                description="Initialize project (create AGENTS.md)",
+                handler=self._cmd_init,
+            )
+        )
+        self.register(
+            Command(
+                name="analyze", description="Analyze project structure", handler=self._cmd_analyze
+            )
+        )
+        self.register(
+            Command(name="approve", description="Approve pending plan", handler=self._cmd_approve)
+        )
+        self.register(
+            Command(
+                name="reject",
+                description="Reject pending plan",
+                handler=self._cmd_reject,
+                args=["reason"],
+            )
+        )
+        self.register(
+            Command(name="redo", description="Redo last undone change", handler=self._cmd_redo)
+        )
+        self.register(
+            Command(
+                name="shell",
+                description="Start interactive shell",
+                handler=self._cmd_shell,
+                args=["shell_name"],
+            )
+        )
+        self.register(
+            Command(name="commands", description="List custom commands", handler=self._cmd_commands)
+        )
 
     def register(self, command: Command):
         self._commands[command.name] = command
@@ -161,8 +145,7 @@ class SlashCommandManager:
 
     def list_commands(self) -> list[dict[str, str]]:
         return [
-            {"name": cmd.name, "description": cmd.description}
-            for cmd in self._commands.values()
+            {"name": cmd.name, "description": cmd.description} for cmd in self._commands.values()
         ]
 
     def parse(self, text: str) -> tuple[str, list[str]] | None:

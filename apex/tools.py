@@ -26,9 +26,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "Path to the file to read"}
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -39,11 +39,11 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "Path to the file to write"},
-                    "content": {"type": "string", "description": "Content to write to the file"}
+                    "content": {"type": "string", "description": "Content to write to the file"},
                 },
-                "required": ["path", "content"]
-            }
-        }
+                "required": ["path", "content"],
+            },
+        },
     },
     {
         "type": "function",
@@ -54,12 +54,15 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "Path to the file to edit"},
-                    "old_string": {"type": "string", "description": "Unique string to find and replace"},
-                    "new_string": {"type": "string", "description": "String to replace it with"}
+                    "old_string": {
+                        "type": "string",
+                        "description": "Unique string to find and replace",
+                    },
+                    "new_string": {"type": "string", "description": "String to replace it with"},
                 },
-                "required": ["path", "old_string", "new_string"]
-            }
-        }
+                "required": ["path", "old_string", "new_string"],
+            },
+        },
     },
     {
         "type": "function",
@@ -71,9 +74,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "command": {"type": "string", "description": "Shell command to execute"}
                 },
-                "required": ["command"]
-            }
-        }
+                "required": ["command"],
+            },
+        },
     },
     {
         "type": "function",
@@ -85,9 +88,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "Directory to list (default: .)"}
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -98,11 +101,14 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "pattern": {"type": "string", "description": "Regex pattern to search for"},
-                    "path": {"type": "string", "description": "Directory to search in (default: .)"}
+                    "path": {
+                        "type": "string",
+                        "description": "Directory to search in (default: .)",
+                    },
                 },
-                "required": ["pattern", "path"]
-            }
-        }
+                "required": ["pattern", "path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -114,9 +120,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "Path to file or directory to delete"}
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -128,9 +134,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "Path of directory to create"}
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -141,11 +147,14 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "pattern": {"type": "string", "description": "Glob pattern (e.g., '**/*.py')"},
-                    "directory": {"type": "string", "description": "Directory to search in (default: .)"}
+                    "directory": {
+                        "type": "string",
+                        "description": "Directory to search in (default: .)",
+                    },
                 },
-                "required": ["pattern"]
-            }
-        }
+                "required": ["pattern"],
+            },
+        },
     },
     {
         "type": "function",
@@ -156,11 +165,14 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "Directory to display (default: .)"},
-                    "max_depth": {"type": "integer", "description": "Maximum depth to display (default: 3)"}
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "Maximum depth to display (default: 3)",
+                    },
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -171,22 +183,19 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "path_a": {"type": "string", "description": "Path to first file"},
-                    "path_b": {"type": "string", "description": "Path to second file"}
+                    "path_b": {"type": "string", "description": "Path to second file"},
                 },
-                "required": ["path_a", "path_b"]
-            }
-        }
+                "required": ["path_a", "path_b"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_git_status",
             "description": "Show git status of the repository.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -196,10 +205,13 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "n": {"type": "integer", "description": "Number of commits to show (default: 10)"}
-                }
-            }
-        }
+                    "n": {
+                        "type": "integer",
+                        "description": "Number of commits to show (default: 10)",
+                    }
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -209,10 +221,13 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "ref": {"type": "string", "description": "Git reference (branch, tag, commit) to diff against"}
-                }
-            }
-        }
+                    "ref": {
+                        "type": "string",
+                        "description": "Git reference (branch, tag, commit) to diff against",
+                    }
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -221,12 +236,10 @@ TOOL_SCHEMAS = [
             "description": "Search the web for information.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query"}
-                },
-                "required": ["query"]
-            }
-        }
+                "properties": {"query": {"type": "string", "description": "Search query"}},
+                "required": ["query"],
+            },
+        },
     },
     {
         "type": "function",
@@ -235,12 +248,10 @@ TOOL_SCHEMAS = [
             "description": "Fetch and clean a webpage.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "URL to fetch"}
-                },
-                "required": ["url"]
-            }
-        }
+                "properties": {"url": {"type": "string", "description": "URL to fetch"}},
+                "required": ["url"],
+            },
+        },
     },
     {
         "type": "function",
@@ -251,9 +262,9 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "Path to repository (default: .)"}
-                }
-            }
-        }
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -262,12 +273,10 @@ TOOL_SCHEMAS = [
             "description": "Read an image file and return base64 encoding for vision models.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "Path to image file"}
-                },
-                "required": ["path"]
-            }
-        }
+                "properties": {"path": {"type": "string", "description": "Path to image file"}},
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -277,12 +286,18 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "framework": {"type": "string", "description": "Test framework (pytest, jest, cargo)"},
-                    "path": {"type": "string", "description": "Path to run tests (file, directory, or specific test)"}
+                    "framework": {
+                        "type": "string",
+                        "description": "Test framework (pytest, jest, cargo)",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Path to run tests (file, directory, or specific test)",
+                    },
                 },
-                "required": ["framework", "path"]
-            }
-        }
+                "required": ["framework", "path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -291,12 +306,10 @@ TOOL_SCHEMAS = [
             "description": "Format a file using black, prettier, or rustfmt.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "Path to file to format"}
-                },
-                "required": ["path"]
-            }
-        }
+                "properties": {"path": {"type": "string", "description": "Path to file to format"}},
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -306,12 +319,15 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "manager": {"type": "string", "description": "Package manager (pip, npm, cargo)"},
-                    "package": {"type": "string", "description": "Package name to install"}
+                    "manager": {
+                        "type": "string",
+                        "description": "Package manager (pip, npm, cargo)",
+                    },
+                    "package": {"type": "string", "description": "Package name to install"},
                 },
-                "required": ["manager", "package"]
-            }
-        }
+                "required": ["manager", "package"],
+            },
+        },
     },
     {
         "type": "function",
@@ -321,12 +337,15 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "agent": {"type": "string", "description": "Subagent to invoke (general, explore)"},
-                    "task": {"type": "string", "description": "Task description for the subagent"}
+                    "agent": {
+                        "type": "string",
+                        "description": "Subagent to invoke (general, explore)",
+                    },
+                    "task": {"type": "string", "description": "Task description for the subagent"},
                 },
-                "required": ["agent", "task"]
-            }
-        }
+                "required": ["agent", "task"],
+            },
+        },
     },
     {
         "type": "function",
@@ -338,11 +357,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "Path to the file to edit"},
                     "old_string": {"type": "string", "description": "Unique string to find"},
-                    "new_string": {"type": "string", "description": "String to replace it with"}
+                    "new_string": {"type": "string", "description": "String to replace it with"},
                 },
-                "required": ["path", "old_string", "new_string"]
-            }
-        }
+                "required": ["path", "old_string", "new_string"],
+            },
+        },
     },
     {
         "type": "function",
@@ -354,20 +373,17 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "preview_id": {"type": "string", "description": "ID from preview_edit result"}
                 },
-                "required": ["preview_id"]
-            }
-        }
+                "required": ["preview_id"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "clipboard_read",
             "description": "Read text from system clipboard.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -379,9 +395,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "text": {"type": "string", "description": "Text to copy to clipboard"}
                 },
-                "required": ["text"]
-            }
-        }
+                "required": ["text"],
+            },
+        },
     },
     {
         "type": "function",
@@ -392,11 +408,15 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "question": {"type": "string", "description": "Question to ask the user"},
-                    "options": {"type": "array", "items": {"type": "string"}, "description": "Optional multiple choice options"}
+                    "options": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional multiple choice options",
+                    },
                 },
-                "required": ["question"]
-            }
-        }
+                "required": ["question"],
+            },
+        },
     },
     {
         "type": "function",
@@ -407,12 +427,19 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "code": {"type": "string", "description": "Code to execute"},
-                    "language": {"type": "string", "description": "Language (python, javascript, bash, ruby, go, rust)"},
-                    "args": {"type": "array", "items": {"type": "string"}, "description": "Command line arguments"}
+                    "language": {
+                        "type": "string",
+                        "description": "Language (python, javascript, bash, ruby, go, rust)",
+                    },
+                    "args": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Command line arguments",
+                    },
                 },
-                "required": ["code", "language"]
-            }
-        }
+                "required": ["code", "language"],
+            },
+        },
     },
     {
         "type": "function",
@@ -421,12 +448,10 @@ TOOL_SCHEMAS = [
             "description": "Bookmark the current conversation position for later.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Bookmark name"}
-                },
-                "required": ["name"]
-            }
-        }
+                "properties": {"name": {"type": "string", "description": "Bookmark name"}},
+                "required": ["name"],
+            },
+        },
     },
     {
         "type": "function",
@@ -438,9 +463,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "name": {"type": "string", "description": "Bookmark name to restore"}
                 },
-                "required": ["name"]
-            }
-        }
+                "required": ["name"],
+            },
+        },
     },
     {
         "type": "function",
@@ -449,78 +474,58 @@ TOOL_SCHEMAS = [
             "description": "Search the conversation history for a query.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query"}
-                },
-                "required": ["query"]
-            }
-        }
+                "properties": {"query": {"type": "string", "description": "Search query"}},
+                "required": ["query"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_conversation_stats",
             "description": "Get statistics about the current conversation.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "undo",
             "description": "Undo the last file modification or command execution.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "redo",
             "description": "Redo the last undone action.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "undo_info",
             "description": "Get information about what can be undone.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "redo_info",
             "description": "Get information about what can be redone.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "share_session",
             "description": "Share the current session as a shareable link.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -532,20 +537,17 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "patch": {"type": "string", "description": "Patch content to apply"}
                 },
-                "required": ["patch"]
-            }
-        }
+                "required": ["patch"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "list_commands",
             "description": "List available custom commands.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -556,11 +558,11 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Command name to execute"},
-                    "args": {"type": "object", "description": "Arguments to pass to the command"}
+                    "args": {"type": "object", "description": "Arguments to pass to the command"},
                 },
-                "required": ["name"]
-            }
-        }
+                "required": ["name"],
+            },
+        },
     },
     {
         "type": "function",
@@ -572,11 +574,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "File path"},
                     "line": {"type": "integer", "description": "Line number"},
-                    "column": {"type": "integer", "description": "Column number"}
+                    "column": {"type": "integer", "description": "Column number"},
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -588,11 +590,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "File path"},
                     "line": {"type": "integer", "description": "Line number"},
-                    "column": {"type": "integer", "description": "Column number"}
+                    "column": {"type": "integer", "description": "Column number"},
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -604,11 +606,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "File path"},
                     "line": {"type": "integer", "description": "Line number"},
-                    "column": {"type": "integer", "description": "Column number"}
+                    "column": {"type": "integer", "description": "Column number"},
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -617,23 +619,18 @@ TOOL_SCHEMAS = [
             "description": "Get diagnostic errors using LSP.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "File path"}
-                },
-                "required": ["path"]
-            }
-        }
+                "properties": {"path": {"type": "string", "description": "File path"}},
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "plan_approve",
             "description": "Approve the pending plan to proceed with execution.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -642,12 +639,10 @@ TOOL_SCHEMAS = [
             "description": "Reject the pending plan.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "reason": {"type": "string", "description": "Reason for rejection"}
-                },
-                "required": ["reason"]
-            }
-        }
+                "properties": {"reason": {"type": "string", "description": "Reason for rejection"}},
+                "required": ["reason"],
+            },
+        },
     },
     {
         "type": "function",
@@ -658,31 +653,25 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "depth": {"type": "integer", "description": "Depth of directory traversal"}
-                }
-            }
-        }
+                },
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "init_project",
             "description": "Analyze and initialize the project with AGENTS.md.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "analyze_project",
             "description": "Get detailed project analysis (language, deps, test framework).",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -694,9 +683,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "File path to get actions for"}
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -708,9 +697,9 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "action_id": {"type": "string", "description": "Action ID to apply"}
                 },
-                "required": ["action_id"]
-            }
-        }
+                "required": ["action_id"],
+            },
+        },
     },
     {
         "type": "function",
@@ -721,9 +710,9 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "shell": {"type": "string", "description": "Shell to use (bash, zsh, fish)"}
-                }
-            }
-        }
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -732,23 +721,18 @@ TOOL_SCHEMAS = [
             "description": "Run command in persistent shell session.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "command": {"type": "string", "description": "Command to run"}
-                },
-                "required": ["command"]
-            }
-        }
+                "properties": {"command": {"type": "string", "description": "Command to run"}},
+                "required": ["command"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "close_shell",
             "description": "Close the persistent shell session.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -758,11 +742,15 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "patterns": {"type": "array", "items": {"type": "string"}, "description": "Glob patterns"}
+                    "patterns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Glob patterns",
+                    }
                 },
-                "required": ["patterns"]
-            }
-        }
+                "required": ["patterns"],
+            },
+        },
     },
     {
         "type": "function",
@@ -773,11 +761,11 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Branch name"},
-                    "checkout": {"type": "boolean", "description": "Switch to new branch"}
+                    "checkout": {"type": "boolean", "description": "Switch to new branch"},
                 },
-                "required": ["name"]
-            }
-        }
+                "required": ["name"],
+            },
+        },
     },
     {
         "type": "function",
@@ -786,12 +774,10 @@ TOOL_SCHEMAS = [
             "description": "Switch to an existing git branch.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "Branch name"}
-                },
-                "required": ["name"]
-            }
-        }
+                "properties": {"name": {"type": "string", "description": "Branch name"}},
+                "required": ["name"],
+            },
+        },
     },
     {
         "type": "function",
@@ -802,22 +788,19 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Branch name"},
-                    "force": {"type": "boolean", "description": "Force delete"}
+                    "force": {"type": "boolean", "description": "Force delete"},
                 },
-                "required": ["name"]
-            }
-        }
+                "required": ["name"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "git_list_branches",
             "description": "List all git branches.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -829,11 +812,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "title": {"type": "string", "description": "PR title"},
                     "body": {"type": "string", "description": "PR description"},
-                    "base": {"type": "string", "description": "Target branch"}
+                    "base": {"type": "string", "description": "Target branch"},
                 },
-                "required": ["title"]
-            }
-        }
+                "required": ["title"],
+            },
+        },
     },
     {
         "type": "function",
@@ -843,12 +826,16 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "type": {"type": "string", "enum": ["file", "command", "agent", "model"], "description": "Completion type"},
-                    "prefix": {"type": "string", "description": "Prefix to match"}
+                    "type": {
+                        "type": "string",
+                        "enum": ["file", "command", "agent", "model"],
+                        "description": "Completion type",
+                    },
+                    "prefix": {"type": "string", "description": "Prefix to match"},
                 },
-                "required": ["type", "prefix"]
-            }
-        }
+                "required": ["type", "prefix"],
+            },
+        },
     },
     {
         "type": "function",
@@ -857,12 +844,10 @@ TOOL_SCHEMAS = [
             "description": "Read and encode image for vision analysis.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "Path to image file"}
-                },
-                "required": ["path"]
-            }
-        }
+                "properties": {"path": {"type": "string", "description": "Path to image file"}},
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -875,22 +860,19 @@ TOOL_SCHEMAS = [
                     "path": {"type": "string", "description": "File path"},
                     "line": {"type": "integer", "description": "Line number"},
                     "content": {"type": "string", "description": "New content"},
-                    "replace": {"type": "integer", "description": "Number of lines to replace"}
+                    "replace": {"type": "integer", "description": "Number of lines to replace"},
                 },
-                "required": ["path", "line", "content"]
-            }
-        }
+                "required": ["path", "line", "content"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "retry_last",
             "description": "Retry the last failed tool execution.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -900,11 +882,15 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "files": {"type": "array", "items": {"type": "string"}, "description": "Files to stage"}
+                    "files": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Files to stage",
+                    }
                 },
-                "required": ["files"]
-            }
-        }
+                "required": ["files"],
+            },
+        },
     },
     {
         "type": "function",
@@ -914,10 +900,14 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "files": {"type": "array", "items": {"type": "string"}, "description": "Files to unstage"}
-                }
-            }
-        }
+                    "files": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Files to unstage",
+                    }
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -926,23 +916,18 @@ TOOL_SCHEMAS = [
             "description": "Commit staged changes.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "message": {"type": "string", "description": "Commit message"}
-                },
-                "required": ["message"]
-            }
-        }
+                "properties": {"message": {"type": "string", "description": "Commit message"}},
+                "required": ["message"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "list_skills",
             "description": "List available skills.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -953,11 +938,11 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Skill name"},
-                    "args": {"type": "object", "description": "Skill arguments"}
+                    "args": {"type": "object", "description": "Skill arguments"},
                 },
-                "required": ["name"]
-            }
-        }
+                "required": ["name"],
+            },
+        },
     },
     {
         "type": "function",
@@ -969,12 +954,16 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "pattern": {"type": "string", "description": "Search pattern (regex)"},
                     "replacement": {"type": "string", "description": "Replacement string"},
-                    "files": {"type": "array", "items": {"type": "string"}, "description": "File patterns"},
-                    "dry_run": {"type": "boolean", "description": "Preview without applying"}
+                    "files": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "File patterns",
+                    },
+                    "dry_run": {"type": "boolean", "description": "Preview without applying"},
                 },
-                "required": ["pattern", "replacement", "files"]
-            }
-        }
+                "required": ["pattern", "replacement", "files"],
+            },
+        },
     },
     {
         "type": "function",
@@ -983,12 +972,10 @@ TOOL_SCHEMAS = [
             "description": "Analyze code structure and complexity.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "File to analyze"}
-                },
-                "required": ["path"]
-            }
-        }
+                "properties": {"path": {"type": "string", "description": "File to analyze"}},
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1000,11 +987,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "File to explain"},
                     "start": {"type": "integer", "description": "Start line"},
-                    "end": {"type": "integer", "description": "End line"}
+                    "end": {"type": "integer", "description": "End line"},
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1015,33 +1002,27 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "File to generate tests for"},
-                    "framework": {"type": "string", "description": "Test framework (pytest/jest)"}
+                    "framework": {"type": "string", "description": "Test framework (pytest/jest)"},
                 },
-                "required": ["path"]
-            }
-        }
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "git_pre_commit",
             "description": "Run git pre-commit checks.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_keybindings",
             "description": "Show keyboard shortcuts.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -1050,12 +1031,10 @@ TOOL_SCHEMAS = [
             "description": "Set terminal theme.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "theme": {"type": "string", "description": "Theme name"}
-                },
-                "required": ["theme"]
-            }
-        }
+                "properties": {"theme": {"type": "string", "description": "Theme name"}},
+                "required": ["theme"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1066,11 +1045,11 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "hook": {"type": "string", "description": "Hook name (pre-commit, etc.)"},
-                    "command": {"type": "string", "description": "Command to run"}
+                    "command": {"type": "string", "description": "Command to run"},
                 },
-                "required": ["hook", "command"]
-            }
-        }
+                "required": ["hook", "command"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1080,11 +1059,15 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "paths": {"type": "array", "items": {"type": "string"}, "description": "File paths to read"}
+                    "paths": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "File paths to read",
+                    }
                 },
-                "required": ["paths"]
-            }
-        }
+                "required": ["paths"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1094,11 +1077,15 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "operations": {"type": "array", "items": {"type": "object"}, "description": "Write operations"}
+                    "operations": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "description": "Write operations",
+                    }
                 },
-                "required": ["operations"]
-            }
-        }
+                "required": ["operations"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1110,11 +1097,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "tool": {"type": "string", "description": "Tool name to retry"},
                     "args": {"type": "object", "description": "Tool arguments"},
-                    "retries": {"type": "integer", "description": "Number of retries"}
+                    "retries": {"type": "integer", "description": "Number of retries"},
                 },
-                "required": ["tool", "args"]
-            }
-        }
+                "required": ["tool", "args"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1123,12 +1110,10 @@ TOOL_SCHEMAS = [
             "description": "Get timeout for a specific tool.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "tool": {"type": "string", "description": "Tool name"}
-                },
-                "required": ["tool"]
-            }
-        }
+                "properties": {"tool": {"type": "string", "description": "Tool name"}},
+                "required": ["tool"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1139,33 +1124,27 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "tool": {"type": "string", "description": "Tool name"},
-                    "timeout": {"type": "integer", "description": "Timeout in seconds"}
+                    "timeout": {"type": "integer", "description": "Timeout in seconds"},
                 },
-                "required": ["tool", "timeout"]
-            }
-        }
+                "required": ["tool", "timeout"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "clear_file_cache",
             "description": "Clear the file operation cache.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "get_context_info",
             "description": "Get context optimization info.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -1174,22 +1153,17 @@ TOOL_SCHEMAS = [
             "description": "Start watching files for changes.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "patterns": {"type": "array", "items": {"type": "string"}}
-                }
-            }
-        }
+                "properties": {"patterns": {"type": "array", "items": {"type": "string"}}},
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "stop_file_watch",
             "description": "Stop file watcher.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -1200,11 +1174,11 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "text": {"type": "string", "description": "Text with variables"},
-                    "vars": {"type": "object", "description": "Additional variables"}
+                    "vars": {"type": "object", "description": "Additional variables"},
                 },
-                "required": ["text"]
-            }
-        }
+                "required": ["text"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1213,12 +1187,10 @@ TOOL_SCHEMAS = [
             "description": "Get environment variable.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "key": {"type": "string", "description": "Variable name"}
-                },
-                "required": ["key"]
-            }
-        }
+                "properties": {"key": {"type": "string", "description": "Variable name"}},
+                "required": ["key"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1229,22 +1201,19 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "key": {"type": "string", "description": "Variable name"},
-                    "value": {"type": "string", "description": "Variable value"}
+                    "value": {"type": "string", "description": "Variable value"},
                 },
-                "required": ["key", "value"]
-            }
-        }
+                "required": ["key", "value"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "list_env",
             "description": "List environment variables.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -1255,22 +1224,19 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Task name"},
-                    "command": {"type": "string", "description": "Command to run"}
+                    "command": {"type": "string", "description": "Command to run"},
                 },
-                "required": ["name", "command"]
-            }
-        }
+                "required": ["name", "command"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "list_tasks",
             "description": "List all tasks.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -1279,12 +1245,10 @@ TOOL_SCHEMAS = [
             "description": "Get task status.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "task_id": {"type": "string", "description": "Task ID"}
-                },
-                "required": ["task_id"]
-            }
-        }
+                "properties": {"task_id": {"type": "string", "description": "Task ID"}},
+                "required": ["task_id"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1295,22 +1259,19 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
-                    "fuzzy": {"type": "boolean", "description": "Use fuzzy matching"}
+                    "fuzzy": {"type": "boolean", "description": "Use fuzzy matching"},
                 },
-                "required": ["query"]
-            }
-        }
+                "required": ["query"],
+            },
+        },
     },
     {
         "type": "function",
         "function": {
             "name": "validate_workspace",
             "description": "Validate workspace configuration.",
-            "parameters": {
-                "type": "object",
-                "properties": {}
-            }
-        }
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
     {
         "type": "function",
@@ -1321,9 +1282,9 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "path": {"type": "string", "description": "File or directory to audit"}
-                }
-            }
-        }
+                },
+            },
+        },
     },
     {
         "type": "function",
@@ -1335,11 +1296,11 @@ TOOL_SCHEMAS = [
                 "properties": {
                     "path": {"type": "string", "description": "File to refactor"},
                     "function": {"type": "string", "description": "Function name"},
-                    "style": {"type": "string", "description": "Style: async, type_hints, modern"}
+                    "style": {"type": "string", "description": "Style: async, type_hints, modern"},
                 },
-                "required": ["path", "function"]
-            }
-        }
+                "required": ["path", "function"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1350,11 +1311,15 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "table": {"type": "string", "description": "Table name"},
-                    "columns": {"type": "array", "items": {"type": "object"}, "description": "Column definitions"}
+                    "columns": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "description": "Column definitions",
+                    },
                 },
-                "required": ["table", "columns"]
-            }
-        }
+                "required": ["table", "columns"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1364,11 +1329,14 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "language": {"type": "string", "description": "Language: python, node, go, rust, java"}
+                    "language": {
+                        "type": "string",
+                        "description": "Language: python, node, go, rust, java",
+                    }
                 },
-                "required": ["language"]
-            }
-        }
+                "required": ["language"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1378,11 +1346,15 @@ TOOL_SCHEMAS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "services": {"type": "array", "items": {"type": "object"}, "description": "Service definitions"}
+                    "services": {
+                        "type": "array",
+                        "items": {"type": "object"},
+                        "description": "Service definitions",
+                    }
                 },
-                "required": ["services"]
-            }
-        }
+                "required": ["services"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1391,12 +1363,10 @@ TOOL_SCHEMAS = [
             "description": "Generate API client from OpenAPI spec.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "spec": {"type": "string", "description": "Path to OpenAPI spec"}
-                },
-                "required": ["spec"]
-            }
-        }
+                "properties": {"spec": {"type": "string", "description": "Path to OpenAPI spec"}},
+                "required": ["spec"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1407,11 +1377,11 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {
                     "type": {"type": "string", "description": "Type: readme, api, markdoc"},
-                    "path": {"type": "string", "description": "File path for api docs"}
+                    "path": {"type": "string", "description": "File path for api docs"},
                 },
-                "required": ["type"]
-            }
-        }
+                "required": ["type"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1420,12 +1390,10 @@ TOOL_SCHEMAS = [
             "description": "Profile code complexity and performance.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "File to profile"}
-                },
-                "required": ["path"]
-            }
-        }
+                "properties": {"path": {"type": "string", "description": "File to profile"}},
+                "required": ["path"],
+            },
+        },
     },
     {
         "type": "function",
@@ -1434,13 +1402,11 @@ TOOL_SCHEMAS = [
             "description": "Get optimization suggestions.",
             "parameters": {
                 "type": "object",
-                "properties": {
-                    "path": {"type": "string", "description": "File to analyze"}
-                },
-                "required": ["path"]
-            }
-        }
-    }
+                "properties": {"path": {"type": "string", "description": "File to analyze"}},
+                "required": ["path"],
+            },
+        },
+    },
 ]
 
 
@@ -1522,12 +1488,7 @@ class ToolExecutor:
         try:
             args = shlex.split(command)
             result = subprocess.run(
-                args,
-                shell=False,
-                cwd=self.cwd,
-                capture_output=True,
-                text=True,
-                timeout=300
+                args, shell=False, cwd=self.cwd, capture_output=True, text=True, timeout=300
             )
             output = []
             if result.stdout:
@@ -1670,7 +1631,12 @@ class ToolExecutor:
                 lines_b = f.read().splitlines()
 
             import difflib
-            diff = list(difflib.unified_diff(lines_b, lines_a, fromfile=str(path_b), tofile=str(path_a), lineterm=""))
+
+            diff = list(
+                difflib.unified_diff(
+                    lines_b, lines_a, fromfile=str(path_b), tofile=str(path_a), lineterm=""
+                )
+            )
             return "\n".join(diff) if diff else "[files are identical]"
         except Exception as e:
             return f"ERROR: Cannot diff files: {e}"
@@ -1680,10 +1646,7 @@ class ToolExecutor:
             return "ERROR: Not a git repository"
         try:
             result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                cwd=self.cwd,
-                capture_output=True,
-                text=True
+                ["git", "status", "--porcelain"], cwd=self.cwd, capture_output=True, text=True
             )
             if not result.stdout.strip():
                 return "[working tree clean]"
@@ -1700,7 +1663,7 @@ class ToolExecutor:
                 ["git", "log", f"-{n}", "--oneline", "--decorate"],
                 cwd=self.cwd,
                 capture_output=True,
-                text=True
+                text=True,
             )
             return result.stdout or "[no commits]"
         except Exception as e:
@@ -1723,23 +1686,22 @@ class ToolExecutor:
         query = args["query"]
         try:
             import urllib.parse
+
             url = f"https://duckduckgo.com/html/?q={urllib.parse.quote(query)}"
             result = subprocess.run(
-                ["curl", "-s", "-L", url],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30
             )
             html = result.stdout
 
             import re
+
             titles = re.findall(r'<a class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)', html)
             snippets = re.findall(r'<a class="result__snippet"[^>]*>([^<]*)', html)
 
             output = []
             for i, (link, title) in enumerate(titles[:5]):
                 snippet = snippets[i] if i < len(snippets) else ""
-                output.append(f"{i+1}. {title.strip()}\n   {snippet.strip()}\n   {link}")
+                output.append(f"{i + 1}. {title.strip()}\n   {snippet.strip()}\n   {link}")
             return "\n\n".join(output) if output else "[no results]"
         except Exception as e:
             return f"ERROR: Web search failed: {e}"
@@ -1748,19 +1710,17 @@ class ToolExecutor:
         url = args["url"]
         try:
             result = subprocess.run(
-                ["curl", "-s", "-L", url],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30
             )
             html = result.stdout
 
             import re
-            scripts = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL)
-            styles = re.sub(r'<style[^>]*>.*?</style>', '', scripts, flags=re.DOTALL)
-            cleaned = re.sub(r'<[^>]+>', '', styles)
-            cleaned = re.sub(r'\s+', ' ', cleaned)
-            cleaned = re.sub(r'&[a-z]+;', '', cleaned)
+
+            scripts = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL)
+            styles = re.sub(r"<style[^>]*>.*?</style>", "", scripts, flags=re.DOTALL)
+            cleaned = re.sub(r"<[^>]+>", "", styles)
+            cleaned = re.sub(r"\s+", " ", cleaned)
+            cleaned = re.sub(r"&[a-z]+;", "", cleaned)
             cleaned = cleaned.strip()
 
             return cleaned[:3000] + ("..." if len(cleaned) > 3000 else "")
@@ -1776,10 +1736,28 @@ class ToolExecutor:
             categories = {"source": [], "config": [], "docs": [], "data": [], "other": []}
             try:
                 for entry in dir_path.iterdir():
-                    if entry.name.startswith(".") or entry.name in ("node_modules", "__pycache__", "venv", ".git", "target"):
+                    if entry.name.startswith(".") or entry.name in (
+                        "node_modules",
+                        "__pycache__",
+                        "venv",
+                        ".git",
+                        "target",
+                    ):
                         continue
                     ext = entry.suffix.lower()
-                    if ext in (".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".cpp", ".c", ".h"):
+                    if ext in (
+                        ".py",
+                        ".js",
+                        ".ts",
+                        ".jsx",
+                        ".tsx",
+                        ".go",
+                        ".rs",
+                        ".java",
+                        ".cpp",
+                        ".c",
+                        ".h",
+                    ):
                         categories["source"].append(entry.name)
                     elif ext in (".json", ".yaml", ".yml", ".toml", ".ini", ".cfg"):
                         categories["config"].append(entry.name)
@@ -1843,11 +1821,7 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                commands[framework],
-                cwd=self.cwd,
-                capture_output=True,
-                text=True,
-                timeout=300
+                commands[framework], cwd=self.cwd, capture_output=True, text=True, timeout=300
             )
             output = []
             if result.stdout:
@@ -1888,7 +1862,7 @@ class ToolExecutor:
                     cwd=self.cwd,
                     input=path.read_text(),
                     capture_output=True,
-                    text=True
+                    text=True,
                 )
                 if result.returncode == 0:
                     return f"SUCCESS: Formatted {path}"
@@ -1919,11 +1893,7 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                commands[manager],
-                cwd=self.cwd,
-                capture_output=True,
-                text=True,
-                timeout=300
+                commands[manager], cwd=self.cwd, capture_output=True, text=True, timeout=300
             )
             if result.returncode == 0:
                 return f"SUCCESS: Installed {package} via {manager}"
@@ -1939,12 +1909,14 @@ class ToolExecutor:
         agent_name = args["agent"]
         task = args["task"]
         from .agents import agent_manager
+
         if agent_name not in agent_manager.agents:
             return f"ERROR: Unknown agent: {agent_name}"
         return f"[Delegated to @{agent_name}]: {task}"
 
     def _execute_preview_edit(self, args: dict[str, Any]) -> str:
         import uuid
+
         path = self._resolve(args["path"])
         if not path.exists():
             return f"ERROR: File not found: {path}"
@@ -1958,10 +1930,19 @@ class ToolExecutor:
                 return "ERROR: String not found in file"
 
             import difflib
+
             old_lines = content.splitlines(keepends=True)
             new_lines = content.replace(old_string, new_string, 1).splitlines(keepends=True)
 
-            diff = list(difflib.unified_diff(old_lines, new_lines, fromfile=str(path), tofile=f"{path} (modified)", lineterm=""))
+            diff = list(
+                difflib.unified_diff(
+                    old_lines,
+                    new_lines,
+                    fromfile=str(path),
+                    tofile=f"{path} (modified)",
+                    lineterm="",
+                )
+            )
             diff_text = "".join(diff)
 
             preview_id = str(uuid.uuid4())[:8]
@@ -1969,7 +1950,7 @@ class ToolExecutor:
             self._preview_cache[preview_id] = {
                 "path": str(path),
                 "old_string": old_string,
-                "new_string": new_string
+                "new_string": new_string,
             }
 
             return f"[PREVIEW {preview_id}]\n{diff_text}\n\nUse apply_edit with preview_id={preview_id} to confirm, or the edit will be discarded."
@@ -1999,10 +1980,13 @@ class ToolExecutor:
     def _execute_clipboard_read(self, args: dict[str, Any]) -> str:
         try:
             import pyperclip
+
             return pyperclip.paste()
         except ImportError:
             try:
-                result = subprocess.run(["xclip", "-selection", "clipboard", "-o"], capture_output=True, text=True)
+                result = subprocess.run(
+                    ["xclip", "-selection", "clipboard", "-o"], capture_output=True, text=True
+                )
                 if result.returncode == 0:
                     return result.stdout
             except Exception:
@@ -2015,11 +1999,14 @@ class ToolExecutor:
         text = args["text"]
         try:
             import pyperclip
+
             pyperclip.copy(text)
             return f"SUCCESS: Copied {len(text)} chars to clipboard"
         except ImportError:
             try:
-                subprocess.run(["xclip", "-selection", "clipboard"], input=text, text=True, capture_output=True)
+                subprocess.run(
+                    ["xclip", "-selection", "clipboard"], input=text, text=True, capture_output=True
+                )
                 return f"SUCCESS: Copied {len(text)} chars to clipboard"
             except Exception:
                 pass
@@ -2038,10 +2025,12 @@ class ToolExecutor:
         cmd_args = args.get("args", [])
 
         from .sandbox import sandbox
+
         return sandbox.run_code(code, language, cmd_args)
 
     def _execute_bookmark_session(self, args: dict[str, Any]) -> str:
         from .context_manager import ConversationManager
+
         name = args["name"]
         conv_manager = getattr(self, "_conv_manager", None)
         if conv_manager is None:
@@ -2097,7 +2086,7 @@ class ToolExecutor:
         if action is None:
             return "Nothing to undo"
         return f"UNDONE: {action.get('type', 'action')}\n{action.get('details', {})}"
-    
+
     def _execute_redo(self, args: dict[str, Any]) -> str:
         undo_manager = getattr(self, "_undo_manager", None)
         if undo_manager is None:
@@ -2125,6 +2114,7 @@ class ToolExecutor:
 
     def _execute_share_session(self, args: dict[str, Any]) -> str:
         from .session import SessionManager
+
         agent = getattr(self, "_agent", None)
         if agent is None:
             return "ERROR: Session sharing not available in this context"
@@ -2136,14 +2126,12 @@ class ToolExecutor:
         patch = args["patch"]
         try:
             import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.patch', delete=False) as f:
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".patch", delete=False) as f:
                 f.write(patch)
                 patch_file = f.name
             result = subprocess.run(
-                ["patch", "-p1", "-i", patch_file],
-                cwd=self.cwd,
-                capture_output=True,
-                text=True
+                ["patch", "-p1", "-i", patch_file], cwd=self.cwd, capture_output=True, text=True
             )
             os.unlink(patch_file)
             if result.returncode == 0:
@@ -2157,6 +2145,7 @@ class ToolExecutor:
 
     def _execute_list_commands(self, args: dict[str, Any]) -> str:
         from .commands import get_command_manager
+
         cm = get_command_manager(str(self.cwd))
         commands = cm.list_commands()
         if not commands:
@@ -2168,6 +2157,7 @@ class ToolExecutor:
 
     def _execute_run_command_custom(self, args: dict[str, Any]) -> str:
         from .commands import get_command_manager
+
         name = args["name"]
         cmd_args = args.get("args", {})
         cm = get_command_manager(str(self.cwd))
@@ -2181,8 +2171,11 @@ class ToolExecutor:
         line = args.get("line", 0)
         column = args.get("column", 0)
         from .lsp import get_lsp_manager
+
         lsp = get_lsp_manager(str(self.cwd))
-        result = lsp.call_tool("lsp_default_definition", {"path": str(path), "line": line, "column": column})
+        result = lsp.call_tool(
+            "lsp_default_definition", {"path": str(path), "line": line, "column": column}
+        )
         return json.dumps(result)
 
     def _execute_lsp_references(self, args: dict[str, Any]) -> str:
@@ -2190,8 +2183,11 @@ class ToolExecutor:
         line = args.get("line", 0)
         column = args.get("column", 0)
         from .lsp import get_lsp_manager
+
         lsp = get_lsp_manager(str(self.cwd))
-        result = lsp.call_tool("lsp_default_references", {"path": str(path), "line": line, "column": column})
+        result = lsp.call_tool(
+            "lsp_default_references", {"path": str(path), "line": line, "column": column}
+        )
         return json.dumps(result)
 
     def _execute_lsp_hover(self, args: dict[str, Any]) -> str:
@@ -2199,13 +2195,17 @@ class ToolExecutor:
         line = args.get("line", 0)
         column = args.get("column", 0)
         from .lsp import get_lsp_manager
+
         lsp = get_lsp_manager(str(self.cwd))
-        result = lsp.call_tool("lsp_default_hover", {"path": str(path), "line": line, "column": column})
+        result = lsp.call_tool(
+            "lsp_default_hover", {"path": str(path), "line": line, "column": column}
+        )
         return json.dumps(result)
 
     def _execute_lsp_diagnostics(self, args: dict[str, Any]) -> str:
         path = self._resolve(args["path"])
         from .lsp import get_lsp_manager
+
         lsp = get_lsp_manager(str(self.cwd))
         result = lsp.call_tool("lsp_default_diagnostics", {"path": str(path)})
         return json.dumps(result)
@@ -2228,10 +2228,12 @@ class ToolExecutor:
     def _execute_get_repo_map(self, args: dict[str, Any]) -> str:
         from .context import get_repo_map
         from pathlib import Path
+
         return get_repo_map(Path(self.cwd))
 
     def _execute_init_project(self, args: dict[str, Any]) -> str:
         from .project import get_project_initializer
+
         pi = get_project_initializer(str(self.cwd))
         try:
             output_path = pi.create_context_file()
@@ -2241,6 +2243,7 @@ class ToolExecutor:
 
     def _execute_analyze_project(self, args: dict[str, Any]) -> str:
         from .project import get_project_initializer
+
         pi = get_project_initializer(str(self.cwd))
         analysis = pi.analyze()
         lines = ["Project Analysis", "=" * 40]
@@ -2258,16 +2261,17 @@ class ToolExecutor:
 
     def _execute_get_code_actions(self, args: dict[str, Any]) -> str:
         from .lsp import get_lsp_manager
+
         path = self._resolve(args["path"])
         lsp = get_lsp_manager(str(self.cwd))
         result = lsp.call_tool("lsp_default_diagnostics", {"path": str(path)})
         if not result.get("diagnostics"):
             return "No diagnostic issues found."
-        
+
         actions = []
         for diag in result.get("diagnostics", [])[:10]:
             actions.append(f"- {diag.get('message', 'Unknown issue')}")
-        
+
         return "Available code actions:\n" + "\n".join(actions)
 
     def _execute_apply_code_action(self, args: dict[str, Any]) -> str:
@@ -2277,9 +2281,10 @@ class ToolExecutor:
     def _execute_start_shell(self, args: dict[str, Any]) -> str:
         shell = args.get("shell", "bash")
         from .sandbox import ShellSession
+
         if not hasattr(self, "_shell_session"):
             self._shell_session = ShellSession(cwd=str(self.cwd))
-        
+
         if self._shell_session.start(shell=shell):
             return f"SUCCESS: {shell} shell session started\n\nUse run_shell to execute commands."
         return "ERROR: Failed to start shell session"
@@ -2288,7 +2293,7 @@ class ToolExecutor:
         command = args["command"]
         if not hasattr(self, "_shell_session"):
             return "ERROR: No shell session. Use start_shell first."
-        
+
         try:
             return self._shell_session.run(command)
         except Exception as e:
@@ -2305,17 +2310,18 @@ class ToolExecutor:
         patterns = args.get("patterns", [])
         if not patterns:
             return "ERROR: No patterns provided"
-        
+
         from pathlib import Path
+
         files = []
         for pattern in patterns:
             for p in Path(self.cwd).rglob(pattern):
                 if p.is_file():
                     files.append(str(p.relative_to(self.cwd)))
-        
+
         if not files:
             return f"No files found matching: {patterns}"
-        
+
         return f"Selected {len(files)} files:\n" + "\n".join(files[:20])
 
     def _execute_git_create_branch(self, args: dict[str, Any]) -> str:
@@ -2350,7 +2356,9 @@ class ToolExecutor:
 
     def _execute_git_list_branches(self, args: dict[str, Any]) -> str:
         try:
-            result = subprocess.run(["git", "branch", "-a"], cwd=self.cwd, capture_output=True, text=True)
+            result = subprocess.run(
+                ["git", "branch", "-a"], cwd=self.cwd, capture_output=True, text=True
+            )
             return f"Branches:\n{result.stdout}"
         except Exception as e:
             return f"ERROR: {e}"
@@ -2364,14 +2372,16 @@ class ToolExecutor:
     def _execute_get_completions(self, args: dict[str, Any]) -> str:
         ctype = args.get("type", "file")
         prefix = args.get("prefix", "")
-        
+
         if ctype == "file":
             from .mentions import get_file_completer
+
             fc = get_file_completer(str(self.cwd))
             results = fc.complete(prefix)
             return "Completions:\n" + "\n".join(results) if results else "No matches"
         elif ctype == "command":
             from .slash import get_slash_command_manager
+
             cm = get_slash_command_manager()
             commands = cm.list_commands()
             matches = [c["name"] for c in commands if c["name"].startswith(prefix)]
@@ -2388,6 +2398,7 @@ class ToolExecutor:
             return f"ERROR: File not found: {path}"
         try:
             import base64
+
             with open(path, "rb") as f:
                 data = base64.b64encode(f.read()).decode()
             return f"[IMAGE DATA] {path.name} ({len(data)} bytes base64)"
@@ -2399,10 +2410,10 @@ class ToolExecutor:
         line = args.get("line", 1)
         content = args.get("content", "")
         replace = args.get("replace", 1)
-        
+
         if not path.exists():
             return f"ERROR: File not found: {path}"
-        
+
         try:
             lines = path.read_text().splitlines()
             start = max(0, line - 1)
@@ -2416,17 +2427,17 @@ class ToolExecutor:
     def _execute_retry_last(self, args: dict[str, Any]) -> str:
         last_tool = getattr(self, "_last_tool", None)
         last_args = getattr(self, "_last_args", None)
-        
+
         if not last_tool or not last_args:
             return "ERROR: No previous tool to retry"
-        
+
         return self.execute(last_tool, last_args)
 
     def _execute_git_stage(self, args: dict[str, Any]) -> str:
         files = args.get("files", [])
         if not files:
             return "ERROR: No files specified"
-        
+
         try:
             subprocess.run(["git", "add"] + files, cwd=self.cwd, capture_output=True)
             return f"SUCCESS: Staged {len(files)} file(s)"
@@ -2448,9 +2459,11 @@ class ToolExecutor:
         message = args.get("message", "")
         if not message:
             return "ERROR: No commit message"
-        
+
         try:
-            result = subprocess.run(["git", "commit", "-m", message], cwd=self.cwd, capture_output=True, text=True)
+            result = subprocess.run(
+                ["git", "commit", "-m", message], cwd=self.cwd, capture_output=True, text=True
+            )
             if result.returncode == 0:
                 return f"SUCCESS: Committed\n{result.stdout}"
             return f"ERROR: {result.stderr}"
@@ -2459,6 +2472,7 @@ class ToolExecutor:
 
     def _execute_list_skills(self, args: dict[str, Any]) -> str:
         from .skills import get_skill_manager
+
         sm = get_skill_manager(str(self.cwd))
         skills = sm.list_skills()
         if not skills:
@@ -2470,6 +2484,7 @@ class ToolExecutor:
 
     def _execute_use_skill(self, args: dict[str, Any]) -> str:
         from .skills import get_skill_manager
+
         name = args["name"]
         skill_args = args.get("args", {})
         sm = get_skill_manager(str(self.cwd))
@@ -2480,17 +2495,20 @@ class ToolExecutor:
 
     def _execute_replace_in_files(self, args: dict[str, Any]) -> str:
         from .skills import SearchReplace
+
         pattern = args["pattern"]
         replacement = args["replacement"]
         files = args.get("files", [])
         dry_run = args.get("dry_run", True)
         sr = SearchReplace(str(self.cwd))
         result = sr.replace_in_files(pattern, replacement, files, dry_run)
-        
+
         if "error" in result:
             return result["error"]
-        
-        output = f"Found {result['replacements']} replacements in {len(result['files_modified'])} files"
+
+        output = (
+            f"Found {result['replacements']} replacements in {len(result['files_modified'])} files"
+        )
         if dry_run:
             output += " (DRY RUN - use dry_run: false to apply)"
         output += "\n\nFiles:\n" + "\n".join(result["files_modified"][:10])
@@ -2498,13 +2516,14 @@ class ToolExecutor:
 
     def _execute_analyze_code(self, args: dict[str, Any]) -> str:
         from .skills import CodeAnalyzer
+
         path = args["path"]
         ca = CodeAnalyzer(str(self.cwd))
         result = ca.analyze_file(path)
-        
+
         if "error" in result:
             return result["error"]
-        
+
         lines = ["Code Analysis", "=" * 40]
         lines.append(f"File: {result['path']}")
         lines.append(f"Lines: {result['lines']}")
@@ -2526,6 +2545,7 @@ class ToolExecutor:
 
     def _execute_explain_code(self, args: dict[str, Any]) -> str:
         from .skills import CodeAnalyzer
+
         path = args["path"]
         start = args.get("start", 1)
         end = args.get("end")
@@ -2535,18 +2555,19 @@ class ToolExecutor:
     def _execute_generate_tests(self, args: dict[str, Any]) -> str:
         path = args["path"]
         framework = args.get("framework", "pytest")
-        
+
         from .skills import CodeAnalyzer
+
         ca = CodeAnalyzer(str(self.cwd))
         analysis = ca.analyze_file(path)
-        
+
         if "error" in analysis:
             return analysis["error"]
-        
+
         funcs = analysis.get("functions", [])
         if not funcs:
             return "No functions found to generate tests for."
-        
+
         if framework == "pytest":
             lines = ['"""Tests for {}"""'.format(path.replace(".py", ""))]
             lines.append("")
@@ -2566,28 +2587,25 @@ class ToolExecutor:
                 lines.append("    // TODO: implement test")
                 lines.append("  });")
                 lines.append("});")
-        
+
         return "\n".join(lines)
 
     def _execute_git_pre_commit(self, args: dict[str, Any]) -> str:
         import subprocess
+
         try:
             result = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=self.cwd,
-                capture_output=True,
-                text=True
+                ["git", "status", "--short"], cwd=self.cwd, capture_output=True, text=True
             )
             if not result.stdout.strip():
                 return "Nothing to commit (working tree clean)"
-            
+
             staged = subprocess.run(
-                ["git", "diff", "--cached", "--stat"],
-                cwd=self.cwd,
-                capture_output=True,
-                text=True
+                ["git", "diff", "--cached", "--stat"], cwd=self.cwd, capture_output=True, text=True
             )
-            return f"Pre-commit checks:\nStaged: {staged.stdout or 'none'}\nUnstaged: {result.stdout}"
+            return (
+                f"Pre-commit checks:\nStaged: {staged.stdout or 'none'}\nUnstaged: {result.stdout}"
+            )
         except Exception as e:
             return f"ERROR: {e}"
 
@@ -2613,14 +2631,14 @@ Ctrl+R     - Search history
     def _execute_add_git_hook(self, args: dict[str, Any]) -> str:
         hook = args["hook"]
         command = args["command"]
-        
+
         git_dir = self.cwd / ".git"
         if not git_dir.exists():
             return "ERROR: Not a git repository"
-        
+
         hooks_dir = git_dir / "hooks"
         hooks_dir.mkdir(exist_ok=True)
-        
+
         hook_path = hooks_dir / hook
         hook_path.write_text(f"""#!/bin/sh
 {command}
@@ -2630,44 +2648,47 @@ Ctrl+R     - Search history
 
     def _execute_batch_read(self, args: dict[str, Any]) -> str:
         from .advanced import BatchOperation
+
         paths = args.get("paths", [])
         if not paths:
             return "ERROR: No paths provided"
-        
+
         results = BatchOperation.batch_read(paths, str(self.cwd))
-        
+
         output = [f"Read {len(results)} files:"]
         for path, content in results.items():
             preview = content[:200] + "..." if len(content) > 200 else content
             output.append(f"\n--- {path} ---\n{preview}")
-        
+
         return "\n".join(output)
 
     def _execute_batch_write(self, args: dict[str, Any]) -> str:
         from .advanced import BatchOperation
+
         operations = args.get("operations", [])
         if not operations:
             return "ERROR: No operations provided"
-        
+
         results = BatchOperation.batch_write(operations, str(self.cwd))
-        
+
         output = f"SUCCESS: {len(results['success'])} files written"
-        if results['failed']:
+        if results["failed"]:
             output += f"\nFailed: {len(results['failed'])}"
-            for f in results['failed']:
+            for f in results["failed"]:
                 output += f"\n  - {f['path']}: {f['error']}"
-        
+
         return output
 
     def _execute_retry_tool(self, args: dict[str, Any]) -> str:
         from .advanced import get_retry_handler
+
         tool_name = args["tool"]
         tool_args = args.get("args", {})
         retries = args.get("retries", 3)
-        
+
         handler = get_retry_handler()
         handler.config.max_retries = retries
-        
+
         try:
             result = handler.execute(self.execute, tool_name, tool_args)
             return f"SUCCESS after {retries} retries:\n{result}"
@@ -2676,12 +2697,14 @@ Ctrl+R     - Search history
 
     def _execute_get_tool_timeout(self, args: dict[str, Any]) -> str:
         from .advanced import ToolTimeout
+
         tool = args["tool"]
         timeout = ToolTimeout.get_timeout(tool)
         return f"Timeout for {tool}: {timeout}s"
 
     def _execute_set_tool_timeout(self, args: dict[str, Any]) -> str:
         from .advanced import ToolTimeout
+
         tool = args["tool"]
         timeout = args["timeout"]
         ToolTimeout.set_timeout(tool, timeout)
@@ -2689,33 +2712,36 @@ Ctrl+R     - Search history
 
     def _execute_clear_file_cache(self, args: dict[str, Any]) -> str:
         from .advanced import get_file_cache
+
         cache = get_file_cache()
         cache.clear()
         return "SUCCESS: File cache cleared"
 
     def _execute_get_context_info(self, args: dict[str, Any]) -> str:
         from .advanced import ContextOptimizer
+
         agent = getattr(self, "_agent", None)
         if agent is None:
             return "No agent context available"
-        
+
         messages = agent.history if hasattr(agent, "history") else []
         info = ContextOptimizer.extract_key_info(messages)
-        
+
         output = ["Context Analysis", "=" * 40]
         output.append(f"Files mentioned: {', '.join(info['files_mentioned'][:10]) or 'none'}")
         output.append(f"Tools used: {', '.join(info['tools_used']) or 'none'}")
         output.append(f"Errors: {len(info['errors'])}")
-        
+
         return "\n".join(output)
 
     def _execute_start_file_watch(self, args: dict[str, Any]) -> str:
         from .project import FileWatcher
+
         patterns = args.get("patterns")
-        
+
         if not hasattr(self, "_file_watcher"):
             self._file_watcher = FileWatcher(str(self.cwd))
-        
+
         observer = self._file_watcher.watch(patterns)
         if observer:
             return f"SUCCESS: Watching {patterns or ['default']} for changes"
@@ -2729,12 +2755,14 @@ Ctrl+R     - Search history
 
     def _execute_expand_vars(self, args: dict[str, Any]) -> str:
         from .extras import ShellExpander
+
         text = args["text"]
         vars = args.get("vars", {})
         return ShellExpander.expand(text, vars)
 
     def _execute_get_env(self, args: dict[str, Any]) -> str:
         from .extras import get_env_manager
+
         key = args["key"]
         em = get_env_manager(str(self.cwd))
         value = em.get(key)
@@ -2742,6 +2770,7 @@ Ctrl+R     - Search history
 
     def _execute_set_env(self, args: dict[str, Any]) -> str:
         from .extras import get_env_manager
+
         key = args["key"]
         value = args["value"]
         em = get_env_manager(str(self.cwd))
@@ -2750,6 +2779,7 @@ Ctrl+R     - Search history
 
     def _execute_list_env(self, args: dict[str, Any]) -> str:
         from .extras import get_env_manager
+
         em = get_env_manager(str(self.cwd))
         env = em.list()
         lines = ["Environment Variables:", "=" * 40]
@@ -2760,15 +2790,16 @@ Ctrl+R     - Search history
     def _execute_submit_task(self, args: dict[str, Any]) -> str:
         from .extras import get_task_queue
         import asyncio
+
         name = args["name"]
         command = args["command"]
-        
+
         async def run_command():
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                cwd=str(self.cwd)
+                cwd=str(self.cwd),
             )
             stdout, stderr = await proc.communicate()
             return stdout.decode() or stderr.decode()
@@ -2779,6 +2810,7 @@ Ctrl+R     - Search history
 
     def _execute_list_tasks(self, args: dict[str, Any]) -> str:
         from .extras import get_task_queue
+
         queue = get_task_queue()
         tasks = queue.list()
         if not tasks:
@@ -2790,15 +2822,19 @@ Ctrl+R     - Search history
 
     def _execute_get_task(self, args: dict[str, Any]) -> str:
         from .extras import get_task_queue
+
         task_id = args["task_id"]
         queue = get_task_queue()
         task = queue.get(task_id)
         if not task:
             return f"ERROR: Task {task_id} not found"
-        return f"Task: {task.name}\nStatus: {task.status}\nResult: {task.result}\nError: {task.error}"
+        return (
+            f"Task: {task.name}\nStatus: {task.status}\nResult: {task.result}\nError: {task.error}"
+        )
 
     def _execute_search_history(self, args: dict[str, Any]) -> str:
         from .extras import get_history_search
+
         query = args["query"]
         fuzzy = args.get("fuzzy", True)
         hs = get_history_search()
@@ -2813,33 +2849,35 @@ Ctrl+R     - Search history
 
     def _execute_validate_workspace(self, args: dict[str, Any]) -> str:
         from .extras import WorkspaceValidator
+
         wv = WorkspaceValidator(str(self.cwd))
         result = wv.validate_config()
-        
+
         lines = ["Workspace Validation", "=" * 40]
         lines.append(f"Valid: {result['valid']}")
-        if result['issues']:
+        if result["issues"]:
             lines.append("\nIssues:")
-            for issue in result['issues']:
+            for issue in result["issues"]:
                 lines.append(f"  - {issue}")
         return "\n".join(lines)
 
     def _execute_security_audit(self, args: dict[str, Any]) -> str:
         from .extras import SecurityAuditor
+
         path = args.get("path")
-        
+
         sa = SecurityAuditor(str(self.cwd))
         if path:
             result = sa.audit_file(self.cwd / path)
         else:
             result = sa.audit_project()
-        
+
         if isinstance(result, dict) and "files" in result:
             lines = ["Security Audit", "=" * 40]
             lines.append(f"Total issues: {result['total_issues']}")
-            for f in result['files'][:5]:
+            for f in result["files"][:5]:
                 lines.append(f"\n{f['path']}:")
-                for issue in f['issues']:
+                for issue in f["issues"]:
                     lines.append(f"  - {issue['message']}")
             return "\n".join(lines)
         else:
@@ -2847,76 +2885,83 @@ Ctrl+R     - Search history
 
     def _execute_refactor_code(self, args: dict[str, Any]) -> str:
         from .codegen import CodeRefactorer
+
         path = args["path"]
         function = args["function"]
         style = args.get("style", "modern")
-        
+
         cr = CodeRefactorer(str(self.cwd))
         result = cr.refactor_function(path, function, style)
-        
+
         if "error" in result:
             return f"ERROR: {result['error']}"
         return f"SUCCESS: Refactored {function} with {style} style"
 
     def _execute_generate_db_model(self, args: dict[str, Any]) -> str:
         from .codegen import DatabaseManager
+
         table = args["table"]
         columns = args["columns"]
-        
+
         dm = DatabaseManager(str(self.cwd))
         code = dm.generate_model(table, columns)
         return f"Generated model for {table}:\n\n{code}"
 
     def _execute_generate_dockerfile(self, args: dict[str, Any]) -> str:
         from .codegen import DockerManager
+
         language = args["language"]
-        
+
         dm = DockerManager(str(self.cwd))
         dockerfile = dm.generate_dockerfile(language)
         return dockerfile
 
     def _execute_generate_docker_compose(self, args: dict[str, Any]) -> str:
         from .codegen import DockerManager
+
         services = args.get("services", [])
-        
+
         dm = DockerManager(str(self.cwd))
         compose = dm.generate_docker_compose(services)
         return compose
 
     def _execute_generate_api_client(self, args: dict[str, Any]) -> str:
         from .codegen import APIClientGenerator
+
         spec = args["spec"]
-        
+
         acg = APIClientGenerator(str(self.cwd))
         code = acg.generate_from_openapi(spec)
         return code
 
     def _execute_generate_docs(self, args: dict[str, Any]) -> str:
         from .codegen import DocumentationGenerator
+
         dtype = args["type"]
         path = args.get("path")
-        
+
         dg = DocumentationGenerator(str(self.cwd))
-        
+
         if dtype == "readme":
             return dg.generate_readme()
         elif dtype == "api" and path:
             return dg.generate_api_docs(path)
         elif dtype == "markdoc":
             return dg.generate_markdoc()
-        
+
         return "ERROR: Invalid doc type or missing path"
 
     def _execute_profile_code(self, args: dict[str, Any]) -> str:
         from .codegen import PerformanceProfiler
+
         path = args["path"]
-        
+
         pp = PerformanceProfiler(str(self.cwd))
         result = pp.profile_file(path)
-        
+
         if "error" in result:
             return result["error"]
-        
+
         lines = ["Code Profile", "=" * 40]
         lines.append(f"Lines: {result['lines']}")
         lines.append(f"Functions: {result['functions']}")
@@ -2927,11 +2972,12 @@ Ctrl+R     - Search history
 
     def _execute_optimize_code(self, args: dict[str, Any]) -> str:
         from .codegen import PerformanceProfiler
+
         path = args["path"]
-        
+
         pp = PerformanceProfiler(str(self.cwd))
         suggestions = pp.suggest_optimizations(path)
-        
+
         lines = ["Optimization Suggestions", "=" * 40]
         for s in suggestions:
             lines.append(f"- {s}")

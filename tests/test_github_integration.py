@@ -1,7 +1,12 @@
 """Tests for github_integration module."""
 
 from apex.github_integration import (
-    GitHubIssue, GitHubPR, GitHubClient, GitHubAutomation, gh_client, gh_automation
+    GitHubIssue,
+    GitHubPR,
+    GitHubClient,
+    GitHubAutomation,
+    gh_client,
+    gh_automation,
 )
 
 
@@ -16,7 +21,7 @@ class TestGitHubIssue:
             body="Issue body",
             state="open",
             labels=["bug"],
-            assignee="user"
+            assignee="user",
         )
         assert issue.number == 1
         assert issue.title == "Test Issue"
@@ -35,7 +40,7 @@ class TestGitHubPR:
             state="open",
             head="feature",
             base="main",
-            url="https://github.com/test/repo/pull/1"
+            url="https://github.com/test/repo/pull/1",
         )
         assert pr.number == 1
         assert pr.head == "feature"

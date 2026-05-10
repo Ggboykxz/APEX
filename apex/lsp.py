@@ -245,10 +245,14 @@ class LSPManager:
         try:
             if operation == "definition":
                 results = client.get_definitions(uri, line, column)
-                return {"definitions": [{"uri": r.get("uri"), "range": r.get("range")} for r in results]}
+                return {
+                    "definitions": [{"uri": r.get("uri"), "range": r.get("range")} for r in results]
+                }
             elif operation == "references":
                 results = client.get_references(uri, line, column)
-                return {"references": [{"uri": r.get("uri"), "range": r.get("range")} for r in results]}
+                return {
+                    "references": [{"uri": r.get("uri"), "range": r.get("range")} for r in results]
+                }
             elif operation == "hover":
                 result = client.get_hover(uri, line, column)
                 if result and result.get("contents"):
@@ -259,7 +263,16 @@ class LSPManager:
                 return {"content": ""}
             elif operation == "diagnostics":
                 results = client.get_diagnostics(uri)
-                return {"diagnostics": [{"message": d.get("message"), "range": d.get("range"), "severity": d.get("severity")} for d in results]}
+                return {
+                    "diagnostics": [
+                        {
+                            "message": d.get("message"),
+                            "range": d.get("range"),
+                            "severity": d.get("severity"),
+                        }
+                        for d in results
+                    ]
+                }
             else:
                 return {"error": f"Unknown operation: {operation}"}
         except Exception as e:

@@ -5,11 +5,7 @@ from apex.mcp import MCPServerConfig, MCPClient, MCPManager, mcp_manager, MCPRes
 
 def test_mcp_server_creation():
     server = MCPServerConfig(
-        name="test-server",
-        command="node",
-        args=["server.js"],
-        env={"KEY": "value"},
-        enabled=True
+        name="test-server", command="node", args=["server.js"], env={"KEY": "value"}, enabled=True
     )
     assert server.name == "test-server"
     assert server.command == "node"
@@ -49,10 +45,7 @@ def test_mcp_tool_schema_format():
 
 def test_mcp_resource_creation():
     resource = MCPResource(
-        uri="file:///test.txt",
-        name="test",
-        description="A test file",
-        mime_type="text/plain"
+        uri="file:///test.txt", name="test", description="A test file", mime_type="text/plain"
     )
     assert resource.uri == "file:///test.txt"
     assert resource.mime_type == "text/plain"

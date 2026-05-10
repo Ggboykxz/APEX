@@ -10,6 +10,7 @@ from dataclasses import dataclass
 @dataclass
 class ModelPricing:
     """Pricing information for a model."""
+
     per_1k_input: float
     per_1k_output: float
     currency: str = "USD"
@@ -36,21 +37,15 @@ class CostTracker:
         self._current_input_tokens = 0
         self._current_output_tokens = 0
 
-    def record_usage(
-        self,
-        model: str,
-        input_tokens: int,
-        output_tokens: int
-    ) -> float:
+    def record_usage(self, model: str, input_tokens: int, output_tokens: int) -> float:
         """Record token usage and return cost."""
         pricing = MODEL_PRICING.get(model)
         if not pricing:
             return 0.0
 
-        cost = (
-            (input_tokens / 1000) * pricing.per_1k_input +
-            (output_tokens / 1000) * pricing.per_1k_output
-        )
+        cost = (input_tokens / 1000) * pricing.per_1k_input + (
+            output_tokens / 1000
+        ) * pricing.per_1k_output
 
         self._current_input_tokens += input_tokens
         self._current_output_tokens += output_tokens
@@ -76,15 +71,14 @@ class CostTracker:
             "output_cost": round(output_cost, 6),
             "total_cost": round(input_cost + output_cost, 6),
             "currency": "USD",
-            "session_duration": (datetime.now() - self._current_session_start).seconds
+            "session_duration": (datetime.now() - self._current_session_start).seconds,
         }
 
     def reset_session(self):
         """Reset session tracking."""
-        self._session_costs.append({
-            **self.get_session_cost(),
-            "timestamp": datetime.now().isoformat()
-        })
+        self._session_costs.append(
+            {**self.get_session_cost(), "timestamp": datetime.now().isoformat()}
+        )
         self._current_session_start = datetime.now()
         self._current_input_tokens = 0
         self._current_output_tokens = 0
@@ -101,18 +95,14 @@ class LocalExecutionManager:
         "ollama": {
             "url": "http://localhost:11434",
             "models": ["llama3", "codellama", "mistral", "phi3"],
-            "enabled": False
+            "enabled": False,
         },
         "lm_studio": {
             "url": "http://localhost:1234",
             "models": ["llama3", "codellama"],
-            "enabled": False
+            "enabled": False,
         },
-        "llamafile": {
-            "url": "http://localhost:8080",
-            "models": [],
-            "enabled": False
-        }
+        "llamafile": {"url": "http://localhost:8080", "models": [], "enabled": False},
     }
 
     def __init__(self):
@@ -124,15 +114,10 @@ class LocalExecutionManager:
         if self._config_file.exists():
             try:
                 return json.loads(self._config_file.read_text())
-            except:
+            except (json.JSONDecodeError, OSError):
                 pass
 
-        return {
-            "enabled": False,
-            "provider": "ollama",
-            "model": "llama3",
-            "fallback_to_api": True
-        }
+        return {"enabled": False, "provider": "ollama", "model": "llama3", "fallback_to_api": True}
 
     def _save_config(self):
         """Save local execution config."""
@@ -174,7 +159,7 @@ class LocalExecutionManager:
             req = urllib.request.Request(f"{url}/api/tags")
             response = urllib.request.urlopen(req, timeout=2)
             return response.status == 200
-        except:
+        except (OSError, urllib.error.URLError):
             return False
 
     def get_available_providers(self) -> dict:
@@ -209,11 +194,11 @@ class ZenIntegration:
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "estimated_cost": (
-                (input_tokens / 1000) * pricing.per_1k_input +
-                (output_tokens / 1000) * pricing.per_1k_output
+                (input_tokens / 1000) * pricing.per_1k_input
+                + (output_tokens / 1000) * pricing.per_1k_output
             ),
             "currency": "USD",
-            "provider": "zen"
+            "provider": "zen",
         }
 
     def create_session(self, budget: float) -> str:
@@ -225,11 +210,7 @@ class ZenIntegration:
 
     def get_usage_report(self) -> dict:
         """Get usage report from Zen."""
-        return {
-            "total_spent": 0.0,
-            "total_tokens": 0,
-            "sessions": []
-        }
+        return {"total_spent": 0.0, "total_tokens": 0, "sessions": []}
 
 
 cost_tracker = CostTracker()

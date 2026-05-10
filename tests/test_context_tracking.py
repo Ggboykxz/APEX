@@ -133,7 +133,7 @@ class TestContextManager:
         stats = ctx.cache_stats
         assert stats["cache_hits"] == 2
         assert stats["cache_misses"] == 1
-        assert stats["hit_rate"] == 2/3
+        assert stats["hit_rate"] == 2 / 3
 
     def test_compaction_stats_empty(self, ctx):
         """Test compaction_stats when empty."""

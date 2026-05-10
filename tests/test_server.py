@@ -98,18 +98,14 @@ class TestAPEXServerMethods:
     @pytest.mark.asyncio
     async def test_process_chat_with_agent(self, server):
         """Test chat processing with agent."""
-        result = await server._process_chat("client-id", {
-            "message": "hello"
-        })
+        result = await server._process_chat("client-id", {"message": "hello"})
         assert "response" in result
 
     @pytest.mark.asyncio
     async def test_process_chat_no_agent(self, server):
         """Test chat processing without agent."""
         server._agent = None
-        result = await server._process_chat("client-id", {
-            "message": "hello"
-        })
+        result = await server._process_chat("client-id", {"message": "hello"})
         assert result is not None
 
     @pytest.mark.asyncio

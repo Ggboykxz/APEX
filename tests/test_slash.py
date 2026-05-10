@@ -9,18 +9,19 @@ class TestCommand:
 
     def test_command_init(self):
         """Test Command initialization."""
+
         def handler():
             return "test"
-        
+
         cmd = Command(
             name="test",
             description="Test command",
             handler=handler,
             aliases=["t", "testing"],
             args=["arg1", "arg2"],
-            requires_argument=True
+            requires_argument=True,
         )
-        
+
         assert cmd.name == "test"
         assert cmd.description == "Test command"
         assert cmd.handler is handler
@@ -30,15 +31,12 @@ class TestCommand:
 
     def test_command_defaults(self):
         """Test Command default values."""
+
         def handler():
             return "test"
-        
-        cmd = Command(
-            name="test",
-            description="Test command",
-            handler=handler
-        )
-        
+
+        cmd = Command(name="test", description="Test command", handler=handler)
+
         assert cmd.aliases is None
         assert cmd.args is None
         assert cmd.requires_argument is False
@@ -59,16 +57,17 @@ class TestSlashCommandManager:
 
     def test_register(self, manager):
         """Test register method."""
+
         def custom_handler(args, context):
             return "result"
-        
+
         cmd = Command(
             name="custom",
             description="Custom command",
             handler=custom_handler,
-            requires_argument=False
+            requires_argument=False,
         )
-        
+
         manager.register(cmd)
         assert "custom" in manager._commands
 

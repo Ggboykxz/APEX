@@ -1,6 +1,7 @@
 """Plugin system for APEX - Dynamic plugin loading and management."""
 
 import importlib.util
+import os
 import sys
 import re
 import logging
@@ -16,7 +17,10 @@ DANGEROUS_PATTERNS = [
     (r"eval\s*\(", "eval() is dangerous"),
     (r"exec\s*\(", "exec() is dangerous"),
     (r"__import__\s*\(", "__import__() is dangerous"),
-    (r"subprocess\s*\.(run|call|Popen|check_output)\s*\(.*shell\s*=\s*True", "shell=True is dangerous"),
+    (
+        r"subprocess\s*\.(run|call|Popen|check_output)\s*\(.*shell\s*=\s*True",
+        "shell=True is dangerous",
+    ),
     (r"os\s*\.\s*system\s*\(", "os.system() is dangerous"),
     (r"os\s*\.\s*popen\s*\(", "os.popen() is dangerous"),
     (r"pickle\s*\.(load|loads)\s*\(", "pickle.load is dangerous"),
@@ -123,7 +127,7 @@ class PluginManager:
                     if os.environ.get("APEX_ALLOW_DANGEROUS_PLUGINS") != "true":
                         print(f"[SECURITY] Plugin {name} blocked: {', '.join(issues)}")
                         return False
-                
+
                 spec = importlib.util.spec_from_file_location(name, plugin_path)
                 if spec and spec.loader:
                     module = importlib.util.module_from_spec(spec)
@@ -174,7 +178,7 @@ class PluginManager:
             {
                 "name": name,
                 "enabled": self._enabled.get(name, False),
-                "info": getattr(plugin, "info", None)
+                "info": getattr(plugin, "info", None),
             }
             for name, plugin in self._plugins.items()
         ]
@@ -197,15 +201,15 @@ class BuiltInPlugins:
     def create_logger_plugin() -> type:
         class LoggerPlugin(PluginBase):
             info = PluginInfo(
-                name="logger",
-                version="0.1.0",
-                description="Logs all tool calls and agent actions"
+                name="logger", version="0.1.0", description="Logs all tool calls and agent actions"
             )
 
             def initialize(self, app) -> None:
                 self.app = app
                 self.app.plugin_manager.register_hook("tool_call", self.on_tool_call, priority=100)
-                self.app.plugin_manager.register_hook("agent_message", self.on_agent_message, priority=100)
+                self.app.plugin_manager.register_hook(
+                    "agent_message", self.on_agent_message, priority=100
+                )
 
             def cleanup(self) -> None:
                 pass
@@ -224,12 +228,14 @@ class BuiltInPlugins:
             info = PluginInfo(
                 name="security_scanner",
                 version="0.1.0",
-                description="Scans code for security vulnerabilities"
+                description="Scans code for security vulnerabilities",
             )
 
             def initialize(self, app) -> None:
                 self.app = app
-                self.app.plugin_manager.register_hook("before_tool_call", self.scan_tool, priority=-100)
+                self.app.plugin_manager.register_hook(
+                    "before_tool_call", self.scan_tool, priority=-100
+                )
 
             def cleanup(self) -> None:
                 pass
@@ -255,25 +261,28 @@ class BuiltInPlugins:
                 ]
                 for pattern, msg in dangerous_patterns:
                     import re
+
                     if re.search(pattern, code, re.IGNORECASE):
                         issues.append(msg)
                 return issues
 
             def get_tools(self) -> list[dict]:
-                return [{
-                    "type": "function",
-                    "function": {
-                        "name": "security_scan",
-                        "description": "Scan code for security issues",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "path": {"type": "string", "description": "File to scan"}
+                return [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "security_scan",
+                            "description": "Scan code for security issues",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "path": {"type": "string", "description": "File to scan"}
+                                },
+                                "required": ["path"],
                             },
-                            "required": ["path"]
-                        }
+                        },
                     }
-                }]
+                ]
 
         return SecurityScannerPlugin
 
@@ -287,6 +296,7 @@ def load_plugins_from_config(config_path: Path, app: Any) -> None:
 
     try:
         import yaml
+
         with open(config_path) as f:
             config = yaml.safe_load(f)
 

@@ -66,8 +66,14 @@ class PermissionManager:
             PermissionRule("*", PermissionAction.ASK, "Default: ask for permission"),
         ]
 
-    def add_rule(self, pattern: str, action: PermissionAction, reason: Optional[str] = None,
-                 expires_in: Optional[int] = None, remember: bool = False) -> None:
+    def add_rule(
+        self,
+        pattern: str,
+        action: PermissionAction,
+        reason: Optional[str] = None,
+        expires_in: Optional[int] = None,
+        remember: bool = False,
+    ) -> None:
         expires_at = time.time() + expires_in if expires_in else None
         rule = PermissionRule(pattern, action, reason, expires_at, remember)
         if remember and not expires_in:
@@ -84,8 +90,9 @@ class PermissionManager:
         self._rules.clear()
         self._setup_default_rules()
 
-    def can_execute_tool(self, tool_name: str, workspace_id: Optional[str] = None,
-                        user_id: Optional[str] = None) -> tuple[bool, str]:
+    def can_execute_tool(
+        self, tool_name: str, workspace_id: Optional[str] = None, user_id: Optional[str] = None
+    ) -> tuple[bool, str]:
         self.initialize()
         for rule in self._rules:
             if rule.is_expired():
@@ -99,9 +106,14 @@ class PermissionManager:
                     return False, f"Requires permission: {rule.reason or tool_name}"
         return False, f"No rule matched '{tool_name}', defaulting to ask"
 
-    def request_permission(self, tool_name: str, args: dict, permission: str,
-                          workspace_id: Optional[str] = None,
-                          user_id: Optional[str] = None) -> str:
+    def request_permission(
+        self,
+        tool_name: str,
+        args: dict,
+        permission: str,
+        workspace_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> str:
         self._request_id_counter += 1
         request_id = f"req_{self._request_id_counter}_{uuid.uuid4().hex[:8]}"
         request = PermissionRequest(
@@ -116,8 +128,9 @@ class PermissionManager:
         logger.info(f"Permission requested: {request_id} for {tool_name}")
         return request_id
 
-    def approve_request(self, request_id: str, remember: bool = False,
-                        expires_in: Optional[int] = None) -> bool:
+    def approve_request(
+        self, request_id: str, remember: bool = False, expires_in: Optional[int] = None
+    ) -> bool:
         if request_id not in self._requests:
             logger.warning(f"Unknown request: {request_id}")
             return False
@@ -129,7 +142,7 @@ class PermissionManager:
                 PermissionAction.ALLOW,
                 f"Approved for {request.tool_name}",
                 expires_in=expires_in,
-                remember=True
+                remember=True,
             )
         del self._requests[request_id]
         logger.info(f"Request approved: {request_id}")
@@ -146,7 +159,7 @@ class PermissionManager:
                 request.tool_name,
                 PermissionAction.DENY,
                 f"Denied for {request.tool_name}",
-                remember=True
+                remember=True,
             )
         del self._requests[request_id]
         logger.info(f"Request denied: {request_id}")

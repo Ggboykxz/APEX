@@ -31,7 +31,9 @@ class ContextWindow:
                 total_text += " " + content
         return self.estimate_tokens(total_text) > self.max_tokens * self.compress_threshold
 
-    def compress_messages(self, messages: list[dict[str, Any]], summary_prompt: str = "") -> list[dict[str, Any]]:
+    def compress_messages(
+        self, messages: list[dict[str, Any]], summary_prompt: str = ""
+    ) -> list[dict[str, Any]]:
         if len(messages) < self.summary_messages:
             return messages
 
@@ -48,12 +50,15 @@ class ContextWindow:
         summary = MessageSummary(
             summary=f"Conversation had {len(older)} messages. Key points: [see summary]",
             message_count=len(older),
-            token_estimate=self.estimate_tokens(summary_text)
+            token_estimate=self.estimate_tokens(summary_text),
         )
         self._last_summary = summary
 
         return [
-            {"role": "system", "content": f"Context summary: {len(older)} previous messages compressed. {summary_prompt}"},
+            {
+                "role": "system",
+                "content": f"Context summary: {len(older)} previous messages compressed. {summary_prompt}",
+            },
             {"role": "system", "content": summary_text[:2000]},
         ] + recent
 
@@ -77,7 +82,7 @@ class ConversationManager:
         return self._history.copy()
 
     def set_messages(self, messages: list[dict[str, Any]]) -> None:
-        self._history = messages[:self.max_history]
+        self._history = messages[: self.max_history]
 
     def _trim_history(self) -> None:
         keep = self.max_history // 2
@@ -90,7 +95,7 @@ class ConversationManager:
     def restore_bookmark(self, name: str) -> list[dict[str, Any]] | None:
         if name not in self._bookmarks:
             return None
-        return self._history[self._bookmarks[name]:]
+        return self._history[self._bookmarks[name] :]
 
     def search(self, query: str) -> list[dict[str, Any]]:
         query_lower = query.lower()
@@ -109,7 +114,7 @@ class ConversationManager:
         return {
             "message_count": len(self._history),
             "bookmarks": len(self._bookmarks),
-            "roles": self._count_roles()
+            "roles": self._count_roles(),
         }
 
     def _count_roles(self) -> dict[str, int]:
@@ -123,6 +128,7 @@ class ConversationManager:
 class AutoSaveManager:
     def __init__(self, save_dir: str | None = None):
         from pathlib import Path
+
         self._save_dir = Path(save_dir) if save_dir else Path.home() / ".apex" / "autosave"
         self._save_dir.mkdir(parents=True, exist_ok=True)
         self._current_file = self._save_dir / "current.json"
@@ -157,10 +163,7 @@ class AutoSaveManager:
         saves = []
         for f in self._save_dir.glob("*.json"):
             stat = f.stat()
-            saves.append({
-                "name": f.stem,
-                "path": str(f),
-                "size": stat.st_size,
-                "modified": stat.st_mtime
-            })
+            saves.append(
+                {"name": f.stem, "path": str(f), "size": stat.st_size, "modified": stat.st_mtime}
+            )
         return sorted(saves, key=lambda x: x["modified"], reverse=True)

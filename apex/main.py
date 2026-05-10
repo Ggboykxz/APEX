@@ -40,13 +40,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cwd", "-C", dest="cwd", help="Working directory")
     parser.add_argument("--version", "-v", action="version", version=f"APEX {__version__}")
     parser.add_argument("--list-models", action="store_true", help="List all available models")
-    parser.add_argument("--one-shot", "-1", action="store_true", help="One-shot mode (non-interactive)")
+    parser.add_argument(
+        "--one-shot", "-1", action="store_true", help="One-shot mode (non-interactive)"
+    )
     parser.add_argument("--stream", "-s", action="store_true", help="Enable streaming responses")
-    parser.add_argument("--auto-commit", action="store_true", dest="auto_commit", help="Auto commit after successful task")
+    parser.add_argument(
+        "--auto-commit",
+        action="store_true",
+        dest="auto_commit",
+        help="Auto commit after successful task",
+    )
     parser.add_argument("--ui", action="store_true", help="Launch APEX TUI (OpenTUI + React)")
     parser.add_argument("--tui", "-t", action="store_true", help="Launch APEX TUI (same as --ui)")
     parser.add_argument("-p", dest="prompt_direct", help="Direct prompt (CI/CD mode, no TUI)")
-    parser.add_argument("-f", "--format", dest="output_format", choices=["text", "json"], default="text", help="Output format")
+    parser.add_argument(
+        "-f",
+        "--format",
+        dest="output_format",
+        choices=["text", "json"],
+        default="text",
+        help="Output format",
+    )
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode (less output)")
     return parser.parse_args()
 
@@ -55,7 +69,14 @@ def list_models(ui: UI) -> None:
     ui.show_models(Config().model)
 
 
-def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = None, session: Any = None, use_stream: bool = False) -> bool:
+def handle_command(
+    command: str,
+    agent: Agent,
+    ui: UI,
+    config: Config | None = None,
+    session: Any = None,
+    use_stream: bool = False,
+) -> bool:
     config = config or Config()
     global memory
     parts = command.split(maxsplit=1)
@@ -110,7 +131,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
                 new_cwd.relative_to(agent.cwd.resolve())
             except ValueError:
                 if os.environ.get("APEX_ALLOW_OUTSIDE_CWD") != "true":
-                    ui.print_error(f"Path outside working directory not allowed")
+                    ui.print_error("Path outside working directory not allowed")
                     return True
             agent.cwd = new_cwd
             os.chdir(new_cwd)
@@ -137,6 +158,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/cost":
             from .cost_local import cost_tracker
+
             usage = agent.usage
             cost_info = cost_tracker.get_session_cost()
             ui.console.print("[cyan]Session Cost:[/cyan]")
@@ -181,6 +203,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/cost":
             from .cost_local import cost_tracker
+
             usage = agent.usage
             cost_info = cost_tracker.get_session_cost()
             ui.console.print("[cyan]Session Cost:[/cyan]")
@@ -201,7 +224,9 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
                 else:
                     ui.console.print("[cyan]Memory facts:[/cyan]")
                     for i, f in enumerate(facts):
-                        ui.console.print(f"  {i}: {f['fact']} [relevance: {', '.join(f.get('relevance', []))}]")
+                        ui.console.print(
+                            f"  {i}: {f['fact']} [relevance: {', '.join(f.get('relevance', []))}]"
+                        )
                 return True
 
             mem_parts = arg.split(maxsplit=2)
@@ -229,7 +254,9 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/map":
             repo_map = get_repo_map(agent.cwd)
-            ui.console.print(Panel(repo_map, title="[cyan]Repository Map[/cyan]", border_style="cyan"))
+            ui.console.print(
+                Panel(repo_map, title="[cyan]Repository Map[/cyan]", border_style="cyan")
+            )
             return True
 
         case "/stats":
@@ -244,6 +271,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/git":
             from .tools import ToolExecutor
+
             executor = ToolExecutor(cwd=agent.cwd)
             status = executor.execute("get_git_status", {})
             ui.console.print(Panel(status, title="[cyan]Git Status[/cyan]", border_style="cyan"))
@@ -251,6 +279,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/agent":
             from .agents import agent_manager
+
             if not arg:
                 current = agent.current_agent
                 ui.console.print(f"[cyan]Current agent:[/cyan] {current}")
@@ -280,6 +309,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/restore":
             from .workspace_rollback import WorkspaceRollback
+
             wb = WorkspaceRollback(agent.cwd)
             if arg:
                 success = wb.restore_snapshot(arg)
@@ -299,6 +329,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/revert":
             from .workspace_rollback import TurnTracker
+
             tt = TurnTracker(agent.cwd)
             turns = int(arg) if arg.isdigit() else 1
             if tt.revert_turn(turns):
@@ -309,6 +340,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/undo":
             from .git_undo import GitUndoManager
+
             gum = GitUndoManager(agent.cwd)
             if not gum.can_undo():
                 ui.print_info("Nothing to undo")
@@ -323,6 +355,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/redo":
             from .git_undo import GitUndoManager
+
             gum = GitUndoManager(agent.cwd)
             if not gum.can_redo():
                 ui.print_info("Nothing to redo")
@@ -337,6 +370,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/skills":
             from .skills_system import skills_manager
+
             skills = skills_manager.list_skills()
             if skills:
                 ui.console.print("[cyan]Available skills:[/cyan]")
@@ -348,6 +382,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/github":
             from .github_integration import gh_automation
+
             if not arg:
                 ui.print_info("Usage: /github <command> [args]")
                 ui.print_info("Commands: issues, prs, create-issue, create-pr")
@@ -368,6 +403,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/local":
             from .cost_local import local_manager
+
             if arg == "enable":
                 local_manager.enable_local()
                 ui.print_success("Local execution enabled")
@@ -384,6 +420,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/sessionsave":
             from .session import SessionManager
+
             sm = SessionManager()
             name = arg or "default"
             path = sm.save(agent, name)
@@ -392,6 +429,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/sessionload":
             from .session import SessionManager
+
             sm = SessionManager()
             if arg:
                 session = sm.load(arg)
@@ -409,6 +447,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
 
         case "/tasks":
             from .task_queue import TaskQueue
+
             tq = TaskQueue()
             tasks = tq.list_tasks(limit=10)
             if tasks:
@@ -430,6 +469,7 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
         case "/agents":
             from .agents import agent_manager
             from rich.table import Table
+
             table = Table(title="Available Agents", show_header=True, header_style="bold cyan")
             table.add_column("Name", style="cyan", width=12)
             table.add_column("Mode", style="white", width=10)
@@ -444,7 +484,10 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
         case "/subagents":
             from .agents import agent_manager
             from rich.table import Table
-            table = Table(title="Subagents (use @name to invoke)", show_header=True, header_style="bold cyan")
+
+            table = Table(
+                title="Subagents (use @name to invoke)", show_header=True, header_style="bold cyan"
+            )
             table.add_column("Name", style="cyan", width=12)
             table.add_column("Description", style="white")
             for a in agent_manager.list_agents("subagent"):
@@ -483,10 +526,12 @@ async def run_repl_streaming(agent: Agent, ui: UI) -> None:
         ui.print_success(f"Switched to agent: {new_agent}")
         event.app.current_buffer.text = ""
 
-    style = Style.from_dict({
-        "prompt": "cyan bold",
-        "continuation": "cyan",
-    })
+    style = Style.from_dict(
+        {
+            "prompt": "cyan bold",
+            "continuation": "cyan",
+        }
+    )
 
     session = PromptSession(
         history=FileHistory(str(history_file)),
@@ -537,10 +582,12 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
         ui.print_success(f"Switched to agent: {new_agent}")
         event.app.current_buffer.text = ""
 
-    style = Style.from_dict({
-        "prompt": "cyan bold",
-        "continuation": "cyan",
-    })
+    style = Style.from_dict(
+        {
+            "prompt": "cyan bold",
+            "continuation": "cyan",
+        }
+    )
 
     session = PromptSession(
         history=FileHistory(str(history_file)),
@@ -585,10 +632,16 @@ def run_one_shot(prompt: str, agent: Agent, ui: UI, use_stream: bool = False) ->
         ui.print_response(response)
 
 
-def run_cicd_mode(prompt: str, agent: Agent, ui: UI, output_format: str = "text", quiet: bool = False) -> None:
+def run_cicd_mode(
+    prompt: str, agent: Agent, ui: UI, output_format: str = "text", quiet: bool = False
+) -> None:
     """CI/CD mode - Direct prompt execution with optional JSON output."""
     try:
-        with ui.console.status("[cyan]Processing...[/cyan]", spinner="dots") if not quiet else ui.console.status(""):
+        with (
+            ui.console.status("[cyan]Processing...[/cyan]", spinner="dots")
+            if not quiet
+            else ui.console.status("")
+        ):
             response = agent.chat(prompt)
 
         if output_format == "json":
@@ -597,7 +650,7 @@ def run_cicd_mode(prompt: str, agent: Agent, ui: UI, output_format: str = "text"
                 "prompt": prompt,
                 "response": response,
                 "model": agent.model,
-                "usage": agent.usage
+                "usage": agent.usage,
             }
             print(json.dumps(result, indent=2))
         else:

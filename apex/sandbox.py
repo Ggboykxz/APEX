@@ -48,18 +48,14 @@ class CodeSandbox:
                 run_cmd.extend(args)
 
             result = subprocess.run(
-                run_cmd,
-                capture_output=True,
-                text=True,
-                timeout=self.timeout,
-                cwd=self._temp_dir
+                run_cmd, capture_output=True, text=True, timeout=self.timeout, cwd=self._temp_dir
             )
 
             output = []
             if result.stdout:
-                output.append(result.stdout[:self.max_output])
+                output.append(result.stdout[: self.max_output])
             if result.stderr:
-                output.append(f"[STDERR]\n{result.stderr[:self.max_output]}")
+                output.append(f"[STDERR]\n{result.stderr[: self.max_output]}")
 
             if result.returncode != 0:
                 output.insert(0, f"[EXIT CODE: {result.returncode}]\n")
@@ -103,7 +99,7 @@ class ShellSession:
                 cwd=self.cwd,
                 env=self.env,
                 text=True,
-                bufsize=1
+                bufsize=1,
             )
             return True
         except Exception:
@@ -119,6 +115,7 @@ class ShellSession:
 
             output = []
             import time
+
             start = time.time()
 
             while time.time() - start < timeout:

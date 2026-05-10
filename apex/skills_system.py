@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 @dataclass
 class Skill:
     """Represents a skill/command definition."""
+
     name: str
     description: str
     instructions: str
@@ -42,7 +43,7 @@ class SkillsManager:
 - Apply design patterns where appropriate""",
                 triggers=["refactor", "improve", "clean up"],
                 parameters={"style": "modern"},
-                examples=["refactor this function", "clean up this class"]
+                examples=["refactor this function", "clean up this class"],
             ),
             "debug": Skill(
                 name="debug",
@@ -55,7 +56,7 @@ class SkillsManager:
 - Fix the root cause, not just symptoms""",
                 triggers=["debug", "fix", "error", "issue", "bug"],
                 parameters={"verbose": "true"},
-                examples=["debug this error", "fix the crash"]
+                examples=["debug this error", "fix the crash"],
             ),
             "test": Skill(
                 name="test",
@@ -68,7 +69,7 @@ class SkillsManager:
 - Test edge cases""",
                 triggers=["test", "spec", "verify"],
                 parameters={"coverage": "80"},
-                examples=["write tests for this", "add unit tests"]
+                examples=["write tests for this", "add unit tests"],
             ),
             "review": Skill(
                 name="review",
@@ -82,7 +83,7 @@ class SkillsManager:
 - Logic errors""",
                 triggers=["review", "security", "check"],
                 parameters={"depth": "detailed"},
-                examples=["review this code", "check for bugs"]
+                examples=["review this code", "check for bugs"],
             ),
             "explain": Skill(
                 name="explain",
@@ -95,7 +96,7 @@ class SkillsManager:
 - Usage examples""",
                 triggers=["explain", "what does", "how does", "understand"],
                 parameters={"verbosity": "detailed"},
-                examples=["explain this function", "what is this"]
+                examples=["explain this function", "what is this"],
             ),
         }
 
@@ -147,7 +148,7 @@ class SkillsManager:
                 instructions=instructions.strip() or description,
                 triggers=triggers,
                 parameters=parameters,
-                examples=examples
+                examples=examples,
             )
         except Exception:
             return None
@@ -221,7 +222,7 @@ class CustomCommand:
         name: str,
         handler: Callable[[list[str]], str],
         description: str = "",
-        aliases: list[str] = None
+        aliases: list[str] = None,
     ):
         self.name = name
         self.handler = handler
@@ -263,11 +264,7 @@ class CommandRegistry:
     def list_commands(self) -> list[dict]:
         """List all commands."""
         return [
-            {
-                "name": cmd.name,
-                "description": cmd.description,
-                "aliases": cmd.aliases
-            }
+            {"name": cmd.name, "description": cmd.description, "aliases": cmd.aliases}
             for cmd in self._commands.values()
         ]
 

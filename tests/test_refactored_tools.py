@@ -301,8 +301,8 @@ class TestWebOperations:
         assert "/tmp" in result or result.strip()
 
 
-class TestWebOperations:
-    """Test web operations class."""
+class TestWebOperationsSimple:
+    """Test web operations with simple setup."""
 
     @pytest.fixture
     def web_ops(self):

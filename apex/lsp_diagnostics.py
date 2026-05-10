@@ -10,7 +10,8 @@ from dataclasses import dataclass
 
 @dataclass
 class Diagnostic:
-    """ LSP diagnostic information."""
+    """LSP diagnostic information."""
+
     severity: str
     message: str
     line: int
@@ -101,18 +102,16 @@ class LSPDiagnostics:
             "params": {
                 "processId": server["process"].pid,
                 "rootUri": f"file://{self.cwd}",
-                "capabilities": {}
-            }
+                "capabilities": {},
+            },
         }
 
         response = self._send_request(language, init_request)
         if response:
             server["initialized"] = True
-            self._send_notification(language, {
-                "jsonrpc": "2.0",
-                "method": "initialized",
-                "params": {}
-            })
+            self._send_notification(
+                language, {"jsonrpc": "2.0", "method": "initialized", "params": {}}
+            )
             return True
 
         return False
@@ -171,18 +170,21 @@ class LSPDiagnostics:
         if not self.initialize(language, filepath):
             return []
 
-        self._send_notification(language, {
-            "jsonrpc": "2.0",
-            "method": "textDocument/didOpen",
-            "params": {
-                "textDocument": {
-                    "uri": f"file://{filepath}",
-                    "languageId": language,
-                    "version": 1,
-                    "text": filepath.read_text() if filepath.exists() else ""
-                }
-            }
-        })
+        self._send_notification(
+            language,
+            {
+                "jsonrpc": "2.0",
+                "method": "textDocument/didOpen",
+                "params": {
+                    "textDocument": {
+                        "uri": f"file://{filepath}",
+                        "languageId": language,
+                        "version": 1,
+                        "text": filepath.read_text() if filepath.exists() else "",
+                    }
+                },
+            },
+        )
 
         time.sleep(0.3)
 
@@ -190,9 +192,7 @@ class LSPDiagnostics:
             "jsonrpc": "2.0",
             "id": 2,
             "method": "textDocument/diagnostics",
-            "params": {
-                "textDocument": {"uri": f"file://{filepath}"}
-            }
+            "params": {"textDocument": {"uri": f"file://{filepath}"}},
         }
 
         response = self._send_request(language, diagnostics_request)
@@ -206,13 +206,15 @@ class LSPDiagnostics:
         diagnostics = []
         for item in result:
             severity_map = {1: "error", 2: "warning", 3: "info", 4: "hint"}
-            diagnostics.append(Diagnostic(
-                severity=severity_map.get(item.get("severity", 1), "error"),
-                message=item.get("message", ""),
-                line=item.get("range", {}).get("start", {}).get("line", 0) + 1,
-                column=item.get("range", {}).get("start", {}).get("character", 0) + 1,
-                source=item.get("source", "lsp")
-            ))
+            diagnostics.append(
+                Diagnostic(
+                    severity=severity_map.get(item.get("severity", 1), "error"),
+                    message=item.get("message", ""),
+                    line=item.get("range", {}).get("start", {}).get("line", 0) + 1,
+                    column=item.get("range", {}).get("start", {}).get("character", 0) + 1,
+                    source=item.get("source", "lsp"),
+                )
+            )
 
         self._last_diagnostics[str(filepath)] = diagnostics
         return diagnostics

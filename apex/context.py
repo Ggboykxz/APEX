@@ -13,9 +13,36 @@ def get_repo_map(path: Path | None = None) -> str:
 
     lines = [f"Repository: {path.name}", "=" * 50]
 
-    ignore_dirs = {".git", "node_modules", "__pycache__", "venv", ".venv", "target", "dist", "build", ".pytest_cache"}
+    ignore_dirs = {
+        ".git",
+        "node_modules",
+        "__pycache__",
+        "venv",
+        ".venv",
+        "target",
+        "dist",
+        "build",
+        ".pytest_cache",
+    }
 
-    source_exts = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".c", ".cpp", ".h", ".hpp", ".rb", ".php", ".swift", ".kt"}
+    source_exts = {
+        ".py",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".go",
+        ".rs",
+        ".java",
+        ".c",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".rb",
+        ".php",
+        ".swift",
+        ".kt",
+    }
     config_exts = {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf"}
     doc_exts = {".md", ".txt", ".rst", ".adoc"}
 
@@ -78,11 +105,7 @@ def get_git_info(path: Path) -> str:
             branch = branch[5:].split("/")[-1]
 
         result = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=path,
-            capture_output=True,
-            text=True,
-            timeout=5
+            ["git", "status", "--porcelain"], cwd=path, capture_output=True, text=True, timeout=5
         )
         changes = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
 
@@ -97,11 +120,21 @@ def get_language_stats(path: Path | None = None) -> dict[str, int]:
     stats = {}
 
     ext_map = {
-        ".py": "Python", ".js": "JavaScript", ".ts": "TypeScript",
-        ".jsx": "React", ".tsx": "React", ".go": "Go",
-        ".rs": "Rust", ".java": "Java", ".c": "C", ".cpp": "C++",
-        ".rb": "Ruby", ".php": "PHP", ".swift": "Swift",
-        ".kt": "Kotlin", ".scala": "Scala"
+        ".py": "Python",
+        ".js": "JavaScript",
+        ".ts": "TypeScript",
+        ".jsx": "React",
+        ".tsx": "React",
+        ".go": "Go",
+        ".rs": "Rust",
+        ".java": "Java",
+        ".c": "C",
+        ".cpp": "C++",
+        ".rb": "Ruby",
+        ".php": "PHP",
+        ".swift": "Swift",
+        ".kt": "Kotlin",
+        ".scala": "Scala",
     }
 
     ignore_dirs = {".git", "node_modules", "__pycache__", "venv", ".venv", "target"}
@@ -127,15 +160,15 @@ def generate_ctags(path: Path | None = None) -> str:
 
     try:
         result = subprocess.run(
-            ["git", "ls-files", "-z"],
-            cwd=path,
-            capture_output=True,
-            text=True,
-            timeout=10
+            ["git", "ls-files", "-z"], cwd=path, capture_output=True, text=True, timeout=10
         )
         files = result.stdout.split("\0")[:-1]
 
-        code_files = [f for f in files if any(f.endswith(ext) for ext in [".py", ".js", ".ts", ".go", ".rs", ".java"])]
+        code_files = [
+            f
+            for f in files
+            if any(f.endswith(ext) for ext in [".py", ".js", ".ts", ".go", ".rs", ".java"])
+        ]
         return "\n".join(code_files[:50]) if code_files else "[no code files found]"
     except Exception as e:
         return f"ERROR: {e}"

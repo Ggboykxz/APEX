@@ -11,8 +11,9 @@ class TestParseArgsExtended:
 
     def test_parse_args_tui_flag(self):
         """Test parsing with --tui flag."""
-        with patch('sys.argv', ['apex', '-t', 'prompt']):
+        with patch("sys.argv", ["apex", "-t", "prompt"]):
             from apex.main import parse_args
+
             args = parse_args()
             assert args.tui is True
 
@@ -59,6 +60,7 @@ class TestHandleCommandBasic:
     def test_reasoning_command(self, mock_agent, mock_ui, mock_config):
         """Test /reasoning command."""
         from apex.main import handle_command
+
         result = handle_command("/reasoning", mock_agent, mock_ui, mock_config)
         assert result is True
         mock_agent.cycle_reasoning_effort.assert_called_once()
@@ -66,12 +68,14 @@ class TestHandleCommandBasic:
     def test_models_command(self, mock_agent, mock_ui):
         """Test /models command."""
         from apex.main import handle_command
+
         result = handle_command("/models", mock_agent, mock_ui)
         assert result is True
 
     def test_cwd_command(self, mock_agent, mock_ui):
         """Test /cwd command."""
         from apex.main import handle_command
-        with patch('pathlib.Path.mkdir', return_value=None):
+
+        with patch("pathlib.Path.mkdir", return_value=None):
             result = handle_command("/cwd /test", mock_agent, mock_ui)
             assert result is True

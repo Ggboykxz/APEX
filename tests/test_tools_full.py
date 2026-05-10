@@ -2,7 +2,6 @@
 
 import pytest
 import tempfile
-import subprocess
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from apex.tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
@@ -104,19 +103,13 @@ class TestToolExecutor:
 
     def test_execute_write_file_success(self, executor, temp_cwd):
         """Test write_file success."""
-        result = executor.execute("write_file", {
-            "path": "new_file.txt",
-            "content": "test content"
-        })
+        result = executor.execute("write_file", {"path": "new_file.txt", "content": "test content"})
         assert "SUCCESS" in result
         assert (temp_cwd / "new_file.txt").exists()
 
     def test_execute_write_file_nested(self, executor, temp_cwd):
         """Test write_file with nested path."""
-        result = executor.execute("write_file", {
-            "path": "dir1/dir2/file.txt",
-            "content": "nested"
-        })
+        result = executor.execute("write_file", {"path": "dir1/dir2/file.txt", "content": "nested"})
         assert "SUCCESS" in result
 
     def test_execute_edit_file_success(self, executor, temp_cwd):
@@ -124,21 +117,17 @@ class TestToolExecutor:
         test_file = temp_cwd / "edit_test.txt"
         test_file.write_text("hello world")
 
-        result = executor.execute("edit_file", {
-            "path": "edit_test.txt",
-            "old_string": "world",
-            "new_string": "APEX"
-        })
+        result = executor.execute(
+            "edit_file", {"path": "edit_test.txt", "old_string": "world", "new_string": "APEX"}
+        )
         assert "SUCCESS" in result
         assert "APEX" in test_file.read_text()
 
     def test_execute_edit_file_not_found(self, executor):
         """Test edit_file with missing file."""
-        result = executor.execute("edit_file", {
-            "path": "nonexistent.txt",
-            "old_string": "old",
-            "new_string": "new"
-        })
+        result = executor.execute(
+            "edit_file", {"path": "nonexistent.txt", "old_string": "old", "new_string": "new"}
+        )
         assert "ERROR" in result
 
     def test_execute_edit_file_string_not_found(self, executor, temp_cwd):
@@ -146,14 +135,12 @@ class TestToolExecutor:
         test_file = temp_cwd / "test.txt"
         test_file.write_text("original text")
 
-        result = executor.execute("edit_file", {
-            "path": "test.txt",
-            "old_string": "not in file",
-            "new_string": "new"
-        })
+        result = executor.execute(
+            "edit_file", {"path": "test.txt", "old_string": "not in file", "new_string": "new"}
+        )
         assert "ERROR" in result
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_execute_run_command_success(self, mock_run, executor):
         """Test run_command success."""
         mock_result = MagicMock()
@@ -165,7 +152,7 @@ class TestToolExecutor:
         result = executor.execute("run_command", {"command": "echo hello"})
         assert "command output" in result
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_execute_run_command_error(self, mock_run, executor):
         """Test run_command with error."""
         mock_result = MagicMock()

@@ -9,11 +9,7 @@ from typing import Any, Optional, Callable
 
 
 class UndoManager:
-    def __init__(
-        self,
-        max_history: int = 50,
-        time_factory: Optional[Callable[[], str]] = None
-    ):
+    def __init__(self, max_history: int = 50, time_factory: Optional[Callable[[], str]] = None):
         self.max_history = max_history
         self._undo_stack: list[dict[str, Any]] = []
         self._redo_stack: list[dict[str, Any]] = []
@@ -78,13 +74,13 @@ class SessionManager:
         self,
         sessions_dir: Optional[Path] = None,
         time_factory: Optional[Callable[[], datetime]] = None,
-        path_factory: Optional[Callable[[str], Path]] = None
+        path_factory: Optional[Callable[[str], Path]] = None,
     ):
         self._sessions_dir = sessions_dir or Path.home() / ".apex" / "sessions"
         self._time_factory = time_factory or datetime.now
         self._path_factory = path_factory or Path
-        
-        if hasattr(self._sessions_dir, 'mkdir'):
+
+        if hasattr(self._sessions_dir, "mkdir"):
             self._sessions_dir.mkdir(parents=True, exist_ok=True)
 
     def save(self, agent: Any, name: str = "default") -> Path:
@@ -140,12 +136,14 @@ class SessionManager:
             try:
                 with open(filepath) as f:
                     data = json.load(f)
-                    sessions.append({
-                        "name": data.get("name", "unknown"),
-                        "timestamp": data.get("timestamp", ""),
-                        "model": data.get("model", ""),
-                        "history_len": len(data.get("history", [])),
-                    })
+                    sessions.append(
+                        {
+                            "name": data.get("name", "unknown"),
+                            "timestamp": data.get("timestamp", ""),
+                            "model": data.get("model", ""),
+                            "history_len": len(data.get("history", [])),
+                        }
+                    )
             except Exception:
                 continue
         return sorted(sessions, key=lambda s: s["timestamp"], reverse=True)
@@ -163,10 +161,10 @@ class SessionManager:
         compressed = base64.b64encode(json_str.encode()).decode()
         share_id = hashlib.sha256(compressed[:100].encode()).hexdigest()[:8]
         share_dir = self._sessions_dir / "shared"
-        
-        if hasattr(share_dir, 'mkdir'):
+
+        if hasattr(share_dir, "mkdir"):
             share_dir.mkdir(exist_ok=True)
-        
+
         filepath = share_dir / f"{share_id}.json"
         with open(filepath, "w") as f:
             json.dump({"data": compressed}, f)
@@ -191,7 +189,9 @@ class SessionManager:
             return False
 
 
-def create_undo_manager(max_history: int = 50, time_factory: Optional[Callable] = None) -> UndoManager:
+def create_undo_manager(
+    max_history: int = 50, time_factory: Optional[Callable] = None
+) -> UndoManager:
     return UndoManager(max_history, time_factory)
 
 

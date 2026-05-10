@@ -2,9 +2,16 @@
 
 import pytest
 from apex.billing import (
-    BillingManager, BillingAccount, BillingPlan, CostConfig, UsageRecord,
-    InsufficientBalanceError, TrialExpiredError, QuotaExceededError,
-    calculate_cost, PlanType
+    BillingManager,
+    BillingAccount,
+    BillingPlan,
+    CostConfig,
+    UsageRecord,
+    InsufficientBalanceError,
+    TrialExpiredError,
+    QuotaExceededError,
+    calculate_cost,
+    PlanType,
 )
 
 
@@ -111,7 +118,9 @@ class TestCalculateCost:
         assert cost >= 0
 
     def test_calculate_with_cache(self):
-        cost = calculate_cost(model="gpt-4o", input_tokens=100, output_tokens=50, use_cache=True, cache_tokens=20)
+        cost = calculate_cost(
+            model="gpt-4o", input_tokens=100, output_tokens=50, use_cache=True, cache_tokens=20
+        )
         assert cost >= 0
 
     def test_calculate_with_various_models(self):

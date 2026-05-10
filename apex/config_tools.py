@@ -6,15 +6,44 @@ from dataclasses import dataclass
 import logging
 import re
 import shlex
-import subprocess
 
 logger = logging.getLogger(__name__)
 
 ALLOWED_COMMANDS = {
-    "git", "npm", "node", "python", "python3", "pip", "ruff", "pytest",
-    "cargo", "go", "make", "ls", "cat", "head", "tail", "grep", "find",
-    "curl", "wget", "touch", "mkdir", "rm", "cp", "mv", "chmod", "pwd",
-    "echo", "env", "which", "whoami", "uname", "df", "du", "ps"
+    "git",
+    "npm",
+    "node",
+    "python",
+    "python3",
+    "pip",
+    "ruff",
+    "pytest",
+    "cargo",
+    "go",
+    "make",
+    "ls",
+    "cat",
+    "head",
+    "tail",
+    "grep",
+    "find",
+    "curl",
+    "wget",
+    "touch",
+    "mkdir",
+    "rm",
+    "cp",
+    "mv",
+    "chmod",
+    "pwd",
+    "echo",
+    "env",
+    "which",
+    "whoami",
+    "uname",
+    "df",
+    "du",
+    "ps",
 }
 
 
@@ -30,12 +59,11 @@ class CustomToolManager:
     def __init__(self):
         self._tools: dict[str, CustomTool] = {}
 
-    def register(self, name: str, description: str, parameters: dict, handler: Callable[[dict], str]) -> None:
+    def register(
+        self, name: str, description: str, parameters: dict, handler: Callable[[dict], str]
+    ) -> None:
         self._tools[name] = CustomTool(
-            name=name,
-            description=description,
-            parameters=parameters,
-            handler=handler
+            name=name, description=description, parameters=parameters, handler=handler
         )
 
     def get(self, name: str) -> CustomTool | None:
@@ -43,11 +71,7 @@ class CustomToolManager:
 
     def list_tools(self) -> list[dict]:
         return [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.parameters
-            }
+            {"name": tool.name, "description": tool.description, "parameters": tool.parameters}
             for tool in self._tools.values()
         ]
 
@@ -67,8 +91,8 @@ class CustomToolManager:
                 "function": {
                     "name": f"custom_{tool.name}",
                     "description": tool.description,
-                    "parameters": tool.parameters
-                }
+                    "parameters": tool.parameters,
+                },
             }
             for tool in self._tools.values()
         ]
@@ -83,6 +107,7 @@ def load_custom_tools(config_path: Path) -> None:
 
     try:
         import yaml
+
         with open(config_path) as f:
             config = yaml.safe_load(f)
 
@@ -100,41 +125,45 @@ def load_custom_tools(config_path: Path) -> None:
 
             parts = command.strip().split()
             if parts and parts[0] not in ALLOWED_COMMANDS:
-                logger.warning(f"Custom tool '{tool_name}' blocked: command '{parts[0]}' not in allowlist")
+                logger.warning(
+                    f"Custom tool '{tool_name}' blocked: command '{parts[0]}' not in allowlist"
+                )
                 continue
 
             def make_handler(cmd: str, wd: str):
                 def handler(args: dict) -> str:
                     import subprocess
+
                     try:
                         safe_cmd = cmd.format(**args)
                         parts_check = safe_cmd.strip().split()
                         if parts_check and parts_check[0] not in ALLOWED_COMMANDS:
                             return f"ERROR: Command '{parts_check[0]}' not allowed"
-                        
+
                         for pattern in [r"\$\(", r"`", r"rm\s+-rf", r"chmod\s+777"]:
                             if re.search(pattern, safe_cmd):
-                                return f"ERROR: Dangerous pattern blocked"
-                        
+                                return "ERROR: Dangerous pattern blocked"
+
                         result = subprocess.run(
                             shlex.split(safe_cmd),
                             shell=False,
                             cwd=wd,
                             capture_output=True,
                             text=True,
-                            timeout=30
+                            timeout=30,
                         )
                         return result.stdout or result.stderr or "[no output]"
                     except Exception as e:
                         logger.error(f"Custom tool '{tool_name}' error: {e}")
                         return f"ERROR: {e}"
+
                 return handler
 
             custom_tool_manager.register(
                 name=tool_name,
                 description=description,
                 parameters=parameters,
-                handler=make_handler(command, cwd)
+                handler=make_handler(command, cwd),
             )
     except Exception as e:
         logger.error(f"Failed to load custom tools: {e}")

@@ -20,7 +20,7 @@ class TestPluginManager:
         return PluginManager()
 
     def test_init(self, mgr):
-        assert hasattr(mgr, '_plugins')
+        assert hasattr(mgr, "_plugins")
 
     def test_list_plugins(self, mgr):
         result = mgr.list_plugins()

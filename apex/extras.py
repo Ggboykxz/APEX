@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 
 
 class ShellExpander:
-    VAR_PATTERN = re.compile(r'\$\{?([a-zA-Z_][a-zA-Z0-9_]*)\}?')
+    VAR_PATTERN = re.compile(r"\$\{?([a-zA-Z_][a-zA-Z0-9_]*)\}?")
 
     @classmethod
     def expand(cls, text: str, env: dict = None) -> str:
@@ -89,6 +89,7 @@ class TaskQueue:
 
     async def add(self, name: str, func, *args, **kwargs) -> str:
         import uuid
+
         task_id = str(uuid.uuid4())[:8]
         task = Task(id=task_id, name=name)
         self._tasks[task_id] = task
@@ -113,7 +114,12 @@ class TaskQueue:
 
     def list(self) -> list[dict]:
         return [
-            {"id": t.id, "name": t.name, "status": t.status, "result": str(t.result)[:100] if t.result else None}
+            {
+                "id": t.id,
+                "name": t.name,
+                "status": t.status,
+                "result": str(t.result)[:100] if t.result else None,
+            }
             for t in self._tasks.values()
         ]
 
@@ -130,15 +136,17 @@ class HistorySearch:
         self._history: list[dict[str, Any]] = []
 
     def add(self, query: str, response: str = "", metadata: dict = None):
-        self._history.append({
-            "query": query,
-            "response": response,
-            "timestamp": __import__("time").time(),
-            "metadata": metadata or {}
-        })
+        self._history.append(
+            {
+                "query": query,
+                "response": response,
+                "timestamp": __import__("time").time(),
+                "metadata": metadata or {},
+            }
+        )
 
         if len(self._history) > self.max_items:
-            self._history = self._history[-self.max_items:]
+            self._history = self._history[-self.max_items :]
 
     def search(self, query: str, fuzzy: bool = True) -> list[dict]:
         results = []
@@ -158,6 +166,7 @@ class HistorySearch:
 
     def fuzzy_match(self, query: str, threshold: float = 0.6) -> list[dict]:
         import difflib
+
         results = []
 
         for item in self._history:
@@ -208,10 +217,7 @@ class WorkspaceValidator:
         if not git_dir.exists():
             issues.append("Not a git repository")
 
-        return {
-            "valid": len(issues) == 0,
-            "issues": issues
-        }
+        return {"valid": len(issues) == 0, "issues": issues}
 
 
 class SecurityAuditor:
@@ -225,13 +231,13 @@ class SecurityAuditor:
             content = filepath.read_text()
 
             dangerous_patterns = [
-                (r'eval\s*\(', "Use of eval() is dangerous"),
-                (r'exec\s*\(', "Use of exec() is dangerous"),
-                (r'shell\s*=\s*True', "shell=True is a security risk"),
-                (r'os\.system\s*\(', "os.system() is insecure"),
-                (r'subprocess.*shell\s*=\s*True', "shell=True in subprocess"),
-                (r'pickle\.load', "Unpickling untrusted data"),
-                (r'yaml\.load.*Loader\s*=\s*None', "Unsafe YAML loading"),
+                (r"eval\s*\(", "Use of eval() is dangerous"),
+                (r"exec\s*\(", "Use of exec() is dangerous"),
+                (r"shell\s*=\s*True", "shell=True is a security risk"),
+                (r"os\.system\s*\(", "os.system() is insecure"),
+                (r"subprocess.*shell\s*=\s*True", "shell=True in subprocess"),
+                (r"pickle\.load", "Unpickling untrusted data"),
+                (r"yaml\.load.*Loader\s*=\s*None", "Unsafe YAML loading"),
                 (r'password\s*=\s*["\'][^"\']+["\']', "Hardcoded password"),
                 (r'api[_-]?key\s*=\s*["\'][^"\']+["\']', "Hardcoded API key"),
                 (r'secret\s*=\s*["\'][^"\']+["\']', "Hardcoded secret"),
@@ -252,10 +258,9 @@ class SecurityAuditor:
         for filepath in self.cwd.rglob("*.py"):
             file_issues = self.audit_file(filepath)
             if file_issues:
-                results["files"].append({
-                    "path": str(filepath.relative_to(self.cwd)),
-                    "issues": file_issues
-                })
+                results["files"].append(
+                    {"path": str(filepath.relative_to(self.cwd)), "issues": file_issues}
+                )
                 results["total_issues"] += len(file_issues)
 
         return results

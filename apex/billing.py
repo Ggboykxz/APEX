@@ -129,7 +129,13 @@ class BillingManager:
             rate_limit_per_minute=300,
             rate_limit_per_hour=10000,
             rate_limit_per_day=100000,
-            enabled_features=["advanced_tools", "priority_support", "custom_models", "sso", "audit_logs"],
+            enabled_features=[
+                "advanced_tools",
+                "priority_support",
+                "custom_models",
+                "sso",
+                "audit_logs",
+            ],
             trial_days=14,
             overage_allowed=True,
         ),
@@ -158,8 +164,14 @@ class BillingManager:
     def get_account(self, user_id: str) -> Optional[BillingAccount]:
         return self._accounts.get(user_id)
 
-    def calculate_cost(self, model: str, input_tokens: int, output_tokens: int,
-                       use_cache: bool = False, cache_tokens: int = 0) -> float:
+    def calculate_cost(
+        self,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        use_cache: bool = False,
+        cache_tokens: int = 0,
+    ) -> float:
         model_key = model.lower().replace("-", "_").replace(" ", "_")
         cost_config = MODEL_COSTS.get(model_key, MODEL_COSTS.get("claude-sonnet"))
         input_cost = (input_tokens / 1000) * cost_config.input_cost_per_1k
@@ -168,7 +180,9 @@ class BillingManager:
             input_cost += (cache_tokens / 1000) * cost_config.cache_read_cost_per_1m
         return round(input_cost + output_cost, 6)
 
-    def check_quota(self, user_id: str, model: str, input_tokens: int, output_tokens: int) -> tuple[bool, str]:
+    def check_quota(
+        self, user_id: str, model: str, input_tokens: int, output_tokens: int
+    ) -> tuple[bool, str]:
         account = self._accounts.get(user_id)
         if not account:
             account = self.create_account(user_id)
@@ -182,7 +196,9 @@ class BillingManager:
                 if account.plan.overage_allowed:
                     logger.warning(f"User {user_id} exceeding monthly limit, applying overage")
                 else:
-                    raise QuotaExceededError(f"Monthly limit of ${account.plan.monthly_limit} exceeded")
+                    raise QuotaExceededError(
+                        f"Monthly limit of ${account.plan.monthly_limit} exceeded"
+                    )
         if account.plan.input_limit > 0:
             if account.input_tokens_used + input_tokens > account.plan.input_limit:
                 return False, f"Input token limit exceeded ({account.plan.input_limit})"
@@ -191,8 +207,15 @@ class BillingManager:
                 return False, f"Output token limit exceeded ({account.plan.output_limit})"
         return True, "OK"
 
-    def record_usage(self, user_id: str, model: str, input_tokens: int, output_tokens: int,
-                     session_id: Optional[str] = None, workspace_id: Optional[str] = None) -> UsageRecord:
+    def record_usage(
+        self,
+        user_id: str,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        session_id: Optional[str] = None,
+        workspace_id: Optional[str] = None,
+    ) -> UsageRecord:
         cost = self.calculate_cost(model, input_tokens, output_tokens)
         record = UsageRecord(
             timestamp=time.time(),
@@ -257,6 +280,13 @@ class BillingManager:
 billing_manager = BillingManager()
 
 
-def calculate_cost(model: str, input_tokens: int, output_tokens: int,
-                   use_cache: bool = False, cache_tokens: int = 0) -> float:
-    return billing_manager.calculate_cost(model, input_tokens, output_tokens, use_cache, cache_tokens)
+def calculate_cost(
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    use_cache: bool = False,
+    cache_tokens: int = 0,
+) -> float:
+    return billing_manager.calculate_cost(
+        model, input_tokens, output_tokens, use_cache, cache_tokens
+    )

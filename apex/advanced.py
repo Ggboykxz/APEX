@@ -53,6 +53,7 @@ class BatchOperation:
     @staticmethod
     def batch_read(paths: list[str], cwd: str) -> dict[str, str]:
         from pathlib import Path
+
         results = {}
         cwd_path = Path(cwd)
 
@@ -69,6 +70,7 @@ class BatchOperation:
     @staticmethod
     def batch_write(operations: list[dict[str, str]], cwd: str) -> dict[str, Any]:
         from pathlib import Path
+
         cwd_path = Path(cwd)
         results = {"success": [], "failed": []}
 
@@ -98,8 +100,8 @@ class StreamingOutput:
     def get_chunks(self) -> list[str]:
         chunks = []
         while len(self._buffer) > self.chunk_size:
-            chunks.append(self._buffer[:self.chunk_size])
-            self._buffer = self._buffer[self.chunk_size:]
+            chunks.append(self._buffer[: self.chunk_size])
+            self._buffer = self._buffer[self.chunk_size :]
         if self._buffer:
             chunks.append(self._buffer)
             self._buffer = ""
@@ -135,7 +137,9 @@ class ToolTimeout:
 
 class ContextOptimizer:
     @staticmethod
-    def prioritize_messages(messages: list[dict[str, Any]], priority_keywords: list[str] = None) -> list[dict[str, Any]]:
+    def prioritize_messages(
+        messages: list[dict[str, Any]], priority_keywords: list[str] = None
+    ) -> list[dict[str, Any]]:
         priority_keywords = priority_keywords or ["error", "fix", "bug", "important", "critical"]
         high_priority = []
         low_priority = []
@@ -173,7 +177,8 @@ class ContextOptimizer:
                 key_info["errors"].append(content[:200])
 
             import re
-            key_info["files_mentioned"].update(re.findall(r'[a-zA-Z_]+\.[a-zA-Z]+', content))
+
+            key_info["files_mentioned"].update(re.findall(r"[a-zA-Z_]+\.[a-zA-Z]+", content))
 
         return {
             "files_mentioned": list(key_info["files_mentioned"])[:20],
@@ -189,11 +194,11 @@ class ContextOptimizer:
 
         lines = content.split("\n")
         if len(lines) > 1:
-            first_half = lines[:len(lines)//2]
-            second_half = lines[len(lines)//2:]
+            first_half = lines[: len(lines) // 2]
+            second_half = lines[len(lines) // 2 :]
             return "\n".join(first_half) + "\n... [truncated] ...\n" + "\n".join(second_half[-20:])
 
-        return content[:max_length-100] + "\n... [truncated]"
+        return content[: max_length - 100] + "\n... [truncated]"
 
 
 class FileOperationCache:

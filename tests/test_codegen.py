@@ -34,7 +34,7 @@ class TestCodeRefactorer:
         """Test refactor_function with missing function."""
         test_file = Path(temp_cwd) / "test.py"
         test_file.write_text("def other_func():\n    pass\n")
-        
+
         result = refactorer.refactor_function("test.py", "test_func")
         assert "error" in result
 
@@ -42,7 +42,7 @@ class TestCodeRefactorer:
         """Test refactor_function with async style."""
         test_file = Path(temp_cwd) / "test.py"
         test_file.write_text("def my_func():\n    pass\n")
-        
+
         result = refactorer.refactor_function("test.py", "my_func", style="async")
         assert result.get("success") is True
 
@@ -50,7 +50,7 @@ class TestCodeRefactorer:
         """Test refactor_function with type_hints style."""
         test_file = Path(temp_cwd) / "test.py"
         test_file.write_text("def my_func():\n    pass\n")
-        
+
         result = refactorer.refactor_function("test.py", "my_func", style="type_hints")
         assert result.get("success") is True
 
@@ -58,7 +58,7 @@ class TestCodeRefactorer:
         """Test refactor_function with modern style."""
         test_file = Path(temp_cwd) / "test.py"
         test_file.write_text("def my_func():\n    pass\n")
-        
+
         result = refactorer.refactor_function("test.py", "my_func", style="modern")
         assert result.get("success") is True
 
@@ -71,7 +71,7 @@ class TestCodeRefactorer:
         """Test extract_method with missing class."""
         test_file = Path(temp_cwd) / "test.py"
         test_file.write_text("def other_func():\n    pass\n")
-        
+
         result = refactorer.extract_method("test.py", "TestClass", "pass", "new_method")
         assert "error" in result
 
@@ -79,6 +79,6 @@ class TestCodeRefactorer:
         """Test extract_method success."""
         test_file = Path(temp_cwd) / "test.py"
         test_file.write_text("class TestClass:\n    pass\n")
-        
+
         result = refactorer.extract_method("test.py", "TestClass", "pass", "new_method")
         assert result.get("success") is True

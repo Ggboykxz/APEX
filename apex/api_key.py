@@ -23,6 +23,7 @@ def _safe_parse(data: str, default):
     except (ValueError, SyntaxError):
         try:
             import json
+
             return json.loads(data)
         except Exception:
             return default
@@ -113,19 +114,21 @@ class KeyManager:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_workspace ON api_keys(workspace_id)")
             conn.commit()
 
-    def create_workspace(self, name: str, owner_id: str, settings: Optional[dict] = None) -> Workspace:
+    def create_workspace(
+        self, name: str, owner_id: str, settings: Optional[dict] = None
+    ) -> Workspace:
         workspace_id = str(uuid.uuid4())
         workspace = Workspace(
             workspace_id=workspace_id,
             name=name,
             owner_id=owner_id,
             created_at=time.time(),
-            settings=settings or {}
+            settings=settings or {},
         )
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO workspaces (workspace_id, name, owner_id, created_at, is_active, settings, metadata) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (workspace_id, name, owner_id, workspace.created_at, 1, str(settings or {}), "{}")
+                (workspace_id, name, owner_id, workspace.created_at, 1, str(settings or {}), "{}"),
             )
             conn.commit()
         logger.info(f"Created workspace: {workspace_id}")
@@ -135,7 +138,7 @@ class KeyManager:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT workspace_id, name, owner_id, created_at, is_active, settings, metadata FROM workspaces WHERE workspace_id = ?",
-                (workspace_id,)
+                (workspace_id,),
             )
             row = cursor.fetchone()
             if row:
@@ -146,13 +149,20 @@ class KeyManager:
                     created_at=row[3],
                     is_active=bool(row[4]),
                     settings=_safe_parse(row[5]) if row[5] else {},
-                    metadata=_safe_parse(row[6]) if row[6] else {}
+                    metadata=_safe_parse(row[6]) if row[6] else {},
                 )
         return None
 
-    def create_key(self, workspace_id: str, name: str, expires_in: Optional[int] = None,
-                   rate_limit_per_minute: int = 60, rate_limit_per_hour: int = 1000,
-                   permissions: Optional[list[str]] = None, metadata: Optional[dict] = None) -> tuple[str, APIKeyInfo]:
+    def create_key(
+        self,
+        workspace_id: str,
+        name: str,
+        expires_in: Optional[int] = None,
+        rate_limit_per_minute: int = 60,
+        rate_limit_per_hour: int = 1000,
+        permissions: Optional[list[str]] = None,
+        metadata: Optional[dict] = None,
+    ) -> tuple[str, APIKeyInfo]:
         key = f"apex_{secrets.token_urlsafe(32)}"
         key_hash = hashlib.sha256(key.encode()).hexdigest()
         key_id = str(uuid.uuid4())[:8]
@@ -168,15 +178,25 @@ class KeyManager:
             rate_limit_per_minute=rate_limit_per_minute,
             rate_limit_per_hour=rate_limit_per_hour,
             permissions=permissions or [],
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """INSERT INTO api_keys (key_id, key_hash, workspace_id, name, created_at, expires_at, 
                    rate_limit_per_minute, rate_limit_per_hour, permissions, metadata) 
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (key_id, key_hash, workspace_id, name, created_at, expires_at,
-                 rate_limit_per_minute, rate_limit_per_hour, str(permissions or []), str(metadata or {}))
+                (
+                    key_id,
+                    key_hash,
+                    workspace_id,
+                    name,
+                    created_at,
+                    expires_at,
+                    rate_limit_per_minute,
+                    rate_limit_per_hour,
+                    str(permissions or []),
+                    str(metadata or {}),
+                ),
             )
             conn.commit()
         logger.info(f"Created API key: {key_id} for workspace {workspace_id}")
@@ -191,7 +211,7 @@ class KeyManager:
                 """SELECT key_id, key_hash, workspace_id, name, created_at, expires_at, last_used,
                    request_count, is_active, rate_limit_per_minute, rate_limit_per_hour, permissions, metadata
                    FROM api_keys WHERE key_hash = ?""",
-                (key_hash,)
+                (key_hash,),
             )
             row = cursor.fetchone()
             if not row:
@@ -209,7 +229,7 @@ class KeyManager:
                 rate_limit_per_minute=row[9],
                 rate_limit_per_hour=row[10],
                 permissions=_safe_parse(row[11]) if row[11] else [],
-                metadata=_safe_parse(row[12]) if row[12] else {}
+                metadata=_safe_parse(row[12]) if row[12] else {},
             )
         if not key_info.is_active:
             raise KeyDisabledError("API key is disabled")
@@ -217,7 +237,7 @@ class KeyManager:
             raise KeyExpiredError("API key has expired")
         conn.execute(
             "UPDATE api_keys SET last_used = ?, request_count = request_count + 1 WHERE key_id = ?",
-            (time.time(), key_info.key_id)
+            (time.time(), key_info.key_id),
         )
         conn.commit()
         return key_info
@@ -235,15 +255,26 @@ class KeyManager:
                 """SELECT key_id, key_hash, workspace_id, name, created_at, expires_at, last_used,
                    request_count, is_active, rate_limit_per_minute, rate_limit_per_hour, permissions, metadata
                    FROM api_keys WHERE workspace_id = ?""",
-                (workspace_id,)
+                (workspace_id,),
             )
             for row in cursor:
-                keys.append(APIKeyInfo(
-                    key_id=row[0], key_hash=row[1], workspace_id=row[2], name=row[3],
-                    created_at=row[4], expires_at=row[5], last_used=row[6], request_count=row[7],
-                    is_active=bool(row[8]), rate_limit_per_minute=row[9], rate_limit_per_hour=row[10],
-                    permissions=_safe_parse(row[11]) if row[11] else [], metadata=_safe_parse(row[12]) if row[12] else {}
-                ))
+                keys.append(
+                    APIKeyInfo(
+                        key_id=row[0],
+                        key_hash=row[1],
+                        workspace_id=row[2],
+                        name=row[3],
+                        created_at=row[4],
+                        expires_at=row[5],
+                        last_used=row[6],
+                        request_count=row[7],
+                        is_active=bool(row[8]),
+                        rate_limit_per_minute=row[9],
+                        rate_limit_per_hour=row[10],
+                        permissions=_safe_parse(row[11]) if row[11] else [],
+                        metadata=_safe_parse(row[12]) if row[12] else {},
+                    )
+                )
         return keys
 
     def delete_key(self, key_id: str) -> bool:

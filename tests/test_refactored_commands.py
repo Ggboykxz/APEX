@@ -1,9 +1,11 @@
 """Tests for refactored commands module."""
 
-
 from apex.refactored_commands import (
-    Command, CommandManager, PlanApproval,
-    create_command_manager, create_plan_approval
+    Command,
+    CommandManager,
+    PlanApproval,
+    create_command_manager,
+    create_plan_approval,
 )
 
 
@@ -44,18 +46,15 @@ class TestCommandManager:
     def test_init(self, tmp_path):
         def mock_exists(p):
             return False
-        
-        manager = CommandManager(
-            str(tmp_path),
-            path_exists=mock_exists
-        )
+
+        manager = CommandManager(str(tmp_path), path_exists=mock_exists)
         assert manager.cwd == str(tmp_path)
         assert manager.commands == {}
 
     def test_load_commands_from_directory(self, tmp_path):
         commands_dir = tmp_path / ".apex" / "commands"
         commands_dir.mkdir(parents=True)
-        
+
         (commands_dir / "test_cmd.md").write_text("""## Description: Test command
 
 ## Prompt
@@ -63,20 +62,20 @@ This is a test prompt with {arg}
 """)
 
         manager = CommandManager(str(tmp_path))
-        
+
         assert "test_cmd" in manager.commands
 
     def test_get_command(self, tmp_path):
         manager = CommandManager(str(tmp_path), path_exists=lambda p: False)
         manager.add_command("test", "Test", "Prompt")
-        
+
         cmd = manager.get("test")
         assert cmd is not None
         assert cmd.name == "test"
 
     def test_get_command_not_found(self, tmp_path):
         manager = CommandManager(str(tmp_path), path_exists=lambda p: False)
-        
+
         cmd = manager.get("nonexistent")
         assert cmd is None
 
@@ -84,47 +83,47 @@ This is a test prompt with {arg}
         manager = CommandManager(str(tmp_path), path_exists=lambda p: False)
         manager.add_command("cmd1", "Description 1", "Prompt 1")
         manager.add_command("cmd2", "Description 2", "Prompt 2")
-        
+
         commands = manager.list_commands()
-        
+
         assert len(commands) == 2
         assert commands[0]["name"] == "cmd1"
 
     def test_execute_command(self, tmp_path):
         manager = CommandManager(str(tmp_path), path_exists=lambda p: False)
         manager.add_command("test", "Test", "Hello {who}")
-        
+
         result = manager.execute("test", who="World")
-        
+
         assert result == "Hello World"
 
     def test_execute_not_found(self, tmp_path):
         manager = CommandManager(str(tmp_path), path_exists=lambda p: False)
-        
+
         result = manager.execute("nonexistent")
-        
+
         assert result is None
 
     def test_add_command(self, tmp_path):
         manager = CommandManager(str(tmp_path), path_exists=lambda p: False)
         manager.add_command("new", "New command", "New prompt")
-        
+
         assert "new" in manager.commands
 
     def test_remove_command(self, tmp_path):
         manager = CommandManager(str(tmp_path), path_exists=lambda p: False)
         manager.add_command("test", "Test", "Prompt")
-        
+
         result = manager.remove_command("test")
-        
+
         assert result is True
         assert "test" not in manager.commands
 
     def test_remove_command_not_found(self, tmp_path):
         manager = CommandManager(str(tmp_path), path_exists=lambda p: False)
-        
+
         result = manager.remove_command("nonexistent")
-        
+
         assert result is False
 
 
@@ -137,7 +136,7 @@ class TestPlanApproval:
     def test_set_plan(self):
         approval = PlanApproval()
         approval.set_plan("Step 1: Do this")
-        
+
         assert approval.is_awaiting_approval() is True
         assert approval.get_plan() is None
 
@@ -145,14 +144,14 @@ class TestPlanApproval:
         approval = PlanApproval()
         approval.set_plan("Step 1: Do this")
         approval.approve()
-        
+
         assert approval.get_plan() == "Step 1: Do this"
 
     def test_reject(self):
         approval = PlanApproval()
         approval.set_plan("Step 1: Do this")
         approval.reject()
-        
+
         assert approval.get_plan() is None
         assert approval.is_awaiting_approval() is False
 
@@ -161,7 +160,7 @@ class TestPlanApproval:
         approval.set_plan("Step 1: Do this")
         approval.approve()
         approval.clear()
-        
+
         assert approval.get_plan() is None
         assert approval.is_awaiting_approval() is False
 
@@ -169,9 +168,9 @@ class TestPlanApproval:
         approval = PlanApproval()
         approval.set_plan("Plan A")
         approval.approve()
-        
+
         approval.set_plan("Plan B")
-        
+
         assert approval.get_plan() is None
         assert approval.is_awaiting_approval() is True
 

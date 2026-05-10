@@ -120,6 +120,6 @@ class TestEnvManager:
         """Test load_from_file method."""
         env_file = Path(temp_cwd) / ".env.apex"
         env_file.write_text("LOAD_KEY=load_value\n")
-        
+
         env_manager.load_from_file()
         assert env_manager.get("LOAD_KEY") == "load_value"

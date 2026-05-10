@@ -2,7 +2,59 @@
 
 All notable changes to APEX will be documented in this file.
 
-## [1.1.0] - 2026-05-10
+## [1.1.0] - 2026-05-11
+
+### TUI (OpenTUI React)
+
+- **HTTP SSE Backend**: TUI now connects to a local HTTP server (`127.0.0.1:8080`) via Server-Sent Events instead of stdin/stdout IPC
+- **Real-Time Token Streaming**: Live prompt/completion token counts update as tokens arrive from the LLM
+- **Per-Message Cost Tracking**: Each message shows `+prompt/+completion · $cost` with model-specific pricing (input/output per 1K tokens)
+- **Context Percentage**: Live context window utilization (`X.X% ctx`) based on model's context limit
+- **Session Metrics**: Title bar shows message count, context %, and total spent. Status bar shows In/Out/Total tokens, context %, and total cost
+- **Agent-Colored Theming**: Title bar, status bar, and panel borders dynamically change color based on the active agent (Coder, Architect, Planner, Reviewer, Shell)
+- **Model Switch via HTTP**: Ctrl+K model selector sends model changes through HTTP API (`/chat/stream` POST body)
+- **Connection Error Banner**: Shows specific server error messages (e.g., `"Unknown model: xxx"`), auto-dismisses after 5 seconds
+- **Ctrl+L to Clear**: Resets all messages and zeros out prompt/completion/spent metrics
+- **Model Pricing Matrix**: 32+ models with hardcoded `inputCostPer1K` and `outputCostPer1K` (local models = $0)
+- **TypeScript Clean**: `tsc --noEmit` passes with no errors, proper `jsxImportSource: "@opentui/react"` in tsconfig
+
+### Agent System
+
+- **Agent Rename: DevOps→Shell, Analyst→Planner**: Shell agent handles infrastructure/DevOps tasks; Planner agent handles analysis and planning (read-only)
+- **Architect Agent**: Now a distinct primary agent focused on architecture analysis and design decisions (read-only)
+- **Reviewer Agent**: Reclassified as subagent mode, specialized for code review
+- **5 Built-in Agents**: Coder (full access), Architect (read-only), Planner (read-only), Reviewer (subagent), Shell (ask for destructive ops)
+- **Per-Tool Permission Matrix**: Granular permission controls across read, edit, bash, websearch, and task categories
+
+### Backend
+
+- **Unified HTTP Server**: `start_tui_server()` / `stop_tui_server()` moved from `main.py` to `http_api.py` to avoid duplication
+- **Model Validation**: HTTP server returns `400 {"error": "Unknown model: xxx"}` for invalid model IDs
+- **8 Models Added**: `claude-3.7-sonnet`, `llama-3.3-70b`, `mistral-medium`, `mistral-large`, `grok-3-mini`, `qwen3-32b`, `qwen2.5-coder-32b`, `phi-4` — all now recognized by backend `MODELS` dict
+- **`agent.switch_model()` Strict Check**: Returns `False` if model alias not in `MODELS` keys (was failing silently before)
+- **`cycle_reasoning_effort()`**: New method to cycle through `off → high → max → off` reasoning effort levels
+- **`auto_select_model()`**: Keyword-based automatic model selection (explain, debug, refactor, reason, create, long input)
+
+### Website
+
+- **v1.1.0 Version Badge**: Updated from v1.0.0 to v1.1.0 — TUI & Agent Update
+- **Updated Agents Page**: Reflects new agent structure (Coder, Architect, Planner, Reviewer, Shell)
+- **New Models Page**: Added claude-3.7-sonnet, qwen3-32b, mistral-medium, phi-4 with cost comparison
+- **Updated Roadmap**: v1.1.0 entry with 13 detailed features, v1.4.0 Power milestone
+- **License Update**: All pages now reference Proprietary license instead of MIT
+
+### CI/CD
+
+- **Fixed `pyproject.toml`**: `license` field now uses `{file = "LICENSE"}` format (PEP 621 compliant)
+- **Fixed Ruff Lint**: Resolved 85 lint errors (unused imports, bare excepts, undefined names, f-string issues)
+- **Fixed Code Formatting**: 123 files reformatted with `ruff format`
+- **Fixed Agent Tests**: Updated test assertions to match renamed agents
+- **Fixed `http_api.py`**: Added missing `import asyncio`, `import os` in plugins, `start_tui_server`/`stop_tui_server` functions
+- **Fixed `codegen.py`**: Invalid escape sequence in regex pattern
+
+---
+
+## [1.0.0] - 2026-05-10
 
 The first stable release of APEX — the universal AI coding agent. Every model, one terminal.
 
@@ -72,28 +124,3 @@ The first stable release of APEX — the universal AI coding agent. Every model,
 - **Caddyfile** — Reverse proxy configuration for production deployment
 - **mkdocs.yml** — Documentation site with Material theme
 - **Comprehensive .gitignore** — Python, Node, IDE, OS, build artifacts
-
----
-
-## [1.1.0] - 2026-05-10
-
-### TUI (OpenTUI React)
-
-- **HTTP SSE Backend**: TUI now connects to a local HTTP server (`127.0.0.1:8080`) via Server-Sent Events instead of stdin/stdout IPC
-- **Real-Time Token Streaming**: Live prompt/completion token counts update as tokens arrive from the LLM
-- **Per-Message Cost Tracking**: Each message shows `+prompt/+completion · $cost` with model-specific pricing (input/output per 1K tokens)
-- **Context Percentage**: Live context window utilization (`X.X% ctx`) based on model's context limit
-- **Session Metrics**: Title bar shows message count, context %, and total spent. Status bar shows In/Out/Total tokens, context %, and total cost
-- **Agent-Colored Theming**: Title bar, status bar, and panel borders dynamically change color based on the active agent (Coder, Architect, Planner, Reviewer, Shell)
-- **Model Switch via HTTP**: Ctrl+K model selector sends model changes through HTTP API (`/chat/stream` POST body)
-- **Connection Error Banner**: Shows specific server error messages (e.g., `"Unknown model: xxx"`), auto-dismisses after 5 seconds
-- **Ctrl+L to Clear**: Resets all messages and zeros out prompt/completion/spent metrics
-- **Model Pricing Matrix**: 32+ models with hardcoded `inputCostPer1K` and `outputCostPer1K` (local models = $0)
-- **TypeScript Clean**: `tsc --noEmit` passes with no errors, proper `jsxImportSource: "@opentui/react"` in tsconfig
-
-### Backend
-
-- **Unified HTTP Server**: `start_tui_server()` / `stop_tui_server()` moved from `main.py` to `http_api.py` to avoid duplication
-- **Model Validation**: HTTP server returns `400 {"error": "Unknown model: xxx"}` for invalid model IDs
-- **8 Models Added**: `claude-3.7-sonnet`, `llama-3.3-70b`, `mistral-medium`, `mistral-large`, `grok-3-mini`, `qwen3-32b`, `qwen2.5-coder-32b`, `phi-4` — all now recognized by backend `MODELS` dict
-- **`agent.switch_model()` Strict Check**: Returns `False` if model alias not in `MODELS` keys (was failing silently before)

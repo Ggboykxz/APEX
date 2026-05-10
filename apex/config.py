@@ -16,7 +16,6 @@ MODELS: dict[str, str] = {
     "claude-4.5-sonnet": "anthropic/claude-sonnet-4-20250514",
     "claude-4.6-opus": "anthropic/claude-opus-4-20250514",
     "claude-4.7-opus": "anthropic/claude-opus-4-20250514",
-
     # OpenAI GPT (2020-2025)
     "gpt-4o": "openai/gpt-4o",
     "gpt-4o-mini": "openai/gpt-4o-mini",
@@ -26,7 +25,6 @@ MODELS: dict[str, str] = {
     "o3": "openai/o3",
     "o3-mini": "openai/o3-mini",
     "o4-mini": "openai/o4-mini",
-
     # Google DeepMind Gemini (2022-2025)
     "gemini-1.5-flash": "google/gemini-1.5-flash",
     "gemini-1.5-pro": "google/gemini-1.5-pro",
@@ -35,20 +33,17 @@ MODELS: dict[str, str] = {
     "gemini-2.0-pro": "google/gemini-2.0-pro",
     "gemini-2.5-flash": "google/gemini-2.5-flash",
     "gemini-2.5-pro": "google/gemini-2.5-pro",
-
     # xAI Grok (2023-2025)
     "grok-1": "xai/grok-1",
     "grok-2": "xai/grok-2",
     "grok-3": "xai/grok-3",
     "grok-3-beta": "xai/grok-3-beta",
     "grok-4": "xai/grok-4",
-
     # Amazon Nova (2024-2025)
     "nova-micro": "amazon/nova-micro-v1",
     "nova-lite": "amazon/nova-lite-v1",
     "nova-pro": "amazon/nova-pro-v1",
     "nova-premier": "amazon/nova-premier-v1",
-
     # Alibaba Qwen (2024-2025)
     "qwen2-7b": "qwen/qwen2-7b",
     "qwen2-72b": "qwen/qwen2-72b",
@@ -58,7 +53,6 @@ MODELS: dict[str, str] = {
     "qwen3-8b": "qwen/qwen3-8b",
     "qwen3-72b": "qwen/qwen3-72b",
     "qwen3-235b": "qwen/qwen3-235b",
-
     # Meta Llama (2023-2025)
     "llama-3-8b": "meta/llama-3-8b",
     "llama-3-70b": "meta/llama-3-70b",
@@ -67,7 +61,6 @@ MODELS: dict[str, str] = {
     "llama-3.1-405b": "meta/llama-3.1-405b",
     "llama-4-scout": "meta/llama-4-scout",
     "llama-4-maverick": "meta/llama-4-maverick",
-
     # Mistral AI (2023-2025)
     "mistral-7b": "mistral/mistral-7b-v0.1",
     "mixtral-8x7b": "mistral/mixtral-8x7b-v0.1",
@@ -80,7 +73,6 @@ MODELS: dict[str, str] = {
     "devstral": "mistral/devstral-latest",
     "ministral-14b": "mistral/ministral-14b",
     "ministral-8b": "mistral/ministral-8b",
-
     # DeepSeek (2024-2025)
     "deepseek-chat": "deepseek/deepseek-chat",
     "deepseek-coder": "deepseek/deepseek-coder",
@@ -88,27 +80,22 @@ MODELS: dict[str, str] = {
     "deepseek-v3.2": "deepseek/deepseek-v3.2",
     "deepseek-r1": "deepseek/deepseek-reasoner",
     "deepseek-r1-0528": "deepseek/deepseek-reasoner",
-
     # Microsoft Phi (2023-2024)
     "phi-3-mini": "microsoft/phi-3-mini-128k",
     "phi-3-small": "microsoft/phi-3-small-128k",
     "phi-4-mini": "microsoft/phi-4-mini",
-
     # Cohere (2023-2024)
     "command-r": "cohere/command-r",
     "command-r-plus": "cohere/command-r-plus-08-2024",
     "command-a": "cohere/command-a",
-
     # Google Gemma (2024)
     "gemma-2b": "google/gemma-2b",
     "gemma-7b": "google/gemma-7b",
     "gemma-2-9b": "google/gemma-2-9b",
     "gemma-2-27b": "google/gemma-2-27b",
-
     # Groq hosted models
     "llama-groq-3.3-70b": "groq/llama-3.3-70b-versatile",
     "mixtral-groq-8x7b": "groq/mixtral-8x7b-32768",
-
     # Ollama local models
     "ollama-llama3": "ollama/llama3",
     "ollama-llama3.1": "ollama/llama3.1",
@@ -118,14 +105,12 @@ MODELS: dict[str, str] = {
     "ollama-qwen2.5": "ollama/qwen2.5",
     "ollama-mistral": "ollama/mistral",
     "ollama-gemma2": "ollama/gemma2",
-
     # OpenRouter (paid, use OPENROUTER_API_KEY)
     "or-gpt4o": "openrouter/openai/gpt-4o",
     "or-gpt4o-mini": "openrouter/openai/gpt-4o-mini",
     "or-claude": "openrouter/anthropic/claude-3.5-sonnet",
     "or-deepseek": "openrouter/deepseek/deepseek-chat",
     "or-llama": "openrouter/meta-llama/llama-3.3-70b-versatile",
-
     # OpenRouter FREE models (no credit card required)
     "free-router": "openrouter/free",
     "deepseek-r1-free": "deepseek/deepseek-reasoner:free",
@@ -145,7 +130,6 @@ MODEL_PROVIDERS: dict[str, str] = {
     "claude-4.5-sonnet": "ANTHROPIC_API_KEY",
     "claude-4.6-opus": "ANTHROPIC_API_KEY",
     "claude-4.7-opus": "ANTHROPIC_API_KEY",
-
     # OpenAI
     "gpt-4o": "OPENAI_API_KEY",
     "gpt-4o-mini": "OPENAI_API_KEY",
@@ -155,7 +139,6 @@ MODEL_PROVIDERS: dict[str, str] = {
     "o3": "OPENAI_API_KEY",
     "o3-mini": "OPENAI_API_KEY",
     "o4-mini": "OPENAI_API_KEY",
-
     # Google DeepMind
     "gemini-1.5-flash": "GEMINI_API_KEY",
     "gemini-1.5-pro": "GEMINI_API_KEY",
@@ -164,20 +147,17 @@ MODEL_PROVIDERS: dict[str, str] = {
     "gemini-2.0-pro": "GEMINI_API_KEY",
     "gemini-2.5-flash": "GEMINI_API_KEY",
     "gemini-2.5-pro": "GEMINI_API_KEY",
-
     # xAI Grok
     "grok-1": "XAI_API_KEY",
     "grok-2": "XAI_API_KEY",
     "grok-3": "XAI_API_KEY",
     "grok-3-beta": "XAI_API_KEY",
     "grok-4": "XAI_API_KEY",
-
     # Amazon Nova
     "nova-micro": "AWS_ACCESS_KEY",
     "nova-lite": "AWS_ACCESS_KEY",
     "nova-pro": "AWS_ACCESS_KEY",
     "nova-premier": "AWS_ACCESS_KEY",
-
     # Alibaba Qwen
     "qwen2-7b": "ALIBABA_API_KEY",
     "qwen2-72b": "ALIBABA_API_KEY",
@@ -187,7 +167,6 @@ MODEL_PROVIDERS: dict[str, str] = {
     "qwen3-8b": "ALIBABA_API_KEY",
     "qwen3-72b": "ALIBABA_API_KEY",
     "qwen3-235b": "ALIBABA_API_KEY",
-
     # Meta Llama
     "llama-3-8b": "META_API_KEY",
     "llama-3-70b": "META_API_KEY",
@@ -196,7 +175,6 @@ MODEL_PROVIDERS: dict[str, str] = {
     "llama-3.1-405b": "META_API_KEY",
     "llama-4-scout": "META_API_KEY",
     "llama-4-maverick": "META_API_KEY",
-
     # Mistral AI
     "mistral-7b": "MISTRAL_API_KEY",
     "mixtral-8x7b": "MISTRAL_API_KEY",
@@ -209,7 +187,6 @@ MODEL_PROVIDERS: dict[str, str] = {
     "devstral": "MISTRAL_API_KEY",
     "ministral-14b": "MISTRAL_API_KEY",
     "ministral-8b": "MISTRAL_API_KEY",
-
     # DeepSeek
     "deepseek-chat": "DEEPSEEK_API_KEY",
     "deepseek-coder": "DEEPSEEK_API_KEY",
@@ -217,27 +194,22 @@ MODEL_PROVIDERS: dict[str, str] = {
     "deepseek-v3.2": "DEEPSEEK_API_KEY",
     "deepseek-r1": "DEEPSEEK_API_KEY",
     "deepseek-r1-0528": "DEEPSEEK_API_KEY",
-
     # Microsoft Phi
     "phi-3-mini": "MICROSOFT_API_KEY",
     "phi-3-small": "MICROSOFT_API_KEY",
     "phi-4-mini": "MICROSOFT_API_KEY",
-
     # Cohere
     "command-r": "COHERE_API_KEY",
     "command-r-plus": "COHERE_API_KEY",
     "command-a": "COHERE_API_KEY",
-
     # Google Gemma
     "gemma-2b": "GEMINI_API_KEY",
     "gemma-7b": "GEMINI_API_KEY",
     "gemma-2-9b": "GEMINI_API_KEY",
     "gemma-2-27b": "GEMINI_API_KEY",
-
     # Groq
     "llama-groq-3.3-70b": "GROQ_API_KEY",
     "mixtral-groq-8x7b": "GROQ_API_KEY",
-
     # Ollama (local, no API key needed)
     "ollama-llama3": None,
     "ollama-llama3.1": None,
@@ -247,14 +219,12 @@ MODEL_PROVIDERS: dict[str, str] = {
     "ollama-qwen2.5": None,
     "ollama-mistral": None,
     "ollama-gemma2": None,
-
     # OpenRouter (use OPENROUTER_API_KEY)
     "or-gpt4o": "OPENROUTER_API_KEY",
     "or-gpt4o-mini": "OPENROUTER_API_KEY",
     "or-claude": "OPENROUTER_API_KEY",
     "or-deepseek": "OPENROUTER_API_KEY",
     "or-llama": "OPENROUTER_API_KEY",
-
     # OpenRouter FREE (don't support tools)
     "free-router": "OPENROUTER_API_KEY",
     "deepseek-r1-free": "OPENROUTER_API_KEY",

@@ -5,7 +5,7 @@ import subprocess
 import hashlib
 import json
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -43,16 +43,11 @@ class Snapshot:
             "timestamp": self.timestamp.isoformat(),
             "action_type": self.action_type.value,
             "files": [
-                {
-                    "path": fc.path,
-                    "before": fc.before,
-                    "after": fc.after,
-                    "diff": fc.diff
-                }
+                {"path": fc.path, "before": fc.before, "after": fc.after, "diff": fc.diff}
                 for fc in self.files
             ],
             "command": self.command,
-            "message": self.message
+            "message": self.message,
         }
 
 
@@ -71,20 +66,16 @@ class SnapshotManager:
         """Initialize or use existing git repo for snapshots."""
         git_dir = self._snapshots_dir / ".git"
         if not git_dir.exists():
-            subprocess.run(
-                ["git", "init"],
-                cwd=self._snapshots_dir,
-                capture_output=True
-            )
+            subprocess.run(["git", "init"], cwd=self._snapshots_dir, capture_output=True)
             subprocess.run(
                 ["git", "config", "user.email", "apex@snapshot.local"],
                 cwd=self._snapshots_dir,
-                capture_output=True
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "config", "user.name", "APEX Snapshot"],
                 cwd=self._snapshots_dir,
-                capture_output=True
+                capture_output=True,
             )
 
     def _get_file_hash(self, path: Path) -> str:
@@ -100,32 +91,28 @@ class SnapshotManager:
             f"{datetime.now().isoformat()}{os.urandom(8)}".encode()
         ).hexdigest()[:12]
 
-        snapshot = Snapshot(
-            id=snapshot_id,
-            timestamp=datetime.now(),
-            action_type=action_type
-        )
+        snapshot = Snapshot(id=snapshot_id, timestamp=datetime.now(), action_type=action_type)
 
         self._undo_stack.append(snapshot)
         self._redo_stack.clear()
 
         return snapshot_id
 
-    def add_file_change(self, snapshot_id: str, path: str, before: str = None, after: str = None) -> None:
+    def add_file_change(
+        self, snapshot_id: str, path: str, before: str = None, after: str = None
+    ) -> None:
         """Add a file change to a snapshot."""
         for snapshot in self._undo_stack:
             if snapshot.id == snapshot_id:
-                change = FileChange(
-                    path=path,
-                    before=before,
-                    after=after
-                )
+                change = FileChange(path=path, before=before, after=after)
                 if before and after:
                     change.diff = self._compute_diff(before, after)
                 snapshot.files.append(change)
                 break
 
-    def track_file(self, path: str, action_type: ActionType = ActionType.FILE_EDIT) -> Optional[Snapshot]:
+    def track_file(
+        self, path: str, action_type: ActionType = ActionType.FILE_EDIT
+    ) -> Optional[Snapshot]:
         """Track a file before modification."""
         file_path = self.cwd / path
         if not file_path.exists():
@@ -149,7 +136,9 @@ class SnapshotManager:
                 diff.append(f"  {before_lines[i]}")
                 i += 1
                 j += 1
-            elif j < len(after_lines) and (i >= len(before_lines) or before_lines[i] != after_lines[j]):
+            elif j < len(after_lines) and (
+                i >= len(before_lines) or before_lines[i] != after_lines[j]
+            ):
                 diff.append(f"+ {after_lines[j]}")
                 j += 1
             elif i < len(before_lines):
@@ -224,7 +213,7 @@ class SnapshotManager:
         subprocess.run(
             ["git", "add", str(meta_path.relative_to(self._snapshots_dir))],
             cwd=self._snapshots_dir,
-            capture_output=True
+            capture_output=True,
         )
 
     def get_history(self, limit: int = 50) -> List[Snapshot]:

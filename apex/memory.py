@@ -26,11 +26,9 @@ class Memory:
             json.dump(self._facts, f, indent=2)
 
     def add(self, fact: str, relevance: list[str] | None = None) -> None:
-        self._facts.append({
-            "fact": fact,
-            "added": datetime.now().isoformat(),
-            "relevance": relevance or []
-        })
+        self._facts.append(
+            {"fact": fact, "added": datetime.now().isoformat(), "relevance": relevance or []}
+        )
         self._save()
 
     def get_all(self) -> list[dict[str, Any]]:

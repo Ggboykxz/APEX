@@ -92,6 +92,7 @@ class DiffTool:
 
     def diff(self, path1: str, path2: str) -> str:
         import subprocess
+
         p1 = self.cwd / path1
         p2 = self.cwd / path2
 
@@ -102,9 +103,7 @@ class DiffTool:
 
         try:
             result = subprocess.run(
-                ["diff", "-u", str(p1), str(p2)],
-                capture_output=True,
-                text=True
+                ["diff", "-u", str(p1), str(p2)], capture_output=True, text=True
             )
             return result.stdout if result.stdout else "Files are identical"
         except Exception as e:
@@ -112,6 +111,7 @@ class DiffTool:
 
     def three_way_diff(self, base: str, local: str, remote: str) -> str:
         import subprocess
+
         b = self.cwd / base
         local_path = self.cwd / local
         r = self.cwd / remote
@@ -123,7 +123,7 @@ class DiffTool:
             result = subprocess.run(
                 ["diff3", "-m", "-E", str(b), str(local_path), str(r)],
                 capture_output=True,
-                text=True
+                text=True,
             )
             return result.stdout if result.stdout else "No conflicts"
         except Exception as e:
@@ -134,8 +134,11 @@ class SearchReplace:
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
 
-    def replace_in_files(self, pattern: str, replacement: str, patterns: list[str], dry_run: bool = True) -> Dict[str, Any]:
+    def replace_in_files(
+        self, pattern: str, replacement: str, patterns: list[str], dry_run: bool = True
+    ) -> Dict[str, Any]:
         import re
+
         results = {"files_modified": [], "replacements": 0, "errors": []}
 
         try:
@@ -158,7 +161,9 @@ class SearchReplace:
                             filepath.write_text(new_content)
                             results["files_modified"].append(str(filepath.relative_to(self.cwd)))
                         else:
-                            results["files_modified"].append(f"{filepath.relative_to(self.cwd)} ({count} replacements)")
+                            results["files_modified"].append(
+                                f"{filepath.relative_to(self.cwd)} ({count} replacements)"
+                            )
                 except Exception as e:
                     results["errors"].append(f"{filepath}: {e}")
 
@@ -182,7 +187,9 @@ class CodeAnalyzer:
                 "path": path,
                 "lines": len(lines),
                 "blank_lines": sum(1 for ln in lines if not ln.strip()),
-                "code_lines": sum(1 for ln in lines if ln.strip() and not ln.strip().startswith("#")),
+                "code_lines": sum(
+                    1 for ln in lines if ln.strip() and not ln.strip().startswith("#")
+                ),
                 "comment_lines": sum(1 for ln in lines if ln.strip().startswith("#")),
                 "functions": [],
                 "classes": [],
@@ -190,9 +197,10 @@ class CodeAnalyzer:
             }
 
             import re
-            func_pattern = re.compile(r'^(\s*)def\s+(\w+)\s*\(')
-            class_pattern = re.compile(r'^class\s+(\w+)')
-            import_pattern = re.compile(r'^import\s+(\S+)|^from\s+(\S+)\s+import')
+
+            func_pattern = re.compile(r"^(\s*)def\s+(\w+)\s*\(")
+            class_pattern = re.compile(r"^class\s+(\w+)")
+            import_pattern = re.compile(r"^import\s+(\S+)|^from\s+(\S+)\s+import")
 
             for i, line in enumerate(lines, 1):
                 if func_match := func_pattern.match(line):
@@ -220,13 +228,13 @@ class CodeAnalyzer:
 Lines: {lines} (showing {start_line}-{end_line})
 
 Summary:
-- {analysis['functions']} functions defined
-- {analysis['classes']} classes defined
-- {analysis['imports']} imports
+- {analysis["functions"]} functions defined
+- {analysis["classes"]} classes defined
+- {analysis["imports"]} imports
 
-Functions: {', '.join(f['name'] for f in analysis['functions'])}
-Classes: {', '.join(c['name'] for c in analysis['classes'])}
-Imports: {', '.join(analysis['imports'][:10])}
+Functions: {", ".join(f["name"] for f in analysis["functions"])}
+Classes: {", ".join(c["name"] for c in analysis["classes"])}
+Imports: {", ".join(analysis["imports"][:10])}
 """
 
 

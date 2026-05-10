@@ -70,19 +70,13 @@ class TestToolExecutorSearch:
     def test_execute_search_in_files(self, executor, temp_cwd):
         """Test search_in_files tool."""
         (temp_cwd / "test.txt").write_text("hello world test")
-        result = executor.execute("search_in_files", {
-            "path": str(temp_cwd),
-            "pattern": "hello"
-        })
+        result = executor.execute("search_in_files", {"path": str(temp_cwd), "pattern": "hello"})
         assert isinstance(result, str)
 
     def test_execute_glob_search(self, executor, temp_cwd):
         """Test glob_search tool."""
         (temp_cwd / "test.py").write_text("# test")
-        result = executor.execute("glob_search", {
-            "path": str(temp_cwd),
-            "pattern": "*.py"
-        })
+        result = executor.execute("glob_search", {"path": str(temp_cwd), "pattern": "*.py"})
         assert isinstance(result, str)
 
     def test_execute_get_file_tree(self, executor, temp_cwd):
@@ -109,11 +103,8 @@ class TestToolExecutorFileOps:
         f2 = temp_cwd / "f2.txt"
         f1.write_text("line1\nline2")
         f2.write_text("line1\nmodified")
-        
-        result = executor.execute("diff_files", {
-            "file1": str(f1),
-            "file2": str(f2)
-        })
+
+        result = executor.execute("diff_files", {"file1": str(f1), "file2": str(f2)})
         assert isinstance(result, str)
 
     def test_execute_get_repo_map(self, executor, temp_cwd):
@@ -129,14 +120,14 @@ class TestToolExecutorSystem:
     def executor(self):
         return ToolExecutor(cwd=temp_path())
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_execute_install_package(self, mock_run, executor):
         """Test install_package tool."""
         mock_run.return_value = MagicMock(returncode=0, stdout="installed", stderr="")
         result = executor.execute("install_package", {"package": "pytest"})
         assert isinstance(result, str)
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_execute_run_test(self, mock_run, executor):
         """Test run_test tool."""
         mock_run.return_value = MagicMock(returncode=0, stdout="passed", stderr="")
@@ -147,4 +138,5 @@ class TestToolExecutorSystem:
 def temp_path():
     """Create temp path for tests."""
     import tempfile
+
     return Path(tempfile.gettempdir())

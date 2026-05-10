@@ -21,18 +21,28 @@ class AgentMention:
 
 
 DEFAULT_AGENT_NAMES = {"explore", "general", "build", "plan"}
-DEFAULT_IGNORED_DIRS = {".git", "node_modules", "__pycache__", "venv", ".venv", "target", "dist", "build", ".pytest_cache"}
+DEFAULT_IGNORED_DIRS = {
+    ".git",
+    "node_modules",
+    "__pycache__",
+    "venv",
+    ".venv",
+    "target",
+    "dist",
+    "build",
+    ".pytest_cache",
+}
 
 
 class MentionParser:
-    FILE_PATTERN = re.compile(r'@(\S+\.\S+)')
-    AGENT_PATTERN = re.compile(r'@(\w+)(?:\s|$)')
-    
+    FILE_PATTERN = re.compile(r"@(\S+\.\S+)")
+    AGENT_PATTERN = re.compile(r"@(\w+)(?:\s|$)")
+
     def __init__(
         self,
         cwd: str,
         agent_names: Optional[set[str]] = None,
-        path_resolver: Optional[Callable[[Path], Path]] = None
+        path_resolver: Optional[Callable[[Path], Path]] = None,
     ):
         self.cwd = Path(cwd)
         self._agent_names = agent_names or DEFAULT_AGENT_NAMES
@@ -59,7 +69,9 @@ class MentionParser:
             return p
         return (self.cwd / p).resolve()
 
-    def read_mentioned_files(self, text: str, file_reader: Optional[Callable[[Path], Optional[str]]] = None) -> dict[str, str]:
+    def read_mentioned_files(
+        self, text: str, file_reader: Optional[Callable[[Path], Optional[str]]] = None
+    ) -> dict[str, str]:
         file_mentions, _ = self.parse(text)
         result = {}
 
@@ -86,7 +98,7 @@ class FileMentionCompleter:
         self,
         cwd: str,
         ignored_dirs: Optional[set[str]] = None,
-        rglob_func: Optional[Callable[[str], List[Path]]] = None
+        rglob_func: Optional[Callable[[str], List[Path]]] = None,
     ):
         self.cwd = Path(cwd)
         self._ignored_dirs = ignored_dirs or DEFAULT_IGNORED_DIRS
@@ -99,7 +111,9 @@ class FileMentionCompleter:
         results = []
         search_pattern = f"*{prefix}*"
 
-        paths = self._rglob_func(search_pattern) if self._rglob_func else self.cwd.rglob(search_pattern)
+        paths = (
+            self._rglob_func(search_pattern) if self._rglob_func else self.cwd.rglob(search_pattern)
+        )
 
         for p in paths:
             if p.is_file() and not self._is_ignored(p):
@@ -119,5 +133,7 @@ def create_mention_parser(cwd: str, agent_names: Optional[set[str]] = None) -> M
     return MentionParser(cwd, agent_names)
 
 
-def create_file_completer(cwd: str, ignored_dirs: Optional[set[str]] = None) -> FileMentionCompleter:
+def create_file_completer(
+    cwd: str, ignored_dirs: Optional[set[str]] = None
+) -> FileMentionCompleter:
     return FileMentionCompleter(cwd, ignored_dirs)

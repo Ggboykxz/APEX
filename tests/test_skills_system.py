@@ -17,7 +17,7 @@ class TestSkill:
             instructions="Test instructions",
             triggers=["test", "run"],
             parameters={"key": "value"},
-            examples=["example1"]
+            examples=["example1"],
         )
         assert skill.name == "test_skill"
         assert skill.description == "Test description"
@@ -89,9 +89,7 @@ class TestSkillsManager:
     def test_create_skill_file(self, manager, temp_dir):
         """Test create_skill_file method."""
         skill = Skill(
-            name="custom_skill",
-            description="Custom skill",
-            instructions="Custom instructions"
+            name="custom_skill", description="Custom skill", instructions="Custom instructions"
         )
         filepath = manager.create_skill_file(skill)
         assert filepath.exists()
@@ -103,11 +101,7 @@ class TestSkillsManager:
 
     def test_delete_skill_custom(self, manager):
         """Test delete_skill for custom skill."""
-        skill = Skill(
-            name="delete_test",
-            description="Test",
-            instructions="Test"
-        )
+        skill = Skill(name="delete_test", description="Test", instructions="Test")
         manager.create_skill_file(skill)
         assert manager.get_skill("delete_test") is not None
 
@@ -127,14 +121,12 @@ class TestCustomCommand:
 
     def test_init(self):
         """Test command initialization."""
+
         def handler(args):
             return "result"
 
         cmd = CustomCommand(
-            name="test_cmd",
-            handler=handler,
-            description="Test command",
-            aliases=["tc", "t"]
+            name="test_cmd", handler=handler, description="Test command", aliases=["tc", "t"]
         )
         assert cmd.name == "test_cmd"
         assert cmd.handler is handler
@@ -142,6 +134,7 @@ class TestCustomCommand:
 
     def test_handler_execution(self):
         """Test handler execution."""
+
         def handler(args):
             return f"handled: {args}"
 
@@ -164,6 +157,7 @@ class TestCommandRegistry:
 
     def test_register(self, registry):
         """Test register command."""
+
         def handler(args):
             return "done"
 
@@ -173,6 +167,7 @@ class TestCommandRegistry:
 
     def test_register_alias(self, registry):
         """Test register with aliases."""
+
         def handler(args):
             return "done"
 
@@ -183,6 +178,7 @@ class TestCommandRegistry:
 
     def test_get(self, registry):
         """Test get command."""
+
         def handler(args):
             return "done"
 
@@ -199,6 +195,7 @@ class TestCommandRegistry:
 
     def test_execute(self, registry):
         """Test execute command."""
+
         def handler(args):
             return f"args: {args}"
 
@@ -215,6 +212,7 @@ class TestCommandRegistry:
 
     def test_execute_error(self, registry):
         """Test execute with error."""
+
         def handler(args):
             raise ValueError("test error")
 
@@ -226,6 +224,7 @@ class TestCommandRegistry:
 
     def test_list_commands(self, registry):
         """Test list_commands method."""
+
         def handler(args):
             return "done"
 

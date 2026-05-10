@@ -26,7 +26,7 @@ def test_session_manager_init(session_mgr):
 def test_session_save_and_load(session_mgr, agent):
     agent.history = [
         {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hi there"}
+        {"role": "assistant", "content": "Hi there"},
     ]
     agent.model = "gpt-4o"
 

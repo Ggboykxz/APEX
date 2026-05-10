@@ -6,18 +6,55 @@ from pathlib import Path
 from typing import Optional, Callable, Dict
 
 
-IGNORE_DIRS = {".git", "node_modules", "__pycache__", "venv", ".venv", "target", "dist", "build", ".pytest_cache"}
+IGNORE_DIRS = {
+    ".git",
+    "node_modules",
+    "__pycache__",
+    "venv",
+    ".venv",
+    "target",
+    "dist",
+    "build",
+    ".pytest_cache",
+}
 
-SOURCE_EXTS = {".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java", ".c", ".cpp", ".h", ".hpp", ".rb", ".php", ".swift", ".kt"}
+SOURCE_EXTS = {
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".rb",
+    ".php",
+    ".swift",
+    ".kt",
+}
 CONFIG_EXTS = {".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf"}
 DOC_EXTS = {".md", ".txt", ".rst", ".adoc"}
 
 EXT_MAP = {
-    ".py": "Python", ".js": "JavaScript", ".ts": "TypeScript",
-    ".jsx": "React", ".tsx": "React", ".go": "Go",
-    ".rs": "Rust", ".java": "Java", ".c": "C", ".cpp": "C++",
-    ".rb": "Ruby", ".php": "PHP", ".swift": "Swift",
-    ".kt": "Kotlin", ".scala": "Scala"
+    ".py": "Python",
+    ".js": "JavaScript",
+    ".ts": "TypeScript",
+    ".jsx": "React",
+    ".tsx": "React",
+    ".go": "Go",
+    ".rs": "Rust",
+    ".java": "Java",
+    ".c": "C",
+    ".cpp": "C++",
+    ".rb": "Ruby",
+    ".php": "PHP",
+    ".swift": "Swift",
+    ".kt": "Kotlin",
+    ".scala": "Scala",
 }
 
 
@@ -27,7 +64,7 @@ class ContextBuilder:
         path: Optional[Path] = None,
         path_cwd: Optional[Callable[[], Path]] = None,
         subprocess_run: Optional[Callable] = None,
-        os_walk: Optional[Callable] = None
+        os_walk: Optional[Callable] = None,
     ):
         self._path = path
         self._path_cwd = path_cwd or Path.cwd
@@ -110,7 +147,7 @@ class ContextBuilder:
                 cwd=path,
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
             changes = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
 
@@ -141,11 +178,7 @@ class ContextBuilder:
 
         try:
             result = self._subprocess_run(
-                ["git", "ls-files", "-z"],
-                cwd=path,
-                capture_output=True,
-                text=True,
-                timeout=10
+                ["git", "ls-files", "-z"], cwd=path, capture_output=True, text=True, timeout=10
             )
             files = result.stdout.split("\0")[:-1]
 
@@ -180,6 +213,6 @@ def create_context_builder(
     path: Optional[Path] = None,
     path_cwd: Optional[Callable] = None,
     subprocess_run: Optional[Callable] = None,
-    os_walk: Optional[Callable] = None
+    os_walk: Optional[Callable] = None,
 ) -> ContextBuilder:
     return ContextBuilder(path, path_cwd, subprocess_run, os_walk)
