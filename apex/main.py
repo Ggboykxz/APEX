@@ -20,6 +20,7 @@ from .ui import UI
 from .memory import Memory
 from .session import SessionManager
 from .context import get_repo_map, get_language_stats
+from . import __version__
 from rich.panel import Panel
 
 
@@ -35,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("prompt", nargs="?", help="One-shot prompt to execute")
     parser.add_argument("--model", "-m", dest="model", help="Model alias to use")
     parser.add_argument("--cwd", "-C", dest="cwd", help="Working directory")
-    parser.add_argument("--version", "-v", action="version", version="APEX 0.1.0")
+    parser.add_argument("--version", "-v", action="version", version=f"APEX {__version__}")
     parser.add_argument("--list-models", action="store_true", help="List all available models")
     parser.add_argument("--one-shot", "-1", action="store_true", help="One-shot mode (non-interactive)")
     parser.add_argument("--stream", "-s", action="store_true", help="Enable streaming responses")
