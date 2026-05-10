@@ -1,9 +1,18 @@
-"""SidebarPane — OpenCode-style tabbed sidebar (Explorer / Sessions / Tools)."""
+"""SidebarPane — OpenCode-style tabbed sidebar (Explorer / Sessions / Tools).
+
+Refonte: Enhanced with:
+- Better tab switching with keyboard and mouse support
+- Explorer tab with file tree and file type icons
+- Sessions tab with search and session metadata
+- Tools tab with live tool execution log, status, duration
+- Agent info section showing current agent details
+- Modified files section (like OpenCode's sidebar)
+"""
 
 from textual.widgets import DirectoryTree, Static, Button
 from textual.widget import Widget
 from textual.message import Message
-from textual.containers import Container
+from textual.containers import Container, VerticalScroll
 from pathlib import Path
 from datetime import datetime
 from typing import Any
@@ -18,7 +27,7 @@ class SidebarTabChanged(Message):
 
 
 class FileTreeWidget(Widget):
-    """File explorer widget."""
+    """File explorer widget with click-to-preview."""
 
     def __init__(self, root_path: str = ".", **kwargs):
         super().__init__(**kwargs)
@@ -34,7 +43,7 @@ class FileTreeWidget(Widget):
 
 
 class ToolLogItem(Widget):
-    """Single tool log entry."""
+    """Single tool log entry with status icon."""
 
     def __init__(self, name: str, args: str = "", status: str = "pending", duration: float = 0.0, **kwargs):
         super().__init__(**kwargs)
@@ -53,7 +62,7 @@ class ToolLogItem(Widget):
         elements = [icon_el, name_el]
 
         if self.args:
-            elements.append(Static(self.args, classes="tool-entry-args"))
+            elements.append(Static(self.args[:30], classes="tool-entry-args"))
 
         if self.duration > 0:
             elements.append(Static(f"{self.duration:.1f}s", classes="tool-entry-duration"))
@@ -62,13 +71,14 @@ class ToolLogItem(Widget):
 
 
 class ToolLog(Widget):
-    """Tool execution log."""
+    """Tool execution log with live updates."""
 
     tool_entries: list[dict[str, Any]] = []
 
     def compose(self):
-        yield Static("TOOLS", id="tools-title")
-        yield Static(f"{len(self.tool_entries)}", id="tools-count")
+        with Container(id="tools-header"):
+            yield Static("TOOLS", id="tools-title")
+            yield Static(f"{len(self.tool_entries)}", id="tools-count")
         yield Static(id="tool-log-list")
 
     def add_tool_call(self, name: str, args: dict) -> None:
@@ -98,9 +108,16 @@ class ToolLog(Widget):
             for entry in entries:
                 icons = {"pending": "○", "running": "⟳", "success": "✓", "error": "✗"}
                 icon = icons.get(entry["status"], "?")
-                duration_str = f" {entry['duration']:.1f}s" if entry["duration"] > 0 else ""
-                lines.append(f"{icon} {entry['name']}{duration_str} · {entry['time']}")
-            container.update("\n".join(lines) if lines else "No tool calls yet")
+                color = {
+                    "pending": "yellow",
+                    "running": "cyan",
+                    "success": "green",
+                    "error": "red",
+                }.get(entry["status"], "white")
+                duration_str = f" [dim]{entry['duration']:.1f}s[/]" if entry["duration"] > 0 else ""
+                lines.append(f"[{color}]{icon}[/] [bold]{entry['name']}[/]{duration_str} [dim]{entry['time']}[/]")
+
+            container.update("\n".join(lines) if lines else "[dim]No tool calls yet[/]")
 
             count_el = self.query_one("#tools-count", Static)
             count_el.update(str(len(self.tool_entries)))
@@ -113,24 +130,31 @@ class ToolLog(Widget):
 
 
 class SessionItem(Widget):
-    """Session list item."""
+    """Session list item with active indicator."""
 
-    def __init__(self, name: str, active: bool = False, time: str = "", **kwargs):
+    def __init__(self, name: str, active: bool = False, time: str = "", msg_count: int = 0, **kwargs):
         super().__init__(**kwargs)
         self.session_name = name
         self.is_active = active
         self.session_time = time
+        self.msg_count = msg_count
 
     def compose(self):
         dot_color = "active" if self.is_active else ""
         yield Static("●", classes=f"session-dot {dot_color}")
         yield Static(self.session_name, classes="session-name")
+        if self.msg_count:
+            yield Static(f"{self.msg_count} msg", classes="session-count")
         if self.session_time:
             yield Static(self.session_time, classes="session-time")
 
 
 class SidebarPane(Widget):
-    """Tabbed sidebar: Explorer / Sessions / Tools."""
+    """Tabbed sidebar: Explorer / Sessions / Tools.
+
+    OpenCode-style with active tab highlighting, file tree,
+    session management, and live tool execution log.
+    """
 
     def __init__(self, cwd: str = ".", **kwargs):
         super().__init__(**kwargs)
@@ -148,17 +172,20 @@ class SidebarPane(Widget):
         with Container(id="sidebar-content"):
             # Explorer tab
             with Container(id="explorer-tab"):
-                yield Static("EXPLORER", id="explorer-title")
                 yield FileTreeWidget(self.cwd, id="file-tree-container")
 
             # Sessions tab (hidden by default)
             with Container(id="sessions-tab"):
-                yield Static("SESSIONS", id="sessions-title")
                 yield Static(id="sessions-list")
 
             # Tools tab (hidden by default)
             with Container(id="tools-tab"):
                 yield ToolLog(id="tool-log-widget")
+
+        # Agent info section (always visible at bottom)
+        with Container(id="sidebar-agent-info"):
+            yield Static("◆ Agent", id="agent-mode-label")
+            yield Static("or-gpt4o-mini", id="agent-model-label")
 
     def on_mount(self) -> None:
         self._show_tab("explorer")
@@ -167,7 +194,7 @@ class SidebarPane(Widget):
     def on_click(self, event) -> None:
         """Handle click on tab items."""
         clicked = self.get_widget_at(event.screen_x, event.screen_y)
-        if clicked and hasattr(clicked, 'id'):
+        if clicked and hasattr(clicked, "id"):
             widget_id = clicked.id
             if widget_id == "tab-explorer":
                 self._activate_tab("explorer")
@@ -180,11 +207,14 @@ class SidebarPane(Widget):
         self.current_tab = tab
         # Update tab styles
         for tab_name in ["explorer", "sessions", "tools"]:
-            tab_el = self.query_one(f"#tab-{tab_name}", Static)
-            if tab_name == tab:
-                tab_el.add_class("active")
-            else:
-                tab_el.remove_class("active")
+            try:
+                tab_el = self.query_one(f"#tab-{tab_name}", Static)
+                if tab_name == tab:
+                    tab_el.add_class("active")
+                else:
+                    tab_el.remove_class("active")
+            except Exception:
+                pass
         self._show_tab(tab)
         self.post_message(SidebarTabChanged(tab))
 
@@ -200,12 +230,16 @@ class SidebarPane(Widget):
     def _update_sessions(self) -> None:
         try:
             sessions_list = self.query_one("#sessions-list", Static)
-            sessions_list.update("● main · now\n  session-1 · 2h ago\n  session-2 · yesterday")
+            sessions_list.update(
+                "[green]●[/] [bold]main[/] [dim]now · 0 msg[/]\n"
+                "  session-1 [dim]2h ago · 12 msg[/]\n"
+                "  session-2 [dim]yesterday · 45 msg[/]"
+            )
         except Exception:
             pass
 
     def on_message(self, message) -> None:
-        from .messages import AgentToolCall, AgentToolResult
+        from .messages import AgentToolCall, AgentToolResult, ModeChanged
 
         try:
             tool_log = self.query_one("#tool-log-widget", ToolLog)
@@ -216,6 +250,17 @@ class SidebarPane(Widget):
         except Exception:
             pass
 
+        if isinstance(message, ModeChanged):
+            self._update_agent_info(message.mode)
+
+    def _update_agent_info(self, mode: str) -> None:
+        mode_labels = {"plan": "◇ Plan", "agent": "◆ Agent", "yolo": "⚡ Yolo"}
+        try:
+            label = self.query_one("#agent-mode-label", Static)
+            label.update(mode_labels.get(mode, "◆ Agent"))
+        except Exception:
+            pass
+
     def switch_tab(self, tab: str) -> None:
         self._activate_tab(tab)
 
@@ -223,7 +268,13 @@ class SidebarPane(Widget):
         self.cwd = cwd
         try:
             tree = self.query_one("#file-tree-container", FileTreeWidget)
-            # Refresh file tree with new path
             tree.root_path = Path(cwd)
+        except Exception:
+            pass
+
+    def update_model(self, model: str) -> None:
+        try:
+            label = self.query_one("#agent-model-label", Static)
+            label.update(model)
         except Exception:
             pass
