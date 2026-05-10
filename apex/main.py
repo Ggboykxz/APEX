@@ -1,7 +1,6 @@
 """APEX CLI entry point - command parsing and interactive REPL."""
 
 import argparse
-import asyncio
 import os
 import sys
 import json
