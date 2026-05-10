@@ -52,7 +52,7 @@ const INSTALL_COMMANDS: Record<string, { label: string; cmd: string }> = {
 
 const FEATURES = [
   { icon: Cpu, title: '100+ Models', description: 'Use any LLM from any provider. Claude, GPT-4o, Gemini, Grok, Llama, DeepSeek, Qwen, and 95+ more models via litellm.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
-  { icon: Bot, title: '5 Specialized Agents', description: 'Coder, Architect, Reviewer, DevOps, and Analyst agents with per-tool permission systems.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
+  { icon: Bot, title: '5 Specialized Agents', description: 'Coder, Architect, Planner, Reviewer, and Shell agents with per-tool permission systems.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
   { icon: Wrench, title: '75+ Tools', description: 'File ops, search, git, web, LSP, code generation, sandboxed execution, clipboard, skills, and more — all built in and ready.', color: 'text-apex-yellow', glow: 'group-hover:shadow-[0_0_30px_rgba(255,170,0,0.15)]' },
   { icon: Shield, title: 'Security System', description: 'Shell command analysis, permission rulesets (ALLOW/DENY/ASK), rate limiting, API key management, billing system, and path traversal protection.', color: 'text-apex-red', glow: 'group-hover:shadow-[0_0_30px_rgba(255,68,68,0.15)]' },
   { icon: Zap, title: 'Switch Models Live', description: 'Switch between any model mid-session without restarting. Compare outputs, optimize costs, and never lose context.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
@@ -266,7 +266,7 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }} className="text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v1.0.0 — First Stable Release
+              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v1.1.0 — TUI & Agent Update
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold font-mono leading-tight mb-6">
               The Universal <span className="animated-gradient-text">AI Coding</span><br />Agent
@@ -294,7 +294,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Star className="w-3.5 h-3.5 text-apex-yellow" /> MIT Licensed</span>
+                <span className="flex items-center gap-1.5"><Star className="w-3.5 h-3.5 text-apex-yellow" /> Proprietary License</span>
                 <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-apex-cyan" /> Built in Africa 🇬🇦</span>
                 <span className="flex items-center gap-1.5"><Lock className="w-3.5 h-3.5 text-apex-green" /> Security First</span>
               </div>
@@ -320,7 +320,7 @@ export default function Home() {
               <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">coder</span><span className="text-muted-foreground">•</span><span className="flex items-center gap-1"><AnthropicIcon size={12} /><span>claude-4-sonnet</span></span></div>
             </div>
             <div className="bg-[#0a0e14] p-6 font-mono text-sm leading-7 min-h-[320px]">
-              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.0.0 — Ready</div>
+              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.1.0 — Ready</div>
               <div className="mt-2"><span className="text-apex-green">user</span><span className="text-muted-foreground">@apex</span><span className="text-apex-cyan"> ~ </span><span className="text-foreground">Fix the authentication bug in auth.py</span></div>
               <div className="mt-3 text-muted-foreground"><span className="text-apex-cyan">◆</span> Using <span className="text-foreground">coder</span> agent with <span className="text-apex-cyan">claude-4-sonnet</span></div>
               <div className="mt-2 space-y-1.5">
@@ -517,7 +517,7 @@ export default function Home() {
               <div className="md:px-8 pt-6 md:pt-0">
                 <p className="eyebrow mb-2">02 · Sandbox Protection</p>
                 <h3 className="text-lg font-bold font-mono mb-3">Five agents, one approval system</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Coder asks, Architect reads, Analyst observes. Sandboxed via landlock (Linux), seatbelt (macOS), restricted tokens (Windows).</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">Coder asks, Architect reads, Planner observes. Sandboxed via landlock (Linux), seatbelt (macOS), restricted tokens (Windows).</p>
               </div>
               <div className="md:pl-8 pt-6 md:pt-0">
                 <p className="eyebrow mb-2">03 · Model Freedom</p>
@@ -677,7 +677,7 @@ export default function Home() {
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className="w-5 h-5"><defs><linearGradient id="footer-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#00e5ff"/><stop offset="100%" stopColor="#00ff88"/></linearGradient></defs><polygon points="32,4 60,56 4,56" stroke="url(#footer-grad)" strokeWidth="4" fill="none" strokeLinejoin="round"/><circle cx="32" cy="40" r="4" fill="url(#footer-grad)"/></svg>
                 <span className="font-mono font-bold text-lg">APEX</span>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-3">Open-source universal AI coding agent. MIT licensed. Maintained from Gabon. Pull requests welcome.</p>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-3">Universal AI coding agent. Proprietary licensed. Maintained from Gabon. Pull requests welcome.</p>
               <p className="text-xs text-muted-foreground font-mono">Made with care · Built in Africa 🇬🇦</p>
             </div>
 
@@ -711,7 +711,7 @@ export default function Home() {
                 <li><a href="/activity" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Activity Feed</a></li>
                 <li><a href="https://github.com/Ggboykxz/APEX/blob/main/CODE_OF_CONDUCT.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Code of Conduct</a></li>
                 <li><a href="https://github.com/Ggboykxz/APEX/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Security</a></li>
-                <li><a href="https://github.com/Ggboykxz/APEX/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">License (MIT)</a></li>
+                <li><a href="https://github.com/Ggboykxz/APEX/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">License (Proprietary)</a></li>
               </ul>
             </div>
 

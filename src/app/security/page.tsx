@@ -25,7 +25,7 @@ function NavBar() {
   )
 }
 
-function Footer() { return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">MIT License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>) }
+function Footer() { return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">Proprietary License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>) }
 
 function CodeBlock({ code, language = 'bash' }: { code: string; language?: string }) {
   const [copied, setCopied] = useState(false)
@@ -38,7 +38,7 @@ const SECURITY_FEATURES = [
     desc: 'Ruleset-based permission system where each tool can be set to ALLOW, DENY, or ASK. Supports wildcards and per-agent configuration. Each agent has its own permission profile.',
     details: [
       'Per-tool permission controls (read, edit, bash, websearch, task)',
-      'Per-agent permission profiles (Coder, Architect, Reviewer, DevOps, Analyst)',
+      'Per-agent permission profiles (Coder, Architect, Planner, Reviewer, Shell)',
       'Three permission levels: ALLOW (always permit), ASK (prompt user), DENY (block completely)',
       'Wildcard pattern support for flexible rule matching',
       'Configurable via .apex/config.yaml or CLI flags',
@@ -141,7 +141,8 @@ const SECURITY_FEATURES = [
 ]
 
 const SUPPORTED_VERSIONS = [
-  { version: 'v1.0.0', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
+  { version: 'v1.1.0', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
+  { version: 'v1.0.0', status: 'Maintained', support: 'Security patches only', color: '#00e5ff' },
 ]
 
 export default function SecurityPage() {

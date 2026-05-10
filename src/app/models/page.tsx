@@ -25,7 +25,7 @@ function NavBar() {
   )
 }
 
-function Footer() { return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">MIT License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>) }
+function Footer() { return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">Proprietary License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>) }
 
 function CodeBlock({ code, language = 'bash' }: { code: string; language?: string }) {
   const [copied, setCopied] = useState(false)
@@ -39,6 +39,7 @@ const PROVIDERS = [
       { alias: 'claude-sonnet', model: 'anthropic/claude-sonnet-4-20250514', desc: 'Best balance of speed and intelligence', use: 'General coding, debugging, refactoring' },
       { alias: 'claude-opus', model: 'anthropic/claude-opus-4-20250514', desc: 'Most capable model for complex reasoning', use: 'Complex architecture, multi-file refactoring' },
       { alias: 'claude-flash', model: 'anthropic/claude-3-5-haiku-20241022', desc: 'Fastest Claude model, cost-effective', use: 'Quick edits, simple queries, chat' },
+      { alias: 'claude-3.7-sonnet', model: 'anthropic/claude-3-7-sonnet-20250219', desc: 'Claude 3.7 Sonnet — enhanced coding', use: 'Advanced coding, complex reasoning' },
     ]
   },
   {
@@ -87,6 +88,7 @@ const PROVIDERS = [
     name: 'Alibaba', iconKey: 'alibaba', color: '#ff6a00',
     models: [
       { alias: 'qwen3-235b', model: 'alibaba/qwen3-235b-a22b', desc: 'Qwen 3 with 235B parameters', use: 'Complex reasoning, multilingual coding' },
+      { alias: 'qwen3-32b', model: 'alibaba/qwen3-32b', desc: 'Qwen 3 32B', use: 'Multilingual coding, reasoning' },
       { alias: 'qwen2.5-coder', model: 'alibaba/qwen2.5-coder-32b-instruct', desc: 'Specialized for code', use: 'Code generation, debugging, review' },
     ]
   },
@@ -95,6 +97,7 @@ const PROVIDERS = [
     models: [
       { alias: 'mistral-large', model: 'mistral/mistral-large-latest', desc: 'Most capable Mistral model', use: 'Complex coding, enterprise tasks' },
       { alias: 'codestral', model: 'mistral/codestral-latest', desc: 'Specialized for code generation', use: 'Code completion, generation, review' },
+      { alias: 'mistral-medium', model: 'mistral/mistral-medium-latest', desc: 'Medium-capability Mistral model', use: 'Balanced coding and reasoning' },
     ]
   },
   {
@@ -109,6 +112,12 @@ const PROVIDERS = [
     models: [
       { alias: 'command-r', model: 'cohere/command-r', desc: 'Balanced performance model', use: 'RAG, tool use, general coding' },
       { alias: 'command-r-plus', model: 'cohere/command-r-plus', desc: 'Most capable Cohere model', use: 'Complex reasoning, enterprise tasks' },
+    ]
+  },
+  {
+    name: 'Microsoft', iconKey: 'local', color: '#00a4ef',
+    models: [
+      { alias: 'phi-4', model: 'microsoft/phi-4', desc: 'Microsoft Phi-4 small model', use: 'Efficient coding, lightweight tasks' },
     ]
   },
   {
@@ -135,6 +144,9 @@ const COST_COMPARISON = [
   { model: 'DeepSeek V3', provider: 'deepseek', input: '$0.27', output: '$1.10', speed: 'Fast', best: 'Best value' },
   { model: 'DeepSeek R1', provider: 'deepseek', input: '$0.55', output: '$2.19', speed: 'Medium', best: 'Reasoning' },
   { model: 'Ollama (Local)', provider: 'local', input: 'Free', output: 'Free', speed: 'Varies', best: 'Privacy/offline' },
+  { model: 'Claude 3.7 Sonnet', provider: 'anthropic', input: '$3.00', output: '$15.00', speed: 'Fast', best: 'Enhanced coding' },
+  { model: 'Mistral Medium', provider: 'mistral', input: '$0.60', output: '$1.80', speed: 'Fast', best: 'Balanced coding' },
+  { model: 'Phi-4', provider: 'local', input: 'Free', output: 'Free', speed: 'Fast', best: 'Lightweight coding' },
 ]
 
 export default function ModelsPage() {
