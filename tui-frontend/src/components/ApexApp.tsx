@@ -13,7 +13,7 @@ import { ToolPanel } from "./ToolPanel.js"
 const HTTP_PORT = parseInt(process.env.APEX_HTTP_PORT ?? "8080", 10)
 const API_BASE = `http://127.0.0.1:${HTTP_PORT}`
 
-function parseSSE(data: string): { chunk?: string; usage?: Record<string, number> } {
+function parseSSE(data: string): { chunk?: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } } {
   if (data.startsWith("data: ")) {
     try {
       return JSON.parse(data.slice(6))
@@ -22,6 +22,12 @@ function parseSSE(data: string): { chunk?: string; usage?: Record<string, number
     }
   }
   return {}
+}
+
+function calcMessageCost(promptTokens: number, completionTokens: number, modelId: string): number {
+  const model = APEX_MODELS.find((m) => m.id === modelId)
+  if (!model?.inputCostPer1K || !model?.outputCostPer1K) return 0
+  return (promptTokens / 1000) * model.inputCostPer1K + (completionTokens / 1000) * model.outputCostPer1K
 }
 
 export function ApexApp() {
@@ -38,13 +44,25 @@ export function ApexApp() {
   const [modelSearch, setModelSearch] = useState("")
   const [helpVisible, setHelpVisible] = useState(false)
   const [helpTab, setHelpTab] = useState<"keybindings" | "agents" | "tools">("keybindings")
-  const [totalTokens, setTotalTokens] = useState(0)
   const [sessionStart] = useState(Date.now())
   const [connectionError, setConnectionError] = useState<string | null>(null)
-  const [, setStreamingContent] = useState<string>("")
+
+  const [totalPromptTokens, setTotalPromptTokens] = useState(0)
+  const [totalCompletionTokens, setTotalCompletionTokens] = useState(0)
+  const [totalSpent, setTotalSpent] = useState(0)
+
+  const [livePromptTokens, setLivePromptTokens] = useState(0)
+  const [liveCompletionTokens, setLiveCompletionTokens] = useState(0)
 
   const agent = useMemo(() => APEX_AGENTS.find((a) => a.id === activeAgent) ?? APEX_AGENTS[0]!, [activeAgent])
   const model = useMemo(() => APEX_MODELS.find((m) => m.id === activeModel), [activeModel])
+
+  const totalTokens = useMemo(() => totalPromptTokens + totalCompletionTokens, [totalPromptTokens, totalCompletionTokens])
+
+  const contextPct = useMemo(() => {
+    if (!model?.contextWindow || totalTokens === 0) return 0
+    return Math.min(100, (totalTokens / model.contextWindow) * 100)
+  }, [model, totalTokens])
 
   const sessionDuration = useMemo(() => {
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000)
@@ -87,6 +105,9 @@ export function ApexApp() {
     if (key.ctrl && key.name === "l") {
       setMessages([])
       setInputValue("")
+      setTotalPromptTokens(0)
+      setTotalCompletionTokens(0)
+      setTotalSpent(0)
       return
     }
   })
@@ -104,8 +125,9 @@ export function ApexApp() {
 
   const sendMessage = useCallback(async (userMessage: string) => {
     setIsGenerating(true)
-    setStreamingContent("")
     setConnectionError(null)
+    setLivePromptTokens(0)
+    setLiveCompletionTokens(0)
 
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}-u`,
@@ -139,6 +161,21 @@ export function ApexApp() {
 
       let fullContent = ""
 
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          agent: activeAgent,
+          model: activeModel,
+          timestamp: Date.now(),
+          promptTokens: 0,
+          completionTokens: 0,
+          cost: 0,
+        },
+      ])
+
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ""
@@ -156,7 +193,6 @@ export function ApexApp() {
           const parsed = parseSSE(line)
           if (parsed.chunk) {
             fullContent += parsed.chunk
-            setStreamingContent(fullContent)
             setMessages((prev) => {
               const last = prev[prev.length - 1]
               if (last?.id === assistantId) {
@@ -166,42 +202,41 @@ export function ApexApp() {
             })
           }
           if (parsed.usage) {
-            const promptTokens = parsed.usage.prompt_tokens ?? 0
-            const completionTokens = parsed.usage.completion_tokens ?? 0
-            setMessages((prev) => {
-              const last = prev[prev.length - 1]
-              if (last?.id === assistantId) {
-                return [...prev.slice(0, -1), { ...last, tokens: completionTokens }]
-              }
-              return prev
-            })
-            setTotalTokens((prev) => prev + promptTokens + completionTokens)
+            const pt = parsed.usage.prompt_tokens ?? 0
+            const ct = parsed.usage.completion_tokens ?? 0
+            setLivePromptTokens(pt)
+            setLiveCompletionTokens(ct)
           }
         }
       }
 
       if (buffer.trim()) {
         const parsed = parseSSE(buffer)
-        if (parsed.chunk) {
-          fullContent += parsed.chunk
-          setStreamingContent("")
-        }
+        if (parsed.chunk) fullContent += parsed.chunk
       }
 
-      if (!fullContent.trim()) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: assistantId,
-            role: "assistant",
-            content: "(empty response from model)",
-            agent: activeAgent,
-            model: activeModel,
-            timestamp: Date.now(),
-            tokens: 0,
-          },
-        ])
-      }
+      const finalPrompt = livePromptTokens || 0
+      const finalCompletion = liveCompletionTokens || 0
+      const msgCost = calcMessageCost(finalPrompt, finalCompletion, activeModel)
+
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        if (last?.id === assistantId) {
+          return [...prev.slice(0, -1), {
+            ...last,
+            content: fullContent || "(empty response)",
+            promptTokens: finalPrompt,
+            completionTokens: finalCompletion,
+            cost: msgCost,
+          }]
+        }
+        return prev
+      })
+
+      setTotalPromptTokens((p) => p + finalPrompt)
+      setTotalCompletionTokens((c) => c + finalCompletion)
+      setTotalSpent((s) => s + msgCost)
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes("fetch") || msg.includes("ECONNREFUSED") || msg.includes("NetworkError")) {
@@ -218,12 +253,15 @@ export function ApexApp() {
           agent: activeAgent,
           model: activeModel,
           timestamp: Date.now(),
-          tokens: 0,
+          promptTokens: 0,
+          completionTokens: 0,
+          cost: 0,
         },
       ])
     } finally {
       setIsGenerating(false)
-      setStreamingContent("")
+      setLivePromptTokens(0)
+      setLiveCompletionTokens(0)
     }
   }, [activeAgent, activeModel])
 
@@ -249,9 +287,11 @@ export function ApexApp() {
           <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>▲ APEX</span>
           <span style={{ fg: "#000000" }}> — {agent?.name ?? "Coder"} · {model?.name ?? "No Model"}</span>
           <span style={{ fg: "#000000" }}> │ </span>
-          <span style={{ fg: "#000000" }}>{messages.length} messages</span>
+          <span style={{ fg: "#000000" }}>{messages.length} msgs</span>
           <span style={{ fg: "#000000" }}> │ </span>
-          <span style={{ fg: "#000000" }}>{totalTokens.toLocaleString()} tokens</span>
+          <span style={{ fg: "#000000" }}>{contextPct.toFixed(1)}% ctx</span>
+          <span style={{ fg: "#000000" }}> │ </span>
+          <span style={{ fg: "#000000" }}>${totalSpent.toFixed(4)}</span>
           <span style={{ fg: "#000000" }}> │ </span>
           <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>Ctrl+K</span>
           <span style={{ fg: "#000000" }}> Models  </span>
@@ -272,6 +312,9 @@ export function ApexApp() {
           activeAgent={activeAgent}
           activeModel={activeModel}
           isGenerating={isGenerating}
+          livePromptTokens={livePromptTokens}
+          liveCompletionTokens={liveCompletionTokens}
+          liveCost={calcMessageCost(livePromptTokens, liveCompletionTokens, activeModel)}
         />
         <ToolPanel visible={toolPanelVisible} activeAgent={activeAgent} />
       </box>
@@ -280,6 +323,10 @@ export function ApexApp() {
         activeAgent={activeAgent}
         activeModel={activeModel}
         totalTokens={totalTokens}
+        totalPromptTokens={totalPromptTokens}
+        totalCompletionTokens={totalCompletionTokens}
+        totalSpent={totalSpent}
+        contextPct={contextPct}
         messageCount={messages.length}
         sessionDuration={sessionDuration}
       />
