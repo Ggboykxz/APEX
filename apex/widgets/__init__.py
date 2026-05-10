@@ -1,11 +1,11 @@
-"""APEX TUI Widgets - Better than OpenCode."""
+"""APEX TUI Widgets — OpenCode-inspired design with APEX theme."""
 
 from .header import HeaderBar
-from .sidebar import SidebarPane, FileTreeWidget, ToolLog
-from .chat import ChatPane, MessageBubble, ToolCard, ThinkingIndicator
-from .input_bar import InputBar
+from .sidebar import SidebarPane, FileTreeWidget, ToolLog, SidebarTabChanged
+from .chat import ChatPane, ToolCard, ThinkingIndicator
+from .input_bar import InputBar, UserMessage, CommandInput
 from .status import StatusBar
-from .cmd_palette import CommandPalette
+from .cmd_palette import CommandPalette, PaletteCommand
 from .messages import (
     AgentThinking,
     AgentToolCall,
@@ -14,6 +14,12 @@ from .messages import (
     AgentError,
     TokenUpdate,
     ToggleSidebar,
+    ModelChanged,
+    CwdChanged,
+    ClearChat,
+    FilePreviewRequest,
+    ModeChanged,
+    SidebarTabChanged,
 )
 
 __all__ = [
@@ -21,13 +27,16 @@ __all__ = [
     "SidebarPane",
     "FileTreeWidget",
     "ToolLog",
+    "SidebarTabChanged",
     "ChatPane",
-    "MessageBubble",
     "ToolCard",
     "ThinkingIndicator",
     "InputBar",
+    "UserMessage",
+    "CommandInput",
     "StatusBar",
     "CommandPalette",
+    "PaletteCommand",
     "AgentThinking",
     "AgentToolCall",
     "AgentToolResult",
@@ -35,4 +44,9 @@ __all__ = [
     "AgentError",
     "TokenUpdate",
     "ToggleSidebar",
+    "ModelChanged",
+    "CwdChanged",
+    "ClearChat",
+    "FilePreviewRequest",
+    "ModeChanged",
 ]

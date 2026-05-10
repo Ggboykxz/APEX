@@ -1,4 +1,4 @@
-"""APEX TUI Messages - Inter-widget communication via Textual messages."""
+"""APEX TUI Messages — Inter-widget communication via Textual messages."""
 
 from textual.message import Message
 
@@ -92,3 +92,19 @@ class FilePreviewRequest(Message):
     def __init__(self, file_path: str) -> None:
         super().__init__()
         self.file_path = file_path
+
+
+class ModeChanged(Message):
+    """Agent mode changed (plan/agent/yolo)."""
+
+    def __init__(self, mode: str) -> None:
+        super().__init__()
+        self.mode = mode
+
+
+class SidebarTabChanged(Message):
+    """Sidebar tab changed."""
+
+    def __init__(self, tab: str) -> None:
+        super().__init__()
+        self.tab = tab
