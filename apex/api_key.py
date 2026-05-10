@@ -1,5 +1,6 @@
 """API key management with workspaces for APEX."""
 
+import ast
 import hashlib
 import logging
 import secrets
@@ -11,6 +12,20 @@ from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_parse(data: str, default):
+    """Safely parse a JSON-like string without using eval()."""
+    if not data:
+        return default
+    try:
+        return ast.literal_eval(data)
+    except (ValueError, SyntaxError):
+        try:
+            import json
+            return json.loads(data)
+        except Exception:
+            return default
 
 
 class InvalidKeyError(Exception):
@@ -130,8 +145,8 @@ class KeyManager:
                     owner_id=row[2],
                     created_at=row[3],
                     is_active=bool(row[4]),
-                    settings=eval(row[5]) if row[5] else {},
-                    metadata=eval(row[6]) if row[6] else {}
+                    settings=_safe_parse(row[5]) if row[5] else {},
+                    metadata=_safe_parse(row[6]) if row[6] else {}
                 )
         return None
 
@@ -193,8 +208,8 @@ class KeyManager:
                 is_active=bool(row[8]),
                 rate_limit_per_minute=row[9],
                 rate_limit_per_hour=row[10],
-                permissions=eval(row[11]) if row[11] else [],
-                metadata=eval(row[12]) if row[12] else {}
+                permissions=_safe_parse(row[11]) if row[11] else [],
+                metadata=_safe_parse(row[12]) if row[12] else {}
             )
         if not key_info.is_active:
             raise KeyDisabledError("API key is disabled")
@@ -227,7 +242,7 @@ class KeyManager:
                     key_id=row[0], key_hash=row[1], workspace_id=row[2], name=row[3],
                     created_at=row[4], expires_at=row[5], last_used=row[6], request_count=row[7],
                     is_active=bool(row[8]), rate_limit_per_minute=row[9], rate_limit_per_hour=row[10],
-                    permissions=eval(row[11]) if row[11] else [], metadata=eval(row[12]) if row[12] else {}
+                    permissions=_safe_parse(row[11]) if row[11] else [], metadata=_safe_parse(row[12]) if row[12] else {}
                 ))
         return keys
 

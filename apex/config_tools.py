@@ -5,6 +5,8 @@ from typing import Callable
 from dataclasses import dataclass
 import logging
 import re
+import shlex
+import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +117,8 @@ def load_custom_tools(config_path: Path) -> None:
                                 return f"ERROR: Dangerous pattern blocked"
                         
                         result = subprocess.run(
-                            safe_cmd,
-                            shell=True,
+                            shlex.split(safe_cmd),
+                            shell=False,
                             cwd=wd,
                             capture_output=True,
                             text=True,

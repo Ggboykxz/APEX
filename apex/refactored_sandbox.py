@@ -86,8 +86,9 @@ class CodeExecutor:
             return f"ERROR: {msg}"
         
         try:
+            args = shlex.split(command)
             result = subprocess.run(
-                command, shell=True, cwd=self.cwd, 
+                args, shell=False, cwd=self.cwd,
                 capture_output=True, text=True, timeout=60
             )
             if result.returncode == 0:
@@ -144,8 +145,9 @@ class ShellSession:
         
         work_dir = Path(cwd) if cwd else self.cwd
         try:
+            args = shlex.split(command)
             result = subprocess.run(
-                command, shell=True, cwd=work_dir,
+                args, shell=False, cwd=work_dir,
                 capture_output=True, text=True, timeout=60
             )
             return result.stdout if result.returncode == 0 else f"ERROR: {result.stderr}"
