@@ -64,7 +64,7 @@ APEX est un **agent autonome** capable de :
 
 | Composant | Description |
 |-----------|-------------|
-| `main.py` | CLI entry point, argument parsing |
+| `main.py` | CLI entry point, argument parsing, TUI launcher |
 | `agent.py` | Agent core, chat loop, LLM interaction |
 | `tools.py` | 75+ built-in tools |
 | `session.py` | Session management, persistence |
@@ -73,29 +73,37 @@ APEX est un **agent autonome** capable de :
 | `rate_limiter.py` | Rate limiting |
 | `api_key.py` | API key management |
 | `billing.py` | Cost tracking |
-| `http_api.py` | HTTP API server |
+| `http_api.py` | HTTP API server + TUI server (`start_tui_server`, `stop_tui_server`) |
 
-### TUI Architecture (OpenCode-like)
+### TUI Architecture (OpenTUI + React)
 
 ```
-apex/tui/
-├── app.py              # Main APEXTUI class
-├── routes/             # Route-based navigation
-│   ├── home.py         # HomeRoute
-│   ├── session.py      # SessionRoute
-│   └── plugin.py       # PluginRoute
-├── components/         # UI components
-│   ├── dialog.py       # Modal dialogs
-│   ├── toast.py        # Notifications
-│   ├── status_bar.py   # Status bar
-│   └── command_palette.py
-├── contexts/           # Context providers
-│   ├── theme_context.py # Theme management (6 themes)
-│   ├── route_context.py # Navigation
-│   └── event_context.py # Event bus (on/once/off/emit)
-├── keymap/            # KeymapManager with layers
-├── themes/             # 6 built-in themes (JSON)
-└── plugins/            # Plugin system with hooks
+tui-frontend/src/
+├── App.tsx                # Root — HTTP SSE, state management
+├── components/
+│   ├── ApexApp.tsx        # Main layout — titlebar, chat, statusbar
+│   ├── ChatPanel.tsx      # Message thread with streaming tokens
+│   ├── StatusBar.tsx      # In/Out/Total tokens, ctx%, $spent
+│   ├── ModelSelector.tsx  # Ctrl+K overlay — 100+ models
+│   ├── HelpPanel.tsx      # ? overlay — keybindings
+│   ├── Sidebar.tsx        # Session history
+│   └── ToolPanel.tsx     # Active tool executions
+├── data/
+│   └── apex-data.ts      # Models pricing matrix (32+ models)
+└── theme/
+    └── themes.ts          # Agent-colored themes per agent
+```
+
+**Flux HTTP SSE:**
+```
+TUI (Bun/React) --POST /chat/stream--> HTTP Server (main.py -> http_api.py)
+                                                     |
+                                                     v
+                                              agent.chat_streaming()
+                                                     |
+                                                     v
+                                    SSE: data:{"chunk": "..."}
+                                    SSE: data:{"usage": {prompt_tokens, completion_tokens}}
 ```
 
 ### Keymap Layers
@@ -131,8 +139,20 @@ APEX supporte deux modes d'agent basculeables :
 /agent plan    # Mode plan (lecture seule)
 
 # Dans le TUI
-Tab  → Bascule entre Build et Plan
+Tab  → Bascule entre agents (Coder, Architect, Planner, Reviewer, Shell)
 ```
+
+**Cinq agents intégrés :**
+
+| Agent | Description | Couleur |
+|-------|-------------|---------|
+| `Coder` | Développement, écriture de code | Cyan |
+| `Architect` | Design système, architecture | Violet |
+| `Planner` | Planification, stratégie | Jaune |
+| `Reviewer` | Code review, audit | Vert |
+| `Shell` | DevOps, scripts, CI/CD | Orange |
+
+Chaque agent applique sa couleur à la titlebar, status bar et bordures du TUI.
 
 ---
 
@@ -562,7 +582,7 @@ result = limiter.check_rate_limit("user_123")
 
 ## Projet Status
 
-- **Version**: 1.3.1
+- **Version**: 1.1.0
 - **Tests**: 1148 passing
 - **License**: MIT
 
@@ -579,13 +599,30 @@ git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e .
 ```bash
 apex                        # REPL interactif
 apex "prompt"              # One-shot
-apex --ui                  # TUI Textual
-apex --new-tui             # Nouveau TUI OpenCode-like
+apex --tui                  # OpenTUI + React TUI (HTTP SSE backend)
 apex --model gpt-4o        # Modèle spécifique
 apex -p "prompt" -f json   # Mode CI/CD
 ```
 
+### TUI — Live Metrics
+
+| Métrique | Emplacement | Description |
+|----------|-------------|-------------|
+| `msgs: 12 · 2.3% ctx · $0.05` | Title bar | Compteur msg, ctx%, coût total |
+| `In: 1234 Out: 567 Total: 1801 · 2.3% ctx · $0.05` | Status bar | Tokens live + ctx% + $total |
+| `+42/+128 · $0.0023` | Chat message | Tokens prompt/completion + coût |
+
+### Shortcuts TUI
+
+| Raccourci | Action |
+|-----------|--------|
+| `Ctrl+K` | Model selector |
+| `Ctrl+L` | Clear messages + reset metrics |
+| `Ctrl+O` | Toggle sidebar |
+| `Ctrl+T` | Toggle tools panel |
+| `?` | Help panel |
+
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v1.3.1 — Inspired by OpenCode*
+*APEX v1.1.0 — Inspired by OpenCode*
