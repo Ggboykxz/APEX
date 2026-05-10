@@ -134,7 +134,17 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
             return True
 
         case "/cost":
-            ui.print_cost(agent.usage)
+            from .cost_local import cost_tracker
+            usage = agent.usage
+            cost_info = cost_tracker.get_session_cost()
+            ui.console.print("[cyan]Session Cost:[/cyan]")
+            ui.console.print(f"  Input tokens: {cost_info['input_tokens']}")
+            ui.console.print(f"  Output tokens: {cost_info['output_tokens']}")
+            ui.console.print(f"  Total: ${cost_info['total_cost']:.6f}")
+            ui.console.print("[cyan]Token usage:[/cyan]")
+            ui.console.print(f"  Prompt: {usage.get('prompt_tokens', 0)}")
+            ui.console.print(f"  Completion: {usage.get('completion_tokens', 0)}")
+            ui.console.print(f"  Total: {usage.get('total_tokens', 0)}")
             return True
 
         case "/save":
@@ -165,6 +175,20 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
             ui.console.print("[cyan]Saved sessions:[/cyan]")
             for s in sessions:
                 ui.console.print(f"  {s['name']} - {s['timestamp']} ({s['history_len']} messages)")
+            return True
+
+        case "/cost":
+            from .cost_local import cost_tracker
+            usage = agent.usage
+            cost_info = cost_tracker.get_session_cost()
+            ui.console.print("[cyan]Session Cost:[/cyan]")
+            ui.console.print(f"  Input tokens: {cost_info['input_tokens']}")
+            ui.console.print(f"  Output tokens: {cost_info['output_tokens']}")
+            ui.console.print(f"  Total: ${cost_info['total_cost']:.6f}")
+            ui.console.print("[cyan]Token usage:[/cyan]")
+            ui.console.print(f"  Prompt: {usage.get('prompt_tokens', 0)}")
+            ui.console.print(f"  Completion: {usage.get('completion_tokens', 0)}")
+            ui.console.print(f"  Total: {usage.get('total_tokens', 0)}")
             return True
 
         case "/memory":
@@ -350,16 +374,6 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
                 ui.print_error(f"Unknown github command: {cmd}")
             return True
 
-        case "/cost":
-            from .cost_local import cost_tracker
-            usage = agent.usage
-            cost_info = cost_tracker.get_session_cost()
-            ui.console.print("[cyan]Session Cost:[/cyan]")
-            ui.console.print(f"  Input tokens: {cost_info['input_tokens']}")
-            ui.console.print(f"  Output tokens: {cost_info['output_tokens']}")
-            ui.console.print(f"  Total: ${cost_info['total_cost']:.6f}")
-            return True
-
         case "/local":
             from .cost_local import local_manager
             if arg == "enable":
@@ -419,14 +433,6 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
                 ui.print_info("Starting HTTP API server...")
             else:
                 ui.print_info("Usage: /http start - Start HTTP API server")
-            return True
-
-        case "/cost":
-            usage = agent.usage
-            ui.console.print("[cyan]Token usage:[/cyan]")
-            ui.console.print(f"  Prompt: {usage.get('prompt_tokens', 0)}")
-            ui.console.print(f"  Completion: {usage.get('completion_tokens', 0)}")
-            ui.console.print(f"  Total: {usage.get('total_tokens', 0)}")
             return True
 
         case "/agents":

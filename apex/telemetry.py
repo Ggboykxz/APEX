@@ -88,11 +88,23 @@ class Logger:
         })
 
     def _sanitize_args(self, args: dict) -> dict:
-        sensitive_keys = {"api_key", "password", "token", "secret", "key"}
+        sensitive_keys = {
+            "api_key", "password", "token", "secret", "key",
+            "aws_access_key", "aws_secret_key", "aws_session_token",
+            "access_key", "secret_key", "session_token",
+            "private_key", "secret_token", "auth_token",
+            "bearer", "credential", "credentials"
+        }
         sanitized = {}
         for k, v in args.items():
-            if any(s in k.lower() for s in sensitive_keys):
-                sanitized[k] = "***"
+            key_lower = k.lower()
+            if any(sensitive in key_lower for s in sensitive_keys for sensitive in (s,)):
+                if any(s in key_lower for s in sensitive_keys):
+                    sanitized[k] = "***"
+                else:
+                    sanitized[k] = "***" if any(s in key_lower for s in {
+                        "key", "secret", "password", "token", "credential", "api_key"
+                    }) else str(v)[:100]
             else:
                 sanitized[k] = str(v)[:100]
         return sanitized
