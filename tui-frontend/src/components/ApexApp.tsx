@@ -10,6 +10,20 @@ import { ModelSelector } from "./ModelSelector.js"
 import { HelpPanel } from "./HelpPanel.js"
 import { ToolPanel } from "./ToolPanel.js"
 
+const HTTP_PORT = parseInt(process.env.APEX_HTTP_PORT ?? "8080", 10)
+const API_BASE = `http://127.0.0.1:${HTTP_PORT}`
+
+function parseSSE(data: string): { chunk?: string; usage?: Record<string, number> } {
+  if (data.startsWith("data: ")) {
+    try {
+      return JSON.parse(data.slice(6))
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
+
 export function ApexApp() {
   const renderer = useRenderer()
 
@@ -26,6 +40,8 @@ export function ApexApp() {
   const [helpTab, setHelpTab] = useState<"keybindings" | "agents" | "tools">("keybindings")
   const [totalTokens, setTotalTokens] = useState(0)
   const [sessionStart] = useState(Date.now())
+  const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [streamingContent, setStreamingContent] = useState<string>("")
 
   const agent = useMemo(() => APEX_AGENTS.find((a) => a.id === activeAgent) ?? APEX_AGENTS[0]!, [activeAgent])
   const model = useMemo(() => APEX_MODELS.find((m) => m.id === activeModel), [activeModel])
@@ -79,73 +95,156 @@ export function ApexApp() {
     if (renderer) renderer.setBackgroundColor(apexTheme.bg)
   }, [renderer])
 
-  const simulateResponse = useCallback((userMessage: string) => {
-    setIsGenerating(true)
-    const responses: Record<string, string[]> = {
-      coder: [
-        "I'll analyze the code and make the necessary changes. Let me search for the relevant files first.",
-        "The implementation looks good. I've refactored the code to follow best practices and added type safety.",
-        "I've created the new module with proper error handling and comprehensive tests.",
-        "Let me check the current architecture and propose an optimal solution for this feature.",
-      ],
-      architect: [
-        "Based on the requirements, I recommend a microservices architecture with event-driven communication.",
-        "The current architecture has a coupling issue. Let me propose a cleaner separation of concerns.",
-        "After analysis, the optimal approach would be a hexagonal architecture with dependency injection.",
-      ],
-      reviewer: [
-        "I found 3 potential issues: a memory leak in the event handler, an unhandled promise rejection, and a race condition.",
-        "The code quality is good overall, but I suggest adding input validation and improving error messages.",
-        "Security audit complete: 1 critical vulnerability found. I'll recommend a patch immediately.",
-      ],
-      devops: [
-        "I've set up the Docker configuration with multi-stage builds for optimal image size.",
-        "The CI/CD pipeline is configured with automated testing and deployment stages.",
-        "Kubernetes manifests generated with auto-scaling policies and health checks.",
-      ],
-      analyst: [
-        "Based on the data analysis, the performance bottleneck is in the database queries.",
-        "The metrics show a 23% improvement after the optimization. Here's the detailed report.",
-        "Research complete: the optimal strategy is to implement caching at the API layer.",
-      ],
+  useEffect(() => {
+    if (connectionError) {
+      const timer = setTimeout(() => setConnectionError(null), 5000)
+      return () => clearTimeout(timer)
     }
-    const agentResponses = responses[activeAgent] ?? responses["coder"]!
-    const responseText = agentResponses[Math.floor(Math.random() * agentResponses.length)]!
+  }, [connectionError])
 
-    const toolCallDelay = 200 + Math.random() * 400
+  const sendMessage = useCallback(async (userMessage: string) => {
+    setIsGenerating(true)
+    setStreamingContent("")
+    setConnectionError(null)
 
-    setTimeout(() => {
-      const tokens = Math.floor(Math.random() * 600) + 150
-      const assistantMessage: ChatMessage = {
-        id: `msg-${Date.now()}`,
-        role: "assistant",
-        content: responseText,
-        agent: activeAgent,
-        model: activeModel,
-        timestamp: Date.now(),
-        tokens,
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}-u`,
+      role: "user",
+      content: userMessage,
+      timestamp: Date.now(),
+    }
+    setMessages((prev) => [...prev, userMsg])
+
+    const assistantId = `msg-${Date.now()}-a`
+    const startTime = Date.now()
+
+    try {
+      const response = await fetch(`${API_BASE}/chat/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage, model: activeModel }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        setConnectionError(`Server error ${response.status}: ${errorText}`)
+        setIsGenerating(false)
+        return
       }
-      setMessages((prev) => [...prev, assistantMessage])
-      setTotalTokens((prev) => prev + tokens)
+
+      if (!response.body) {
+        setConnectionError("Empty response from server")
+        setIsGenerating(false)
+        return
+      }
+
+      let fullContent = ""
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+
+        for (const line of lines) {
+          if (!line.trim() || line.startsWith(":")) continue
+          const parsed = parseSSE(line)
+          if (parsed.chunk) {
+            fullContent += parsed.chunk
+            setStreamingContent(fullContent)
+            setMessages((prev) => {
+              const last = prev[prev.length - 1]
+              if (last?.id === assistantId) {
+                return [...prev.slice(0, -1), { ...last, content: fullContent }]
+              }
+              return prev
+            })
+          }
+          if (parsed.usage) {
+            const promptTokens = parsed.usage.prompt_tokens ?? 0
+            const completionTokens = parsed.usage.completion_tokens ?? 0
+            setMessages((prev) => {
+              const last = prev[prev.length - 1]
+              if (last?.id === assistantId) {
+                return [...prev.slice(0, -1), { ...last, tokens: completionTokens }]
+              }
+              return prev
+            })
+            setTotalTokens((prev) => prev + promptTokens + completionTokens)
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        const parsed = parseSSE(buffer)
+        if (parsed.chunk) {
+          fullContent += parsed.chunk
+          setStreamingContent("")
+        }
+      }
+
+      if (!fullContent.trim()) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: assistantId,
+            role: "assistant",
+            content: "(empty response from model)",
+            agent: activeAgent,
+            model: activeModel,
+            timestamp: Date.now(),
+            tokens: 0,
+          },
+        ])
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes("fetch") || msg.includes("ECONNREFUSED") || msg.includes("NetworkError")) {
+        setConnectionError("Cannot connect to APEX backend. Make sure `apex --tui` is running.")
+      } else {
+        setConnectionError(`Error: ${msg}`)
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: `Error: ${msg}`,
+          agent: activeAgent,
+          model: activeModel,
+          timestamp: Date.now(),
+          tokens: 0,
+        },
+      ])
+    } finally {
       setIsGenerating(false)
-    }, 600 + Math.random() * 1000)
+      setStreamingContent("")
+    }
   }, [activeAgent, activeModel])
 
   const handleSubmit = useCallback(() => {
     if (!inputValue.trim() || isGenerating) return
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      role: "user",
-      content: inputValue.trim(),
-      timestamp: Date.now(),
-    }
-    setMessages((prev) => [...prev, userMessage])
+    const msg = inputValue.trim()
     setInputValue("")
-    simulateResponse(inputValue.trim())
-  }, [inputValue, isGenerating, simulateResponse])
+    sendMessage(msg)
+  }, [inputValue, isGenerating, sendMessage])
 
   return (
     <box id="apex-root" style={{ flexDirection: "column", flexGrow: 1, backgroundColor: apexTheme.bg }}>
+      {connectionError ? (
+        <box style={{ height: 1, flexDirection: "row", backgroundColor: apexTheme.error }}>
+          <text>
+            <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>⚠ {connectionError}</span>
+          </text>
+        </box>
+      ) : null}
+
       <box id="apex-titlebar" style={{ height: 1, flexDirection: "row", justifyContent: "center", backgroundColor: agent?.color ?? apexTheme.cyan }}>
         <text>
           <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>▲ APEX</span>
