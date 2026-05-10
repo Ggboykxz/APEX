@@ -42,6 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--auto-commit", action="store_true", dest="auto_commit", help="Auto commit after successful task")
     parser.add_argument("--ui", action="store_true", help="Launch Textual TUI (original APEX UI)")
     parser.add_argument("--tui", "-t", action="store_true", help="Launch OpenTUI (better than OpenCode)")
+    parser.add_argument("--new-tui", action="store_true", help="Launch new Python TUI (OpenTUI-like)")
     return parser.parse_args()
 
 
@@ -600,6 +601,20 @@ def run_textual_tui(agent: Agent, ui: UI) -> None:
         ui.print_error(f"TUI error: {e}")
 
 
+def run_new_tui(agent: Agent, ui: UI) -> None:
+    """Run the new Python TUI - OpenTUI-like architecture."""
+    try:
+        from .tui.app import run_tui, APEXTUI, RendererConfig
+        ui.print_info("Starting APEX New TUI (Ctrl+C to exit)...")
+        config = RendererConfig()
+        config.title = f"APEX - {agent.config.model}"
+        run_tui(config)
+    except ImportError as e:
+        ui.print_error(f"New TUI not available: {e}")
+    except Exception as e:
+        ui.print_error(f"TUI error: {e}")
+
+
 def run_apex_tui(agent: Agent, ui: UI) -> None:
     """Run APEX OpenTUI - Better than OpenCode!"""
     tui_path = Path(__file__).parent.parent / "tui-frontend" / "index.ts"
@@ -691,6 +706,8 @@ def main() -> None:
         run_textual_tui(agent, ui)
     elif args.tui:
         run_apex_tui(agent, ui)
+    elif args.new_tui:
+        run_new_tui(agent, ui)
     elif args.prompt:
         run_one_shot(args.prompt, agent, ui, args.stream)
     else:

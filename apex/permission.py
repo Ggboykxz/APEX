@@ -182,3 +182,11 @@ def get_tool_permission(tool_name: str) -> str:
 
 
 permission_manager = PermissionManager()
+
+
+class PermissionRequestDenied(Exception):
+    def __init__(self, tool_name: str, permission: str, request_id: str):
+        self.tool_name = tool_name
+        self.permission = permission
+        self.request_id = request_id
+        super().__init__(f"Permission required for {tool_name}: {permission}")
