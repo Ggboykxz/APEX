@@ -31,7 +31,7 @@ COPY tui-frontend/ ./
 FROM python:3.12-slim AS final
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl git ca-certificates && \
+    apt-get install -y --no-install-recommends curl git ca-certificates unzip && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Bun for TUI
