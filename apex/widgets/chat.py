@@ -1,190 +1,179 @@
-"""ChatPane - Messages and tool cards."""
+"""ChatPane — OpenCode-style polished chat with inline tool cards."""
 
 import re
 from textual.widgets import Static, RichLog
 from textual.widget import Widget
+from textual.message import Message
 from datetime import datetime
 
-from .messages import AgentThinking, AgentToolCall, AgentToolResult, AgentResponse, AgentError
-
-
-class MessageBubble(Widget):
-    def __init__(self, role: str = "assistant", content: str = "", model: str = "", **kwargs):
-        super().__init__(**kwargs)
-        self.role = role
-        self.content = content
-        self.model = model
-
-    def compose(self):
-        timestamp = datetime.now().strftime("%H:%M")
-        role_class = "role-apex" if self.role == "assistant" else "role-user"
-
-        header = Static(
-            f"[{role_class}]{role_class}[/] {self.model} · {timestamp}",
-            classes="msg-header",
-        )
-        content = Static(self.content, classes="msg-content")
-
-        yield header
-        yield content
-
-    def update_content(self, content: str) -> None:
-        content_el = self.query_one(".msg-content", Static)
-        content_el.update(content)
+from .messages import AgentThinking, AgentToolCall, AgentToolResult, AgentResponse, AgentError, ClearChat
 
 
 class ToolCard(Widget):
-    def __init__(self, name: str = "", command: str = "", status: str = "pending", **kwargs):
+    """Inline tool card with status indicator."""
+
+    def __init__(self, name: str = "", args: str = "", status: str = "pending", duration: float = 0.0, **kwargs):
         super().__init__(**kwargs)
-        self.name = name
-        self.command = command
-        self.status = status
-        self.duration = 0.0
+        self.tool_name = name
+        self.tool_args = args
+        self.tool_status = status
+        self.tool_duration = duration
         self.output = ""
         self.expanded = False
 
     def compose(self):
-        status_icon = {"pending": "⚙", "running": "⚙", "success": "✓", "error": "✗"}
-        icon = status_icon.get(self.status, "?")
+        icons = {"pending": "○", "running": "⟳", "success": "✓", "error": "✗"}
+        icon = icons.get(self.tool_status, "?")
 
-        header = Static(
-            f"{icon} {self.name}" + (f" · {self.duration:.1f}s" if self.duration > 0 else ""),
-            classes="tool-header",
+        yield Static(
+            f"{icon} {self.tool_name}" + (f" · {self.tool_duration:.1f}s" if self.tool_duration > 0 else ""),
+            classes=f"tool-card-header",
         )
-        command_el = Static(f"$ {self.command}", classes="tool-command")
-        output_el = Static("", classes="tool-output")
-
-        yield header
-        yield command_el
-        yield output_el
+        if self.tool_args:
+            yield Static(self.tool_args, classes="tool-card-args")
 
     def update_status(self, status: str, duration: float = 0.0, output: str = "") -> None:
-        self.status = status
-        self.duration = duration
+        self.tool_status = status
+        self.tool_duration = duration
         self.output = output
         self.refresh()
 
-    def toggle_expand(self) -> None:
-        self.expanded = not self.expanded
-        output_el = self.query_one(".tool-output", Static)
-        if self.expanded:
-            output_el.update(self.output[:500] + ("..." if len(self.output) > 500 else ""))
-        else:
-            lines = self.output.split("\n")
-            if len(lines) > 5:
-                output_el.update("\n".join(lines[:5]) + f"\n... ({len(lines) - 5} more lines)")
-            else:
-                output_el.update(self.output)
-
 
 class ThinkingIndicator(Widget):
+    """Animated thinking indicator."""
+
     def compose(self):
         yield Static("⠋", classes="thinking-spinner")
-        yield Static("  Réflexion en cours...", classes="thinking-text")
-
-
-def format_code_blocks(text: str) -> str:
-    def escape_backticks(match):
-        return match.group(0).replace("`", "\\`")
-
-    code_block_pattern = r"```(\w*)\n([\s\S]*?)```"
-    text = re.sub(code_block_pattern, lambda m: f"\n```\n{m.group(2)}```\n", text)
-
-    text = text.replace("```", "\\```")
-
-    return text
+        yield Static(" Thinking...", classes="thinking-text")
 
 
 def highlight_syntax(code: str, language: str = "") -> str:
-    keywords = ["def", "class", "return", "if", "else", "elif", "for", "while", "try", "except", "finally", "import", "from", "as", "with", "async", "await", "raise", "pass", "break", "continue", "lambda", "yield", "True", "False", "None"]
-    strings = ["\"[^\"]*\"", "'[^']*'"]
-    comments = ["#.*$"]
-    numbers = r"\b\d+\b"
+    """Basic syntax highlighting for Rich markup."""
+    keywords = [
+        "def", "class", "return", "if", "else", "elif", "for", "while",
+        "try", "except", "finally", "import", "from", "as", "with",
+        "async", "await", "raise", "pass", "break", "continue",
+        "lambda", "yield", "True", "False", "None",
+        "function", "const", "let", "var", "type", "interface",
+    ]
 
     for kw in keywords:
         code = re.sub(rf"\b({kw})\b", r"[bold magenta]\1[/]", code, flags=re.MULTILINE)
 
-    for s in strings:
-        code = re.sub(s, r"[yellow]\0[/]", code)
+    # Strings (simple)
+    code = re.sub(r'"[^"]*"', r"[yellow]\0[/]", code)
+    code = re.sub(r"'[^']*'", r"[yellow]\0[/]", code)
 
-    code = re.sub(comments, r"[dim]\0[/]", code, flags=re.MULTILINE)
-    code = re.sub(numbers, r"[violet]\0[/]", code)
+    # Comments
+    code = re.sub(r"#.*$", r"[dim]\0[/]", code, flags=re.MULTILINE)
+    code = re.sub(r"//.*$", r"[dim]\0[/]", code, flags=re.MULTILINE)
+
+    # Numbers
+    code = re.sub(r"\b(\d+\.?\d*)\b", r"[violet]\1[/]", code)
 
     return code
 
 
 class ChatPane(Widget):
-    messages: list[Widget] = []
+    """OpenCode-style chat area with RichLog rendering."""
+
+    message_count = 0
 
     def compose(self):
-        yield RichLog(id="chat-scroll", markup=True)
+        yield RichLog(id="chat-scroll", markup=True, auto_scroll=True)
 
     def add_user_message(self, content: str) -> None:
+        """Add a user message (right-aligned, subtle)."""
         log = self.query_one("#chat-scroll", RichLog)
-        log.write(f"[cyan bold]›[/] [bold]{content}[/]")
+        timestamp = datetime.now().strftime("%H:%M")
+        self.message_count += 1
+
+        log.write(f"[bold]You[/] · {timestamp}")
+        log.write(f"[dim]│[/] {content}")
         log.write("")
 
     def add_ai_message(self, content: str, model: str = "") -> None:
+        """Add an AI message (left-aligned, accent border)."""
         log = self.query_one("#chat-scroll", RichLog)
         timestamp = datetime.now().strftime("%H:%M")
-        log.write(f"[bold cyan]APEX[/] {model} · {timestamp}")
+        self.message_count += 1
 
+        log.write(f"[bold cyan]APEX[/] {model} · {timestamp}")
         formatted = self._format_content(content)
         log.write(formatted)
         log.write("")
 
-    def _format_content(self, content: str) -> str:
-        code_block_pattern = r"```(\w*)\n?([\s\S]*?)```"
-        formatted_lines = []
+    def add_system_message(self, content: str) -> None:
+        """Add a system/notification message."""
+        log = self.query_one("#chat-scroll", RichLog)
 
-        for line in content.split("\n"):
-            formatted_lines.append(line)
-
-        content = "\n".join(formatted_lines)
-
-        def replace_code_block(m):
-            lang = m.group(1) or "text"
-            code = m.group(2).rstrip()
-            highlighted = highlight_syntax(code, lang)
-            return f"[dim]┌─ {lang} ─────────────────────────────────────────────┐[/]\n[white]{highlighted}[/]\n[dim]└───────────────────────────────────────────────────────┘[/]"
-
-        formatted = re.sub(code_block_pattern, replace_code_block, content)
-        return formatted
+        log.write(f"[bold green]◆[/] [dim]system[/]")
+        formatted = self._format_content(content)
+        log.write(formatted)
+        log.write("")
 
     def add_tool_call(self, name: str, args: dict, command: str = "") -> None:
+        """Add an inline tool call card."""
         log = self.query_one("#chat-scroll", RichLog)
-        args_str = ", ".join(f"[dim]{k}[/]=[white]{v}" for k, v in list(args.items())[:2])
-        log.write(f"[cyan]⚙[/] [bold magenta]{name}[/]([white]{args_str}[/])")
+        args_str = ", ".join(f"{k}={v}" for k, v in list(args.items())[:3])
+        if len(args) > 3:
+            args_str += ", ..."
+
+        log.write(f"  [cyan]⟳[/] [bold magenta]{name}[/]([dim]{args_str}[/])")
 
     def add_tool_result(self, name: str, result: str, success: bool, duration: float = 0.0) -> None:
+        """Add an inline tool result."""
         log = self.query_one("#chat-scroll", RichLog)
         color = "green" if success else "red"
         icon = "✓" if success else "✗"
 
         lines = result.split("\n")
-        if len(lines) > 5:
-            truncated = "\n".join(lines[:5])
-            truncated += f"\n[dim]... ({len(lines) - 5} more lines) [click to expand][/]"
+        if len(lines) > 8:
+            truncated = "\n".join(lines[:8])
+            truncated += f"\n  [dim]... {len(lines) - 8} more lines[/]"
         else:
-            truncated = result[:300] + ("..." if len(result) > 300 else "")
+            truncated = result[:500] + ("..." if len(result) > 500 else "")
 
-        log.write(f"[{color}]{icon}[/] [bold {color}]{name}[/] [dim]{duration:.1f}s[/]")
-        log.write(f"[dim]│[/] {truncated}")
+        log.write(f"  [{color}]{icon}[/] [bold {color}]{name}[/] [dim]{duration:.1f}s[/]")
+        for line in truncated.split("\n"):
+            log.write(f"  [dim]│[/] {line}")
 
     def add_thinking(self) -> None:
+        """Add thinking indicator."""
         log = self.query_one("#chat-scroll", RichLog)
-        log.write("[dim]⠋  Réflexion en cours...[/]")
+        log.write("[dim]  ⠋  Thinking...[/]")
 
     def remove_thinking(self) -> None:
+        """Remove thinking indicator (placeholder — RichLog doesn't support removal)."""
         pass
 
     def clear(self) -> None:
+        """Clear all messages."""
         log = self.query_one("#chat-scroll", RichLog)
         log.clear()
+        self.message_count = 0
 
     def scroll_end(self) -> None:
+        """Scroll to bottom."""
         log = self.query_one("#chat-scroll", RichLog)
         log.scroll_end()
+
+    def _format_content(self, content: str) -> str:
+        """Format message content with code block highlighting."""
+        code_block_pattern = r"```(\w*)\n?([\s\S]*?)```"
+
+        def replace_code_block(m):
+            lang = m.group(1) or "text"
+            code = m.group(2).rstrip()
+            highlighted = highlight_syntax(code, lang)
+            border_char = "─"
+            width = min(60, max(20, len(max(code.split("\n"), key=len))))
+            top = f"[dim]┌─ {lang} {'─' * (width - len(lang) - 4)}┐[/]"
+            bottom = f"[dim]└{'─' * width}┘[/]"
+            return f"{top}\n{highlighted}\n{bottom}"
+
+        formatted = re.sub(code_block_pattern, replace_code_block, content)
+        return formatted
 
     def on_message(self, message) -> None:
         from .messages import ClearChat
@@ -202,6 +191,7 @@ class ChatPane(Widget):
         elif isinstance(message, AgentError):
             self.remove_thinking()
             log = self.query_one("#chat-scroll", RichLog)
-            log.write(f"[red bold]Error:[/] {message.error}")
+            log.write(f"[bold red]Error:[/] {message.error}")
+            log.write("")
         elif isinstance(message, ClearChat):
             self.clear()

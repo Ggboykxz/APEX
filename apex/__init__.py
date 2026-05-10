@@ -3,39 +3,99 @@
 __version__ = "1.3.0"
 __author__ = "APEX Team"
 
+# Core config — always available (no heavy deps)
 from .config import MODELS, MODEL_PROVIDERS, Config, SYSTEM_PROMPT
-from .agent import Agent
-from .tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
-from .ui import UI
-from .session import SessionManager, UndoManager
-from .memory import Memory
-from .context import get_repo_map
-from .agents import agent_manager, AgentConfig, BUILTIN_AGENTS
-from .mcp import MCPManager, MCPClient, MCPServerConfig, mcp_manager, load_mcp_config
-from .context_manager import ContextWindow, ConversationManager, AutoSaveManager
-from .sandbox import CodeSandbox, ShellSession, sandbox
-from .plugins import PluginManager, PluginBase, plugin_manager, load_plugins_from_config
-from .telemetry import logger, perf_monitor, Logger, PerformanceMonitor
-from .config_tools import custom_tool_manager, CustomToolManager, load_custom_tools
-from .workspace import workspace_manager, WorkspaceManager, WorkspaceContext, GitContext
-from .lsp import LSPManager, get_lsp_manager
-from .commands import CommandManager, get_command_manager, PlanApproval
-from .project import ProjectInitializer, FileWatcher, get_project_initializer
-from .slash import SlashCommandManager, get_slash_command_manager
-from .mentions import MentionParser, get_mention_parser, get_file_completer
-from .skills import SkillManager, get_skill_manager, DiffTool, SearchReplace, CodeAnalyzer
-from .advanced import (
-    RetryHandler, BatchOperation, StreamingOutput, ToolTimeout,
-    ContextOptimizer, FileOperationCache, get_retry_handler, get_file_cache
-)
-from .extras import (
-    ShellExpander, EnvManager, TaskQueue, HistorySearch, WorkspaceValidator,
-    SecurityAuditor, get_env_manager, get_task_queue, get_history_search
-)
-from .codegen import (
-    CodeRefactorer, DatabaseManager, DockerManager, APIClientGenerator,
-    DocumentationGenerator, PerformanceProfiler
-)
+
+
+def __getattr__(name):
+    """Lazy-load heavy submodules only when accessed."""
+    _lazy_modules = {
+        "Agent": (".agent", "Agent"),
+        "ToolExecutor": (".tools", "ToolExecutor"),
+        "AsyncToolExecutor": (".tools", "AsyncToolExecutor"),
+        "TOOL_SCHEMAS": (".tools", "TOOL_SCHEMAS"),
+        "UI": (".ui", "UI"),
+        "SessionManager": (".session", "SessionManager"),
+        "UndoManager": (".session", "UndoManager"),
+        "Memory": (".memory", "Memory"),
+        "get_repo_map": (".context", "get_repo_map"),
+        "agent_manager": (".agents", "agent_manager"),
+        "AgentConfig": (".agents", "AgentConfig"),
+        "BUILTIN_AGENTS": (".agents", "BUILTIN_AGENTS"),
+        "MCPManager": (".mcp", "MCPManager"),
+        "MCPClient": (".mcp", "MCPClient"),
+        "MCPServerConfig": (".mcp", "MCPServerConfig"),
+        "mcp_manager": (".mcp", "mcp_manager"),
+        "load_mcp_config": (".mcp", "load_mcp_config"),
+        "ContextWindow": (".context_manager", "ContextWindow"),
+        "ConversationManager": (".context_manager", "ConversationManager"),
+        "AutoSaveManager": (".context_manager", "AutoSaveManager"),
+        "CodeSandbox": (".sandbox", "CodeSandbox"),
+        "ShellSession": (".sandbox", "ShellSession"),
+        "sandbox": (".sandbox", "sandbox"),
+        "PluginManager": (".plugins", "PluginManager"),
+        "PluginBase": (".plugins", "PluginBase"),
+        "plugin_manager": (".plugins", "plugin_manager"),
+        "load_plugins_from_config": (".plugins", "load_plugins_from_config"),
+        "logger": (".telemetry", "logger"),
+        "perf_monitor": (".telemetry", "perf_monitor"),
+        "Logger": (".telemetry", "Logger"),
+        "PerformanceMonitor": (".telemetry", "PerformanceMonitor"),
+        "custom_tool_manager": (".config_tools", "custom_tool_manager"),
+        "CustomToolManager": (".config_tools", "CustomToolManager"),
+        "load_custom_tools": (".config_tools", "load_custom_tools"),
+        "workspace_manager": (".workspace", "workspace_manager"),
+        "WorkspaceManager": (".workspace", "WorkspaceManager"),
+        "WorkspaceContext": (".workspace", "WorkspaceContext"),
+        "GitContext": (".workspace", "GitContext"),
+        "LSPManager": (".lsp", "LSPManager"),
+        "get_lsp_manager": (".lsp", "get_lsp_manager"),
+        "CommandManager": (".commands", "CommandManager"),
+        "get_command_manager": (".commands", "get_command_manager"),
+        "PlanApproval": (".commands", "PlanApproval"),
+        "ProjectInitializer": (".project", "ProjectInitializer"),
+        "FileWatcher": (".project", "FileWatcher"),
+        "get_project_initializer": (".project", "get_project_initializer"),
+        "SlashCommandManager": (".slash", "SlashCommandManager"),
+        "get_slash_command_manager": (".slash", "get_slash_command_manager"),
+        "MentionParser": (".mentions", "MentionParser"),
+        "get_mention_parser": (".mentions", "get_mention_parser"),
+        "get_file_completer": (".mentions", "get_file_completer"),
+        "SkillManager": (".skills", "SkillManager"),
+        "get_skill_manager": (".skills", "get_skill_manager"),
+        "DiffTool": (".skills", "DiffTool"),
+        "SearchReplace": (".skills", "SearchReplace"),
+        "CodeAnalyzer": (".skills", "CodeAnalyzer"),
+        "RetryHandler": (".advanced", "RetryHandler"),
+        "BatchOperation": (".advanced", "BatchOperation"),
+        "StreamingOutput": (".advanced", "StreamingOutput"),
+        "ToolTimeout": (".advanced", "ToolTimeout"),
+        "ContextOptimizer": (".advanced", "ContextOptimizer"),
+        "FileOperationCache": (".advanced", "FileOperationCache"),
+        "get_retry_handler": (".advanced", "get_retry_handler"),
+        "get_file_cache": (".advanced", "get_file_cache"),
+        "ShellExpander": (".extras", "ShellExpander"),
+        "EnvManager": (".extras", "EnvManager"),
+        "TaskQueue": (".extras", "TaskQueue"),
+        "HistorySearch": (".extras", "HistorySearch"),
+        "WorkspaceValidator": (".extras", "WorkspaceValidator"),
+        "SecurityAuditor": (".extras", "SecurityAuditor"),
+        "get_env_manager": (".extras", "get_env_manager"),
+        "get_task_queue": (".extras", "get_task_queue"),
+        "get_history_search": (".extras", "get_history_search"),
+        "CodeRefactorer": (".codegen", "CodeRefactorer"),
+        "DatabaseManager": (".codegen", "DatabaseManager"),
+        "DockerManager": (".codegen", "DockerManager"),
+        "APIClientGenerator": (".codegen", "APIClientGenerator"),
+        "DocumentationGenerator": (".codegen", "DocumentationGenerator"),
+        "PerformanceProfiler": (".codegen", "PerformanceProfiler"),
+    }
+    if name in _lazy_modules:
+        import importlib
+        module_path, attr = _lazy_modules[name]
+        module = importlib.import_module(module_path, __name__)
+        return getattr(module, attr)
+    raise AttributeError(f"module 'apex' has no attribute {name!r}")
 
 __all__ = [
     "MODELS",
