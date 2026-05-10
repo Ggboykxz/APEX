@@ -2,136 +2,73 @@
 
 All notable changes to APEX will be documented in this file.
 
-## [1.3.2] - 2026-05-10
+## [1.0.0] - 2026-05-10
 
-### OpenCode Architecture (Major)
+The first stable release of APEX — the universal AI coding agent. Every model, one terminal.
 
-- **Structured Message System (Parts)** — Messages with typed parts (text, file, tool_call, tool_result, image, snapshot)
-  - `structured_message.py` with MessagePart, Message, TokenUsage classes
-  - Serializable/deserializable for persistence
+### Core
 
-- **Snapshot System** — Git-based undo/redo with `snapshot.py`
-  - SnapshotManager with track/restore functionality
-  - ActionTypes: FILE_WRITE, FILE_EDIT, FILE_DELETE
-  - Diff computation between before/after states
+- **100+ LLM Models** via litellm — Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, Ollama (local), xAI, Qwen, and more
+- **5 Built-in Agents** — Coder, Architect, Reviewer, DevOps, Analyst — each with specialized system prompts and tool access
+- **75+ Tools** — File read/write/edit, code search, shell execution, git operations, web scraping, database queries, Docker, K8s, cloud management, and security auditing
+- **MCP (Model Context Protocol)** — Connect external tool servers dynamically with automatic capability discovery
+- **LSP (Language Server Protocol)** — Real-time diagnostics, completions, and code intelligence for 20+ languages
+- **Multi-Agent Orchestration** — Switch agents mid-session, route tasks to specialized agents, coordinate parallel workflows
+- **Session Persistence** — Save and resume coding sessions with full conversation history and context
+- **Auto-Commit** — Automatic git commits after successful task completion with descriptive messages
 
-- **Custom Commands System** — user: and project: commands
-  - `commands.py` with CommandManager
-  - Markdown-based command files
-  - Template variable expansion ({{variable}})
+### TUI (Terminal User Interface)
 
-- **Enhanced Event Bus** — 25+ typed events
-  - Session events (created, updated, deleted, share)
-  - File events (changed, created, deleted, saved)
-  - Tool events (called, executed, error, result)
-  - Permission events, LSP events, Undo/Redo events
-
-- **Session Sharing** — Base64 encoded shareable session links
-  - `apex://share/{id}` format
-  - Load shared sessions via ID
-
-### Documentation
-
-- Complete AGENTS.md rewrite with OpenCode architecture spec
-- Table of contents with 16 sections
-- Build/Plan agents, Event Bus, Parts system, Permissions, Snapshots
-
----
-
-## [1.3.1] - 2026-05-10
-
-### TUI Architecture (Major)
-
-- **OpenTUI-like System** — Complete TUI framework mirroring OpenCode's architecture
-  - Routes: HomeRoute, SessionRoute, PluginRoute
-  - Components: Dialog, Toast, ToastManager, StatusBar, CommandPalette
-  - Contexts: ThemeContext, RouteContext, EventBus
-  - KeymapManager with layered keybindings and leader key support
-  - Plugin system with hooks (on_tui_ready, on_tui_exit, on_route_change)
-
-- **6 Built-in Themes** — opencode, dracula, nord, tokyonight, gruvbox, github
-  - JSON theme files for easy customization
-  - ThemeManager with built-in + custom theme loading
-
-- **New TUI Launch** — `apex --new-tui` for OpenTUI-like experience
-  - Route-based navigation (HOME, SESSION, PLUGIN)
-  - Event-driven architecture (on/once/off/emit)
-  - Status bar with mode indicators
+- **OpenTUI + React** — Modern terminal UI built on the OpenTUI framework with React components
+- **5-Panel Layout** — Agent selector, sidebar (file tree + tools), chat area, model selector overlay, help panel
+- **Keyboard-Driven** — Tab to switch agents, Ctrl+K model selector, Ctrl+O sidebar, Ctrl+T tools, ? for help, Ctrl+Q quit
+- **Real-Time MCP/LSP Status** — Live server connection monitoring in sidebar
+- **Visual Charter** — Dark (#0d1117), Cyan (#00e5ff), Green (#00ff88)
 
 ### Security
 
-- Full security integration in agent.py and tools.py
-- Shell security protection for dangerous commands
-- Permission system with ASK/DENY/ALLOW flow
-- Rate limiting with workspace-based API keys
+- **Shell Command Analysis** — Dangerous commands (rm -rf /, curl | sh, fork bombs) automatically blocked before execution
+- **Permission System** — Ruleset-based ALLOW/DENY/ASK flow for tool execution with wildcard pattern matching
+- **Rate Limiting** — Database-backed request throttling (memory or SQLite) with per-minute/hour/day limits
+- **API Key Management** — Workspace-based authentication with secure SHA-256 hashing, expiration, and rate limits
+- **HTTP API** — Headless agent access with Bearer token or X-API-Key authentication, per-endpoint rate limiting
+- **Billing System** — Cost tracking and quota management with model-specific pricing
 
----
+### Architecture
 
-## [1.4.0] - 2026-05-09
+- **Structured Message System** — Messages with typed parts (text, file, tool_call, tool_result, image, snapshot)
+- **Snapshot System** — Git-based undo/redo with diff computation between before/after states
+- **Event Bus** — 25+ typed events for session, file, tool, permission, LSP, and undo/redo operations
+- **Plugin System** — Extensible plugin architecture with hooks and custom tool registration
+- **Skills System** — Reusable prompt templates with diff application, search-replace, and code analysis
+- **Custom Commands** — User and project-level slash commands with template variable expansion
+- **Session Sharing** — Base64-encoded shareable session links in `apex://share/{id}` format
 
-### Security (Major)
+### Installation
 
-- **Shell Command Analysis** — Dangerous commands automatically blocked
-  - Pattern detection for `rm -rf /`, fork bombs, download-and-execute
-  - Command classification by category (file, network, system, etc.)
-  - Configurable allowlist/blocklist
+- **pip** — `pip install apex-agent`
+- **pipx** — `pipx install apex-agent` (isolated environment)
+- **uv** — `uv tool install apex-agent` (fastest)
+- **Docker** — `docker run -it ghcr.io/ggboykxz/apex`
+- **curl install script** — `curl -fsSL https://apex-agent.dev/install.sh | bash` (macOS/Linux)
+- **PowerShell install** — `irm https://apex-agent.dev/install.ps1 | iex` (Windows)
+- **Homebrew** — `brew install apex-agent` (macOS)
+- **From source** — `git clone && pip install -e ".[dev]"`
+- **DevContainer** — Pre-configured `.devcontainer.json` for GitHub Codespaces
 
-- **Permission System** — Ruleset-based tool access control
-  - `ALLOW`, `DENY`, `ASK` actions
-  - Wildcard pattern matching
-  - Request/approve flow for interactive confirmation
-  - Remember decisions with expiration
+### CI/CD
 
-- **Rate Limiting** — Database-backed request throttling
-  - Memory or SQLite storage backends
-  - Configurable limits (per minute/hour/day)
-  - Per-key rate limiting for API
-
-- **API Key Management** — Workspace-based authentication
-  - Secure key generation with SHA-256 hashing
-  - Expiration and rate limits per key
-  - Workspace isolation
-
-- **Billing System** — Cost tracking and quota management
-  - Model-specific pricing (Claude, GPT-4, Gemini, etc.)
-  - Usage history and summaries
-  - Plan management (Free/Pro/Enterprise)
-
-- **HTTP API Security** — Secure headless agent access
-  - Bearer token or X-API-Key authentication
-  - Rate limiting per endpoint
-  - Automatic cost tracking
-  - Shell security integration
-
-### Documentation
-
-- Enhanced SECURITY.md with full API documentation
-- Security section in README.md
-- Security API reference in docs/api.md
-- Updated docs/index.md with security features
-
-### Added
-- **100+ Model Support** via litellm integration
-- **Multi-Agent System** with Build, Plan, Explore, General agents
-- **75+ Tools** including file ops, git, web, sandbox, MCP, LSP
-- **Plugin System** for extensibility
-- **Skills System** for reusable prompt templates
-- **Session Sharing** via link for collaboration
-- **Command Palette** (Ctrl+K)
-- **Auto-completion** for files, commands, agents, models
-- **Rich Terminal UI** with Textual 8
-- **Session persistence** with save/load
-- **Token cost tracking** live
-- **Slash commands** (20+)
-- **@Mentions** for file/agent context
+- **CI** — Python 3.11/3.12 lint (ruff), type check (mypy), test (pytest) on every push/PR
+- **TUI** — TypeScript check + build for `tui-frontend/` on every push/PR
+- **Website** — Next.js ESLint + build + Vercel deploy on main
+- **Release** — PyPI publish + Docker build/push + GitHub Release on tag `v*`
+- **Security** — CodeQL, pip-audit, npm-audit, Bandit, TruffleHog scans
+- **Docs** — MkDocs Material build + deploy to GitHub Pages
+- **PR Checks** — Conventional commits, size labels, changed path detection
 
 ### Infrastructure
-- **README.md** with 14 installation methods, comparison table, badges
-- **pyproject.toml** with SEO keywords for PyPI
-- **mkdocs.yml** with Material theme, dark cyan mode
-- **GitHub Actions** CI/CD (CI, release, docs workflows)
-- **GitHub Sponsors** configuration
 
----
-
-*Built with ❤️ in Gabon 🇬🇦 for the world.*
+- **Dockerfile** — Multi-stage build (Python backend + Bun/TUI + final image) with health check
+- **Caddyfile** — Reverse proxy configuration for production deployment
+- **mkdocs.yml** — Documentation site with Material theme
+- **Comprehensive .gitignore** — Python, Node, IDE, OS, build artifacts

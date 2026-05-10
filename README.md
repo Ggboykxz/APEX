@@ -7,15 +7,13 @@
 [![PyPI version](https://img.shields.io/pypi/v/apex-agent?color=00e5ff&style=flat-square)](https://pypi.org/project/apex-agent)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-00e5ff?style=flat-square)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-00ff88?style=flat-square)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-00e5ff?style=flat-square)](https://github.com/Ggboykxz/APEX/pkgs/container/apex)
 [![Stars](https://img.shields.io/github/stars/Ggboykxz/APEX?color=ffaa00&style=flat-square)](https://github.com/Ggboykxz/APEX/stargazers)
-[![Tests](https://img.shields.io/badge/tests-1125%20passing-00ff88?style=flat-square)](https://github.com/Ggboykxz/APEX/actions)
-[![Security](https://img.shields.io/badge/security-comprehensive-ff6b6b?style=flat-square)](SECURITY.md)
 
 <br/>
 
-[**Install**](#installation) ·
+[**Install**](#-installation) ·
 [**Docs**](https://apex-agent.dev/docs) ·
-[**Demo**](#demo) ·
 [**Security**](#-security) ·
 [**Models**](#-supported-models) ·
 [**Sponsor**](#-sponsors)
@@ -43,7 +41,7 @@
 | Live token cost tracker | ✅ | ❌ | ❌ | ✅ |
 | Session persistence | ✅ | ❌ | ✅ | ❌ |
 | **Shell security** | ✅ | ❌ | ❌ | ❌ |
-| **OpenTUI-like TUI** | ✅ | ❌ | ❌ | ❌ |
+| **OpenTUI + React TUI** | ✅ | ❌ | ❌ | ❌ |
 | **6 themes** (dracula, nord, etc.) | ✅ | ❌ | ❌ | ❌ |
 | **Permission system** | ✅ | ❌ | ❌ | ❌ |
 | **Rate limiting** | ✅ | ❌ | ❌ | ❌ |
@@ -59,6 +57,9 @@ APEX features a modern terminal UI built with [OpenTUI](https://github.com/anoma
 
 ```bash
 # Launch the TUI
+apex --tui
+
+# Or via npm
 bun run tui
 
 # Or directly
@@ -152,92 +153,41 @@ See [SECURITY.md](SECURITY.md) for full documentation.
 
 ---
 
-## 🎬 Demo
-
-<div align="center">
-
-![APEX Demo](https://apex-agent.dev/demo.gif)
-
-*APEX fixing a bug using Claude Sonnet, then switching to GPT-4o mid-session*
-
-</div>
-
----
-
 ## ⚡ Installation
 
 ### One-line install (recommended)
 
-=== "macOS / Linux"
-    ```bash
-    curl -fsSL https://apex-agent.dev/install.sh | bash
-    ```
+**macOS / Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh | bash
+```
 
-=== "Windows (PowerShell)"
-    ```powershell
-    irm https://apex-agent.dev/install.ps1 | iex
-    ```
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.ps1 | iex
+```
 
-=== "pipx (isolated)"
-    ```bash
-    pipx install apex-agent
-    ```
+### Package managers
 
-=== "pip"
-    ```bash
-    pip install apex-agent
-    ```
+| Method | Command |
+|--------|---------|
+| **uv** (fastest) | `uv tool install apex-agent` |
+| **pipx** (isolated) | `pipx install apex-agent` |
+| **pip** | `pip install apex-agent` |
+| **Homebrew** | `brew install apex-agent` |
+| **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` |
 
-=== "uv (fastest)"
-    ```bash
-    uv tool install apex-agent
-    ```
+### From source
 
-=== "Homebrew"
-    ```bash
-    brew install apex-agent
-    ```
+```bash
+git clone https://github.com/Ggboykxz/APEX
+cd APEX
+pip install -e ".[dev]"
+```
 
-=== "conda"
-    ```bash
-    conda install -c conda-forge apex-agent
-    ```
+### GitHub Codespaces
 
-=== "winget"
-    ```bash
-    winget install apex-agent
-    ```
-
-=== "Scoop"
-    ```bash
-    scoop install apex-agent
-    ```
-
-=== "nix"
-    ```bash
-    nix-env -iA nixpkgs.apex-agent
-    ```
-
-=== "Docker"
-    ```bash
-    docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex
-    ```
-
-=== "From source"
-    ```bash
-    git clone https://github.com/Ggboykxz/APEX
-    cd APEX
-    pip install -e ".[dev]"
-    ```
-
-=== "Termux (Android)"
-    ```bash
-    pkg update && pkg install python
-    pip install apex-agent
-    ```
-
-=== "GitHub Codespaces"
-    APEX is pre-configured in `.devcontainer.json` — just open in Codespaces!
+APEX is pre-configured in `.devcontainer.json` — just open the repo in Codespaces!
 
 ---
 
@@ -258,9 +208,10 @@ apex
 
 Switch models anytime:
 ```bash
-apex --model gpt-4o       # Start with GPT-4o
-apex --model gemini-2     # Start with Gemini 2
+apex --model gpt-4o        # Start with GPT-4o
+apex --model gemini-2      # Start with Gemini 2
 apex --model ollama-llama3 # Local, no API key needed
+apex --tui                 # Launch with Terminal UI
 ```
 
 ---

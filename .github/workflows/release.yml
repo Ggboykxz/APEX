@@ -105,6 +105,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Extract version (strip v prefix)
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -117,16 +121,55 @@ jobs:
           generate_release_notes: true
           files: dist/*
           body: |
-            ## APEX ${{ github.ref_name }}
+            ## APEX v1.0.0 — First Stable Release
+
+            The universal AI coding agent. Every model. One terminal.
+
+            ### What's New
+            - **100+ LLM Models** — Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, Ollama, and more
+            - **5 Agents** — Coder, Architect, Reviewer, DevOps, Analyst
+            - **75+ Tools** — File, Code, Shell, Git, Web, Database, Docker, K8s, Cloud, Security
+            - **OpenTUI + React TUI** — Modern terminal UI with keyboard-driven interface
+            - **MCP/LSP** — External tool servers and language server protocol support
+            - **Security** — Shell analysis, permissions, rate limiting, API key management
 
             ### Installation
+
             ```bash
-            pip install apex-agent==${{ github.ref_name }}
+            # pip (recommended)
+            pip install apex-agent==${{ steps.version.outputs.VERSION }}
+
+            # pipx (isolated)
+            pipx install apex-agent==${{ steps.version.outputs.VERSION }}
+
+            # uv (fastest)
+            uv tool install apex-agent==${{ steps.version.outputs.VERSION }}
+
+            # One-line install (macOS/Linux)
+            curl -fsSL https://apex-agent.dev/install.sh | bash
+
+            # PowerShell (Windows)
+            irm https://apex-agent.dev/install.ps1 | iex
             ```
 
             ### Docker
+
             ```bash
-            docker pull ghcr.io/ggboykxz/apex:${{ github.ref_name }}
+            docker pull ghcr.io/ggboykxz/apex:${{ steps.version.outputs.VERSION }}
+            docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex
             ```
+
+            ### Quick Start
+
+            ```bash
+            export ANTHROPIC_API_KEY=sk-ant-...
+            apex                          # Interactive mode
+            apex --tui                    # Terminal UI
+            apex --model gpt-4o           # Start with GPT-4o
+            apex --model ollama-llama3    # Local, no API key
+            ```
+
+            ### Full Changelog
+            See [CHANGELOG.md](https://github.com/Ggboykxz/APEX/blob/main/CHANGELOG.md)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
