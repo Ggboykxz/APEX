@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * APEX TUI - AI-Powered Engineering eXtended
- * Terminal User Interface built with OpenTUI + React
+ * OpenTUI + React Terminal Interface
  *
  * Usage: bun run src/App.tsx
  */

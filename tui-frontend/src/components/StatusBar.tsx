@@ -1,8 +1,3 @@
-/**
- * APEX Status Bar Component
- * Bottom status bar showing model, tokens, keybindings
- */
-
 import { TextAttributes } from "@opentui/core"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_AGENTS, APEX_MODELS } from "../data/apex-data.js"
@@ -15,13 +10,7 @@ interface StatusBarProps {
   sessionDuration: string
 }
 
-export function StatusBar({
-  activeAgent,
-  activeModel,
-  totalTokens,
-  messageCount,
-  sessionDuration,
-}: StatusBarProps) {
+export function StatusBar({ activeAgent, activeModel, totalTokens, messageCount, sessionDuration }: StatusBarProps) {
   const agent = APEX_AGENTS.find((a) => a.id === activeAgent)
   const model = APEX_MODELS.find((m) => m.id === activeModel)
 
@@ -37,7 +26,6 @@ export function StatusBar({
         paddingRight: 1,
       }}
     >
-      {/* Left - agent & model */}
       <text>
         <span style={{ fg: agent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>
           {agent?.name ?? "APEX"}
@@ -46,7 +34,6 @@ export function StatusBar({
         <span style={{ fg: apexTheme.textDim }}>{model?.name ?? "No Model"}</span>
       </text>
 
-      {/* Center - stats */}
       <text>
         <span style={{ fg: apexTheme.textMuted }}>Msgs:</span>
         <span style={{ fg: apexTheme.text }}> {messageCount} </span>
@@ -55,7 +42,6 @@ export function StatusBar({
         <span style={{ fg: apexTheme.textDim }}>{sessionDuration}</span>
       </text>
 
-      {/* Right - keybindings */}
       <text>
         <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>Ctrl+K</span>
         <span style={{ fg: apexTheme.textMuted }}> Model </span>

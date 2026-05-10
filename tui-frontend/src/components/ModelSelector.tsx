@@ -1,8 +1,3 @@
-/**
- * APEX Model Selector Component
- * Modal overlay for selecting AI models
- */
-
 import { TextAttributes } from "@opentui/core"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_MODELS, type ApexModel } from "../data/apex-data.js"
@@ -32,13 +27,7 @@ function ModelItem({ model, active, onSelect }: { model: ApexModel; active: bool
 
   return (
     <box
-      style={{
-        width: "100%",
-        height: 1,
-        paddingLeft: 1,
-        paddingRight: 1,
-        backgroundColor: active ? apexTheme.selectionBg : "transparent",
-      }}
+      style={{ width: "100%", height: 1, paddingLeft: 1, paddingRight: 1, backgroundColor: active ? apexTheme.selectionBg : "transparent" }}
       onMouseDown={onSelect}
     >
       <text>
@@ -86,7 +75,6 @@ export function ModelSelector({ visible, searchQuery, onSearchChange, onSelect, 
         zIndex: 100,
       }}
     >
-      {/* Header */}
       <box style={{ height: 1, paddingLeft: 1, backgroundColor: apexTheme.bgOverlay }}>
         <text>
           <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>Select Model</span>
@@ -94,7 +82,6 @@ export function ModelSelector({ visible, searchQuery, onSearchChange, onSelect, 
         </text>
       </box>
 
-      {/* Search input */}
       <box style={{ height: 3, border: true, borderColor: apexTheme.border, borderStyle: "single" }}>
         <input
           id="apex-model-search"
@@ -102,36 +89,17 @@ export function ModelSelector({ visible, searchQuery, onSearchChange, onSelect, 
           value={searchQuery}
           onInput={onSearchChange}
           focused
-          style={{
-            focusedBackgroundColor: apexTheme.bgSurfaceBright,
-          }}
+          style={{ focusedBackgroundColor: apexTheme.bgSurfaceBright }}
         />
       </box>
 
-      {/* Model list */}
-      <scrollbox
-        style={{
-          flexGrow: 1,
-          rootOptions: { backgroundColor: apexTheme.bgSurface },
-          contentOptions: { backgroundColor: apexTheme.bgSurface },
-          scrollbarOptions: {
-            showArrows: false,
-            trackOptions: {
-              foregroundColor: apexTheme.cyan,
-              backgroundColor: apexTheme.scrollbarTrack,
-            },
-          },
-        }}
-      >
+      <scrollbox style={{ flexGrow: 1, rootOptions: { backgroundColor: apexTheme.bgSurface }, contentOptions: { backgroundColor: apexTheme.bgSurface }, scrollbarOptions: { showArrows: false, trackOptions: { foregroundColor: apexTheme.cyan, backgroundColor: apexTheme.scrollbarTrack } } }}>
         {filteredModels.map((model) => (
           <ModelItem
             key={model.id}
             model={model}
             active={model.id === activeModel}
-            onSelect={() => {
-              onSelect(model.id)
-              onClose()
-            }}
+            onSelect={() => { onSelect(model.id); onClose() }}
           />
         ))}
         {filteredModels.length === 0 ? (
@@ -141,12 +109,9 @@ export function ModelSelector({ visible, searchQuery, onSearchChange, onSelect, 
         ) : null}
       </scrollbox>
 
-      {/* Footer hint */}
       <box style={{ height: 1, paddingLeft: 1, backgroundColor: apexTheme.bgOverlay }}>
         <text>
           <span style={{ fg: apexTheme.textMuted }}>{filteredModels.length} models | </span>
-          <span style={{ fg: apexTheme.cyan }}>Enter</span>
-          <span style={{ fg: apexTheme.textMuted }}> Select </span>
           <span style={{ fg: apexTheme.cyan }}>Esc</span>
           <span style={{ fg: apexTheme.textMuted }}> Close</span>
         </text>

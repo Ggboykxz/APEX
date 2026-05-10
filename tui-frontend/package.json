@@ -1,7 +1,7 @@
 {
   "name": "apex-tui",
-  "version": "2.0.0",
-  "description": "APEX Terminal User Interface - AI-Powered Engineering eXtended",
+  "version": "1.0.0",
+  "description": "APEX Terminal User Interface - OpenTUI + React",
   "module": "src/App.tsx",
   "type": "module",
   "private": true,
