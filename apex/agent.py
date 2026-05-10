@@ -37,7 +37,7 @@ class Agent:
         self._usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         self._pending_permissions: dict[str, dict] = {}
 
-        self._current_agent = "build"
+        self._current_agent = "coder"
         self._set_agent_system_prompt()
         permission_manager.initialize()
 

@@ -197,7 +197,7 @@ class SlashCommandManager:
             return f"ERROR: {e}"
 
     def _cmd_agent(self, args: list[str], context: dict) -> str:
-        agent_name = args[0] if args else "build"
+        agent_name = args[0] if args else "coder"
         return f"[SWITCH AGENT] {agent_name}"
 
     def _cmd_model(self, args: list[str], context: dict) -> str:

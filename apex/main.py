@@ -264,26 +264,16 @@ def handle_command(command: str, agent: Agent, ui: UI, config: Config | None = N
                 ui.print_error(f"Unknown agent: {arg}. Use /agent to list available agents.")
             return True
 
-        case "/yolo":
-            from .agents import agent_manager
-            if "yolo" in agent_manager.agents:
-                agent.switch_agent("yolo")
-                config.agent_mode = "yolo"
-                ui.print_success("YOLO mode enabled - auto-approved execution")
-            else:
-                ui.print_error("YOLO agent not available")
-            return True
-
-        case "/plan":
-            agent.switch_agent("plan")
-            config.agent_mode = "plan"
-            ui.print_success("Plan mode enabled - read-only")
-            return True
-
-        case "/build":
-            agent.switch_agent("build")
+        case "/coder":
+            agent.switch_agent("coder")
             config.agent_mode = "agent"
-            ui.print_success("Build mode enabled - interactive with approval")
+            ui.print_success("Coder mode enabled — interactive with approval")
+            return True
+
+        case "/architect":
+            agent.switch_agent("architect")
+            config.agent_mode = "plan"
+            ui.print_success("Architect mode enabled — read-only")
             return True
 
         case "/restore":
@@ -504,7 +494,7 @@ async def run_repl_streaming(agent: Agent, ui: UI) -> None:
     )
 
     ui.show_banner(agent.model, str(agent.cwd), agent.current_agent)
-    ui.print_info("Type /help for available commands. Press Tab to cycle agents, Ctrl+C to exit.\n")
+    ui.print_info("Type a prompt or /help for commands\n")
 
     while True:
         try:
@@ -558,7 +548,7 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
     )
 
     ui.show_banner(agent.model, str(agent.cwd), agent.current_agent)
-    ui.print_info("Type /help for available commands. Press Tab to cycle agents, Ctrl+C to exit.\n")
+    ui.print_info("Type a prompt or /help for commands\n")
 
     while True:
         try:
