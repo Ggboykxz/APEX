@@ -4,7 +4,7 @@
 
 **The universal AI coding agent. Every model. One terminal.**
 
-[![PyPI version](https://img.shields.io/pypi/v/apex-agent?color=00e5ff&style=flat-square)](https://pypi.org/project/apex-agent)
+[![PyPI version](https://img.shields.io/pypi/v/apex-ai?color=00e5ff&style=flat-square)](https://pypi.org/project/apex-ai)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-00e5ff?style=flat-square)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-00ff88?style=flat-square)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-00e5ff?style=flat-square)](https://github.com/Ggboykxz/APEX/pkgs/container/apex)
@@ -13,7 +13,7 @@
 <br/>
 
 [**Install**](#-installation) ·
-[**Docs**](https://apex-agent.dev/docs) ·
+[**Docs**](https://apex-ai.dev/docs) ·
 [**Security**](#-security) ·
 [**Models**](#-supported-models) ·
 [**Sponsor**](#-sponsors)
@@ -171,10 +171,10 @@ irm https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.ps1 | iex
 
 | Method | Command |
 |--------|---------|
-| **uv** (fastest) | `uv tool install apex-agent` |
-| **pipx** (isolated) | `pipx install apex-agent` |
-| **pip** | `pip install apex-agent` |
-| **Homebrew** | `brew install apex-agent` |
+| **uv** (fastest) | `uv tool install apex-ai` |
+| **pipx** (isolated) | `pipx install apex-ai` |
+| **pip** | `pip install apex-ai` |
+| **Homebrew** | `brew install apex-ai` |
 | **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` |
 
 ### From source

@@ -58,9 +58,9 @@ function Uninstall-Apex {
     Write-Host "$MUTED Removing APEX...$NC"
     $apexCmd = Get-Command apex -ErrorAction SilentlyContinue
     if ($apexCmd) {
-        pip uninstall -y apex-agent 2>$null
-        pipx uninstall apex-agent 2>$null
-        uv tool uninstall apex-agent 2>$null
+        pip uninstall -y apex-ai 2>$null
+        pipx uninstall apex-ai 2>$null
+        uv tool uninstall apex-ai 2>$null
     }
     Remove-Item -Force "$env:USERPROFILE\.local\bin\apex.exe" -ErrorAction SilentlyContinue
     Write-Host "$GREEN APEX removed successfully!$NC"
@@ -72,9 +72,9 @@ function Install-With-Uv {
 
     Write-Host "$MUTED Installing with uv (fastest)...$NC"
     if ($version) {
-        uv tool install "apex-agent==$version"
+        uv tool install "apex-ai==$version"
     } else {
-        uv tool install apex-agent
+        uv tool install apex-ai
     }
     return $true
 }
@@ -85,9 +85,9 @@ function Install-With-Pipx {
 
     Write-Host "$MUTED Installing with pipx...$NC"
     if ($version) {
-        pipx install "apex-agent==$version"
+        pipx install "apex-ai==$version"
     } else {
-        pipx install apex-agent
+        pipx install apex-ai
     }
     return $true
 }
@@ -101,9 +101,9 @@ function Install-With-Pip {
 
     Write-Host "$MUTED Installing with pip...$NC"
     if ($version) {
-        pip install "apex-agent==$version" --user
+        pip install "apex-ai==$version" --user
     } else {
-        pip install apex-agent --user
+        pip install apex-ai --user
     }
     return $true
 }
@@ -164,9 +164,9 @@ if (-not $success) {
     Write-Host ""
     Write-Host "$RED Installation failed!$NC"
     Write-Host "$MUTED Try one of:$NC"
-    Write-Host "  pip install apex-agent"
-    Write-Host "  pipx install apex-agent"
-    Write-Host "  uv tool install apex-agent"
+    Write-Host "  pip install apex-ai"
+    Write-Host "  pipx install apex-ai"
+    Write-Host "  uv tool install apex-ai"
     Write-Host "  docker run -it ghcr.io/ggboykxz/apex"
     exit 1
 }

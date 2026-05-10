@@ -137,19 +137,19 @@ jobs:
 
             ```bash
             # pip (recommended)
-            pip install apex-agent==${{ steps.version.outputs.VERSION }}
+            pip install apex-ai==${{ steps.version.outputs.VERSION }}
 
             # pipx (isolated)
-            pipx install apex-agent==${{ steps.version.outputs.VERSION }}
+            pipx install apex-ai==${{ steps.version.outputs.VERSION }}
 
             # uv (fastest)
-            uv tool install apex-agent==${{ steps.version.outputs.VERSION }}
+            uv tool install apex-ai==${{ steps.version.outputs.VERSION }}
 
             # One-line install (macOS/Linux)
-            curl -fsSL https://apex-agent.dev/install.sh | bash
+            curl -fsSL https://apex-ai.dev/install.sh | bash
 
             # PowerShell (Windows)
-            irm https://apex-agent.dev/install.ps1 | iex
+            irm https://apex-ai.dev/install.ps1 | iex
             ```
 
             ### Docker

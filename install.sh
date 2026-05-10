@@ -52,9 +52,9 @@ EOF
 uninstall() {
     echo -e "${MUTED}Removing APEX...${NC}"
     rm -f "$HOME/.local/bin/apex" 2>/dev/null || true
-    command -v pipx &>/dev/null && pipx uninstall apex-agent 2>/dev/null || true
-    command -v pip3 &>/dev/null && pip3 uninstall -y apex-agent 2>/dev/null || true
-    command -v uv &>/dev/null && uv tool uninstall apex-agent 2>/dev/null || true
+    command -v pipx &>/dev/null && pipx uninstall apex-ai 2>/dev/null || true
+    command -v pip3 &>/dev/null && pip3 uninstall -y apex-ai 2>/dev/null || true
+    command -v uv &>/dev/null && uv tool uninstall apex-ai 2>/dev/null || true
     echo -e "${GREEN}APEX removed successfully!${NC}"
 }
 
@@ -62,9 +62,9 @@ install_with_uv() {
     if command -v uv &>/dev/null; then
         echo -e "${MUTED}Installing with uv (fastest)...${NC}"
         if [ -n "$version" ]; then
-            uv tool install "apex-agent==$version"
+            uv tool install "apex-ai==$version"
         else
-            uv tool install apex-agent
+            uv tool install apex-ai
         fi
         return 0
     fi
@@ -75,9 +75,9 @@ install_with_pipx() {
     if command -v pipx &>/dev/null; then
         echo -e "${MUTED}Installing with pipx...${NC}"
         if [ -n "$version" ]; then
-            pipx install "apex-agent==$version"
+            pipx install "apex-ai==$version"
         else
-            pipx install apex-agent
+            pipx install apex-ai
         fi
         return 0
     fi
@@ -102,11 +102,11 @@ install_with_pip() {
     fi
 
     if [ -n "$version" ]; then
-        $pip_cmd install "apex-agent==$version" --break-system-packages 2>/dev/null || \
-        $pip_cmd install "apex-agent==$version" --user 2>/dev/null
+        $pip_cmd install "apex-ai==$version" --break-system-packages 2>/dev/null || \
+        $pip_cmd install "apex-ai==$version" --user 2>/dev/null
     else
-        $pip_cmd install apex-agent --break-system-packages 2>/dev/null || \
-        $pip_cmd install apex-agent --user 2>/dev/null
+        $pip_cmd install apex-ai --break-system-packages 2>/dev/null || \
+        $pip_cmd install apex-ai --user 2>/dev/null
     fi
 }
 
@@ -180,9 +180,9 @@ main() {
         echo ""
         echo -e "${RED}Installation failed!${NC}"
         echo -e "${MUTED}Try one of:${NC}"
-        echo "  pip install apex-agent"
-        echo "  pipx install apex-agent"
-        echo "  uv tool install apex-agent"
+        echo "  pip install apex-ai"
+        echo "  pipx install apex-ai"
+        echo "  uv tool install apex-ai"
         echo "  docker run -it ghcr.io/ggboykxz/apex"
         exit 1
     fi
