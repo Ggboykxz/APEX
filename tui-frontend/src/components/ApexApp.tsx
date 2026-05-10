@@ -41,7 +41,7 @@ export function ApexApp() {
   const [totalTokens, setTotalTokens] = useState(0)
   const [sessionStart] = useState(Date.now())
   const [connectionError, setConnectionError] = useState<string | null>(null)
-  const [streamingContent, setStreamingContent] = useState<string>("")
+  const [, setStreamingContent] = useState<string>("")
 
   const agent = useMemo(() => APEX_AGENTS.find((a) => a.id === activeAgent) ?? APEX_AGENTS[0]!, [activeAgent])
   const model = useMemo(() => APEX_MODELS.find((m) => m.id === activeModel), [activeModel])
