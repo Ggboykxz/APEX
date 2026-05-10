@@ -6,7 +6,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/apex-ai?color=00e5ff&style=flat-square)](https://pypi.org/project/apex-ai)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-00e5ff?style=flat-square)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/license-MIT-00ff88?style=flat-square)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/license-proprietary-ff4444?style=flat-square)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-00e5ff?style=flat-square)](https://github.com/Ggboykxz/APEX/pkgs/container/apex)
 [![Stars](https://img.shields.io/github/stars/Ggboykxz/APEX?color=ffaa00&style=flat-square)](https://github.com/Ggboykxz/APEX/stargazers)
 
@@ -375,7 +375,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
-MIT — built with ❤️ in Gabon 🇬🇦 by [@Ggboykxz](https://github.com/Ggboykxz)
+**Proprietary** — All rights reserved by Ggboykxz.
+
+See [LICENSE](LICENSE) for full terms. This software is **not open source** — plagiarism, repackaging, or claiming APEX code as your own is prohibited and may constitute copyright infringement.
 
 ---
 
