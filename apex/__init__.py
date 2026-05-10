@@ -1,6 +1,6 @@
 """APEX - The last coding agent you'll ever need."""
 
-__version__ = "1.3.0"
+__version__ = "1.0.0"
 __author__ = "APEX Team"
 
 # Core config — always available (no heavy deps)

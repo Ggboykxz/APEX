@@ -1,5 +1,5 @@
 # ============================================
-# APEX - Multi-stage Docker Image
+# APEX v1.0.0 — Multi-stage Docker Image
 # Universal AI coding agent. Every model. One terminal.
 # ============================================
 
@@ -12,7 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md MANIFEST.in ./
 COPY apex/ apex/
 
 RUN pip install --no-cache-dir .
@@ -31,40 +31,36 @@ COPY tui-frontend/ ./
 FROM python:3.12-slim AS final
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl git && \
-    curl -fsSL https://bun.sh/install | bash && \
+    apt-get install -y --no-install-recommends curl git ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-ENV PATH="/root/.bun/bin:$PATH" \
-    PYTHONDONTWRITEBYTECODE=1 \
+# Install Bun for TUI
+RUN curl -fsSL https://bun.sh/install | bash && \
+    ln -s /root/.bun/bin/bun /usr/local/bin/bun
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Copy Python package
+# Copy Python package from builder
 COPY --from=python-base /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=python-base /usr/local/bin/apex /usr/local/bin/apex
 
-# Copy APEX source
+# Copy APEX source (needed for runtime imports)
 COPY apex/ apex/
 COPY pyproject.toml README.md ./
 
 # Copy TUI frontend
 COPY --from=tui-builder /app/tui-frontend /app/tui-frontend
 
-# Copy website
-COPY src/ src/
-COPY public/ public/
-COPY package.json bun.lock next.config.ts tailwind.config.ts postcss.config.mjs tsconfig.json ./
-COPY prisma/ prisma/
-
-RUN bun install --frozen-lockfile
-
-EXPOSE 3000
+# Create workspace directory
+RUN mkdir -p /workspace
+WORKDIR /workspace
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD curl -f http://localhost:3000 || exit 1
+    CMD apex --version > /dev/null 2>&1 || exit 1
 
 # Default: run APEX CLI
 ENTRYPOINT ["apex"]

@@ -1,17 +1,19 @@
 # ============================================
-# APEX Installer for Windows (PowerShell)
+# APEX v1.0.0 Installer for Windows (PowerShell)
 # https://github.com/Ggboykxz/APEX
 # ============================================
 
 $ErrorActionPreference = "Stop"
 
-$CYAN = "`e[36m"
-$GREEN = "`e[32m"
-$YELLOW = "`e[33m"
-$RED = "`e[31m"
-$MUTED = "`e[2m"
+$CYAN = "`e[0;36m"
+$GREEN = "`e[0;32m"
+$YELLOW = "`e[0;33m"
+$RED = "`e[0;31m"
+$MUTED = "`e[0;90m"
+$BOLD = "`e[1m"
 $NC = "`e[0m"
 
+$APEX_VERSION = "1.0.0"
 $version = ""
 $uninstall = $false
 $defaultModel = ""
@@ -19,8 +21,8 @@ $defaultModel = ""
 # Parse arguments
 for ($i = 0; $i -lt $args.Length; $i++) {
     switch ($args[$i]) {
-        "-h" { Get-Help; exit 0 }
-        "--help" { Get-Help; exit 0 }
+        "-h" { Show-Help; exit 0 }
+        "--help" { Show-Help; exit 0 }
         "-v" { $version = $args[++$i] }
         "--version" { $version = $args[++$i] }
         "-u" { $uninstall = $true }
@@ -32,12 +34,12 @@ for ($i = 0; $i -lt $args.Length; $i++) {
 
 function Show-Help {
     Write-Host ""
-    Write-Host "$CYAN  APEX Installer for Windows$NC"
+    Write-Host "$CYAN$BOLD  APEX Installer for Windows$NC"
     Write-Host ""
     Write-Host "  The universal AI coding agent. Every model. One terminal."
     Write-Host ""
     Write-Host "$GREEN  Usage:$NC"
-    Write-Host "    irm https://apex-agent.dev/install.ps1 | iex"
+    Write-Host "    irm https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.ps1 | iex"
     Write-Host "    .\install.ps1 [options]"
     Write-Host ""
     Write-Host "$GREEN  Options:$NC"
@@ -125,7 +127,7 @@ if ($uninstall) {
 }
 
 Write-Host ""
-Write-Host "$CYAN  APEX$NC"
+Write-Host "$CYAN$BOLD  APEX v$APEX_VERSION$NC"
 Write-Host "$MUTED  The universal AI coding agent. Every model. One terminal.$NC"
 Write-Host ""
 
@@ -178,7 +180,7 @@ if ($defaultModel) {
 }
 
 Write-Host ""
-Write-Host "$GREEN APEX installed successfully!$NC"
+Write-Host "$GREEN$BOLD APEX v$APEX_VERSION installed successfully!$NC"
 Write-Host ""
 Write-Host "  $CYAN 1.$NC Set your API key:"
 Write-Host "     `$env:ANTHROPIC_API_KEY='sk-ant-...'"
