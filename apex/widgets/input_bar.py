@@ -1,6 +1,6 @@
 """InputBar - User message input."""
 
-from textual.widgets import Input, Static
+from textual.widgets import TextArea, Static
 from textual.widget import Widget
 from textual.events import Key
 from textual.message import Message
@@ -17,81 +17,70 @@ class InputBar(Widget):
 
     def compose(self):
         yield Static("›", id="input-prefix")
-        yield Input(
+        yield TextArea(
             placeholder="Message APEX... (Enter=send, Shift+Enter=new line)",
             id="chat-input",
-            multiline=True,
+            theme="css",
         )
 
     @property
     def value(self) -> str:
-        input_el = self.query_one("#chat-input", Input)
-        return input_el.value
+        input_el = self.query_one("#chat-input", TextArea)
+        return input_el.text
 
     @value.setter
     def value(self, val: str) -> None:
-        input_el = self.query_one("#chat-input", Input)
-        input_el.value = val
+        input_el = self.query_one("#chat-input", TextArea)
+        input_el.text = val
 
     @property
     def cursor_position(self) -> int:
-        input_el = self.query_one("#chat-input", Input)
+        input_el = self.query_one("#chat-input", TextArea)
         return input_el.cursor_position
 
     @cursor_position.setter
     def cursor_position(self, pos: int) -> None:
-        input_el = self.query_one("#chat-input", Input)
+        input_el = self.query_one("#chat-input", TextArea)
         input_el.cursor_position = pos
 
-    def on_input_changed(self, event: Input.Changed) -> None:
-        self.current_input = event.value
-        input_el = self.query_one("#chat-input", Input)
-        if event.value.startswith("/"):
-            input_el.add_class("command")
+    def on_text_area_changed(self, event: TextArea.Changed) -> None:
+        self.current_input = event.text
+        if event.text.startswith("/"):
+            event.text_area.add_class("command")
         else:
-            input_el.remove_class("command")
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        if not event.value.strip():
-            return
-        if self.is_thinking:
-            return
-
-        user_input = event.value.strip()
-
-        if user_input.startswith("/"):
-            self.post_message(CommandInput(user_input))
-        else:
-            self.post_message(UserMessage(user_input))
-
-        if user_input not in self._history:
-            self._history.append(user_input)
-        self._history_index = len(self._history)
-
-        input_el = self.query_one("#chat-input", Input)
-        input_el.value = ""
+            event.text_area.remove_class("command")
 
     def on_key(self, event: Key) -> None:
-        if event.key == "enter" and not event.shift:
-            pass
+        input_el = self.query_one("#chat-input", TextArea)
+        text = input_el.text.strip()
+        
+        if event.key == "enter" and not event.shift and text:
+            if self.is_thinking:
+                return
+            user_input = text
+            if user_input.startswith("/"):
+                self.post_message(CommandInput(user_input))
+            else:
+                self.post_message(UserMessage(user_input))
+            if user_input not in self._history:
+                self._history.append(user_input)
+            self._history_index = len(self._history)
+            input_el.text = ""
         elif event.key == "up" and not event.shift:
             if self._history_index > 0:
                 self._history_index -= 1
-                input_el = self.query_one("#chat-input", Input)
-                input_el.value = self._history[self._history_index]
+                input_el.text = self._history[self._history_index]
         elif event.key == "down" and not event.shift:
             if self._history_index < len(self._history) - 1:
                 self._history_index += 1
-                input_el = self.query_one("#chat-input", Input)
-                input_el.value = self._history[self._history_index]
+                input_el.text = self._history[self._history_index]
             else:
                 self._history_index = len(self._history)
-                input_el = self.query_one("#chat-input", Input)
-                input_el.value = ""
+                input_el.text = ""
 
     def set_thinking(self, thinking: bool) -> None:
         self.is_thinking = thinking
-        input_el = self.query_one("#chat-input", Input)
+        input_el = self.query_one("#chat-input", TextArea)
         input_el.disabled = thinking
         if thinking:
             input_el.placeholder = "APEX réfléchit..."

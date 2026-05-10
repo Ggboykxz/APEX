@@ -4,7 +4,7 @@
 
 ## Project Status
 
-- **Version**: 1.3.0
+- **Version**: 1.3.1
 - **Tests**: 1148 passing
 - **Coverage**: 56%
 - **License**: MIT
@@ -24,13 +24,29 @@
 ```
 APEX/
 ├── apex/                    # Main source code
-│   ├── __init__.py          # Package init, exports (v1.3.0)
+│   ├── __init__.py          # Package init, exports (v1.3.1)
 │   ├── main.py              # CLI entry point, argument parsing
 │   ├── agent.py             # Agent core, LLM interaction
 │   ├── tools.py             # 75+ built-in tools
 │   ├── ui.py                # Rich terminal UI
 │   ├── config.py            # Model definitions (95 models)
-│   ├── tui.py               # Textual TUI
+│   ├── tui.py               # Textual TUI (original)
+│   │
+│   ├── tui/                 # New OpenTUI-like TUI
+│   │   ├── app.py           # Main TUI application
+│   │   ├── routes/          # HomeRoute, SessionRoute, PluginRoute
+│   │   ├── components/      # Dialog, Toast, StatusBar, CommandPalette
+│   │   ├── contexts/        # ThemeContext, RouteContext, EventBus
+│   │   ├── keymap/          # KeymapManager with layers
+│   │   ├── themes/          # 6 built-in themes (JSON)
+│   │   └── plugins/         # Plugin system with hooks
+│   │
+│   ├── security/            # Security modules
+│   │   ├── permission.py    # Permission system
+│   │   ├── rate_limiter.py  # Rate limiting
+│   │   ├── api_key.py       # API key management
+│   │   ├── shell_security.py # Shell command analysis
+│   │   └── billing.py       # Cost tracking
 │   │
 │   ├── refactored_*.py      # Refactored testable modules
 │   │   ├── refactored_tools.py        (82%)
@@ -186,7 +202,53 @@ User Input (prompt_toolkit)
    ┌─────────────┐
    │    ui.py    │  ← Rich rendering
    └─────────────┘
+          │
+          ▼
+   ┌─────────────┐
+   │  tui/       │  ← New OpenTUI-like TUI
+   │  ├── routes │     Routes, Components, Contexts
+   │  ├── comps  │     KeymapManager, Themes, Plugins
+   └─────────────┘
 ```
+
+## TUI Architecture (OpenTUI-like)
+
+APEX v1.3.1 includes a new OpenTUI-like TUI system:
+
+### Launch modes
+```bash
+apex --new-tui  # New Python TUI (recommended)
+apex --ui       # Original Textual TUI
+apex --tui      # Bun-based OpenTUI
+```
+
+### Structure
+```
+apex/tui/
+├── app.py              # APEXTUI main class
+├── routes/             # Route-based navigation
+│   ├── home.py         # HomeRoute
+│   ├── session.py      # SessionRoute
+│   └── plugin.py       # PluginRoute
+├── components/         # UI components
+│   ├── dialog.py       # Modal dialogs
+│   ├── toast.py        # Notifications
+│   ├── status_bar.py   # Status bar
+│   └── command_palette.py
+├── contexts/           # Context providers
+│   ├── theme_context.py # Theme management
+│   ├── route_context.py # Navigation
+│   └── event_context.py # Event bus
+├── keymap/             # KeymapManager
+├── themes/             # 6 built-in themes
+└── plugins/            # Plugin system
+```
+
+### Keymap Layers
+- `global` - General commands (q, ?, :, t, n, p)
+- `input` - Input field bindings
+- `command` - Command palette
+- `navigation` - hjkl navigation
 
 ## Model Support (95+ models)
 
@@ -271,4 +333,4 @@ pip install -e ".[dev]"
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v1.3.0 — Day 1*
+*APEX v1.3.1 — Day 2*

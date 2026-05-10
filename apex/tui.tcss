@@ -3,7 +3,7 @@
    Better than OpenCode · Better than Claude Code
    ════════════════════════════════════════════════════════════════════════════════ */
 
-/* ── APEX Theme Variables (Default) ─────────────────────────────────────────────── */
+/* ── APEX Theme Variables ───────────────────────────────────────────────────── */
 $apex-bg:       #0d1117;
 $apex-elevated: #161b22;
 $apex-surface:  #21262d;
@@ -15,56 +15,14 @@ $apex-text:     #e6edf3;
 $apex-muted:    #7d8590;
 $apex-border:   #30363d;
 
-/* ── Theme: GABON ─────────────────────────────────────────────────────────────── */
-ThemeVariant Gabon {
-    $apex-bg:       #0a0f0a;
-    $apex-elevated: #0d1a0d;
-    $apex-surface:  #142414;
-    $apex-accent:   #009e60;
-    $apex-success:  #fcd116;
-    $apex-warning:  #fcd116;
-    $apex-error:    #ff6b6b;
-    $apex-text:     #e6ffe6;
-    $apex-muted:    #7d997d;
-    $apex-border:   #1a3d1a;
-}
-
-/* ── Theme: SYNTHWAVE ─────────────────────────────────────────────────────────── */
-ThemeVariant Synthwave {
-    $apex-bg:       #1a1a2e;
-    $apex-elevated: #16213e;
-    $apex-surface:  #0f3460;
-    $apex-accent:   #e94560;
-    $apex-success:  #ff2e63;
-    $apex-warning:  #ffd700;
-    $apex-error:    #ff6b6b;
-    $apex-text:     #eaeaea;
-    $apex-muted:    #a0a0a0;
-    $apex-border:   #533483;
-}
-
-/* ── Theme: SOLARIZED ─────────────────────────────────────────────────────────── */
-ThemeVariant Solarized {
-    $apex-bg:       #002b36;
-    $apex-elevated: #073642;
-    $apex-surface:  #094150;
-    $apex-accent:   #268bd2;
-    $apex-success:  #859900;
-    $apex-warning:   #b58900;
-    $apex-error:    #dc322f;
-    $apex-text:     #839496;
-    $apex-muted:    #586e75;
-    $apex-border:   #657b83;
-}
-
-/* ── App Root ─────────────────────────────────────────────────────────────────── */
+/* ── App Root ─────────────────────────────────────────────────────────────── */
 Screen {
     background: $apex-bg;
     color: $apex-text;
     layers: base overlay notification;
 }
 
-/* ── Main Grid Layout ─────────────────────────────────────────────────────────── */
+/* ── Main Grid Layout ─────────────────────────────────────────────────────── */
 #app-grid {
     layout: grid;
     grid-size: 1 3;
@@ -77,7 +35,7 @@ Screen {
     height: 1fr;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────────── */
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
 #sidebar {
     width: 26;
     min-width: 20;
@@ -107,7 +65,7 @@ Screen {
     overflow-y: auto;
 }
 
-/* ── Chat Area ───────────────────────────────────────────────────────────────── */
+/* ── Chat Area ───────────────────────────────────────────────────────────── */
 #chat-area {
     width: 1fr;
     layout: vertical;
@@ -129,7 +87,7 @@ Screen {
     align: left middle;
 }
 
-/* ── HeaderBar ───────────────────────────────────────────────────────────────── */
+/* ── HeaderBar ────────────────────────────────────────────────────────────── */
 HeaderBar {
     height: 3;
     background: $apex-elevated;
@@ -183,7 +141,7 @@ HeaderBar {
     margin: 0 1;
 }
 
-/* ── FileTree ────────────────────────────────────────────────────────────────── */
+/* ── FileTree ────────────────────────────────────────────────────────────── */
 DirectoryTree {
     background: transparent;
     color: $apex-text;
@@ -198,7 +156,7 @@ DirectoryTree .tree--cursor {
     color: $apex-accent;
 }
 
-/* ── ToolLog ─────────────────────────────────────────────────────────────────── */
+/* ── ToolLog ──────────────────────────────────────────────────────────────── */
 ToolLogItem {
     height: auto;
     layout: horizontal;
@@ -239,7 +197,7 @@ ToolLogItem {
     dock: right;
 }
 
-/* ── MessageBubble ────────────────────────────────────────────────────────────── */
+/* ── MessageBubble ────────────────────────────────────────────────────────── */
 MessageBubble {
     margin: 1 0;
     border: solid $apex-border;
@@ -300,7 +258,7 @@ MessageBubble.assistant {
     color: $apex-accent;
 }
 
-/* ── ToolCard ─────────────────────────────────────────────────────────────────── */
+/* ── ToolCard ────────────────────────────────────────────────────────────── */
 ToolCard {
     margin: 0 0 1 0;
     border: solid $apex-border;
@@ -366,7 +324,7 @@ ToolCard.error {
     width: auto;
 }
 
-/* ── ThinkingIndicator ───────────────────────────────────────────────────────── */
+/* ── ThinkingIndicator ────────────────────────────────────────────────────── */
 ThinkingIndicator {
     layout: horizontal;
     height: 3;
@@ -383,7 +341,7 @@ ThinkingIndicator {
     color: $apex-muted;
 }
 
-/* ── InputBar ────────────────────────────────────────────────────────────────── */
+/* ── InputBar ─────────────────────────────────────────────────────────────── */
 #input-container {
     height: 3;
     background: $apex-surface;
@@ -414,7 +372,7 @@ ThinkingIndicator {
     color: $apex-muted;
 }
 
-/* ── StatusBar ───────────────────────────────────────────────────────────────── */
+/* ── StatusBar ─────────────────────────────────────────────────────────────── */
 StatusBar {
     height: 2;
     background: $apex-elevated;
@@ -443,7 +401,7 @@ StatusBar {
     text-style: bold;
 }
 
-/* ── CommandPalette ──────────────────────────────────────────────────────────── */
+/* ── CommandPalette ────────────────────────────────────────────────────────── */
 CommandPalette {
     background: $apex-elevated;
     border: solid $apex-accent;
@@ -514,7 +472,7 @@ CommandPalette {
     padding: 2;
 }
 
-/* ── ScrollBar ───────────────────────────────────────────────────────────────── */
+/* ── ScrollBar ───────────────────────────────────────────────────────────── */
 ScrollBar {
     background: transparent;
 }
@@ -527,7 +485,7 @@ ScrollBar > .scrollbar--bar:hover {
     color: #484f58;
 }
 
-/* ── Progress Bar ───────────────────────────────────────────────────────────── */
+/* ── Progress Bar ─────────────────────────────────────────────────────────── */
 ProgressBar {
     height: 1;
     background: $apex-surface;
@@ -538,7 +496,7 @@ ProgressBar > .bar--bar {
     color: $apex-accent;
 }
 
-/* ── Modal/Dialog ────────────────────────────────────────────────────────────── */
+/* ── Modal/Dialog ─────────────────────────────────────────────────────────── */
 ApexModal {
     background: $apex-elevated;
     border: solid $apex-accent;
@@ -570,7 +528,7 @@ ApexModal {
     padding: 1 2;
 }
 
-/* ── Resize Handle ───────────────────────────────────────────────────────────── */
+/* ── Resize Handle ────────────────────────────────────────────────────────── */
 #sidebar-resize-handle {
     width: 1;
     background: $apex-border;
@@ -580,119 +538,13 @@ ApexModal {
     background: $apex-accent;
 }
 
-/* ── Animations ───────────────────────────────────────────────────────────────── */
+/* ── Animations ──────────────────────────────────────────────────────────── */
 .thinking-active {
     opacity: 0.8;
 }
 
-@keyframes pulse {
-    0% { opacity: 0.6; }
-    50% { opacity: 1; }
-    100% { opacity: 0.6; }
-}
-
-@keyframes spin {
-    0% { content: "⠋"; }
-    25% { content: "⠙"; }
-    50% { content: "⠹"; }
-    75% { content: "⠸"; }
-}
-
 .tool-running {
-    animate: pulse 1s ease-in-out infinite;
+    opacity: 0.8;
 }
 
-/* ── Theme Classes ──────────────────────────────────────────────────────────────── */
-.theme-gabon {
-    background: #0a0f0a;
-}
-
-.theme-gabon #header-bar {
-    border-bottom: solid #009e60;
-}
-
-.theme-synthwave {
-    background: #1a1a2e;
-}
-
-.theme-synthwave #header-bar {
-    border-bottom: solid #e94560;
-}
-
-.theme-solarized {
-    background: #002b36;
-}
-
-.theme-solarized #header-bar {
-    border-bottom: solid #268bd2;
-}
-
-/* ── Command Palette Modal ─────────────────────────────────────────────────────── */
-CommandPalette {
-    background: $apex-elevated;
-    border: solid $apex-accent;
-    width: 50;
-    height: auto;
-    layer: overlay;
-}
-
-.palette-border-top {
-    color: $apex-accent;
-    padding: 0 1;
-}
-
-.palette-header {
-    color: $apex-accent;
-    text-style: bold;
-    padding: 0 1;
-}
-
-.palette-border {
-    color: $apex-border;
-    padding: 0 1;
-}
-
-.palette-border-bottom {
-    color: $apex-accent;
-    padding: 0 1;
-}
-
-.palette-input {
-    background: $apex-surface;
-    border: none;
-    color: $apex-text;
-    padding: 1;
-}
-
-.palette-input:focus {
-    border: none;
-}
-
-.palette-results {
-    color: $apex-text;
-    padding: 0 1;
-    height: 10;
-}
-
-/* ── Tree Refresh Button ───────────────────────────────────────────────────────── */
-.tree-refresh-btn {
-    width: 3;
-    height: 1;
-    margin: 0 1;
-}
-
-/* ── Resize Handle ─────────────────────────────────────────────────────────────── */
-#resize-handle {
-    width: 1;
-    color: $apex-border;
-    background: $apex-border;
-    cursor: pointer;
-}
-
-#resize-handle:hover {
-    color: $apex-accent;
-    background: $apex-accent;
-}
-
-/* ── Responsive ──────────────────────────────────────────────────────────────── */
-/* Note: Textual CSS does not support @media queries - handled in Python */
+/* ── Responsive ────────────────────────────────────────────────────────────── */
