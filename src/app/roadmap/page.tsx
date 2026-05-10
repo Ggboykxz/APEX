@@ -31,7 +31,7 @@ function NavBar() {
 }
 
 function Footer() {
-  return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">MIT License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>)
+  return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">Proprietary — All rights reserved. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>)
 }
 
 const VERSIONS = [
@@ -58,17 +58,17 @@ const VERSIONS = [
     ]
   },
   {
-    version: 'v1.4.0', name: 'Power', status: 'next' as const, progress: 60, color: '#00ff88',
-    desc: 'Streaming responses, git tools, web search, persistent memory, and model benchmarking — more powerful workflows.',
+    version: 'v1.1.0', name: 'Power', status: 'released' as const, progress: 100, color: '#00ff88',
+    desc: 'HTTP SSE backend, real-time token streaming, live cost tracking, context %, agent-colored theming, unified server code.',
     features: [
-      { text: 'Streaming Response Mode', done: true },
-      { text: 'Git Tools Suite (create PR, rebase, stash)', done: true },
-      { text: 'Web Search & URL Fetching', done: true },
-      { text: 'Persistent Memory System', done: false },
-      { text: 'Enhanced Agent Switching (seamless context transfer)', done: false },
-      { text: 'Model Performance Benchmarking', done: false },
-      { text: 'Configuration Profiles (work, personal, etc.)', done: false },
-      { text: 'Extended LSP Support (completion, rename)', done: false },
+      { text: 'HTTP SSE Backend (real-time token streaming)', done: true },
+      { text: 'Live Cost Tracking (per-message + session total)', done: true },
+      { text: 'Context Percentage Monitoring', done: true },
+      { text: 'Agent-Colored Theming (titlebar, statusbar, borders)', done: true },
+      { text: 'Model Switch via HTTP with Error Feedback', done: true },
+      { text: 'Unified HTTP Server (start_tui_server in http_api.py)', done: true },
+      { text: '8 Models Added (claude-3.7-sonnet, llama-3.3-70b, etc.)', done: true },
+      { text: 'Ctrl+L to Clear Messages and Reset Metrics', done: true },
     ]
   },
   {
