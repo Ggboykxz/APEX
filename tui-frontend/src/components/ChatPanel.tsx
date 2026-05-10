@@ -11,6 +11,9 @@ interface ChatPanelProps {
   activeAgent: string
   activeModel: string
   isGenerating: boolean
+  livePromptTokens?: number
+  liveCompletionTokens?: number
+  liveCost?: number
 }
 
 function formatTime(ts: number): string {
@@ -18,7 +21,7 @@ function formatTime(ts: number): string {
   return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`
 }
 
-export function ChatPanel({ messages, inputValue, onInputChange, onSubmit, activeAgent, activeModel, isGenerating }: ChatPanelProps) {
+export function ChatPanel({ messages, inputValue, onInputChange, onSubmit, activeAgent, activeModel, isGenerating, livePromptTokens = 0, liveCompletionTokens = 0, liveCost = 0 }: ChatPanelProps) {
   const agent = APEX_AGENTS.find((a) => a.id === activeAgent)
   const model = APEX_MODELS.find((m) => m.id === activeModel)
   const agentColor = agent?.color ?? apexTheme.cyan
@@ -71,10 +74,24 @@ export function ChatPanel({ messages, inputValue, onInputChange, onSubmit, activ
                 </span>
                 <span style={{ fg: apexTheme.textMuted }}> · </span>
                 <span style={{ fg: apexTheme.textDim }}>{formatTime(msg.timestamp)}</span>
-                {msg.tokens && (
+                {!isUser && (msg.promptTokens || msg.completionTokens || msg.cost) && (
                   <span>
                     <span style={{ fg: apexTheme.textMuted }}> · </span>
-                    <span style={{ fg: apexTheme.cyan }}>+{msg.tokens}tok</span>
+                    {msg.promptTokens ? (
+                      <span style={{ fg: apexTheme.cyan }}>+{msg.promptTokens}</span>
+                    ) : null}
+                    {msg.completionTokens ? (
+                      <span>
+                        <span style={{ fg: apexTheme.textMuted }}>/</span>
+                        <span style={{ fg: apexTheme.cyan }}>+{msg.completionTokens}</span>
+                      </span>
+                    ) : null}
+                    {msg.cost ? (
+                      <span>
+                        <span style={{ fg: apexTheme.textMuted }}> · </span>
+                        <span style={{ fg: apexTheme.warning }}>${msg.cost.toFixed(4)}</span>
+                      </span>
+                    ) : null}
                   </span>
                 )}
               </text>
@@ -87,7 +104,17 @@ export function ChatPanel({ messages, inputValue, onInputChange, onSubmit, activ
           <box style={{ paddingLeft: 1 }}>
             <text>
               <span style={{ fg: agentColor }}>▸ </span>
-              <span style={{ fg: apexTheme.textDim }}>Processing request...</span>
+              <span style={{ fg: apexTheme.textDim }}>Streaming</span>
+              <span style={{ fg: apexTheme.textMuted }}> · In: </span>
+              <span style={{ fg: apexTheme.cyan }}>{livePromptTokens.toLocaleString()}</span>
+              <span style={{ fg: apexTheme.textMuted }}> · Out: </span>
+              <span style={{ fg: apexTheme.cyan }}>{liveCompletionTokens.toLocaleString()}</span>
+              {liveCost > 0 ? (
+                <span>
+                  <span style={{ fg: apexTheme.textMuted }}> · $</span>
+                  <span style={{ fg: apexTheme.warning }}>{liveCost.toFixed(4)}</span>
+                </span>
+              ) : null}
             </text>
           </box>
         ) : null}
@@ -98,6 +125,20 @@ export function ChatPanel({ messages, inputValue, onInputChange, onSubmit, activ
           <text style={{ fg: agentColor }}>{isGenerating ? "◌" : "▸"}</text>
           <text style={{ fg: apexTheme.textMuted }}> {agent?.name ?? "APEX"}</text>
           <text style={{ fg: apexTheme.textMuted }}>      {messages.length} msg{messages.length !== 1 ? "s" : ""}</text>
+          {isGenerating && (livePromptTokens > 0 || liveCompletionTokens > 0) ? (
+            <text>
+              <span style={{ fg: apexTheme.textMuted }}>  │  </span>
+              <span style={{ fg: apexTheme.cyan }}>+{livePromptTokens}</span>
+              <span style={{ fg: apexTheme.textMuted }}>/</span>
+              <span style={{ fg: apexTheme.cyan }}>+{liveCompletionTokens}</span>
+              {liveCost > 0 && (
+                <span>
+                  <span style={{ fg: apexTheme.textMuted }}> · $</span>
+                  <span style={{ fg: apexTheme.warning }}>{liveCost.toFixed(4)}</span>
+                </span>
+              )}
+            </text>
+          ) : null}
         </box>
         <input
           id="apex-chat-input"
