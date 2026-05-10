@@ -108,7 +108,7 @@ export default function ActivityPage() {
         <div className="py-6 border-b border-border/50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {githubData?.repo ? [
+              {(githubData?.repo ? [
                 { icon: Star, label: 'Stars', value: githubData.repo.stargazers_count, color: 'text-apex-yellow' },
                 { icon: GitBranch, label: 'Forks', value: githubData.repo.forks_count, color: 'text-apex-cyan' },
                 { icon: CircleDot, label: 'Open Issues', value: githubData.repo.open_issues_count, color: 'text-apex-green' },
@@ -118,7 +118,7 @@ export default function ActivityPage() {
                 { icon: GitBranch, label: 'Forks', value: '—', color: 'text-apex-cyan' },
                 { icon: CircleDot, label: 'Open Issues', value: '—', color: 'text-apex-green' },
                 { icon: Users, label: 'Subscribers', value: '—', color: 'text-apex-magenta' },
-              ].map(s => (
+              ]).map(s => (
                 <div key={s.label} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-card/30">
                   <s.icon className={`w-5 h-5 ${s.color}`} />
                   <div><div className="text-lg font-bold font-mono">{s.value}</div><div className="text-xs text-muted-foreground font-mono">{s.label}</div></div>
