@@ -52,7 +52,7 @@ The first stable release of APEX — the universal AI coding agent. Every model,
 - **Docker** — `docker run -it ghcr.io/ggboykxz/apex`
 - **curl install script** — `curl -fsSL https://apex-ai.dev/install.sh | bash` (macOS/Linux)
 - **PowerShell install** — `irm https://apex-ai.dev/install.ps1 | iex` (Windows)
-- **Homebrew** — `brew install apex-ai` (macOS)
+- **Homebrew** — Not yet available (coming soon)
 - **From source** — `git clone && pip install -e ".[dev]"`
 - **DevContainer** — Pre-configured `.devcontainer.json` for GitHub Codespaces
 

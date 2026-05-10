@@ -8,13 +8,28 @@
 ## Install via pip
 
 ```bash
-pip install apex-agent
+pip install apex-ai
 ```
 
 ## Install via pipx (recommended)
 
 ```bash
-pipx install apex-agent
+pipx install apex-ai
+```
+
+## Install via uv (fastest)
+
+```bash
+uv tool install apex-ai
+```
+
+## Install with Docker
+
+APEX ships an official Docker image for containerized usage. This is ideal for CI/CD pipelines or when you want a fully reproducible environment without installing Python dependencies on the host.
+
+```bash
+docker pull ghcr.io/ggboykxz/apex:latest
+docker run -it --rm -v $(pwd):/workspace -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY ghcr.io/ggboykxz/apex
 ```
 
 ## Install from source
@@ -59,5 +74,5 @@ For local models (Ollama), no API key needed.
 ## Upgrade
 
 ```bash
-pip install --upgrade apex-agent
+pip install --upgrade apex-ai
 ```

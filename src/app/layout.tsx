@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "APEX — The Universal AI Coding Agent",
     description: "Every model. One terminal. 100+ models, 75+ tools, 5 agents.",
-    url: "https://apex-agent.dev",
+    url: "https://apex-ai.dev",
     siteName: "APEX",
     type: "website",
   },

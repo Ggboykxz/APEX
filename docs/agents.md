@@ -1,17 +1,17 @@
 # Agents
 
-APEX includes a powerful multi-agent system inspired by OpenCode. Agents are specialized AI assistants configured for specific tasks.
+APEX includes a powerful multi-agent system. Each agent is specialized for a different type of task, with distinct permission levels that control what tools they can use.
 
 ## Primary Agents
 
 Primary agents handle your main conversation. Switch between them using `Tab` key or `/agent` command.
 
-### Build Agent (Default)
+### Coder Agent (Default)
 
 ```
-Agent: build
+Agent: coder
 Mode: primary
-Permissions: All tools allowed
+Permissions: All tools allowed (asks before destructive actions)
 ```
 
 The default agent with full tool access for development work:
@@ -21,14 +21,14 @@ The default agent with full tool access for development work:
 - Install packages, format code
 
 ```bash
-apex /agent build
+apex /agent coder
 # or press Tab
 ```
 
-### Plan Agent
+### Architect Agent
 
 ```
-Agent: plan
+Agent: architect
 Mode: primary
 Permissions: Read-only (denies edit, bash)
 ```
@@ -40,46 +40,61 @@ A restricted agent for planning and analysis:
 - Cannot modify files or run commands
 
 ```bash
-apex /agent plan
+apex /agent architect
 ```
 
-## Subagents
-
-Subagents are specialized assistants invoked with `@mention`:
-
-### Explore Agent
+### Reviewer Agent
 
 ```
-Agent: explore
-Mode: subagent
-Permissions: Read-only
+Agent: reviewer
+Mode: primary
+Permissions: Read-only, never modifies files
 ```
 
-Fast, read-only agent for exploring codebases:
-- Find files by pattern
-- Search code for keywords
-- Show directory structure
-- Analyze git history
+A code review specialist:
+- Review code for bugs and security issues
+- Suggest improvements and best practices
+- Analyze code quality and patterns
+- Cannot modify any files
 
 ```bash
-apex @explore find all TODO comments
+apex /agent reviewer
 ```
 
-### General Agent
+### DevOps Agent
 
 ```
-Agent: general
-Mode: subagent
-Permissions: Full (except ask_user)
+Agent: devops
+Mode: primary
+Permissions: System operations (asks before system changes)
 ```
 
-General-purpose subagent for complex multi-step tasks:
-- Research complex questions
-- Execute multi-step workflows
-- Coordinate file operations
+An agent specialized for infrastructure and deployment:
+- Manage Docker containers and images
+- Configure CI/CD pipelines
+- Handle cloud deployments
+- System administration tasks
 
 ```bash
-apex @general research error handling patterns
+apex /agent devops
+```
+
+### Analyst Agent
+
+```
+Agent: analyst
+Mode: primary
+Permissions: Read-only with output generation
+```
+
+An agent for data analysis and reporting:
+- Analyze data files and logs
+- Generate reports and summaries
+- Extract insights from codebases
+- Produce documentation
+
+```bash
+apex /agent analyst
 ```
 
 ## Switching Agents
@@ -87,41 +102,17 @@ apex @general research error handling patterns
 ### Using Commands
 
 ```bash
-/agent build      # Switch to build
-/agent plan      # Switch to plan
-/agents          # List all agents
-/subagents       # List subagents
+/agent coder      # Switch to coder
+/agent architect  # Switch to architect
+/agent reviewer   # Switch to reviewer
+/agent devops     # Switch to devops
+/agent analyst    # Switch to analyst
+/agents           # List all agents
 ```
 
 ### Using Tab Key
 
-Press `Tab` in the REPL to cycle through primary agents.
-
-### Using @Mention
-
-Invoke subagents directly in your message:
-
-```
-Explain the architecture @explore
-
-Search for authentication @general
-```
-
-## Custom Agents
-
-Create custom agents in your config:
-
-```yaml
-# .apex/config.yaml
-agents:
-  reviewer:
-    description: Code review agent
-    mode: subagent
-    permission:
-      edit: deny
-      bash: deny
-    prompt: "You are a code reviewer focused on security..."
-```
+Press `Tab` in the REPL to cycle through agents.
 
 ## Agent Permissions
 
@@ -142,32 +133,37 @@ Permission values:
 
 ## Example Workflows
 
-### Code Review with Plan Agent
+### Code Review with Architect Agent
 
 ```bash
-apex /agent plan
+apex /agent architect
 # Now ask questions about code without making changes
 What does this function do?
 How can we improve the error handling?
 ```
 
-### Parallel Exploration with @explore
+### Code Review with Reviewer Agent
 
 ```bash
-apex @explore find all API endpoints
-apex @explore list all test files
+apex /agent reviewer
+# Get a thorough code review
+Review the authentication module for security issues
 ```
 
-### Complex Task with @general
+### Infrastructure with DevOps Agent
 
 ```bash
-apex @general refactor all error handling to use custom exceptions
+apex /agent devops
+# Set up deployment
+Create a Docker Compose file for this project
 ```
 
 ## Best Practices
 
-1. **Use Plan agent** for understanding code before making changes
-2. **Use @explore** for quick file lookups and searches
-3. **Use @general** for multi-step refactoring tasks
-4. **Switch agents mid-session** as your needs change
-5. **Remember permissions** — Plan agent cannot modify files
+1. **Use Architect agent** for understanding code before making changes
+2. **Use Reviewer agent** for thorough code reviews
+3. **Use Coder agent** for active development and file modifications
+4. **Use DevOps agent** for infrastructure and deployment tasks
+5. **Use Analyst agent** for data analysis and documentation
+6. **Switch agents mid-session** as your needs change
+7. **Remember permissions** — Architect and Reviewer agents cannot modify files

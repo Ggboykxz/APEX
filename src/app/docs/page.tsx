@@ -108,7 +108,7 @@ function DocOverview() {
       <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Built in Gabon 🇬🇦 for the world. APEX is a production-grade, terminal-native AI coding agent that works with <strong className="text-foreground">any LLM</strong> via a unified interface powered by litellm.</p>
       <DocsHeading id="features">Features</DocsHeading>
       <div className="grid sm:grid-cols-2 gap-3">
-        {[['100+ Models', 'Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more'], ['6 Specialized Agents', 'Build, Plan, Explore, General, YOLO, Custom with permission controls'], ['75+ Tools', 'File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB'], ['3 TUI Modes + 6 Themes', 'CLI, Textual TUI, OpenTUI with opencode, dracula, nord, tokyonight, gruvbox, github themes'], ['Session Persistence', 'Save and load conversations, bookmark positions, share links'], ['Token Cost Tracking', 'Monitor usage and estimated costs in real-time'], ['Plugin System', 'Extensible with custom tools and TUI hooks'], ['Undo/Redo', 'Revert and reapply changes with full history'], ['LSP Integration', 'Go to definition, references, hover, diagnostics'], ['Security System', 'Shell analysis, permissions (ALLOW/DENY/ASK), rate limiting, billing, API key management'], ['Snapshots & Undo/Redo', 'Git-based snapshots before every destructive action, with full diff computation and restore'], ['Custom Commands + Event Bus', 'user: and project: commands with template variables, 25+ typed events on the bus']].map(([title, desc]) => (
+        {[['100+ Models', 'Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more'], ['5 Specialized Agents', 'Coder, Architect, Reviewer, DevOps, Analyst with permission controls'], ['75+ Tools', 'File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB'], ['3 TUI Modes + 6 Themes', 'CLI, Textual TUI, OpenTUI with opencode, dracula, nord, tokyonight, gruvbox, github themes'], ['Session Persistence', 'Save and load conversations, bookmark positions, share links'], ['Token Cost Tracking', 'Monitor usage and estimated costs in real-time'], ['Plugin System', 'Extensible with custom tools and TUI hooks'], ['Undo/Redo', 'Revert and reapply changes with full history'], ['LSP Integration', 'Go to definition, references, hover, diagnostics'], ['Security System', 'Shell analysis, permissions (ALLOW/DENY/ASK), rate limiting, billing, API key management'], ['Snapshots & Undo/Redo', 'Git-based snapshots before every destructive action, with full diff computation and restore'], ['Custom Commands + Event Bus', 'user: and project: commands with template variables, 25+ typed events on the bus']].map(([title, desc]) => (
           <div key={title} className="p-3 rounded-lg border border-border/50 bg-card/30"><span className="text-apex-cyan font-mono font-bold text-sm">{title}</span><p className="text-muted-foreground text-xs mt-1">{desc}</p></div>
         ))}
       </div>
@@ -117,7 +117,7 @@ function DocOverview() {
       <DocsHeading id="philosophy">Philosophy</DocsHeading>
       <p className="text-muted-foreground leading-relaxed">APEX is built by a Gabonese developer for the world. Every developer deserves a world-class coding agent — regardless of which model they can afford. The core principles are: <strong className="text-foreground">complete code, no truncation</strong>, <strong className="text-foreground">production-ready</strong> with full error handling, tests, and type hints, <strong className="text-foreground">language-agnostic</strong> support for Python, JavaScript, Rust, Go, and more, and a <strong className="text-foreground">senior developer mindset</strong> that is opinionated but effective.</p>
       <div className="mt-8 grid sm:grid-cols-3 gap-4">
-        {[{ href: '/agents', title: 'Agents Guide', desc: '6 specialized agents including custom creation' }, { href: '/models', title: 'Models Guide', desc: '100+ models from every provider' }, { href: '/tools', title: 'Tools Reference', desc: '75+ built-in tools catalog' }].map(l => (
+        {[{ href: '/agents', title: 'Agents Guide', desc: '5 specialized agents for every workflow' }, { href: '/models', title: 'Models Guide', desc: '100+ models from every provider' }, { href: '/tools', title: 'Tools Reference', desc: '75+ built-in tools catalog' }].map(l => (
           <a key={l.href} href={l.href} className="group p-4 rounded-lg border border-border/50 bg-card/30 hover:border-apex-cyan/30 transition-all"><h4 className="font-mono font-bold text-apex-cyan mb-1">{l.title}</h4><p className="text-xs text-muted-foreground">{l.desc}</p><ArrowRight className="w-4 h-4 mt-2 text-muted-foreground group-hover:text-apex-cyan transition-colors" /></a>
         ))}
       </div>
@@ -131,8 +131,9 @@ function DocQuickstart() {
       <h1 className="text-3xl font-bold font-mono mb-2">Quick Start</h1>
       <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Get up and running with APEX in 5 minutes.</p>
       <DocsHeading id="step1">Step 1: Installation</DocsHeading>
-      <CodeBlock code="pip install apex-agent" />
-      <p className="text-muted-foreground text-sm">Or use pipx for isolated installation: <code className="text-apex-cyan">pipx install apex-agent</code></p>
+      <CodeBlock code="pip install apex-ai" />
+      <p className="text-muted-foreground text-sm">Or use pipx for isolated installation: <code className="text-apex-cyan">pipx install apex-ai</code></p>
+      <p className="text-muted-foreground text-sm">Or use uv: <code className="text-apex-cyan">uv tool install apex-ai</code></p>
       <DocsHeading id="step2">Step 2: Configure API Keys</DocsHeading>
       <p className="text-muted-foreground text-sm mb-2">Create <code className="text-apex-cyan">~/.apex/.env</code> with your API keys:</p>
       <CodeBlock code={`# At least one of these:\nANTHROPIC_API_KEY=sk-ant-...    # For Claude models\nOPENAI_API_KEY=sk-...          # For GPT models\nDEEPSEEK_API_KEY=...           # For DeepSeek models\nGEMINI_API_KEY=...             # For Gemini models`} />
@@ -144,7 +145,7 @@ function DocQuickstart() {
       <DocsHeading id="workflow">Basic Workflow</DocsHeading>
       <CodeBlock language="text" code={`# Switch models mid-session\n› /model gpt-4o\n\n# Check git status\n› /git\n\n# Analyze project\n› /map\n\n# Save your session\n› /save my-project`} />
       <DocsHeading id="common-commands">Common Commands</DocsHeading>
-      <DocsTable headers={['Command', 'What it does']} rows={[['/help', 'Show all commands'], ['/models', 'List available models'], ['/agent build', 'Switch to build agent'], ['/agent plan', 'Switch to plan (read-only) agent'], ['@filename', 'Include file in context'], ['/clear', 'Clear conversation history'], ['/exit', 'Exit APEX']]} />
+      <DocsTable headers={['Command', 'What it does']} rows={[['/help', 'Show all commands'], ['/models', 'List available models'], ['/agent coder', 'Switch to coder agent'], ['/agent architect', 'Switch to architect (read-only) agent'], ['@filename', 'Include file in context'], ['/clear', 'Clear conversation history'], ['/exit', 'Exit APEX']]} />
     </div>
   )
 }
@@ -253,7 +254,7 @@ function DocTroubleshooting() {
       <h1 className="text-3xl font-bold font-mono mb-2">Troubleshooting</h1>
       <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Common issues and solutions.</p>
       <DocsHeading id="install-issues">Installation Issues</DocsHeading>
-      <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-red mb-2">&quot;command not found: apex&quot;</h4><CodeBlock code={`pip show apex-agent\npip install --upgrade apex-agent\n# Or use: python -m apex.main --version`} /></div>
+      <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-red mb-2">&quot;command not found: apex&quot;</h4><CodeBlock code={`pip show apex-ai\npip install --upgrade apex-ai\n# Or use: python -m apex.main --version`} /></div>
       <DocsHeading id="api-issues">API Key Issues</DocsHeading>
       <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-yellow mb-2">&quot;Authentication failed&quot;</h4><CodeBlock code={`echo $ANTHROPIC_API_KEY\nexport ANTHROPIC_API_KEY="sk-ant-..."`} /></div>
       <DocsHeading id="perf-issues">Performance Issues</DocsHeading>
@@ -272,7 +273,7 @@ function DocOpenCode() {
   return (
     <div>
       <h1 className="text-3xl font-bold font-mono mb-2">OpenCode Architecture</h1>
-      <p className="text-muted-foreground text-lg mb-8 leading-relaxed">APEX v1.3.2 introduces the OpenCode architecture — structured messages, snapshots, custom commands, and a typed event bus.</p>
+      <p className="text-muted-foreground text-lg mb-8 leading-relaxed">APEX v1.0.0 features the OpenCode architecture — structured messages, snapshots, custom commands, and a typed event bus.</p>
       <DocsHeading id="parts">Structured Messages (Parts)</DocsHeading>
       <p className="text-muted-foreground text-sm leading-relaxed mb-4">Every message in APEX is composed of typed parts — text, file references, tool calls, tool results, images, and snapshots. This structured approach enables rich context management and precise message handling.</p>
       <DocsTable headers={['Part Type', 'Description']} rows={[

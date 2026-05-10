@@ -62,19 +62,11 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 
 /* ──── INSTALL METHODS ──── */
 const INSTALL_METHODS = [
-  { id: 'curl', label: 'curl', icon: Terminal, platform: 'macOS / Linux', cmd: 'curl -fsSL https://apex-agent.dev/install.sh | bash', desc: 'One-line installer for macOS and Linux. Downloads and runs the official install script.' },
-  { id: 'pipx', label: 'pipx', icon: Box, platform: 'All', cmd: 'pipx install apex-agent', desc: 'Recommended method. pipx creates an isolated environment, preventing dependency conflicts with other Python packages.' },
-  { id: 'pip', label: 'pip', icon: Download, platform: 'All', cmd: 'pip install apex-agent', desc: 'Standard Python package installer. Works on all platforms with Python 3.11+.' },
-  { id: 'brew', label: 'brew', icon: Apple, platform: 'macOS / Linux', cmd: 'brew install apex-agent', desc: 'Homebrew formula for macOS and Linux. Automatically manages dependencies.' },
+  { id: 'curl', label: 'curl', icon: Terminal, platform: 'macOS / Linux', cmd: 'curl -fsSL https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh | bash', desc: 'One-line installer for macOS and Linux. Downloads and runs the official install script.' },
+  { id: 'pipx', label: 'pipx', icon: Box, platform: 'All', cmd: 'pipx install apex-ai', desc: 'Recommended method. pipx creates an isolated environment, preventing dependency conflicts with other Python packages.' },
+  { id: 'pip', label: 'pip', icon: Download, platform: 'All', cmd: 'pip install apex-ai', desc: 'Standard Python package installer. Works on all platforms with Python 3.11+.' },
+  { id: 'uv', label: 'uv', icon: Zap, platform: 'All', cmd: 'uv tool install apex-ai', desc: 'Install via uv tool manager. Fast, reliable Python package management built in Rust.' },
   { id: 'docker', label: 'docker', icon: Container, platform: 'All', cmd: 'docker run -it ghcr.io/ggboykxz/apex', desc: 'Run APEX in a Docker container. Great for isolated environments and CI/CD.' },
-  { id: 'cargo', label: 'cargo', icon: Terminal, platform: 'All', cmd: 'cargo install apex-agent', desc: 'Install via Rust cargo. Requires Rust toolchain installed.' },
-  { id: 'npm', label: 'npm', icon: Box, platform: 'All', cmd: 'npm install -g apex-agent', desc: 'Install via Node.js npm package manager. Requires Node.js 18+.' },
-  { id: 'nix', label: 'nix', icon: Terminal, platform: 'Linux / macOS', cmd: 'nix profile install github:Ggboykxz/APEX', desc: 'Nix package manager for reproducible builds and deployments.' },
-  { id: 'aur', label: 'AUR', icon: Terminal, platform: 'Arch Linux', cmd: 'yay -S apex-agent', desc: 'Arch User Repository package. Use your favorite AUR helper.' },
-  { id: 'scoop', label: 'scoop', icon: Terminal, platform: 'Windows', cmd: 'scoop install apex-agent', desc: 'Scoop package manager for Windows command-line apps.' },
-  { id: 'choco', label: 'choco', icon: Terminal, platform: 'Windows', cmd: 'choco install apex-agent', desc: 'Chocolatey package manager for Windows.' },
-  { id: 'winget', label: 'winget', icon: Terminal, platform: 'Windows', cmd: 'winget install Ggboykxz.ApexAgent', desc: 'Windows Package Manager (winget) — built into Windows 11.' },
-  { id: 'npx', label: 'npx', icon: Box, platform: 'All', cmd: 'npx apex-agent', desc: 'Run APEX directly without installing. Uses npx to download and execute on the fly.' },
   { id: 'source', label: 'source', icon: Github, platform: 'All', cmd: 'git clone https://github.com/Ggboykxz/APEX.git\ncd APEX\npip install -e .', desc: 'Install from source for development. Clone the repo and install in editable mode.' },
 ]
 
@@ -108,7 +100,7 @@ export default function InstallPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Installation
               </div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">Install <span className="animated-gradient-text">APEX</span></h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">14 installation methods for every platform. Get started in under a minute.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">6 installation methods for every platform. Get started in under a minute.</p>
             </motion.div>
           </div>
         </section>
@@ -207,8 +199,8 @@ export default function InstallPage() {
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#00e5ff', borderLeftWidth: 3 }}>
                 <h3 className="font-bold font-mono text-[#00e5ff] mb-3">macOS</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• Best with Homebrew: <code className="text-apex-cyan">brew install apex-agent</code></li>
-                  <li>• Or curl installer: <code className="text-apex-cyan">curl -fsSL ... | bash</code></li>
+                  <li>• Best with curl installer: <code className="text-apex-cyan">curl -fsSL ... | bash</code></li>
+                  <li>• Or pipx for isolated install: <code className="text-apex-cyan">pipx install apex-ai</code></li>
                   <li>• pipx recommended over pip</li>
                   <li>• Terminal.app, iTerm2, Warp, Kitty all supported</li>
                 </ul>
@@ -217,17 +209,16 @@ export default function InstallPage() {
                 <h3 className="font-bold font-mono text-[#00ff88] mb-3">Linux</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>• curl installer works on all distros</li>
-                  <li>• Arch: AUR package available</li>
-                  <li>• Nix: nix profile install</li>
+                  <li>• pipx for isolated install</li>
                   <li>• Docker for isolated environments</li>
                 </ul>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#ffaa00', borderLeftWidth: 3 }}>
                 <h3 className="font-bold font-mono text-[#ffaa00] mb-3">Windows</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• winget: <code className="text-apex-cyan">winget install Ggboykxz.ApexAgent</code></li>
-                  <li>• scoop: <code className="text-apex-cyan">scoop install apex-agent</code></li>
-                  <li>• choco: <code className="text-apex-cyan">choco install apex-agent</code></li>
+                  <li>• pip: <code className="text-apex-cyan">pip install apex-ai</code></li>
+                  <li>• uv: <code className="text-apex-cyan">uv tool install apex-ai</code></li>
+                  <li>• Docker: <code className="text-apex-cyan">docker run -it ghcr.io/ggboykxz/apex</code></li>
                   <li>• WSL2 recommended for best TUI experience</li>
                 </ul>
               </div>
@@ -251,7 +242,7 @@ export default function InstallPage() {
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-bold font-mono text-apex-cyan mb-4">Upgrade</h3>
-                <CodeBlock code={`# pip\npip install --upgrade apex-agent\n\n# pipx\npipx upgrade apex-agent\n\n# brew\nbrew upgrade apex-agent\n\n# Check version\napex --version`} />
+                <CodeBlock code={`# pip\npip install --upgrade apex-ai\n\n# pipx\npipx upgrade apex-ai\n\n# uv\nuv tool upgrade apex-ai\n\n# Check version\napex --version`} />
               </div>
               <div>
                 <h3 className="font-bold font-mono text-apex-yellow mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Common Issues</h3>
@@ -266,7 +257,7 @@ export default function InstallPage() {
                   </div>
                   <div className="p-3 rounded-lg border border-border/50 bg-card/30">
                     <h4 className="font-bold text-sm font-mono mb-1">Import errors on startup</h4>
-                    <p className="text-xs text-muted-foreground">Reinstall: <code className="text-apex-cyan">pip install --force-reinstall apex-agent</code></p>
+                    <p className="text-xs text-muted-foreground">Reinstall: <code className="text-apex-cyan">pip install --force-reinstall apex-ai</code></p>
                   </div>
                   <div className="p-3 rounded-lg border border-border/50 bg-card/30">
                     <h4 className="font-bold text-sm font-mono mb-1">Python version mismatch</h4>

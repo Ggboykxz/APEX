@@ -11,8 +11,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [
-    {name = "APEX Team", email = "apex@example.com"},
-    {name = "Ggboykxz", email = "ggboykxz@github.com"}
+    {name = "Ggboykxz", email = "ggboykxz@gmail.com"}
 ]
 keywords = [
     "ai", "coding-agent", "llm", "terminal", "cli",
@@ -61,8 +60,8 @@ dev = [
 apex = "apex.main:main"
 
 [project.urls]
-Homepage = "https://apex-agent.dev"
-Documentation = "https://apex-agent.dev/docs"
+Homepage = "https://apex-ai.dev"
+Documentation = "https://apex-ai.dev/docs"
 Repository = "https://github.com/Ggboykxz/APEX"
 Issues = "https://github.com/Ggboykxz/APEX/issues"
 Changelog = "https://github.com/Ggboykxz/APEX/blob/main/CHANGELOG.md"

@@ -36,31 +36,17 @@ function Footer() {
 
 const VERSIONS = [
   {
-    version: 'v1.3.2', name: 'OpenCode Architecture', status: 'released' as const, progress: 100, color: '#00e5ff',
-    desc: 'OpenCode architecture with structured messages (Parts), Git-based snapshots with undo/redo, custom commands system, enhanced event bus with 25+ typed events, and session sharing via apex:// links.',
+    version: 'v1.0.0', name: 'First Stable Release', status: 'released' as const, progress: 100, color: '#00e5ff',
+    desc: 'First stable release of APEX — the universal AI coding agent. 100+ models, 75+ tools, 5 specialized agents, OpenCode architecture with snapshots and undo/redo, custom commands, event bus, and security system.',
     features: [
-      { text: 'Structured Message System (Parts) — text, file, tool_call, tool_result, image, snapshot', done: true },
-      { text: 'Snapshot System — Git-based undo/redo with diff computation', done: true },
-      { text: 'Custom Commands — user: and project: commands with template variables', done: true },
-      { text: 'Enhanced Event Bus — 25+ typed events (session, file, tool, permission, LSP, undo/redo)', done: true },
-      { text: 'Session Sharing — Base64 encoded apex://share/{id} links', done: true },
-      { text: 'Build & Plan agents with switch via /agent command', done: true },
-      { text: 'Complete AGENTS.md rewrite with OpenCode architecture spec', done: true },
-      { text: '1,148+ Tests Passing', done: true },
-    ]
-  },
-  {
-    version: 'v1.3.1', name: 'TUI Architecture', status: 'released' as const, progress: 100, color: '#00e5ff',
-    desc: 'OpenTUI-like architecture with routes, components, 6 themes, keymaps, and plugin system. Security system fully integrated.',
-    features: [
-      { text: '6 Specialized Agents (Build, Plan, Explore, General, YOLO, Custom)', done: true },
+      { text: '5 Specialized Agents (Coder, Architect, Reviewer, DevOps, Analyst)', done: true },
       { text: '100+ Model Support via litellm', done: true },
       { text: '75+ Built-in Tools across 13 categories', done: true },
-      { text: 'OpenTUI-like System (Routes, Components, Contexts)', done: true },
+      { text: 'OpenCode Architecture (Routes, Components, Contexts)', done: true },
       { text: '6 Built-in Themes (opencode, dracula, nord, tokyonight, gruvbox, github)', done: true },
-      { text: 'KeymapManager with Layered Keybindings + Leader Key', done: true },
-      { text: 'TUI Plugin System (on_tui_ready, on_tui_exit, on_route_change)', done: true },
-      { text: 'Command Palette (Ctrl+K) + Auto-completion', done: true },
+      { text: 'Git-based Snapshots with Undo/Redo', done: true },
+      { text: 'Custom Commands (user: and project: commands)', done: true },
+      { text: 'Event Bus (25+ typed events)', done: true },
       { text: 'Permission Ruleset System (ALLOW/DENY/ASK + wildcards)', done: true },
       { text: 'Rate Limiting (Memory + SQLite backends)', done: true },
       { text: 'Shell Command Security & Analysis', done: true },
@@ -129,7 +115,7 @@ export default function RoadmapPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Roadmap</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">From <span className="animated-gradient-text">Foundation</span> to Enterprise</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.3.2 OpenCode Architecture to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.0.0 First Stable Release to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
             </motion.div>
           </div>
         </section>

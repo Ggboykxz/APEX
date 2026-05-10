@@ -34,11 +34,11 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 const PROJECT_TREE = `APEX/
 ├── apex/
 │   ├── agent/            # Agent implementations
-│   │   ├── build.py      # Build agent (default)
-│   │   ├── plan.py       # Plan agent (read-only)
-│   │   ├── explore.py    # Explore subagent
-│   │   ├── general.py    # General subagent
-│   │   └── yolo.py       # YOLO agent (auto-approve)
+│   │   ├── coder.py      # Coder agent (default)
+│   │   ├── architect.py   # Architect agent (read-only)
+│   │   ├── reviewer.py    # Reviewer subagent
+│   │   ├── devops.py      # DevOps agent
+│   │   └── analyst.py     # Analyst subagent
 │   ├── tools/            # 75+ built-in tools
 │   │   ├── file_ops.py   # File operations
 │   │   ├── git_tools.py  # Git integration

@@ -14,11 +14,10 @@ pip install apex-ai
 pipx install apex-ai
 ```
 
-## Install with Homebrew (macOS & Linux)
+## Install with uv (fastest)
 
 ```bash
-brew tap apex-ai/tap
-brew install apex
+uv tool install apex-ai
 ```
 
 ## Install with Docker
@@ -26,17 +25,17 @@ brew install apex
 APEX ships an official Docker image for containerized usage. This is ideal for CI/CD pipelines or when you want a fully reproducible environment without installing Python dependencies on the host.
 
 ```bash
-docker pull ghcr.io/apex-ai/apex:latest
-docker run -it --rm -e OPENAI_API_KEY=$OPENAI_API_KEY ghcr.io/apex-ai/apex
+docker pull ghcr.io/ggboykxz/apex:latest
+docker run -it --rm -v $(pwd):/workspace -e OPENAI_API_KEY=$OPENAI_API_KEY ghcr.io/ggboykxz/apex
 ```
 
 ## Install from Source
 
-Cloning from source gives you access to the latest development branch and is required if you plan to contribute. Make sure you have Python 3.10+ and Git installed.
+Cloning from source gives you access to the latest development branch and is required if you plan to contribute. Make sure you have Python 3.11+ and Git installed.
 
 ```bash
-git clone https://github.com/apex-ai/apex.git
-cd apex
+git clone https://github.com/Ggboykxz/APEX.git
+cd APEX
 pip install -e ".[dev]"
 ```
 
