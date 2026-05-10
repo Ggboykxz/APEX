@@ -1,15 +1,22 @@
 {
-  "name": "tui-frontend",
-  "module": "index.ts",
+  "name": "apex-tui",
+  "version": "2.0.0",
+  "description": "APEX Terminal User Interface - AI-Powered Engineering eXtended",
+  "module": "src/App.tsx",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
+  "scripts": {
+    "dev": "bun run src/App.tsx",
+    "start": "bun run src/App.tsx"
   },
   "dependencies": {
-    "@opentui/core": "^0.2.6"
+    "@opentui/core": "^0.2.6",
+    "@opentui/react": "^0.2.6",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19.2.0",
+    "typescript": "^5"
   }
 }

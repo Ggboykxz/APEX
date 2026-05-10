@@ -1,4 +1,15 @@
-"""HeaderBar — OpenCode-style single-line header with APEX branding."""
+"""HeaderBar — OpenCode-style single-line header with APEX branding.
+
+Refonte: Enhanced with:
+- APEX logo icon (⌬ like OpenCode but with ◆ APEX branding)
+- Session info with clickable name
+- Model name with colored dot
+- Working directory display
+- Token usage with color-coded warnings
+- Cost tracking
+- Agent mode indicator with color
+- Context window progress bar
+"""
 
 from textual.widgets import Static
 from textual.widget import Widget
@@ -6,7 +17,10 @@ from textual.reactive import reactive
 
 
 class HeaderBar(Widget):
-    """Compact single-line header: logo + session + model + cwd + tokens + cost + mode."""
+    """Compact single-line header matching OpenCode's design.
+
+    Layout: ◆ APEX | session | ● model | cwd | ●tokens | $cost | context | mode
+    """
 
     model_name = reactive("or-gpt4o-mini")
     session_name = reactive("main")
@@ -14,23 +28,26 @@ class HeaderBar(Widget):
     token_count = reactive(0)
     cost_usd = reactive(0.0)
     current_mode = reactive("agent")
+    context_pct = reactive(0.0)  # 0-100 context window usage
 
     def compose(self):
         yield Static("◆", id="header-logo")
         yield Static(" APEX", id="header-logo-text")
+        yield Static("│", id="header-sep")
         yield Static("▸", id="header-session")
         yield Static(self.session_name, id="header-session-name")
-        yield Static("│", id="header-sep")
+        yield Static("│", id="header-sep-model")
         yield Static("●", id="header-model-dot")
         yield Static(self.model_name, id="header-model-name")
-        yield Static("│", id="header-sep-model")
+        yield Static("│", id="header-sep-cwd")
         yield Static("📁", id="header-cwd-icon")
         yield Static(self._short_cwd(), id="header-cwd-path")
-        yield Static("│", id="header-sep-cwd")
-        yield Static(self._format_tokens(), id="header-tokens")
         yield Static("│", id="header-sep-tokens")
-        yield Static(self._format_cost(), id="header-cost")
+        yield Static(self._format_tokens(), id="header-tokens")
         yield Static("│", id="header-sep-cost")
+        yield Static(self._format_cost(), id="header-cost")
+        yield Static("│", id="header-sep-context")
+        yield Static(self._format_context(), id="header-context")
         yield Static(self._format_mode(), id="header-mode")
 
     def on_mount(self) -> None:
@@ -56,6 +73,9 @@ class HeaderBar(Widget):
     def watch_current_mode(self, mode: str) -> None:
         self._update_mode()
 
+    def watch_context_pct(self, pct: float) -> None:
+        self._update_context()
+
     # ── Update Methods ─────────────────────────────────────────────────────
 
     def _update_all(self) -> None:
@@ -64,6 +84,7 @@ class HeaderBar(Widget):
         self._update_cwd()
         self._update_tokens()
         self._update_cost()
+        self._update_context()
         self._update_mode()
 
     def _update_model(self) -> None:
@@ -92,11 +113,10 @@ class HeaderBar(Widget):
             el = self.query_one("#header-tokens", Static)
             el.update(self._format_tokens())
             el.remove_class("warn", "danger")
-            if self.token_count > 100:
-                el.add_class("warn")
-            if self.token_count > 200:
-                el.remove_class("warn")
+            if self.token_count > 100000:
                 el.add_class("danger")
+            elif self.token_count > 50000:
+                el.add_class("warn")
         except Exception:
             pass
 
@@ -107,10 +127,25 @@ class HeaderBar(Widget):
         except Exception:
             pass
 
+    def _update_context(self) -> None:
+        try:
+            el = self.query_one("#header-context", Static)
+            el.update(self._format_context())
+            el.remove_class("warn", "danger")
+            if self.context_pct > 90:
+                el.add_class("danger")
+            elif self.context_pct > 70:
+                el.add_class("warn")
+        except Exception:
+            pass
+
     def _update_mode(self) -> None:
         try:
             el = self.query_one("#header-mode", Static)
             el.update(self._format_mode())
+            # Update mode color class
+            el.remove_class("mode-plan", "mode-agent", "mode-yolo")
+            el.add_class(f"mode-{self.current_mode}")
         except Exception:
             pass
 
@@ -129,11 +164,22 @@ class HeaderBar(Widget):
 
     def _format_tokens(self) -> str:
         if self.token_count >= 1000:
-            return f"●{self.token_count // 1000}k"
+            return f"●{self.token_count / 1000:.1f}k"
         return f"●{self.token_count}"
 
     def _format_cost(self) -> str:
+        if self.cost_usd >= 1.0:
+            return f"${self.cost_usd:.2f}"
         return f"${self.cost_usd:.4f}"
+
+    def _format_context(self) -> str:
+        if self.context_pct > 0:
+            bar_len = 10
+            filled = int(bar_len * self.context_pct / 100)
+            empty = bar_len - filled
+            bar = "█" * filled + "░" * empty
+            return f"ctx[{bar}]{self.context_pct:.0f}%"
+        return "ctx[░░░░░░░░░░]"
 
     def _format_mode(self) -> str:
         mode_labels = {"plan": "◇ Plan", "agent": "◆ Agent", "yolo": "⚡ Yolo"}
@@ -156,3 +202,7 @@ class HeaderBar(Widget):
 
     def update_mode(self, mode: str) -> None:
         self.current_mode = mode
+
+    def update_context(self, used: int, total: int) -> None:
+        if total > 0:
+            self.context_pct = (used / total) * 100
