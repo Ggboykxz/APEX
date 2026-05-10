@@ -54,7 +54,7 @@ const PROJECT_TREE = `APEX/
 │   ├── tui/              # Textual TUI frontend
 │   ├── cli/              # CLI interface
 │   └── utils/            # Shared utilities
-├── tests/                # 1,125+ tests
+├── tests/                # 1,148+ tests
 │   ├── test_agents/
 │   ├── test_tools/
 │   ├── test_security/
@@ -199,7 +199,7 @@ export default function ContributePage() {
                 { name: 'prompt_toolkit', desc: 'Rich CLI input with autocomplete and history' },
                 { name: 'textual', desc: 'Full-featured TUI framework' },
                 { name: 'pydantic', desc: 'Data validation and settings management' },
-                { name: 'pytest', desc: 'Testing framework with 1,125+ tests' },
+                { name: 'pytest', desc: 'Testing framework with 1,148+ tests' },
                 { name: 'ruff', desc: 'Fast Python linter and formatter' },
                 { name: 'rich', desc: 'Beautiful terminal formatting and markdown' },
                 { name: 'click', desc: 'CLI argument parsing and commands' },

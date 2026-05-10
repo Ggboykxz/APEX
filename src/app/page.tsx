@@ -57,13 +57,15 @@ const FEATURES = [
   { icon: Shield, title: 'Security System', description: 'Shell command analysis, permission rulesets (ALLOW/DENY/ASK), rate limiting, API key management, billing system, and path traversal protection.', color: 'text-apex-red', glow: 'group-hover:shadow-[0_0_30px_rgba(255,68,68,0.15)]' },
   { icon: Zap, title: 'Switch Models Live', description: 'Switch between any model mid-session without restarting. Compare outputs, optimize costs, and never lose context.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
   { icon: Terminal, title: '3 TUI Modes + 6 Themes', description: 'Rich CLI, full Textual TUI with sidebar, or the new OpenTUI frontend with routes, command palette, and 6 built-in themes (opencode, dracula, nord, tokyonight, gruvbox, github).', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
+  { icon: Layers, title: 'Snapshots & Undo/Redo', description: 'Git-based snapshot system creates automatic backups before every destructive action. Undo/redo with full diff computation. Never lose work again.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
+  { icon: Command, title: 'Custom Commands + Event Bus', description: 'Create user: and project: commands with template variables. 25+ typed events on the Event Bus for real-time UI updates. Session sharing via apex:// links.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
 ]
 
 const STATS = [
   { value: '100+', label: 'Models Supported', icon: Cpu },
   { value: '75+', label: 'Built-in Tools', icon: Wrench },
   { value: '6', label: 'Specialized Agents', icon: Bot },
-  { value: '1,125+', label: 'Tests Passing', icon: Check },
+  { value: '1,148+', label: 'Tests Passing', icon: Check },
   { value: '6', label: 'Built-in Themes', icon: Sparkles },
   { value: '14+', label: 'Install Methods', icon: Box },
 ]
@@ -264,13 +266,13 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }} className="text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v1.3.1 — OpenTUI Architecture + 6 Themes
+              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v1.3.2 — OpenCode Architecture + Snapshots
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold font-mono leading-tight mb-6">
               The Universal <span className="animated-gradient-text">AI Coding</span><br />Agent
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Every model. One terminal. APEX runs in your terminal with 100+ models, 75+ tools, and 5 built-in agents. Switch models mid-session. Never leave your terminal.
+              Every model. One terminal. APEX runs in your terminal with 100+ models, 75+ tools, and 6 specialized agents. Switch models mid-session. Snapshots, custom commands, and event bus built in.
             </p>
 
             {/* Install Tabs */}
@@ -318,7 +320,7 @@ export default function Home() {
               <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">build</span><span className="text-muted-foreground">•</span><span className="flex items-center gap-1"><AnthropicIcon size={12} /><span>claude-4-sonnet</span></span></div>
             </div>
             <div className="bg-[#0a0e14] p-6 font-mono text-sm leading-7 min-h-[320px]">
-              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.3.1 — Ready</div>
+              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.3.2 — Ready</div>
               <div className="mt-2"><span className="text-apex-green">user</span><span className="text-muted-foreground">@apex</span><span className="text-apex-cyan"> ~ </span><span className="text-foreground">Fix the authentication bug in auth.py</span></div>
               <div className="mt-3 text-muted-foreground"><span className="text-apex-cyan">◆</span> Using <span className="text-foreground">build</span> agent with <span className="text-apex-cyan">claude-4-sonnet</span></div>
               <div className="mt-2 space-y-1.5">
@@ -484,7 +486,7 @@ export default function Home() {
               <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Features
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4 font-mono">Everything You Need</h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">APEX combines the power of 100+ models, 75+ tools, and 5 specialized agents in one terminal-native experience.</p>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">APEX combines the power of 100+ models, 75+ tools, 6 specialized agents, and OpenCode architecture in one terminal-native experience.</p>
           </motion.div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((feature, i) => (
@@ -520,7 +522,7 @@ export default function Home() {
               <div className="md:pl-8 pt-6 md:pt-0">
                 <p className="eyebrow mb-2">03 · Model Freedom</p>
                 <h3 className="text-lg font-bold font-mono mb-3">100+ models by default</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Use any LLM from any provider. Swap with /model command mid-session.</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">Use any LLM from any provider. Swap with /model command mid-session. Structured messages with Parts, snapshots with undo/redo, and custom commands.</p>
               </div>
             </div>
           </motion.div>

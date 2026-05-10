@@ -125,12 +125,25 @@ const SECURITY_FEATURES = [
     ],
     code: `# Code runs in sandbox\napex "Run this Python code: print('hello')"\n\n# Sandbox config\nsandbox:\n  enabled: true\n  timeout: 30\n  max_memory_mb: 512\n  max_output_chars: 10000\n  network: disabled`,
   },
+  {
+    title: 'HTTP API Security', icon: Server, color: '#00ff88',
+    desc: 'Secure headless agent access with Bearer token or X-API-Key authentication, per-endpoint rate limiting, and automatic cost tracking integrated with the billing system.',
+    details: [
+      'Bearer token or X-API-Key authentication',
+      'Per-endpoint rate limiting',
+      'Automatic cost tracking per request',
+      'Shell security integration for API-initiated commands',
+      'CORS and origin validation',
+      'Request logging and audit trail',
+    ],
+    code: `# Start secure HTTP API server\nfrom apex.http_api import HTTPServer\n\nserver = HTTPServer(\n    host="127.0.0.1",\n    port=8080,\n    require_auth=True,\n)\n\n# API key required for all requests\n# Authorization: Bearer <api-key>\n# or X-API-Key: <api-key>`,
+  },
 ]
 
 const SUPPORTED_VERSIONS = [
-  { version: 'v1.3.1', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
-  { version: 'v1.2.x', status: 'Maintenance', support: 'Critical security patches only', color: '#ffaa00' },
-  { version: 'v1.1.x', status: 'EOL', support: 'End of life — upgrade recommended', color: '#ff4444' },
+  { version: 'v1.3.2', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
+  { version: 'v1.3.1', status: 'Maintenance', support: 'Security patches only', color: '#ffaa00' },
+  { version: 'v1.2.x', status: 'EOL', support: 'End of life — upgrade recommended', color: '#ff4444' },
   { version: 'v1.0.x', status: 'EOL', support: 'End of life — no longer supported', color: '#ff4444' },
 ]
 
