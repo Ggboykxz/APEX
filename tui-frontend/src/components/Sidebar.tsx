@@ -22,7 +22,7 @@ function AgentItem({ agent, active, onSelect }: { agent: ApexAgent; active: bool
         height: 1,
         backgroundColor: active ? apexTheme.bgOverlay : "transparent",
       }}
-      onMousePress={onSelect}
+      onMouseDown={onSelect}
     >
       <text>
         <span style={{ fg: agent.color, attributes: TextAttributes.BOLD }}>{agent.icon}</span>

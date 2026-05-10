@@ -26,8 +26,8 @@ theme:
   font:
     text: Inter
     code: JetBrains Mono
-  logo: assets/apex.svg
-  favicon: assets/favicon.ico
+  # logo: assets/apex.svg
+  # favicon: assets/favicon.ico
   features:
     - navigation.tabs
     - navigation.sections
@@ -43,10 +43,11 @@ theme:
 plugins:
   - search:
       separator: '[\s\-\.]+'
-  - social:
-      cards_layout_options:
-        background_color: "#0d1117"
-        color: "#00e5ff"
+  # social plugin requires pillow + cairosvg + fonts
+  # - social:
+  #     cards_layout_options:
+  #       background_color: "#0d1117"
+  #       color: "#00e5ff"
   - git-revision-date-localized:
       enable_creation_date: true
 
@@ -57,8 +58,9 @@ markdown_extensions:
       alternate_style: true
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.emoji:
-      emoji_index: flang
+  # emoji plugin causes TypeError on newer Python
+  # - pymdownx.emoji:
+  #     emoji_index: !!python/name:material.extensions.emoji.twemoji
   - attr_list
   - md_in_html
 

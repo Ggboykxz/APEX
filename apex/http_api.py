@@ -265,7 +265,8 @@ class HTTPServer:
 
             await response.write(f"data: {json.dumps({'usage': usage})}\n\n".encode())
             if result:
-                await response.write(f"data: {json.dumps({'rate_limit': {{'remaining_minute': {result.remaining_minute}}}}}\n\n".encode())
+                rate_limit_data = {"rate_limit": {"remaining_minute": result.remaining_minute}}
+                await response.write(f"data: {json.dumps(rate_limit_data)}\n\n".encode())
             return response
         except Exception as e:
             logger.error(f"Stream error: {e}")

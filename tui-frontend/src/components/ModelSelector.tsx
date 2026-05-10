@@ -39,7 +39,7 @@ function ModelItem({ model, active, onSelect }: { model: ApexModel; active: bool
         paddingRight: 1,
         backgroundColor: active ? apexTheme.selectionBg : "transparent",
       }}
-      onMousePress={onSelect}
+      onMouseDown={onSelect}
     >
       <text>
         {active ? (
@@ -75,7 +75,7 @@ export function ModelSelector({ visible, searchQuery, onSearchChange, onSelect, 
       style={{
         position: "absolute",
         top: 2,
-        left: "center",
+        left: "50%",
         width: 60,
         height: 22,
         flexDirection: "column",
