@@ -36,34 +36,34 @@ function Footer() {
 
 const VERSIONS = [
   {
-    version: 'v1.3.0', name: 'Foundation', status: 'released' as const, progress: 100, color: '#00e5ff',
-    desc: 'The foundation release — production-ready with full agent system, tools, and security.',
+    version: 'v1.3.1', name: 'TUI Architecture', status: 'released' as const, progress: 100, color: '#00e5ff',
+    desc: 'OpenTUI-like architecture with routes, components, 6 themes, keymaps, and plugin system. Security system fully integrated.',
     features: [
-      { text: '5 Specialized Agents (Build, Plan, Explore, General, YOLO)', done: true },
+      { text: '6 Specialized Agents (Build, Plan, Explore, General, YOLO, Custom)', done: true },
       { text: '100+ Model Support via litellm', done: true },
-      { text: '75+ Built-in Tools across 12 categories', done: true },
-      { text: 'Permission Ruleset System (allow/ask/deny)', done: true },
+      { text: '75+ Built-in Tools across 13 categories', done: true },
+      { text: 'OpenTUI-like System (Routes, Components, Contexts)', done: true },
+      { text: '6 Built-in Themes (opencode, dracula, nord, tokyonight, gruvbox, github)', done: true },
+      { text: 'KeymapManager with Layered Keybindings + Leader Key', done: true },
+      { text: 'TUI Plugin System (on_tui_ready, on_tui_exit, on_route_change)', done: true },
+      { text: 'Command Palette (Ctrl+K) + Auto-completion', done: true },
+      { text: 'Permission Ruleset System (ALLOW/DENY/ASK + wildcards)', done: true },
       { text: 'Rate Limiting (Memory + SQLite backends)', done: true },
-      { text: 'Shell Command Security & Classification', done: true },
-      { text: 'API Key Management & Secure Storage', done: true },
-      { text: 'Path Traversal Protection', done: true },
-      { text: 'Billing & Cost Tracking', done: true },
-      { text: 'Sandbox Code Execution', done: true },
+      { text: 'Shell Command Security & Analysis', done: true },
+      { text: 'API Key Management (workspace-based, SHA-256)', done: true },
+      { text: 'Billing System (Free/Pro/Enterprise plans)', done: true },
+      { text: 'Sandbox Code Execution (landlock, seatbelt, win32)', done: true },
       { text: 'Session Persistence & Sharing', done: true },
-      { text: 'Rich CLI + Textual TUI + OpenTUI', done: true },
-      { text: 'LSP Integration (definition, references, hover)', done: true },
-      { text: 'Git Integration (status, log, diff, branch, commit, PR)', done: true },
-      { text: 'Plugin System with Hooks', done: true },
-      { text: '1,148 Tests Passing', done: true },
+      { text: '1,125+ Tests Passing', done: true },
     ]
   },
   {
-    version: 'v1.4.0', name: 'Power', status: 'next' as const, progress: 45, color: '#00ff88',
-    desc: 'Streaming responses, git tools, web search, and persistent memory — more powerful workflows.',
+    version: 'v1.4.0', name: 'Power', status: 'next' as const, progress: 55, color: '#00ff88',
+    desc: 'Streaming responses, git tools, web search, persistent memory, and model benchmarking — more powerful workflows.',
     features: [
-      { text: 'Streaming Response Mode', done: false },
-      { text: 'Git Tools Suite (create PR, rebase, stash)', done: false },
-      { text: 'Web Search & URL Fetching', done: false },
+      { text: 'Streaming Response Mode', done: true },
+      { text: 'Git Tools Suite (create PR, rebase, stash)', done: true },
+      { text: 'Web Search & URL Fetching', done: true },
       { text: 'Persistent Memory System', done: false },
       { text: 'Enhanced Agent Switching (seamless context transfer)', done: false },
       { text: 'Model Performance Benchmarking', done: false },
@@ -115,7 +115,7 @@ export default function RoadmapPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Roadmap</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">From <span className="animated-gradient-text">Foundation</span> to Enterprise</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.3.0 Foundation to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.3.1 TUI Architecture to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
             </motion.div>
           </div>
         </section>
