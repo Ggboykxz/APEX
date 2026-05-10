@@ -10,6 +10,7 @@ import {
   CircleDot, GitPullRequest, Tag, Box, MessageSquare, Heart, ExternalLink,
   ChevronRight
 } from 'lucide-react'
+import { PROVIDER_ICONS, PROVIDER_LIST, AnthropicIcon } from '@/components/ProviderIcons'
 
 /* ──── TYPES ──── */
 interface GitHubRepoData {
@@ -314,7 +315,7 @@ export default function Home() {
             <div className="flex items-center gap-2 px-4 py-3 bg-card border-b border-border">
               <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-apex-red/80" /><div className="w-3 h-3 rounded-full bg-apex-yellow/80" /><div className="w-3 h-3 rounded-full bg-apex-green/80" /></div>
               <span className="text-xs text-muted-foreground font-mono ml-2">apex — ~/my-project</span>
-              <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">build</span><span className="text-muted-foreground">•</span><span>claude-4-sonnet</span></div>
+              <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">build</span><span className="text-muted-foreground">•</span><span className="flex items-center gap-1"><AnthropicIcon size={12} /><span>claude-4-sonnet</span></span></div>
             </div>
             <div className="bg-[#0a0e14] p-6 font-mono text-sm leading-7 min-h-[320px]">
               <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.3.0 — Ready</div>
@@ -345,6 +346,29 @@ export default function Home() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ──── SUPPORTED PROVIDERS ──── */}
+      <section className="py-12 border-t border-b border-border/50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }} className="text-center">
+            <p className="eyebrow mb-6">Supported Providers</p>
+            <div className="flex flex-wrap items-center justify-center gap-6 md:gap-8">
+              {PROVIDER_LIST.map(p => {
+                const IconComp = PROVIDER_ICONS[p.iconKey]
+                return (
+                  <a key={p.iconKey} href="/models" className="group flex flex-col items-center gap-2 transition-all duration-300 hover:scale-110" title={p.name}>
+                    <div className="w-14 h-14 rounded-xl flex items-center justify-center border border-border/50 bg-card/30 group-hover:border-border group-hover:bg-card/60 transition-all duration-300" style={{ boxShadow: `0 0 0 0 ${p.color}00`, transition: 'box-shadow 0.3s' }} onMouseEnter={e => (e.currentTarget.style.boxShadow = `0 0 20px ${p.color}20`)} onMouseLeave={e => (e.currentTarget.style.boxShadow = `0 0 0 0 ${p.color}00`)}>
+                      {IconComp && <IconComp size={28} />}
+                    </div>
+                    <span className="text-[0.65rem] font-mono text-muted-foreground group-hover:text-foreground transition-colors">{p.name}</span>
+                  </a>
+                )
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground font-mono mt-6">+ 90 more models via litellm · <a href="/models" className="text-apex-cyan hover:underline">View all models →</a></p>
+          </motion.div>
         </div>
       </section>
 
