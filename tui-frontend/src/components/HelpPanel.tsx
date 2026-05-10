@@ -1,8 +1,3 @@
-/**
- * APEX Help Panel Component
- * Help overlay showing keybindings, agents, and tools
- */
-
 import { TextAttributes } from "@opentui/core"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_KEYBINDINGS, APEX_AGENTS, APEX_TOOLS } from "../data/apex-data.js"
@@ -34,7 +29,6 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
         zIndex: 200,
       }}
     >
-      {/* Header */}
       <box style={{ height: 1, paddingLeft: 1, backgroundColor: apexTheme.bgOverlay }}>
         <text>
           <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>▲ APEX Help</span>
@@ -42,81 +36,25 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
         </text>
       </box>
 
-      {/* Tabs */}
       <box style={{ height: 1, flexDirection: "row", paddingLeft: 1 }}>
-        <box
-          style={{
-            paddingRight: 2,
-            backgroundColor: tab === "keybindings" ? apexTheme.bgOverlay : "transparent",
-          }}
-          onMouseDown={() => onTabChange("keybindings")}
-        >
-          <text>
-            <span
-              style={{
-                fg: tab === "keybindings" ? apexTheme.cyan : apexTheme.textMuted,
-                attributes: tab === "keybindings" ? TextAttributes.BOLD : 0,
-              }}
-            >
-              Keybindings
-            </span>
-          </text>
-        </box>
-        <box
-          style={{
-            paddingRight: 2,
-            backgroundColor: tab === "agents" ? apexTheme.bgOverlay : "transparent",
-          }}
-          onMouseDown={() => onTabChange("agents")}
-        >
-          <text>
-            <span
-              style={{
-                fg: tab === "agents" ? apexTheme.cyan : apexTheme.textMuted,
-                attributes: tab === "agents" ? TextAttributes.BOLD : 0,
-              }}
-            >
-              Agents
-            </span>
-          </text>
-        </box>
-        <box
-          style={{
-            paddingRight: 2,
-            backgroundColor: tab === "tools" ? apexTheme.bgOverlay : "transparent",
-          }}
-          onMouseDown={() => onTabChange("tools")}
-        >
-          <text>
-            <span
-              style={{
-                fg: tab === "tools" ? apexTheme.cyan : apexTheme.textMuted,
-                attributes: tab === "tools" ? TextAttributes.BOLD : 0,
-              }}
-            >
-              Tools
-            </span>
-          </text>
-        </box>
+        {(["keybindings", "agents", "tools"] as const).map((t) => (
+          <box
+            key={t}
+            style={{ paddingRight: 2, backgroundColor: tab === t ? apexTheme.bgOverlay : "transparent" }}
+            onMouseDown={() => onTabChange(t)}
+          >
+            <text>
+              <span style={{ fg: tab === t ? apexTheme.cyan : apexTheme.textMuted, attributes: tab === t ? TextAttributes.BOLD : 0 }}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </span>
+            </text>
+          </box>
+        ))}
       </box>
 
       <box style={{ height: 1, backgroundColor: apexTheme.border }} />
 
-      {/* Content */}
-      <scrollbox
-        style={{
-          flexGrow: 1,
-          rootOptions: { backgroundColor: apexTheme.bgSurface },
-          contentOptions: { backgroundColor: apexTheme.bgSurface },
-          scrollbarOptions: {
-            showArrows: false,
-            trackOptions: {
-              foregroundColor: apexTheme.cyan,
-              backgroundColor: apexTheme.scrollbarTrack,
-            },
-          },
-        }}
-      >
+      <scrollbox style={{ flexGrow: 1, rootOptions: { backgroundColor: apexTheme.bgSurface }, contentOptions: { backgroundColor: apexTheme.bgSurface }, scrollbarOptions: { showArrows: false, trackOptions: { foregroundColor: apexTheme.cyan, backgroundColor: apexTheme.scrollbarTrack } } }}>
         {tab === "keybindings" && (
           <box style={{ flexDirection: "column", paddingLeft: 1 }}>
             {APEX_KEYBINDINGS.map((kb, i) => (

@@ -1,8 +1,3 @@
-/**
- * APEX Sidebar Component
- * Agent selection, session list, and navigation
- */
-
 import { TextAttributes } from "@opentui/core"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_AGENTS, type ApexAgent } from "../data/apex-data.js"
@@ -16,12 +11,7 @@ interface SidebarProps {
 function AgentItem({ agent, active, onSelect }: { agent: ApexAgent; active: boolean; onSelect: () => void }) {
   return (
     <box
-      style={{
-        width: "100%",
-        paddingLeft: 1,
-        height: 1,
-        backgroundColor: active ? apexTheme.bgOverlay : "transparent",
-      }}
+      style={{ width: "100%", paddingLeft: 1, height: 1, backgroundColor: active ? apexTheme.bgOverlay : "transparent" }}
       onMouseDown={onSelect}
     >
       <text>
@@ -47,7 +37,6 @@ export function Sidebar({ activeAgent, onAgentSelect, visible }: SidebarProps) {
         borderStyle: "single",
       }}
     >
-      {/* APEX Logo */}
       <box style={{ height: 1, paddingLeft: 1, alignItems: "center" }}>
         <text>
           <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>▲ </span>
@@ -55,27 +44,18 @@ export function Sidebar({ activeAgent, onAgentSelect, visible }: SidebarProps) {
         </text>
       </box>
 
-      {/* Divider */}
       <box style={{ height: 1, backgroundColor: apexTheme.border }} />
 
-      {/* Agents section */}
       <box style={{ height: 1, paddingLeft: 1 }}>
         <text style={{ fg: apexTheme.textMuted, attributes: TextAttributes.BOLD }}>AGENTS</text>
       </box>
 
       {APEX_AGENTS.map((agent) => (
-        <AgentItem
-          key={agent.id}
-          agent={agent}
-          active={agent.id === activeAgent}
-          onSelect={() => onAgentSelect(agent.id)}
-        />
+        <AgentItem key={agent.id} agent={agent} active={agent.id === activeAgent} onSelect={() => onAgentSelect(agent.id)} />
       ))}
 
-      {/* Divider */}
       <box style={{ height: 1, marginTop: 1, backgroundColor: apexTheme.border }} />
 
-      {/* Sessions section */}
       <box style={{ height: 1, paddingLeft: 1, marginTop: 1 }}>
         <text style={{ fg: apexTheme.textMuted, attributes: TextAttributes.BOLD }}>SESSIONS</text>
       </box>
@@ -93,10 +73,8 @@ export function Sidebar({ activeAgent, onAgentSelect, visible }: SidebarProps) {
         </text>
       </box>
 
-      {/* Divider */}
       <box style={{ height: 1, marginTop: 1, backgroundColor: apexTheme.border }} />
 
-      {/* MCP/LSP status */}
       <box style={{ height: 1, paddingLeft: 1, marginTop: 1 }}>
         <text style={{ fg: apexTheme.textMuted, attributes: TextAttributes.BOLD }}>MCP/LSP</text>
       </box>
@@ -114,12 +92,10 @@ export function Sidebar({ activeAgent, onAgentSelect, visible }: SidebarProps) {
         </text>
       </box>
 
-      {/* Spacer */}
       <box flexGrow={1} />
 
-      {/* Version */}
       <box style={{ height: 1, paddingLeft: 1 }}>
-        <text style={{ fg: apexTheme.textMuted }}>v2.0.0</text>
+        <text style={{ fg: apexTheme.textMuted }}>v1.0.0</text>
       </box>
     </box>
   )
