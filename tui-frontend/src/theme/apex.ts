@@ -33,4 +33,11 @@ export const apexTheme = {
   selectionFg: "#e6edf3",
 } as const
 
+export const spacing = {
+  xs: 0,
+  sm: 1,
+  md: 2,
+  lg: 3,
+} as const
+
 export type ApexTheme = typeof apexTheme

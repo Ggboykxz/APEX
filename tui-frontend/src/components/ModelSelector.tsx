@@ -1,6 +1,7 @@
 import { TextAttributes } from "@opentui/core"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_MODELS, type ApexModel } from "../data/apex-data.js"
+import { APEX_AGENTS } from "../data/apex-data.js"
 
 interface ModelSelectorProps {
   visible: boolean
@@ -27,14 +28,20 @@ function ModelItem({ model, active, onSelect }: { model: ApexModel; active: bool
 
   return (
     <box
-      style={{ width: "100%", height: 1, paddingLeft: 1, paddingRight: 1, backgroundColor: active ? apexTheme.selectionBg : "transparent" }}
+      style={{
+        width: "100%",
+        height: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
+        backgroundColor: active ? apexTheme.selectionBg : "transparent",
+      }}
       onMouseDown={onSelect}
     >
       <text>
         {active ? (
-          <span style={{ fg: apexTheme.cyan }}>● </span>
+          <span style={{ fg: apexTheme.green }}>▸ </span>
         ) : (
-          <span style={{ fg: apexTheme.textMuted }}>○ </span>
+          <span style={{ fg: apexTheme.textMuted }}>  </span>
         )}
         <span style={{ fg: providerColors[model.provider] ?? apexTheme.text, attributes: TextAttributes.BOLD }}>
           {model.provider}
@@ -42,8 +49,15 @@ function ModelItem({ model, active, onSelect }: { model: ApexModel; active: bool
         <span style={{ fg: apexTheme.textMuted }}> / </span>
         <span style={{ fg: active ? apexTheme.textBright : apexTheme.text }}>{model.name}</span>
         <span style={{ fg: apexTheme.textMuted }}> </span>
-        <span style={{ fg: apexTheme.textMuted }}>
-          ({(model.contextWindow / 1000).toFixed(0)}K ctx{model.supportsVision ? " +vision" : ""})
+        {model.supportsVision && (
+          <span style={{ fg: apexTheme.cyan }}>👁</span>
+        )}
+        {model.supportsTools && (
+          <span style={{ fg: apexTheme.green }}> 🔧</span>
+        )}
+        <span style={{ fg: apexTheme.textMuted }}> </span>
+        <span style={{ fg: apexTheme.textDim }}>
+          ({(model.contextWindow / 1000).toFixed(0)}K ctx)
         </span>
       </text>
     </box>
@@ -56,7 +70,9 @@ export function ModelSelector({ visible, searchQuery, onSearchChange, onSelect, 
   const filteredModels = APEX_MODELS.filter((m) => {
     const q = searchQuery.toLowerCase()
     return m.name.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q)
-  }).slice(0, 15)
+  }).slice(0, 18)
+
+  const currentAgent = APEX_AGENTS.find((a) => a.id === "coder")
 
   return (
     <box
@@ -65,35 +81,55 @@ export function ModelSelector({ visible, searchQuery, onSearchChange, onSelect, 
         position: "absolute",
         top: 2,
         left: "50%",
-        width: 60,
-        height: 22,
+        width: 65,
+        height: 24,
         flexDirection: "column",
         backgroundColor: apexTheme.bgSurface,
         border: true,
-        borderColor: apexTheme.borderFocus,
-        borderStyle: "single",
+        borderColor: currentAgent?.color ?? apexTheme.cyan,
+        borderStyle: "double",
         zIndex: 100,
       }}
     >
       <box style={{ height: 1, paddingLeft: 1, backgroundColor: apexTheme.bgOverlay }}>
         <text>
-          <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>Select Model</span>
-          <span style={{ fg: apexTheme.textMuted }}> (Ctrl+K)</span>
+          <span style={{ fg: currentAgent?.color ?? apexTheme.cyan, attributes: TextAttributes.BOLD }}>◎ Select Model</span>
+          <span style={{ fg: apexTheme.textMuted }}> ─ </span>
+          <span style={{ fg: apexTheme.textDim }}>Search by name or provider</span>
+          <box flexGrow={1} />
+          <span style={{ fg: apexTheme.textMuted }}>Esc</span>
+          <span style={{ fg: apexTheme.textDim }}> to close</span>
         </text>
       </box>
 
-      <box style={{ height: 3, border: true, borderColor: apexTheme.border, borderStyle: "single" }}>
+      <box style={{ height: 3, border: true, borderColor: currentAgent?.color ?? apexTheme.cyan, borderStyle: "single" }}>
         <input
           id="apex-model-search"
-          placeholder="Search models..."
+          placeholder="Search models... (e.g. claude, gpt, gemini)"
           value={searchQuery}
           onInput={onSearchChange}
           focused
-          style={{ focusedBackgroundColor: apexTheme.bgSurfaceBright }}
+          style={{
+            focusedBackgroundColor: apexTheme.bgSurfaceBright,
+            backgroundColor: apexTheme.bgSurface,
+          }}
         />
       </box>
 
-      <scrollbox style={{ flexGrow: 1, rootOptions: { backgroundColor: apexTheme.bgSurface }, contentOptions: { backgroundColor: apexTheme.bgSurface }, scrollbarOptions: { showArrows: false, trackOptions: { foregroundColor: apexTheme.cyan, backgroundColor: apexTheme.scrollbarTrack } } }}>
+      <scrollbox
+        style={{
+          flexGrow: 1,
+          rootOptions: { backgroundColor: apexTheme.bgSurface },
+          contentOptions: { backgroundColor: apexTheme.bgSurface },
+          scrollbarOptions: {
+            showArrows: false,
+            trackOptions: {
+              foregroundColor: currentAgent?.color ?? apexTheme.cyan,
+              backgroundColor: apexTheme.scrollbarTrack,
+            },
+          },
+        }}
+      >
         {filteredModels.map((model) => (
           <ModelItem
             key={model.id}
@@ -103,17 +139,20 @@ export function ModelSelector({ visible, searchQuery, onSearchChange, onSelect, 
           />
         ))}
         {filteredModels.length === 0 ? (
-          <box style={{ padding: 1 }}>
-            <text style={{ fg: apexTheme.textMuted }}>No models found</text>
+          <box style={{ padding: 2 }}>
+            <text style={{ fg: apexTheme.warning }}>⚠ No models match "{searchQuery}"</text>
           </box>
         ) : null}
       </scrollbox>
 
       <box style={{ height: 1, paddingLeft: 1, backgroundColor: apexTheme.bgOverlay }}>
         <text>
-          <span style={{ fg: apexTheme.textMuted }}>{filteredModels.length} models | </span>
-          <span style={{ fg: apexTheme.cyan }}>Esc</span>
-          <span style={{ fg: apexTheme.textMuted }}> Close</span>
+          <span style={{ fg: currentAgent?.color ?? apexTheme.cyan }}>{filteredModels.length}</span>
+          <span style={{ fg: apexTheme.textMuted }}> models available │ </span>
+          <span style={{ fg: apexTheme.green }}>▸ Enter</span>
+          <span style={{ fg: apexTheme.textMuted }}> to select │ </span>
+          <span style={{ fg: apexTheme.green }}>Esc</span>
+          <span style={{ fg: apexTheme.textMuted }}> to close</span>
         </text>
       </box>
     </box>
