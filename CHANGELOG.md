@@ -2,6 +2,42 @@
 
 All notable changes to APEX will be documented in this file.
 
+## [1.3.2] - 2026-05-10
+
+### OpenCode Architecture (Major)
+
+- **Structured Message System (Parts)** — Messages with typed parts (text, file, tool_call, tool_result, image, snapshot)
+  - `structured_message.py` with MessagePart, Message, TokenUsage classes
+  - Serializable/deserializable for persistence
+
+- **Snapshot System** — Git-based undo/redo with `snapshot.py`
+  - SnapshotManager with track/restore functionality
+  - ActionTypes: FILE_WRITE, FILE_EDIT, FILE_DELETE
+  - Diff computation between before/after states
+
+- **Custom Commands System** — user: and project: commands
+  - `commands.py` with CommandManager
+  - Markdown-based command files
+  - Template variable expansion ({{variable}})
+
+- **Enhanced Event Bus** — 25+ typed events
+  - Session events (created, updated, deleted, share)
+  - File events (changed, created, deleted, saved)
+  - Tool events (called, executed, error, result)
+  - Permission events, LSP events, Undo/Redo events
+
+- **Session Sharing** — Base64 encoded shareable session links
+  - `apex://share/{id}` format
+  - Load shared sessions via ID
+
+### Documentation
+
+- Complete AGENTS.md rewrite with OpenCode architecture spec
+- Table of contents with 16 sections
+- Build/Plan agents, Event Bus, Parts system, Permissions, Snapshots
+
+---
+
 ## [1.3.1] - 2026-05-10
 
 ### TUI Architecture (Major)

@@ -43,6 +43,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ui", action="store_true", help="Launch Textual TUI (original APEX UI)")
     parser.add_argument("--tui", "-t", action="store_true", help="Launch OpenTUI (better than OpenCode)")
     parser.add_argument("--new-tui", action="store_true", help="Launch new Python TUI (OpenTUI-like)")
+    parser.add_argument("-p", dest="prompt_direct", help="Direct prompt (CI/CD mode, no TUI)")
+    parser.add_argument("-f", "--format", dest="output_format", choices=["text", "json"], default="text", help="Output format")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode (less output)")
     return parser.parse_args()
 
 
@@ -584,6 +587,34 @@ def run_one_shot(prompt: str, agent: Agent, ui: UI, use_stream: bool = False) ->
         ui.print_response(response)
 
 
+def run_cicd_mode(prompt: str, agent: Agent, ui: UI, output_format: str = "text", quiet: bool = False) -> None:
+    """CI/CD mode - Direct prompt execution with optional JSON output."""
+    try:
+        with ui.console.status("[cyan]Processing...[/cyan]", spinner="dots") if not quiet else ui.console.status(""):
+            response = agent.chat(prompt)
+
+        if output_format == "json":
+            result = {
+                "success": True,
+                "prompt": prompt,
+                "response": response,
+                "model": agent.model,
+                "usage": agent.usage
+            }
+            print(json.dumps(result, indent=2))
+        else:
+            if not quiet:
+                ui.print_response(response)
+            else:
+                print(response)
+
+    except Exception as e:
+        if output_format == "json":
+            print(json.dumps({"success": False, "error": str(e)}, indent=2))
+        else:
+            ui.print_error(f"Error: {e}")
+
+
 def run_textual_tui(agent: Agent, ui: UI) -> None:
     """Run APEX Textual TUI - The best terminal UI ever built."""
     try:
@@ -708,6 +739,8 @@ def main() -> None:
         run_apex_tui(agent, ui)
     elif args.new_tui:
         run_new_tui(agent, ui)
+    elif args.prompt_direct:
+        run_cicd_mode(args.prompt_direct, agent, ui, args.output_format, args.quiet)
     elif args.prompt:
         run_one_shot(args.prompt, agent, ui, args.stream)
     else:
