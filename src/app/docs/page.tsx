@@ -87,7 +87,7 @@ function DocsHeading({ children, id }: { children: React.ReactNode; id?: string 
 }
 
 /* ──── DOC SECTIONS ──── */
-type DocSection = 'overview' | 'quickstart' | 'configuration' | 'commands' | 'advanced' | 'plugins' | 'api' | 'troubleshooting'
+type DocSection = 'overview' | 'quickstart' | 'configuration' | 'commands' | 'advanced' | 'plugins' | 'api' | 'opencode' | 'troubleshooting'
 
 const DOC_NAV: { id: DocSection; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: BookOpen },
@@ -97,6 +97,7 @@ const DOC_NAV: { id: DocSection; label: string; icon: React.ElementType }[] = [
   { id: 'advanced', label: 'Advanced', icon: Layers },
   { id: 'plugins', label: 'Plugins', icon: Puzzle },
   { id: 'api', label: 'API Reference', icon: Code2 },
+  { id: 'opencode', label: 'OpenCode Arch', icon: Layers },
   { id: 'troubleshooting', label: 'Troubleshooting', icon: AlertCircle },
 ]
 
@@ -107,7 +108,7 @@ function DocOverview() {
       <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Built in Gabon 🇬🇦 for the world. APEX is a production-grade, terminal-native AI coding agent that works with <strong className="text-foreground">any LLM</strong> via a unified interface powered by litellm.</p>
       <DocsHeading id="features">Features</DocsHeading>
       <div className="grid sm:grid-cols-2 gap-3">
-        {[['100+ Models', 'Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more'], ['6 Specialized Agents', 'Build, Plan, Explore, General, YOLO, Custom with permission controls'], ['75+ Tools', 'File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB'], ['3 TUI Modes + 6 Themes', 'CLI, Textual TUI, OpenTUI with opencode, dracula, nord, tokyonight, gruvbox, github themes'], ['Session Persistence', 'Save and load conversations, bookmark positions, share links'], ['Token Cost Tracking', 'Monitor usage and estimated costs in real-time'], ['Plugin System', 'Extensible with custom tools and TUI hooks'], ['Undo/Redo', 'Revert and reapply changes with full history'], ['LSP Integration', 'Go to definition, references, hover, diagnostics'], ['Security System', 'Shell analysis, permissions (ALLOW/DENY/ASK), rate limiting, billing, API key management']].map(([title, desc]) => (
+        {[['100+ Models', 'Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more'], ['6 Specialized Agents', 'Build, Plan, Explore, General, YOLO, Custom with permission controls'], ['75+ Tools', 'File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB'], ['3 TUI Modes + 6 Themes', 'CLI, Textual TUI, OpenTUI with opencode, dracula, nord, tokyonight, gruvbox, github themes'], ['Session Persistence', 'Save and load conversations, bookmark positions, share links'], ['Token Cost Tracking', 'Monitor usage and estimated costs in real-time'], ['Plugin System', 'Extensible with custom tools and TUI hooks'], ['Undo/Redo', 'Revert and reapply changes with full history'], ['LSP Integration', 'Go to definition, references, hover, diagnostics'], ['Security System', 'Shell analysis, permissions (ALLOW/DENY/ASK), rate limiting, billing, API key management'], ['Snapshots & Undo/Redo', 'Git-based snapshots before every destructive action, with full diff computation and restore'], ['Custom Commands + Event Bus', 'user: and project: commands with template variables, 25+ typed events on the bus']].map(([title, desc]) => (
           <div key={title} className="p-3 rounded-lg border border-border/50 bg-card/30"><span className="text-apex-cyan font-mono font-bold text-sm">{title}</span><p className="text-muted-foreground text-xs mt-1">{desc}</p></div>
         ))}
       </div>
@@ -267,8 +268,51 @@ function DocTroubleshooting() {
   )
 }
 
+function DocOpenCode() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold font-mono mb-2">OpenCode Architecture</h1>
+      <p className="text-muted-foreground text-lg mb-8 leading-relaxed">APEX v1.3.2 introduces the OpenCode architecture — structured messages, snapshots, custom commands, and a typed event bus.</p>
+      <DocsHeading id="parts">Structured Messages (Parts)</DocsHeading>
+      <p className="text-muted-foreground text-sm leading-relaxed mb-4">Every message in APEX is composed of typed parts — text, file references, tool calls, tool results, images, and snapshots. This structured approach enables rich context management and precise message handling.</p>
+      <DocsTable headers={['Part Type', 'Description']} rows={[
+        ['text', 'Regular text content of the message'],
+        ['file', 'File reference with path and content'],
+        ['tool_call', 'Tool invocation with name and parameters'],
+        ['tool_result', 'Result returned from a tool execution'],
+        ['image', 'Uploaded image content'],
+        ['snapshot', 'Reference to a snapshot before modification'],
+      ]} />
+      <DocsHeading id="snapshots">Snapshot System</DocsHeading>
+      <p className="text-muted-foreground text-sm leading-relaxed mb-4">Before every destructive action (file write, edit, delete), APEX creates a Git-based snapshot. You can undo any change with <code className="text-apex-cyan">/undo</code> and redo with <code className="text-apex-cyan">/redo</code>. The system computes diffs between before/after states for full traceability.</p>
+      <CodeBlock code={`# Undo the last AI action\n/undo\n\n# Redo an undone action\n/redo\n\n# View snapshot diff\n/snapshot diff <id>`} />
+      <DocsHeading id="custom-commands">Custom Commands</DocsHeading>
+      <p className="text-muted-foreground text-sm leading-relaxed mb-4">Create reusable prompt templates with <code className="text-apex-cyan">user:</code> and <code className="text-apex-cyan">project:</code> commands. Store them in <code className="text-apex-cyan">~/.apex/commands/</code> for global commands or <code className="text-apex-cyan">.apex/commands/</code> for project-specific ones. Template variables like <code className="text-apex-cyan">{'{{variable}}'}</code> are expanded at runtime.</p>
+      <CodeBlock language="markdown" code={`<!-- ~/.apex/commands/review.md -->\n# Code Review Standard\n\nAnalyse le code et vérifie :\n1. Respect des conventions\n2. Gestion des erreurs complète\n3. Pas de console.log oubliés\n4. Types explicites (pas de any)\n\nRapport : OK / Warning / Critique`} />
+      <DocsHeading id="event-bus">Event Bus</DocsHeading>
+      <p className="text-muted-foreground text-sm leading-relaxed mb-4">APEX is built on a strongly-typed event bus with 25+ events. Frontend components subscribe to events for real-time UI updates, and plugins can emit custom events.</p>
+      <DocsTable headers={['Event', 'Description']} rows={[
+        ['session_updated', 'Session was modified'],
+        ['session_created', 'New session created'],
+        ['file_changed', 'File was modified'],
+        ['message_added', 'New message in conversation'],
+        ['tool_executed', 'Tool completed execution'],
+        ['tool_error', 'Tool execution failed'],
+        ['permission_requested', 'Permission prompt shown to user'],
+        ['permission_granted', 'Permission was approved'],
+        ['permission_denied', 'Permission was rejected'],
+        ['theme_changed', 'UI theme was switched'],
+        ['route_changed', 'TUI navigation route changed'],
+      ]} />
+      <DocsHeading id="session-sharing">Session Sharing</DocsHeading>
+      <p className="text-muted-foreground text-sm leading-relaxed mb-4">Share sessions via Base64-encoded links in the format <code className="text-apex-cyan">apex://share/{'{id}'}</code>. Recipients can load shared sessions to review conversations, tool calls, and outcomes.</p>
+      <CodeBlock code={`# Generate a share link\n/share\n\n# Output: apex://share/abc123def456\n# Recipient loads with:\n/apex://share/abc123def456`} />
+    </div>
+  )
+}
+
 const DOC_CONTENT: Record<DocSection, React.ReactNode> = {
-  overview: <DocOverview />, quickstart: <DocQuickstart />, configuration: <DocConfiguration />, commands: <DocCommands />, advanced: <DocAdvanced />, plugins: <DocPlugins />, api: <DocAPI />, troubleshooting: <DocTroubleshooting />,
+  overview: <DocOverview />, quickstart: <DocQuickstart />, configuration: <DocConfiguration />, commands: <DocCommands />, advanced: <DocAdvanced />, plugins: <DocPlugins />, api: <DocAPI />, opencode: <DocOpenCode />, troubleshooting: <DocTroubleshooting />,
 }
 
 /* ──── MAIN ──── */

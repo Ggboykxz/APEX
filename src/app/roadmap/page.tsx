@@ -36,6 +36,20 @@ function Footer() {
 
 const VERSIONS = [
   {
+    version: 'v1.3.2', name: 'OpenCode Architecture', status: 'released' as const, progress: 100, color: '#00e5ff',
+    desc: 'OpenCode architecture with structured messages (Parts), Git-based snapshots with undo/redo, custom commands system, enhanced event bus with 25+ typed events, and session sharing via apex:// links.',
+    features: [
+      { text: 'Structured Message System (Parts) — text, file, tool_call, tool_result, image, snapshot', done: true },
+      { text: 'Snapshot System — Git-based undo/redo with diff computation', done: true },
+      { text: 'Custom Commands — user: and project: commands with template variables', done: true },
+      { text: 'Enhanced Event Bus — 25+ typed events (session, file, tool, permission, LSP, undo/redo)', done: true },
+      { text: 'Session Sharing — Base64 encoded apex://share/{id} links', done: true },
+      { text: 'Build & Plan agents with switch via /agent command', done: true },
+      { text: 'Complete AGENTS.md rewrite with OpenCode architecture spec', done: true },
+      { text: '1,148+ Tests Passing', done: true },
+    ]
+  },
+  {
     version: 'v1.3.1', name: 'TUI Architecture', status: 'released' as const, progress: 100, color: '#00e5ff',
     desc: 'OpenTUI-like architecture with routes, components, 6 themes, keymaps, and plugin system. Security system fully integrated.',
     features: [
@@ -54,11 +68,11 @@ const VERSIONS = [
       { text: 'Billing System (Free/Pro/Enterprise plans)', done: true },
       { text: 'Sandbox Code Execution (landlock, seatbelt, win32)', done: true },
       { text: 'Session Persistence & Sharing', done: true },
-      { text: '1,125+ Tests Passing', done: true },
+      { text: '1,148+ Tests Passing', done: true },
     ]
   },
   {
-    version: 'v1.4.0', name: 'Power', status: 'next' as const, progress: 55, color: '#00ff88',
+    version: 'v1.4.0', name: 'Power', status: 'next' as const, progress: 60, color: '#00ff88',
     desc: 'Streaming responses, git tools, web search, persistent memory, and model benchmarking — more powerful workflows.',
     features: [
       { text: 'Streaming Response Mode', done: true },
@@ -115,7 +129,7 @@ export default function RoadmapPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Roadmap</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">From <span className="animated-gradient-text">Foundation</span> to Enterprise</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.3.1 TUI Architecture to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.3.2 OpenCode Architecture to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
             </motion.div>
           </div>
         </section>

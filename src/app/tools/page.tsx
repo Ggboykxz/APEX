@@ -169,6 +169,20 @@ const TOOL_CATEGORIES: ToolCategory[] = [
       { name: 'run_command_custom', desc: 'Run a custom command defined in the configuration.', params: 'command: str, args?: dict', example: '"Run the deploy command"' },
     ]
   },
+  {
+    name: 'OpenCode Architecture', icon: Cpu, color: '#8b5cf6', count: 9,
+    tools: [
+      { name: 'snapshot_create', desc: 'Create a Git-based snapshot before modifications. Captures the current state of the workspace for safe rollback.', params: 'label?: str', example: '"Create a snapshot before refactoring"' },
+      { name: 'snapshot_restore', desc: 'Restore a previously created snapshot. Reverts the workspace to the captured state.', params: 'snapshot_id: str', example: '"Restore snapshot before-refactor"' },
+      { name: 'snapshot_diff', desc: 'Compute diff between snapshot states. Shows what changed between two snapshots.', params: 'snapshot_id_1: str, snapshot_id_2: str', example: '"Diff snapshot v1 and v2"' },
+      { name: 'undo', desc: 'Undo the last AI action. Reverts the most recent modification made by the agent.', params: 'none', example: '"Undo the last change"' },
+      { name: 'redo', desc: 'Redo an undone action. Re-applies the change that was previously undone.', params: 'none', example: '"Redo the undone change"' },
+      { name: 'command_run', desc: 'Execute a custom user: or project: command. Runs predefined command templates with variable substitution.', params: 'command: str, args?: dict', example: '"Run user:deploy command"' },
+      { name: 'command_create', desc: 'Create a new custom command with template variables. Define reusable command templates with $variable placeholders.', params: 'name: str, template: str, description?: str', example: '"Create a deploy command template"' },
+      { name: 'session_share', desc: 'Generate a shareable apex:// link for the current session. Allows others to resume from this point.', params: 'none', example: '"Share this session with the team"' },
+      { name: 'session_load_shared', desc: 'Load a session from a shared link. Resumes a session that was shared via an apex:// link.', params: 'link: str', example: '"Load session from apex:// link"' },
+    ]
+  },
 ]
 
 export default function ToolsPage() {

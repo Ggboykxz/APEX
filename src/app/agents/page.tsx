@@ -103,7 +103,7 @@ export default function AgentsPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Multi-Agent System</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4"><span className="animated-gradient-text">6 Specialized</span> Agents</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">5 built-in agents plus fully customizable agents with granular permission controls. Switch agents mid-session or invoke subagents inline.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">5 built-in agents plus fully customizable agents with granular permission controls. Now with OpenCode architecture — Build & Plan agents, snapshots, and custom commands.</p>
             </motion.div>
           </div>
         </section>
@@ -239,6 +239,39 @@ export default function AgentsPage() {
                   <p className="text-sm text-muted-foreground">{bp.desc}</p>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+        {/* OpenCode Architecture */}
+        <section className="py-12 bg-card/30">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6">
+            <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Layers className="w-6 h-6 text-apex-cyan" /> OpenCode Architecture (v1.3.2)</h2>
+            <p className="text-muted-foreground mb-6">APEX v1.3.2 introduces the OpenCode architecture — structured messages, snapshots, custom commands, and a typed event bus that powers the agent system.</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="p-5 rounded-xl border border-apex-cyan/20 bg-apex-cyan/5">
+                <h3 className="font-bold font-mono text-apex-cyan mb-2">Structured Parts</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Messages are composed of typed parts: text, file, tool_call, tool_result, image, and snapshot. This enables rich context management and precise agent communication.</p>
+              </div>
+              <div className="p-5 rounded-xl border border-apex-green/20 bg-apex-green/5">
+                <h3 className="font-bold font-mono text-apex-green mb-2">Snapshots & Undo</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Before every destructive action, APEX creates a Git-based snapshot. Use /undo to revert any change and /redo to reapply. Full diff computation between states.</p>
+              </div>
+              <div className="p-5 rounded-xl border border-apex-magenta/20 bg-apex-magenta/5">
+                <h3 className="font-bold font-mono text-apex-magenta mb-2">Custom Commands</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Create user: and project: commands with template variables. Store in ~/.apex/commands/ for global access or .apex/commands/ for project-specific commands.</p>
+              </div>
+              <div className="p-5 rounded-xl border border-apex-yellow/20 bg-apex-yellow/5">
+                <h3 className="font-bold font-mono text-apex-yellow mb-2">Event Bus (25+ Events)</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Strongly-typed event bus with events for sessions, files, tools, permissions, LSP, and undo/redo. Plugins and TUI components subscribe for real-time updates.</p>
+              </div>
+              <div className="p-5 rounded-xl border border-apex-red/20 bg-apex-red/5">
+                <h3 className="font-bold font-mono text-apex-red mb-2">Session Sharing</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">Share sessions via Base64-encoded apex://share/{'{id}'} links. Recipients can load shared sessions to review conversations, tool calls, and outcomes.</p>
+              </div>
+              <div className="p-5 rounded-xl border border-border/50 bg-card/30">
+                <h3 className="font-bold font-mono text-foreground mb-2">Build & Plan Agents</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">The Build agent has full access to all tools. The Plan agent is read-only — it analyzes and proposes without touching any file. Switch with /agent build or /agent plan.</p>
+              </div>
             </div>
           </div>
         </section>
