@@ -23,7 +23,7 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
       style={{
         position: "absolute",
         top: 1,
-        left: "center",
+        left: "50%",
         width: 70,
         height: 26,
         flexDirection: "column",
@@ -49,7 +49,7 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
             paddingRight: 2,
             backgroundColor: tab === "keybindings" ? apexTheme.bgOverlay : "transparent",
           }}
-          onMousePress={() => onTabChange("keybindings")}
+          onMouseDown={() => onTabChange("keybindings")}
         >
           <text>
             <span
@@ -67,7 +67,7 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
             paddingRight: 2,
             backgroundColor: tab === "agents" ? apexTheme.bgOverlay : "transparent",
           }}
-          onMousePress={() => onTabChange("agents")}
+          onMouseDown={() => onTabChange("agents")}
         >
           <text>
             <span
@@ -85,7 +85,7 @@ export function HelpPanel({ visible, onClose, tab, onTabChange }: HelpPanelProps
             paddingRight: 2,
             backgroundColor: tab === "tools" ? apexTheme.bgOverlay : "transparent",
           }}
-          onMousePress={() => onTabChange("tools")}
+          onMouseDown={() => onTabChange("tools")}
         >
           <text>
             <span
