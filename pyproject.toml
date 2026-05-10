@@ -60,7 +60,6 @@ dev = [
 
 [project.scripts]
 apex = "apex.main:main"
-apex-tui = "apex.tui:main"
 
 [project.urls]
 Homepage = "https://apex-agent.dev"
