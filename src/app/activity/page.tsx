@@ -6,7 +6,8 @@ import {
   Terminal, Github, Menu, X, Activity, Radio, Loader2,
   CircleDot, GitPullRequest, Tag, GitCommit, Star, Users,
   GitBranch, Zap, Clock, MessageSquare, Megaphone, BookOpen,
-  Cpu, Wrench, Bot, Shield, Filter
+  Cpu, Wrench, Bot, Shield, Filter, ChevronRight, Heart, ExternalLink,
+  ArrowRight, Check, Box
 } from 'lucide-react'
 
 interface GitHubRepoData { stargazers_count: number; forks_count: number; open_issues_count: number; subscribers_count: number; contributors: number; latest_release: { tag_name: string; published_at: string } | null }
@@ -21,10 +22,36 @@ function timeAgo(d: string): string {
   if (s < 60) return `${s}s`; if (m < 60) return `${m}m`; if (h < 24) return `${h}h`; if (dy < 7) return `${dy}d`; if (w < 5) return `${w}w`; return `${mo}mo`
 }
 
+function getEditionDate(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 function NavBar() {
   const [open, setOpen] = useState(false)
+  const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'loading'>('loading')
+
+  useEffect(() => {
+    fetch('/api/github').then(r => { if (r.ok) setApiStatus('online'); else throw new Error() }).catch(() => setApiStatus('offline'))
+  }, [])
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
+      {/* Edition Bar */}
+      <div className="bg-card/80 backdrop-blur border-b border-border/50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between py-1.5">
+          <span className="text-xs font-mono text-muted-foreground">Edition {getEditionDate()}</span>
+          <div className="flex items-center gap-3 text-xs font-mono text-muted-foreground">
+            <span>apex-agent.dev</span>
+            <span className="text-border">·</span>
+            <div className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full pulse-dot ${apiStatus === 'online' ? 'bg-apex-green' : apiStatus === 'offline' ? 'bg-apex-red' : 'bg-apex-yellow'}`} />
+              <span className={apiStatus === 'online' ? 'text-apex-green' : apiStatus === 'offline' ? 'text-apex-red' : 'text-apex-yellow'}>API · {apiStatus === 'online' ? 'Online' : apiStatus === 'offline' ? 'Offline' : 'Sync'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Main nav */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16">
           <a href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
@@ -44,7 +71,27 @@ function NavBar() {
 }
 
 function Footer() {
-  return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">MIT License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>)
+  return (
+    <footer className="border-t border-border bg-card/30 mt-auto">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" className="w-5 h-5"><defs><linearGradient id="footer-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#00e5ff"/><stop offset="100%" stopColor="#00ff88"/></linearGradient></defs><polygon points="32,4 60,56 4,56" stroke="url(#footer-grad)" strokeWidth="4" fill="none" strokeLinejoin="round"/><circle cx="32" cy="40" r="4" fill="url(#footer-grad)"/></svg>
+            <span className="text-xs text-muted-foreground font-mono">MIT License. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></span>
+          </div>
+          <div className="flex items-center gap-6">
+            <a href="/docs" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Docs</a>
+            <a href="/install" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Install</a>
+            <a href="/agents" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Agents</a>
+            <a href="/models" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Models</a>
+            <a href="/tools" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Tools</a>
+            <a href="https://buymeacoffee.com/ggboykxz" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"><Heart className="w-3 h-3 text-apex-pink" /> Support</a>
+            <a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
 }
 
 export default function ActivityPage() {
@@ -62,11 +109,23 @@ export default function ActivityPage() {
   const filteredPRs = filter === 'all' || filter === 'prs' ? githubData?.pullRequests ?? [] : []
   const filteredReleases = filter === 'all' || filter === 'releases' ? githubData?.releases ?? [] : []
 
+  /* ──── Dispatch helpers ──── */
+  const highlights = githubData ? [
+    ...githubData.releases.slice(0, 2).map(r => ({ type: 'release' as const, title: r.tag_name, desc: r.name || 'New release', number: 0 })),
+    ...githubData.pullRequests.filter(p => p.merged_at).slice(0, 2).map(p => ({ type: 'merged' as const, title: p.title, desc: `PR #${p.number} by ${p.user.login}`, number: p.number })),
+    ...githubData.issues.filter(i => i.state === 'open').slice(0, 2).map(i => ({ type: 'open' as const, title: i.title, desc: `Issue #${i.number}`, number: i.number })),
+  ].slice(0, 5) : []
+
+  const movers = githubData ? [
+    ...githubData.issues.slice(0, 3).map(i => ({ number: i.number, title: i.title })),
+    ...githubData.pullRequests.slice(0, 2).map(p => ({ number: p.number, title: p.title })),
+  ] : []
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <NavBar />
 
-      <main className="flex-1 pt-16">
+      <main className="flex-1 pt-[6.5rem]">
         {/* Header */}
         <section className="relative py-16 overflow-hidden">
           <div className="absolute inset-0 grid-pattern" />
@@ -82,7 +141,7 @@ export default function ActivityPage() {
         {/* Live Ticker */}
         <div className="bg-card/80 border-b border-border/50 overflow-hidden">
           <div className="max-w-6xl mx-auto flex items-center">
-            <div className="shrink-0 px-3 py-2 bg-apex-cyan/10 border-r border-border/50 flex items-center gap-1.5"><Radio className="w-3 h-3 text-apex-cyan" /><span className="text-xs font-mono font-bold text-apex-cyan uppercase">Live</span></div>
+            <div className="shrink-0 px-3 py-2 ticker-label-dark flex items-center gap-1.5"><Radio className="w-3 h-3 text-apex-cyan" /><span className="text-xs font-mono font-bold text-apex-cyan uppercase tracking-wider">Live</span></div>
             <div className="overflow-hidden flex-1">
               {loading ? <div className="px-4 py-2"><Loader2 className="w-3 h-3 text-muted-foreground animate-spin inline" /><span className="text-xs text-muted-foreground font-mono ml-2">Syncing...</span></div> : githubData ? (
                 <div className="ticker-track">
@@ -93,7 +152,7 @@ export default function ActivityPage() {
                     return (
                       <a key={i} href={isRelease ? `https://github.com/Ggboykxz/APEX/releases/tag/${(item as GitHubRelease).tag_name}` : `https://github.com/Ggboykxz/APEX/issues/${(item as GitHubIssue | GitHubPullRequest).number}`} target="_blank" rel="noopener noreferrer" className="shrink-0 flex items-center gap-2 px-4 py-2 hover:bg-card transition-colors border-r border-border/30">
                         {isIssue && <><CircleDot className={`w-3 h-3 ${(item as GitHubIssue).state === 'open' ? 'text-apex-green' : 'text-apex-red'}`} /><span className="text-xs font-mono text-muted-foreground">ISS #{(item as GitHubIssue).number}</span><span className="text-xs text-foreground truncate max-w-[200px]">{(item as GitHubIssue).title}</span></>}
-                        {isPR && <><GitPullRequest className={`w-3 h-3 ${(item as GitHubPullRequest).merged_at ? 'text-apex-magenta' : 'text-apex-green'}`} /><span className="text-xs font-mono text-muted-foreground">PR #{(item as GitHubPullRequest).number}</span><span className="text-xs text-foreground truncate max-w-[200px]">{(item as GitHubPullRequest).title}</span></>}
+                        {isPR && <><GitPullRequest className={`w-3 h-3 ${(item as GitHubPullRequest).merged_at ? 'text-apex-magenta' : (item as GitHubPullRequest).state === 'open' ? 'text-apex-green' : 'text-apex-red'}`} /><span className="text-xs font-mono text-muted-foreground">PR #{(item as GitHubPullRequest).number}</span><span className="text-xs text-foreground truncate max-w-[200px]">{(item as GitHubPullRequest).title}</span></>}
                         {isRelease && <><Tag className="w-3 h-3 text-apex-cyan" /><span className="text-xs font-mono text-apex-cyan">{(item as GitHubRelease).tag_name}</span></>}
                       </a>
                     )
@@ -107,7 +166,7 @@ export default function ActivityPage() {
         {/* Stats Bar */}
         <div className="py-6 border-b border-border/50">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 col-rule">
               {(githubData?.repo ? [
                 { icon: Star, label: 'Stars', value: githubData.repo.stargazers_count, color: 'text-apex-yellow' },
                 { icon: GitBranch, label: 'Forks', value: githubData.repo.forks_count, color: 'text-apex-cyan' },
@@ -121,12 +180,60 @@ export default function ActivityPage() {
               ]).map(s => (
                 <div key={s.label} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-card/30">
                   <s.icon className={`w-5 h-5 ${s.color}`} />
-                  <div><div className="text-lg font-bold font-mono">{s.value}</div><div className="text-xs text-muted-foreground font-mono">{s.label}</div></div>
+                  <div><div className="text-lg font-bold font-mono tabular-nums">{s.value}</div><div className="text-xs text-muted-foreground font-mono">{s.label}</div></div>
                 </div>
               ))}
             </div>
           </div>
         </div>
+
+        {/* ──── Daily Dispatch Mini-Section ──── */}
+        {!loading && githubData && (
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <div className="grid md:grid-cols-12 gap-6">
+              {/* Highlights */}
+              <div className="md:col-span-7">
+                <div className="rounded-xl border border-border/50 bg-card/30 p-5">
+                  <h3 className="eyebrow mb-4">Highlights</h3>
+                  {highlights.length > 0 ? (
+                    <div className="space-y-2">
+                      {highlights.map((h, i) => (
+                        <a key={i} href={h.number ? `https://github.com/Ggboykxz/APEX/issues/${h.number}` : `https://github.com/Ggboykxz/APEX/releases`} target="_blank" rel="noopener noreferrer" className="flex items-start gap-3 p-2 rounded-lg hover:bg-card/50 transition-colors group">
+                          <span className={`shrink-0 mt-0.5 ${h.type === 'release' ? 'pill-hot' : h.type === 'merged' ? 'pill-jade' : 'pill-ghost'}`}>{h.type}</span>
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium group-hover:text-apex-cyan transition-colors">{h.title}</span>
+                            <span className="text-xs text-muted-foreground ml-2">{h.desc}</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No highlights available</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Movers */}
+              <div className="md:col-span-5">
+                <div className="rounded-xl border border-border/50 bg-card/30 p-5">
+                  <h3 className="eyebrow mb-4">Movers</h3>
+                  {movers.length > 0 ? (
+                    <div className="space-y-2">
+                      {movers.map((m, i) => (
+                        <a key={i} href={`https://github.com/Ggboykxz/APEX/issues/${m.number}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 rounded-lg hover:bg-card/50 transition-colors text-sm hover:text-apex-cyan">
+                          <span className="text-xs font-mono text-muted-foreground tabular-nums">#{m.number}</span>
+                          <span className="truncate">{m.title}</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No movers available</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Filter */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
@@ -147,7 +254,12 @@ export default function ActivityPage() {
                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
                   {loading ? <div className="text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin inline" /> Loading...</div> : filteredIssues.map(issue => (
                     <a key={issue.number} href={`https://github.com/Ggboykxz/APEX/issues/${issue.number}`} target="_blank" rel="noopener noreferrer" className="block p-4 rounded-lg border border-border/50 bg-card/30 hover:border-border transition-all">
-                      <div className="flex items-center gap-2 mb-2"><CircleDot className={`w-3.5 h-3.5 ${issue.state === 'open' ? 'text-apex-green' : 'text-apex-red'}`} /><span className="text-xs font-mono text-muted-foreground">#{issue.number}</span><span className="text-xs font-mono text-muted-foreground">•</span><span className="text-xs font-mono text-muted-foreground">{timeAgo(issue.created_at)}</span></div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`pill-${issue.state === 'open' ? 'jade' : 'ghost'}`}>{issue.state}</span>
+                        <span className="text-xs font-mono text-muted-foreground tabular-nums">#{issue.number}</span>
+                        <span className="text-xs font-mono text-muted-foreground">·</span>
+                        <span className="text-xs font-mono text-muted-foreground">{timeAgo(issue.created_at)}</span>
+                      </div>
                       <h3 className="text-sm font-medium leading-snug mb-2">{issue.title}</h3>
                       <div className="flex items-center gap-2"><span className="text-xs text-muted-foreground">by <span className="text-foreground">{issue.user.login}</span></span>{issue.labels.length > 0 && issue.labels.map((l, i) => <span key={i} className="text-xs px-1.5 py-0.5 rounded border border-border/50 font-mono" style={{ borderColor: `#${l.color}40`, color: `#${l.color}` }}>{l.name}</span>)}</div>
                     </a>
@@ -163,7 +275,12 @@ export default function ActivityPage() {
                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
                   {loading ? <div className="text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin inline" /> Loading...</div> : filteredPRs.map(pr => (
                     <a key={pr.number} href={`https://github.com/Ggboykxz/APEX/pull/${pr.number}`} target="_blank" rel="noopener noreferrer" className="block p-4 rounded-lg border border-border/50 bg-card/30 hover:border-border transition-all">
-                      <div className="flex items-center gap-2 mb-2"><GitPullRequest className={`w-3.5 h-3.5 ${pr.merged_at ? 'text-apex-magenta' : pr.state === 'open' ? 'text-apex-green' : 'text-apex-red'}`} /><span className="text-xs font-mono text-muted-foreground">#{pr.number}</span><span className="text-xs font-mono text-muted-foreground">•</span><span className="text-xs font-mono text-muted-foreground">{timeAgo(pr.created_at)}</span>{pr.merged_at && <span className="text-xs font-mono text-apex-magenta">merged</span>}</div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={pr.merged_at ? 'pill-hot' : 'pill-ghost'}>{pr.merged_at ? 'merged' : pr.state}</span>
+                        <span className="text-xs font-mono text-muted-foreground tabular-nums">#{pr.number}</span>
+                        <span className="text-xs font-mono text-muted-foreground">·</span>
+                        <span className="text-xs font-mono text-muted-foreground">{timeAgo(pr.created_at)}</span>
+                      </div>
                       <h3 className="text-sm font-medium leading-snug mb-2">{pr.title}</h3>
                       <span className="text-xs text-muted-foreground">by <span className="text-foreground">{pr.user.login}</span></span>
                     </a>
@@ -179,7 +296,7 @@ export default function ActivityPage() {
                 <div className="space-y-3 max-h-[600px] overflow-y-auto">
                   {loading ? <div className="text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin inline" /> Loading...</div> : filteredReleases.map(rel => (
                     <a key={rel.tag_name} href={`https://github.com/Ggboykxz/APEX/releases/tag/${rel.tag_name}`} target="_blank" rel="noopener noreferrer" className="block p-4 rounded-lg border border-border/50 bg-card/30 hover:border-border transition-all">
-                      <div className="flex items-center gap-2 mb-2"><Tag className="w-3.5 h-3.5 text-apex-cyan" /><span className="text-sm font-mono font-bold text-apex-cyan">{rel.tag_name}</span><span className="text-xs font-mono text-muted-foreground">•</span><span className="text-xs font-mono text-muted-foreground">{timeAgo(rel.published_at)}</span></div>
+                      <div className="flex items-center gap-2 mb-2"><span className="pill-hot">release</span><span className="text-sm font-mono font-bold text-apex-cyan">{rel.tag_name}</span><span className="text-xs font-mono text-muted-foreground">·</span><span className="text-xs font-mono text-muted-foreground">{timeAgo(rel.published_at)}</span></div>
                       <h3 className="text-sm font-medium leading-snug mb-2">{rel.name || 'Release'}</h3>
                       <p className="text-xs text-muted-foreground line-clamp-3">{rel.body?.substring(0, 200)}{rel.body && rel.body.length > 200 ? '...' : ''}</p>
                     </a>
