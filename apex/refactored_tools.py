@@ -216,20 +216,66 @@ class GitOperations:
 
 
 class CommandOperations:
-    """Testable command execution."""
+    DEFAULT_ALLOWED_COMMANDS = {
+        "git", "npm", "node", "python", "python3", "pip", "ruff", "pytest",
+        "cargo", "go", "make", "ls", "cat", "head", "tail", "grep", "find",
+        "curl", "wget", "touch", "mkdir", "rm", "cp", "mv", "chmod", "pwd"
+    }
     
-    def __init__(self, cwd: Path):
+    _blocked_patterns = [
+        r"curl.*-X\s+(POST|PUT|DELETE)", r"rm\s+-rf\s+/",
+        r"wget.*--execute", r"chmod\s+777", r">\s*/etc/",
+        r"\$\(", r"`", r"\$\{", r"\|\s*sh"
+    ]
+    
+    def __init__(self, cwd: Path, allowed_commands: set[str] | None = None):
         self.cwd = cwd
+        self._allowed_commands = allowed_commands or self.DEFAULT_ALLOWED_COMMANDS.copy()
+        self._allowlist_enabled = True
     
     def resolve_path(self, path: str) -> Path:
         p = Path(path)
         if p.is_absolute():
-            return p
-        return self.cwd / p
+            resolved = p.resolve()
+        else:
+            resolved = (self.cwd / p).resolve()
+        
+        try:
+            resolved.relative_to(self.cwd.resolve())
+        except ValueError:
+            return self.cwd / ".access_denied"
+        
+        return resolved
+    
+    def _check_command_safety(self, command: str) -> tuple[bool, str]:
+        import re
+        for pattern in self._blocked_patterns:
+            if re.search(pattern, command):
+                return False, f"Blocked pattern detected"
+        
+        parts = command.strip().split()
+        if not parts:
+            return False, "Empty command"
+        
+        if self._allowlist_enabled and parts[0] not in self._allowed_commands:
+            return False, f"Command '{parts[0]}' not in allowlist"
+        
+        return True, ""
+    
+    def set_allowlist(self, commands: set[str]) -> None:
+        self._allowed_commands = commands
+    
+    def set_allowlist_enabled(self, enabled: bool) -> None:
+        self._allowlist_enabled = enabled
     
     def run_command(self, command: str, cwd: Optional[str] = None) -> str:
         """Run a shell command."""
         import subprocess
+        
+        safe, message = self._check_command_safety(command)
+        if not safe:
+            return f"ERROR: {message}"
+        
         work_dir = self.resolve_path(cwd) if cwd else self.cwd
         try:
             result = subprocess.run(

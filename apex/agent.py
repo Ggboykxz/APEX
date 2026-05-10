@@ -2,6 +2,7 @@
 
 import json
 import re
+import logging
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
@@ -203,7 +204,28 @@ class Agent:
                     tool_name = tc.function.name
                     tool_args = tc.function.arguments
                     if isinstance(tool_args, str):
-                        tool_args = json.loads(tool_args)
+                        try:
+                            tool_args = json.loads(tool_args)
+                        except json.JSONDecodeError as e:
+                            logging.getLogger(__name__).error(f"Invalid tool args JSON: {e}")
+                            messages.append({
+                                "role": "assistant",
+                                "tool_calls": [{
+                                    "id": tc.id,
+                                    "type": "function",
+                                    "function": {"name": tool_name, "arguments": tc.function.arguments}
+                                }]
+                            })
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tc.id,
+                                "content": f"ERROR: Invalid tool arguments format"
+                            })
+                            continue
+                    
+                    if not isinstance(tool_args, dict):
+                        logging.getLogger(__name__).error(f"Tool args is not a dict: {type(tool_args)}")
+                        continue
 
                     allowed, message = self._check_tool_permission(tool_name)
                     if not allowed:
@@ -252,8 +274,10 @@ class Agent:
             except RateLimitError as e:
                 return f"ERROR: Rate limit exceeded. Please wait and try again. Details: {e}"
             except BadRequestError as e:
+                logging.getLogger(__name__).error(f"BadRequestError: {e}")
                 return f"ERROR: Bad request. The model may not support tools. Details: {e}"
             except Exception as e:
+                logging.getLogger(__name__).error(f"Unexpected error in _chat_internal: {type(e).__name__}: {e}")
                 return f"ERROR: {type(e).__name__}: {e}"
 
         return "ERROR: Max tool rounds reached. The conversation was terminated due to too many tool calls."
@@ -315,7 +339,29 @@ class Agent:
                     for tc in chunk.choices[0].delta.tool_calls:
                         tool_args = tc.function.arguments
                         if isinstance(tool_args, str):
-                            tool_args = json.loads(tool_args)
+                            try:
+                                tool_args = json.loads(tool_args)
+                            except json.JSONDecodeError as e:
+                                logging.getLogger(__name__).error(f"Invalid tool args JSON in streaming: {e}")
+                                messages.append({
+                                    "role": "assistant",
+                                    "content": None,
+                                    "tool_calls": [{
+                                        "id": tc.id,
+                                        "type": "function",
+                                        "function": {"name": tc.function.name, "arguments": tc.function.arguments}
+                                    }]
+                                })
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc.id,
+                                    "content": f"ERROR: Invalid tool arguments format"
+                                })
+                                continue
+                        
+                        if not isinstance(tool_args, dict):
+                            logging.getLogger(__name__).error(f"Tool args is not a dict: {type(tool_args)}")
+                            continue
 
                         allowed, message = self._check_tool_permission(tc.function.name)
                         if not allowed:

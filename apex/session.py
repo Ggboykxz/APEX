@@ -3,11 +3,16 @@
 import json
 import hashlib
 import base64
+import os
+import secrets
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
 from .agent import Agent
+
+logger = logging.getLogger(__name__)
 
 
 class UndoManager:
@@ -109,7 +114,8 @@ class SessionManager:
             agent.cwd = Path(session_data.get("cwd", "."))
             agent.history = session_data.get("history", [])
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to load session {name}: {e}")
             return False
 
     def list_sessions(self) -> list[dict[str, Any]]:
@@ -141,12 +147,27 @@ class SessionManager:
         }
         json_str = json.dumps(session_data, separators=(",", ":"))
         compressed = base64.b64encode(json_str.encode()).decode()
-        share_id = hashlib.sha256(compressed[:100].encode()).hexdigest()[:8]
+        
+        full_hash = hashlib.sha256()
+        full_hash.update(json_str.encode())
+        full_hash.update(str(datetime.now().timestamp()).encode())
+        full_hash.update(secrets.token_bytes(32))
+        share_id = full_hash.hexdigest()[:16]
+        
         share_dir = self._sessions_dir / "shared"
         share_dir.mkdir(exist_ok=True)
         filepath = share_dir / f"{share_id}.json"
+        
+        nonce = secrets.token_hex(16)
+        
         with open(filepath, "w") as f:
-            json.dump({"data": compressed}, f)
+            json.dump({
+                "data": compressed,
+                "nonce": nonce,
+                "id": share_id
+            }, f)
+        
+        logger.info(f"Created shared session: {share_id}")
         return f"apex://share/{share_id}"
 
     def load_shared(self, share_id: str, agent: Agent) -> bool:
@@ -154,15 +175,20 @@ class SessionManager:
             share_dir = self._sessions_dir / "shared"
             filepath = share_dir / f"{share_id}.json"
             if not filepath.exists():
+                logger.warning(f"Shared session not found: {share_id}")
                 return False
             with open(filepath) as f:
                 wrapper = json.load(f)
             compressed = wrapper.get("data", "")
+            
             json_str = base64.b64decode(compressed.encode()).decode()
             session_data = json.loads(json_str)
+            
             agent.switch_model(session_data.get("model", "claude-sonnet"))
             agent.cwd = Path(session_data.get("cwd", "."))
             agent.history = session_data.get("history", [])
+            logger.info(f"Loaded shared session: {share_id}")
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to load shared session {share_id}: {e}")
             return False

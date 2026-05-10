@@ -2,10 +2,37 @@
 
 import importlib.util
 import sys
+import re
+import logging
 from pathlib import Path
 from typing import Any, Callable
 from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
+
+logger = logging.getLogger(__name__)
+
+
+DANGEROUS_PATTERNS = [
+    (r"eval\s*\(", "eval() is dangerous"),
+    (r"exec\s*\(", "exec() is dangerous"),
+    (r"__import__\s*\(", "__import__() is dangerous"),
+    (r"subprocess\s*\.(run|call|Popen|check_output)\s*\(.*shell\s*=\s*True", "shell=True is dangerous"),
+    (r"os\s*\.\s*system\s*\(", "os.system() is dangerous"),
+    (r"os\s*\.\s*popen\s*\(", "os.popen() is dangerous"),
+    (r"pickle\s*\.(load|loads)\s*\(", "pickle.load is dangerous"),
+    (r"marshal\s*\.(load|loads)\s*\(", "marshal.load is dangerous"),
+    (r"tempfile\s*\.(mktemp|SpooledTemporaryFile)", "tempfile.mktemp is dangerous"),
+    (r"\.read_text\s*\(\s*\)", "unrestricted file read"),
+    (r"\.write_text\s*\(", "unrestricted file write"),
+]
+
+
+def _check_code_safety(code: str) -> list[str]:
+    issues = []
+    for pattern, msg in DANGEROUS_PATTERNS:
+        if re.search(pattern, code, re.IGNORECASE):
+            issues.append(msg)
+    return issues
 
 
 @dataclass
@@ -89,6 +116,14 @@ class PluginManager:
                 continue
 
             try:
+                plugin_code = plugin_path.read_text()
+                issues = _check_code_safety(plugin_code)
+                if issues:
+                    logger.warning(f"Plugin {name} contains dangerous patterns: {issues}")
+                    if os.environ.get("APEX_ALLOW_DANGEROUS_PLUGINS") != "true":
+                        print(f"[SECURITY] Plugin {name} blocked: {', '.join(issues)}")
+                        return False
+                
                 spec = importlib.util.spec_from_file_location(name, plugin_path)
                 if spec and spec.loader:
                     module = importlib.util.module_from_spec(spec)
@@ -102,9 +137,10 @@ class PluginManager:
                             plugin.initialize(self._app)
                             self._plugins[name] = plugin
                             self._enabled[name] = True
+                            logger.info(f"Loaded plugin: {name}")
                             return True
             except Exception as e:
-                print(f"Failed to load plugin {name}: {e}")
+                logger.error(f"Failed to load plugin {name}: {e}")
         return False
 
     def unload_plugin(self, name: str) -> bool:
