@@ -72,14 +72,22 @@ const AGENTS = [
     switch: '/agent yolo',
     workflow: 'Use YOLO when you want APEX to work autonomously: "Fix all linting errors", "Update all dependencies", "Run the full test suite and fix failures".',
   },
+  {
+    name: 'Custom', mode: 'Primary', color: '#00ff88', icon: Bot,
+    access: 'User-defined', default: false,
+    desc: 'Create your own specialized agents with custom system prompts, permission rulesets, and tool access. Perfect for repeated workflows like code review, test writing, or DevOps.',
+    capabilities: ['Custom system prompts', 'User-defined permission rules', 'Selectively enable/disable tools', 'Save and reuse across sessions', 'Share agent configs with team', 'Mode: primary or subagent'],
+    switch: '/agent my-custom-agent',
+    workflow: 'Define custom agents in .apex/config.yaml. Use for repeated workflows: a "reviewer" agent for security reviews, a "test-writer" for comprehensive test suites, or a "devops" agent for CI/CD.',
+  },
 ]
 
 const PERMISSION_MATRIX = [
-  { tool: 'read', tools: 'read_file, list_files, search_in_files, glob_search', build: 'allow', plan: 'allow', explore: 'allow', general: 'allow', yolo: 'allow' },
-  { tool: 'edit', tools: 'write_file, edit_file, delete_file', build: 'allow', plan: 'deny', explore: 'deny', general: 'allow', yolo: 'allow' },
-  { tool: 'bash', tools: 'run_command', build: 'ask', plan: 'deny', explore: 'deny', general: 'ask', yolo: 'allow' },
-  { tool: 'websearch', tools: 'web_search, fetch_url', build: 'ask', plan: 'allow', explore: 'deny', general: 'allow', yolo: 'allow' },
-  { tool: 'task', tools: 'subagent invocation', build: 'ask', plan: 'deny', explore: 'deny', general: 'ask', yolo: 'allow' },
+  { tool: 'read', tools: 'read_file, list_files, search_in_files, glob_search', build: 'allow', plan: 'allow', explore: 'allow', general: 'allow', yolo: 'allow', custom: 'allow' },
+  { tool: 'edit', tools: 'write_file, edit_file, delete_file', build: 'allow', plan: 'deny', explore: 'deny', general: 'allow', yolo: 'allow', custom: 'config' },
+  { tool: 'bash', tools: 'run_command', build: 'ask', plan: 'deny', explore: 'deny', general: 'ask', yolo: 'allow', custom: 'config' },
+  { tool: 'websearch', tools: 'web_search, fetch_url', build: 'ask', plan: 'allow', explore: 'deny', general: 'allow', yolo: 'allow', custom: 'config' },
+  { tool: 'task', tools: 'subagent invocation', build: 'ask', plan: 'deny', explore: 'deny', general: 'ask', yolo: 'allow', custom: 'config' },
 ]
 
 export default function AgentsPage() {
@@ -94,8 +102,8 @@ export default function AgentsPage() {
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 text-center">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Multi-Agent System</div>
-              <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4"><span className="animated-gradient-text">5 Specialized</span> Agents</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Each agent is configured for specific tasks with granular permission controls. Switch agents mid-session or invoke subagents inline.</p>
+              <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4"><span className="animated-gradient-text">6 Specialized</span> Agents</h1>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">5 built-in agents plus fully customizable agents with granular permission controls. Switch agents mid-session or invoke subagents inline.</p>
             </motion.div>
           </div>
         </section>
@@ -149,7 +157,7 @@ export default function AgentsPage() {
         <section className="py-12 bg-card/30">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Shield className="w-6 h-6 text-apex-cyan" /> Permission Matrix</h2>
-            <p className="text-muted-foreground mb-6">Each agent has different permission levels for each tool category. Values: <code className="text-apex-green">allow</code> (always permit), <code className="text-apex-yellow">ask</code> (prompt user), <code className="text-apex-red">deny</code> (block).</p>
+            <p className="text-muted-foreground mb-6">Each agent has different permission levels for each tool category. Values: <code className="text-apex-green">allow</code> (always permit), <code className="text-apex-yellow">ask</code> (prompt user), <code className="text-apex-red">deny</code> (block), <code className="text-apex-cyan">config</code> (user-defined).</p>
             <div className="overflow-x-auto rounded-lg border border-border/50">
               <table className="w-full text-sm">
                 <thead>
@@ -161,6 +169,7 @@ export default function AgentsPage() {
                     <th className="text-center p-3 font-mono text-muted-foreground">Explore</th>
                     <th className="text-center p-3 font-mono text-muted-foreground">General</th>
                     <th className="text-center p-3 font-mono text-muted-foreground">YOLO</th>
+                    <th className="text-center p-3 font-mono text-muted-foreground">Custom</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -168,8 +177,8 @@ export default function AgentsPage() {
                     <tr key={row.tool} className={`border-b border-border/30 ${i % 2 === 0 ? 'bg-card/20' : ''}`}>
                       <td className="p-3 font-mono font-bold text-foreground">{row.tool}</td>
                       <td className="p-3 font-mono text-muted-foreground text-xs">{row.tools}</td>
-                      {[row.build, row.plan, row.explore, row.general, row.yolo].map((val, j) => (
-                        <td key={j} className="p-3 text-center font-mono"><span className={`px-2 py-0.5 rounded text-xs ${val === 'allow' ? 'bg-apex-green/10 text-apex-green' : val === 'ask' ? 'bg-apex-yellow/10 text-apex-yellow' : 'bg-apex-red/10 text-apex-red'}`}>{val}</span></td>
+                      {[row.build, row.plan, row.explore, row.general, row.yolo, row.custom].map((val, j) => (
+                        <td key={j} className="p-3 text-center font-mono"><span className={`px-2 py-0.5 rounded text-xs ${val === 'allow' ? 'bg-apex-green/10 text-apex-green' : val === 'ask' ? 'bg-apex-yellow/10 text-apex-yellow' : val === 'config' ? 'bg-apex-cyan/10 text-apex-cyan' : 'bg-apex-red/10 text-apex-red'}`}>{val}</span></td>
                       ))}
                     </tr>
                   ))}

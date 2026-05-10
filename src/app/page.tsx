@@ -52,27 +52,27 @@ const INSTALL_COMMANDS: Record<string, { label: string; cmd: string }> = {
 
 const FEATURES = [
   { icon: Cpu, title: '100+ Models', description: 'Use any LLM from any provider. Claude, GPT-4o, Gemini, Grok, Llama, DeepSeek, Qwen, and 95+ more models via litellm.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
-  { icon: Bot, title: '5 Built-in Agents', description: 'Build, Plan, Explore, General, and YOLO agents with per-tool permission systems. Switch agents mid-session for different workflows.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
+  { icon: Bot, title: '6 Specialized Agents', description: 'Build, Plan, Explore, General, YOLO, and Custom agents with per-tool permission systems. Create your own agents with custom prompts and permissions.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
   { icon: Wrench, title: '75+ Tools', description: 'File ops, search, git, web, LSP, code generation, sandboxed execution, clipboard, skills, and more — all built in and ready.', color: 'text-apex-yellow', glow: 'group-hover:shadow-[0_0_30px_rgba(255,170,0,0.15)]' },
-  { icon: Shield, title: 'Security System', description: 'Permission rulesets, rate limiting, shell security, API key management, path traversal protection, and billing built right in.', color: 'text-apex-red', glow: 'group-hover:shadow-[0_0_30px_rgba(255,68,68,0.15)]' },
+  { icon: Shield, title: 'Security System', description: 'Shell command analysis, permission rulesets (ALLOW/DENY/ASK), rate limiting, API key management, billing system, and path traversal protection.', color: 'text-apex-red', glow: 'group-hover:shadow-[0_0_30px_rgba(255,68,68,0.15)]' },
   { icon: Zap, title: 'Switch Models Live', description: 'Switch between any model mid-session without restarting. Compare outputs, optimize costs, and never lose context.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
-  { icon: Terminal, title: 'Beautiful TUI', description: 'Rich CLI mode with prompt_toolkit, full Textual TUI with sidebar and command palette, or experimental OpenTUI frontend.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
+  { icon: Terminal, title: '3 TUI Modes + 6 Themes', description: 'Rich CLI, full Textual TUI with sidebar, or the new OpenTUI frontend with routes, command palette, and 6 built-in themes (opencode, dracula, nord, tokyonight, gruvbox, github).', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
 ]
 
 const STATS = [
   { value: '100+', label: 'Models Supported', icon: Cpu },
   { value: '75+', label: 'Built-in Tools', icon: Wrench },
-  { value: '5', label: 'Specialized Agents', icon: Bot },
-  { value: '1,148', label: 'Tests Passing', icon: Check },
-  { value: '20+', label: 'Slash Commands', icon: Terminal },
-  { value: '14', label: 'Install Methods', icon: Box },
+  { value: '6', label: 'Specialized Agents', icon: Bot },
+  { value: '1,125+', label: 'Tests Passing', icon: Check },
+  { value: '6', label: 'Built-in Themes', icon: Sparkles },
+  { value: '14+', label: 'Install Methods', icon: Box },
 ]
 
 const PAGE_LINKS = [
-  { href: '/agents', icon: Bot, title: 'Agents', desc: '5 specialized agents with permission controls', color: 'text-apex-cyan' },
+  { href: '/agents', icon: Bot, title: 'Agents', desc: '6 specialized agents including custom agent creation', color: 'text-apex-cyan' },
   { href: '/models', icon: Cpu, title: 'Models', desc: '100+ models from every major provider', color: 'text-apex-green' },
   { href: '/tools', icon: Wrench, title: 'Tools', desc: '75+ built-in tools for every workflow', color: 'text-apex-yellow' },
-  { href: '/install', icon: Box, title: 'Install', desc: '14 installation methods for every platform', color: 'text-apex-cyan' },
+  { href: '/install', icon: Box, title: 'Install', desc: '14+ installation methods for every platform', color: 'text-apex-cyan' },
   { href: '/security', icon: Shield, title: 'Security', desc: 'Permissions, rate limiting, and shell security', color: 'text-apex-red' },
   { href: '/activity', icon: Activity, title: 'Activity', desc: 'Live issues, PRs, and releases feed', color: 'text-apex-green' },
   { href: '/roadmap', icon: GitBranch, title: 'Roadmap', desc: 'From Foundation to Enterprise', color: 'text-apex-magenta' },
@@ -264,7 +264,7 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }} className="text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v1.3.0 — Security System Released
+              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v1.3.1 — OpenTUI Architecture + 6 Themes
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold font-mono leading-tight mb-6">
               The Universal <span className="animated-gradient-text">AI Coding</span><br />Agent
@@ -318,7 +318,7 @@ export default function Home() {
               <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">build</span><span className="text-muted-foreground">•</span><span className="flex items-center gap-1"><AnthropicIcon size={12} /><span>claude-4-sonnet</span></span></div>
             </div>
             <div className="bg-[#0a0e14] p-6 font-mono text-sm leading-7 min-h-[320px]">
-              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.3.0 — Ready</div>
+              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.3.1 — Ready</div>
               <div className="mt-2"><span className="text-apex-green">user</span><span className="text-muted-foreground">@apex</span><span className="text-apex-cyan"> ~ </span><span className="text-foreground">Fix the authentication bug in auth.py</span></div>
               <div className="mt-3 text-muted-foreground"><span className="text-apex-cyan">◆</span> Using <span className="text-foreground">build</span> agent with <span className="text-apex-cyan">claude-4-sonnet</span></div>
               <div className="mt-2 space-y-1.5">

@@ -35,11 +35,12 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 const SECURITY_FEATURES = [
   {
     title: 'Permission System', icon: Lock, color: '#00e5ff',
-    desc: 'Ruleset-based permission system where each tool can be set to allow, deny, or ask. Configure permissions per agent, per tool, or per session.',
+    desc: 'Ruleset-based permission system where each tool can be set to ALLOW, DENY, or ASK. Supports wildcards and per-agent configuration. Custom agents get their own permission profiles.',
     details: [
       'Per-tool permission controls (read, edit, bash, websearch, task)',
-      'Per-agent permission profiles (Build, Plan, Explore, General, YOLO)',
-      'Three permission levels: allow (always permit), ask (prompt user), deny (block completely)',
+      'Per-agent permission profiles (Build, Plan, Explore, General, YOLO, Custom)',
+      'Three permission levels: ALLOW (always permit), ASK (prompt user), DENY (block completely)',
+      'Wildcard pattern support for flexible rule matching',
       'Configurable via .apex/config.yaml or CLI flags',
       'Permission checks happen before every tool execution',
     ],
@@ -73,9 +74,9 @@ const SECURITY_FEATURES = [
   },
   {
     title: 'API Key Management', icon: Key, color: '#d946ef',
-    desc: 'Secure storage and rotation of API keys. Keys are never logged, never included in prompts, and are encrypted at rest.',
+    desc: 'Workspace-based key storage with SHA-256 hashing. Keys are never logged, never included in prompts, and are encrypted at rest.',
     details: [
-      'Encrypted key storage in ~/.apex/.env',
+      'Workspace-based key storage with SHA-256 hashing',
       'Keys never appear in logs or conversation history',
       'Automatic key rotation support',
       'Key validation on startup',
@@ -99,11 +100,12 @@ const SECURITY_FEATURES = [
   },
   {
     title: 'Billing & Cost Tracking', icon: DollarSign, color: '#ffaa00',
-    desc: 'Real-time cost tracking for every API call. Monitor usage, set budgets, and get alerts when limits are approached.',
+    desc: 'Real-time cost tracking with model-specific pricing and three plan tiers (Free/Pro/Enterprise). Monitor usage, set budgets, and get alerts when limits are approached.',
     details: [
-      'Per-request cost calculation based on token usage',
+      'Model-specific pricing with accurate per-token cost calculation',
       'Real-time cost display in TUI and CLI',
       'Session cost tracking with /cost command',
+      'Three billing plans: Free, Pro ($200/mo), Enterprise (custom)',
       'Daily and monthly budget limits with alerts',
       'Cost breakdown by model and provider',
       'Export cost reports as CSV or JSON',
@@ -126,7 +128,7 @@ const SECURITY_FEATURES = [
 ]
 
 const SUPPORTED_VERSIONS = [
-  { version: 'v1.3.x', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
+  { version: 'v1.3.1', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
   { version: 'v1.2.x', status: 'Maintenance', support: 'Critical security patches only', color: '#ffaa00' },
   { version: 'v1.1.x', status: 'EOL', support: 'End of life — upgrade recommended', color: '#ff4444' },
   { version: 'v1.0.x', status: 'EOL', support: 'End of life — no longer supported', color: '#ff4444' },
