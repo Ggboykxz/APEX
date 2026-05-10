@@ -6,7 +6,6 @@
 - 75+ built-in tools
 - Beautiful TUI (OpenTUI + React)
 - `pip install apex-ai`
-- MIT license
 - Session persistence
 - Plugin system
 - Command palette
@@ -18,13 +17,14 @@
 - Docker image (ghcr.io/ggboykxz/apex)
 - CI/CD pipeline (7 workflows)
 
-## 🔧 v1.1.0 — Power (Next)
-- Streaming responses (real-time output)
-- Enhanced git tools (status/log/diff/commit/branch)
-- Web search tool
-- Session save/load improvements
-- `/memory` persistent context
-- Homebrew formula
+## ✅ v1.1.0 — Power (released May 10, 2026)
+- Streaming responses via HTTP SSE (real-time token streaming)
+- Live cost tracking (per-message + session total)
+- Context percentage monitoring
+- Agent-colored theming (titlebar, statusbar, borders per agent)
+- Unified HTTP server (`start_tui_server` in http_api.py)
+- 8 models added to backend (claude-3.7-sonnet, llama-3.3-70b, mistral-large, etc.)
+- Model switch error feedback with auto-dismiss banner
 
 ## 🎯 v2.0.0 — Intelligence
 - Repo map (understand full codebase structure)

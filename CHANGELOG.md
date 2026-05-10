@@ -2,7 +2,7 @@
 
 All notable changes to APEX will be documented in this file.
 
-## [1.0.0] - 2026-05-10
+## [1.1.0] - 2026-05-10
 
 The first stable release of APEX — the universal AI coding agent. Every model, one terminal.
 
