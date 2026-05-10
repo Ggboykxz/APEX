@@ -53,31 +53,36 @@
 
 ---
 
-## 🎨 TUI Modes
+## 🎨 TUI
 
-APEX offers multiple TUI experiences:
+APEX features a modern terminal UI built with [OpenTUI](https://github.com/anomalyco/opentui) + React:
 
-### New OpenTUI-like TUI (Recommended)
 ```bash
-apex --new-tui
+# Launch the TUI
+bun run tui
+
+# Or directly
+cd tui-frontend && bun run start
 ```
 
-Features:
-- Route-based navigation (Home, Session, Plugin views)
-- Event-driven architecture with ThemeContext, RouteContext, EventBus
-- KeymapManager with layered keybindings and leader key support
-- 6 built-in themes: opencode, dracula, nord, tokyonight, gruvbox, github
-- Toast notifications, Command Palette, Status Bar
+### Keybindings
 
-### Classic Textual TUI
-```bash
-apex --ui
-```
+| Key | Action |
+|-----|--------|
+| `Tab` | Switch agent |
+| `Ctrl+K` | Model selector |
+| `Ctrl+O` | Toggle sidebar |
+| `Ctrl+T` | Toggle tools panel |
+| `?` | Help panel |
+| `Escape` | Close overlay |
+| `Ctrl+Q` | Quit APEX |
 
-### Bun-based OpenTUI
-```bash
-apex --tui
-```
+### Features
+- **5 Agents**: Coder, Architect, Reviewer, DevOps, Analyst
+- **100+ Models**: OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, xAI, etc.
+- **75+ Tools**: File, Code, Shell, Git, Web, Database, Docker, K8s, Cloud, Security
+- **MCP/LSP**: Server status monitoring
+- **Theme**: Dark (#0d1117), Cyan (#00e5ff), Green (#00ff88)
 
 ---
 
@@ -414,7 +419,7 @@ git clone https://github.com/Ggboykxz/APEX
 cd APEX
 pip install -e ".[dev]"
 pytest
-textual run apex/tui.py --dev
+bun run tui:dev    # Launch TUI in dev mode
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

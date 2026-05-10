@@ -40,9 +40,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--one-shot", "-1", action="store_true", help="One-shot mode (non-interactive)")
     parser.add_argument("--stream", "-s", action="store_true", help="Enable streaming responses")
     parser.add_argument("--auto-commit", action="store_true", dest="auto_commit", help="Auto commit after successful task")
-    parser.add_argument("--ui", action="store_true", help="Launch APEX TUI (OpenCode-inspired design)")
+    parser.add_argument("--ui", action="store_true", help="Launch APEX TUI (OpenTUI + React)")
     parser.add_argument("--tui", "-t", action="store_true", help="Launch APEX TUI (same as --ui)")
-    parser.add_argument("--new-tui", action="store_true", help="Launch APEX TUI (same as --ui)")
     parser.add_argument("-p", dest="prompt_direct", help="Direct prompt (CI/CD mode, no TUI)")
     parser.add_argument("-f", "--format", dest="output_format", choices=["text", "json"], default="text", help="Output format")
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode (less output)")
@@ -621,31 +620,9 @@ def run_cicd_mode(prompt: str, agent: Agent, ui: UI, output_format: str = "text"
             ui.print_error(f"Error: {e}")
 
 
-def run_textual_tui(agent: Agent, ui: UI) -> None:
-    """Run APEX Textual TUI - The best terminal UI ever built."""
-    try:
-        from .tui import ApexApp
-        ui.print_info("Starting APEX Textual TUI (Ctrl+C to exit)...")
-        app = ApexApp(
-            model=agent.config.model,
-            cwd=str(agent.config.cwd),
-            agent=agent,
-        )
-        app.run()
-    except ImportError as e:
-        ui.print_error(f"Textual TUI not available: {e}")
-    except Exception as e:
-        ui.print_error(f"TUI error: {e}")
-
-
-def run_new_tui(agent: Agent, ui: UI) -> None:
-    """Run APEX TUI — same as run_textual_tui (unified single TUI)."""
-    run_textual_tui(agent, ui)
-
-
 def run_apex_tui(agent: Agent, ui: UI) -> None:
-    """Run APEX OpenTUI - Better than OpenCode!"""
-    tui_path = Path(__file__).parent.parent / "tui-frontend" / "index.ts"
+    """Run APEX TUI - OpenTUI + React terminal interface."""
+    tui_path = Path(__file__).parent.parent / "tui-frontend" / "src" / "App.tsx"
     if not tui_path.exists():
         ui.print_error("OpenTUI not found. Run: cd tui-frontend && bun install")
         return
@@ -730,12 +707,8 @@ def main() -> None:
         list_models(ui)
         sys.exit(0)
 
-    if args.ui:
-        run_textual_tui(agent, ui)
-    elif args.tui:
-        run_textual_tui(agent, ui)
-    elif args.new_tui:
-        run_textual_tui(agent, ui)
+    if args.ui or args.tui:
+        run_apex_tui(agent, ui)
     elif args.prompt_direct:
         run_cicd_mode(args.prompt_direct, agent, ui, args.output_format, args.quiet)
     elif args.prompt:

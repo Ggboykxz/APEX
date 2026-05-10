@@ -45,7 +45,6 @@ dependencies = [
     "aiohttp>=3.9.0",
     "pyperclip>=1.8.0",
     "click>=8.1.0",
-    "textual>=0.1.0",
 ]
 
 [project.optional-dependencies]
