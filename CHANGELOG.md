@@ -46,13 +46,13 @@ The first stable release of APEX — the universal AI coding agent. Every model,
 
 ### Installation
 
-- **pip** — `pip install apex-agent`
-- **pipx** — `pipx install apex-agent` (isolated environment)
-- **uv** — `uv tool install apex-agent` (fastest)
+- **pip** — `pip install apex-ai`
+- **pipx** — `pipx install apex-ai` (isolated environment)
+- **uv** — `uv tool install apex-ai` (fastest)
 - **Docker** — `docker run -it ghcr.io/ggboykxz/apex`
-- **curl install script** — `curl -fsSL https://apex-agent.dev/install.sh | bash` (macOS/Linux)
-- **PowerShell install** — `irm https://apex-agent.dev/install.ps1 | iex` (Windows)
-- **Homebrew** — `brew install apex-agent` (macOS)
+- **curl install script** — `curl -fsSL https://apex-ai.dev/install.sh | bash` (macOS/Linux)
+- **PowerShell install** — `irm https://apex-ai.dev/install.ps1 | iex` (Windows)
+- **Homebrew** — `brew install apex-ai` (macOS)
 - **From source** — `git clone && pip install -e ".[dev]"`
 - **DevContainer** — Pre-configured `.devcontainer.json` for GitHub Codespaces
 
