@@ -29,7 +29,7 @@ class TestWorkspaceRollback:
         """Test is_git_repo when not a git repo."""
         assert rollback.is_git_repo() is False
 
-    @pytest.mark.skipif(not hasattr(Path, 'is_dir'), reason="Requires git")
+    @pytest.mark.skipif(not hasattr(Path, "is_dir"), reason="Requires git")
     def test_create_snapshot(self, rollback):
         """Test create_snapshot method."""
         snapshot_name = rollback.create_snapshot("test snapshot")
@@ -40,7 +40,7 @@ class TestWorkspaceRollback:
         snapshots = rollback.list_snapshots()
         assert snapshots == []
 
-    @pytest.mark.skipif(not hasattr(Path, 'is_dir'), reason="Requires git")
+    @pytest.mark.skipif(not hasattr(Path, "is_dir"), reason="Requires git")
     def test_list_snapshots_with_data(self, rollback):
         """Test list_snapshots with snapshots."""
         rollback.create_snapshot("test")

@@ -21,8 +21,8 @@ class AgentMention:
 
 
 class MentionParser:
-    FILE_PATTERN = re.compile(r'@(\S+\.\S+)')
-    AGENT_PATTERN = re.compile(r'@(\w+)(?:\s|$)')
+    FILE_PATTERN = re.compile(r"@(\S+\.\S+)")
+    AGENT_PATTERN = re.compile(r"@(\w+)(?:\s|$)")
 
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
@@ -35,7 +35,7 @@ class MentionParser:
             path = match.group(1)
             file_mentions.append(FileMention(path, match.start(), match.end()))
 
-        agent_names = {"coder", "architect", "reviewer", "devops", "analyst"}
+        agent_names = {"coder", "architect", "planner", "reviewer", "shell"}
         for match in self.AGENT_PATTERN.finditer(text):
             name = match.group(1).lower()
             if name in agent_names:
@@ -84,7 +84,17 @@ class FileMentionCompleter:
         return results[:20]
 
     def _is_ignored(self, path: Path) -> bool:
-        ignore = {".git", "node_modules", "__pycache__", "venv", ".venv", "target", "dist", "build", ".pytest_cache"}
+        ignore = {
+            ".git",
+            "node_modules",
+            "__pycache__",
+            "venv",
+            ".venv",
+            "target",
+            "dist",
+            "build",
+            ".pytest_cache",
+        }
         return any(part in ignore for part in path.parts)
 
 

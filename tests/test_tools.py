@@ -26,51 +26,43 @@ def test_read_file_not_found(executor):
 
 
 def test_write_file(executor, tmp_path):
-    result = executor.execute("write_file", {
-        "path": str(tmp_path / "new_file.txt"),
-        "content": "Test content"
-    })
+    result = executor.execute(
+        "write_file", {"path": str(tmp_path / "new_file.txt"), "content": "Test content"}
+    )
     assert result.startswith("SUCCESS:")
     assert (tmp_path / "new_file.txt").read_text() == "Test content"
 
 
 def test_write_creates_parent_dirs(executor, tmp_path):
-    result = executor.execute("write_file", {
-        "path": str(tmp_path / "sub" / "nested" / "file.txt"),
-        "content": "deep"
-    })
+    result = executor.execute(
+        "write_file", {"path": str(tmp_path / "sub" / "nested" / "file.txt"), "content": "deep"}
+    )
     assert result.startswith("SUCCESS:")
 
 
 def test_edit_file(executor, tmp_path):
     test_file = tmp_path / "edit_test.txt"
     test_file.write_text("Hello World")
-    result = executor.execute("edit_file", {
-        "path": str(test_file),
-        "old_string": "World",
-        "new_string": "APEX"
-    })
+    result = executor.execute(
+        "edit_file", {"path": str(test_file), "old_string": "World", "new_string": "APEX"}
+    )
     assert result.startswith("SUCCESS:")
     assert test_file.read_text() == "Hello APEX"
 
 
 def test_edit_file_not_found(executor):
-    result = executor.execute("edit_file", {
-        "path": "/nonexistent/file.txt",
-        "old_string": "text",
-        "new_string": "text"
-    })
+    result = executor.execute(
+        "edit_file", {"path": "/nonexistent/file.txt", "old_string": "text", "new_string": "text"}
+    )
     assert result.startswith("ERROR:")
 
 
 def test_edit_file_string_not_found(executor, tmp_path):
     test_file = tmp_path / "test.txt"
     test_file.write_text("Hello")
-    result = executor.execute("edit_file", {
-        "path": str(test_file),
-        "old_string": "Goodbye",
-        "new_string": "Hello"
-    })
+    result = executor.execute(
+        "edit_file", {"path": str(test_file), "old_string": "Goodbye", "new_string": "Hello"}
+    )
     assert result.startswith("ERROR:")
 
 
@@ -99,10 +91,7 @@ def test_list_files_not_found(executor):
 
 def test_search_in_files(executor, tmp_path):
     (tmp_path / "test.py").write_text("def hello():\n    print('world')")
-    result = executor.execute("search_in_files", {
-        "pattern": "hello",
-        "path": str(tmp_path)
-    })
+    result = executor.execute("search_in_files", {"pattern": "hello", "path": str(tmp_path)})
     assert "test.py" in result
 
 
@@ -127,9 +116,9 @@ def test_delete_nonexistent(executor):
 
 
 def test_create_directory(executor, tmp_path):
-    result = executor.execute("create_directory", {
-        "path": str(tmp_path / "new" / "nested" / "dir")
-    })
+    result = executor.execute(
+        "create_directory", {"path": str(tmp_path / "new" / "nested" / "dir")}
+    )
     assert result.startswith("SUCCESS:")
     assert (tmp_path / "new" / "nested" / "dir").exists()
 

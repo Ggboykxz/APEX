@@ -81,6 +81,7 @@ class ProjectInitializer:
             elif (self.cwd / "pyproject.toml").exists():
                 try:
                     import tomllib
+
                     with open(self.cwd / "pyproject.toml", "rb") as f:
                         data = tomllib.load(f)
                         if data.get("tool", {}).get("pytest"):
@@ -139,7 +140,19 @@ class ProjectInitializer:
             result["build_system"] = "cargo"
 
     def _analyze_structure(self, result: dict[str, Any]):
-        ignore = {".git", "node_modules", "__pycache__", "venv", ".venv", "target", "dist", "build", ".pytest_cache", ".tox", "vendor"}
+        ignore = {
+            ".git",
+            "node_modules",
+            "__pycache__",
+            "venv",
+            ".venv",
+            "target",
+            "dist",
+            "build",
+            ".pytest_cache",
+            ".tox",
+            "vendor",
+        }
 
         src_dirs = set()
         test_dirs = set()
@@ -155,7 +168,16 @@ class ProjectInitializer:
                 elif "test" in lower or "spec" in lower:
                     test_dirs.add(item.name)
             elif item.is_file():
-                if item.suffix in (".json", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".conf", ".env"):
+                if item.suffix in (
+                    ".json",
+                    ".yaml",
+                    ".yml",
+                    ".toml",
+                    ".ini",
+                    ".cfg",
+                    ".conf",
+                    ".env",
+                ):
                     config_files.append(item.name)
 
         result["structure"] = {
@@ -168,11 +190,19 @@ class ProjectInitializer:
         if result["language"] == "python" and (self.cwd / "pyproject.toml").exists():
             try:
                 import tomllib
+
                 with open(self.cwd / "pyproject.toml", "rb") as f:
                     data = tomllib.load(f)
                     result["scripts"] = data.get("scripts", {})
-                    result["dependencies"] = [d.split("==")[0] for d in data.get("project", {}).get("dependencies", [])]
-                    result["dev_dependencies"] = [d.split("==")[0] for d in data.get("project", {}).get("optional-dependencies", {}).get("dev", [])]
+                    result["dependencies"] = [
+                        d.split("==")[0] for d in data.get("project", {}).get("dependencies", [])
+                    ]
+                    result["dev_dependencies"] = [
+                        d.split("==")[0]
+                        for d in data.get("project", {})
+                        .get("optional-dependencies", {})
+                        .get("dev", [])
+                    ]
             except Exception:
                 pass
         elif result["language"] == "javascript" and (self.cwd / "package.json").exists():
@@ -202,23 +232,27 @@ class ProjectInitializer:
         for name, cmd in analysis.get("scripts", {}).items():
             lines.append(f"- `{name}`: {cmd}")
 
-        lines.extend([
-            "",
-            "## Project Structure",
-            "",
-            f"Source directories: {', '.join(analysis['structure'].get('src_dirs', [])) or 'none'}",
-            f"Test directories: {', '.join(analysis['structure'].get('test_dirs', [])) or 'none'}",
-            "",
-            "## Key Dependencies",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Project Structure",
+                "",
+                f"Source directories: {', '.join(analysis['structure'].get('src_dirs', [])) or 'none'}",
+                f"Test directories: {', '.join(analysis['structure'].get('test_dirs', [])) or 'none'}",
+                "",
+                "## Key Dependencies",
+            ]
+        )
 
         for dep in analysis.get("dependencies", [])[:20]:
             lines.append(f"- {dep}")
 
-        lines.extend([
-            "",
-            "## Configuration Files",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Configuration Files",
+            ]
+        )
 
         for cf in analysis.get("structure", {}).get("config_files", []):
             lines.append(f"- {cf}")

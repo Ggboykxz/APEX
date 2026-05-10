@@ -38,7 +38,7 @@ class UI:
         self,
         console: Optional[Console] = None,
         color_map: Optional[dict[str, str]] = None,
-        model_provider: Optional[Callable[[], dict[str, str]]] = None
+        model_provider: Optional[Callable[[], dict[str, str]]] = None,
     ):
         self.console = console or Console()
         self._color_map = color_map or COLOR_MAP
@@ -46,6 +46,7 @@ class UI:
 
     def _default_model_provider(self) -> dict[str, str]:
         from .config import MODELS
+
         return MODELS
 
     def show_banner(self, model: str, cwd: str, agent: str = "build") -> None:
@@ -64,7 +65,7 @@ class UI:
         table = Table(title="APEX Commands", show_header=True, header_style="bold cyan")
         table.add_column("Command", style="cyan", width=20)
         table.add_column("Description", style="white")
-        
+
         commands = [
             ("/agent [name]", "Switch agent (build/plan)"),
             ("/agents", "List all available agents"),
@@ -85,7 +86,7 @@ class UI:
             ("/exit, /quit", "Exit APEX"),
             ("@agent task", "Invoke subagent for task"),
         ]
-        
+
         for cmd, desc in commands:
             table.add_row(cmd, desc)
         self.console.print(table)
@@ -96,11 +97,11 @@ class UI:
         table.add_column("Alias", style="cyan", width=20)
         table.add_column("Model String", style="white")
         table.add_column("Current", style="green", width=8)
-        
+
         for alias, model_str in sorted(models.items()):
             marker = "✓" if alias == current else ""
             table.add_row(alias, model_str, marker)
-        
+
         self.console.print(table)
 
     def print_user(self, text: str) -> None:
@@ -155,14 +156,14 @@ class UI:
         table = Table(title="Token Usage", show_header=True, header_style="bold cyan")
         table.add_column("Type", style="cyan")
         table.add_column("Tokens", style="white", justify="right")
-        
+
         total = sum(usage.values())
         for token_type, count in usage.items():
             table.add_row(token_type, f"{count:,}")
-        
+
         table.add_row("[bold]Total[/bold]", f"[bold]{total:,}[/bold]")
         self.console.print(table)
-        
+
         cost_estimate = total * 0.00001
         self.console.print(f"[dim]Estimated cost: ~${cost_estimate:.4f}[/dim]")
 

@@ -17,10 +17,7 @@ def test_context_window_should_compress():
 
 def test_context_window_compress_messages():
     cw = ContextWindow(max_tokens=1000)
-    messages = [
-        {"role": "user", "content": f"message {i}"}
-        for i in range(60)
-    ]
+    messages = [{"role": "user", "content": f"message {i}"} for i in range(60)]
     compressed = cw.compress_messages(messages)
     assert len(compressed) < len(messages)
 

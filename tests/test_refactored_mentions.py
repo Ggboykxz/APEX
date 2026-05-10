@@ -3,8 +3,13 @@
 from pathlib import Path
 
 from apex.refactored_mentions import (
-    FileMention, AgentMention, MentionParser, FileMentionCompleter,
-    create_mention_parser, create_file_completer, DEFAULT_AGENT_NAMES
+    FileMention,
+    AgentMention,
+    MentionParser,
+    FileMentionCompleter,
+    create_mention_parser,
+    create_file_completer,
+    DEFAULT_AGENT_NAMES,
 )
 
 
@@ -38,7 +43,7 @@ class TestMentionParser:
         parser = MentionParser("/workspace")
         text = "Check @README.md and @config.json"
         files, agents = parser.parse(text)
-        
+
         assert len(files) == 2
         assert files[0].path == "README.md"
         assert files[1].path == "config.json"
@@ -47,7 +52,7 @@ class TestMentionParser:
         parser = MentionParser("/workspace")
         text = "Ask @explore to check this"
         files, agents = parser.parse(text)
-        
+
         assert len(agents) == 1
         assert agents[0].name == "explore"
 
@@ -55,7 +60,7 @@ class TestMentionParser:
         parser = MentionParser("/workspace")
         text = "Just some text without mentions"
         files, agents = parser.parse(text)
-        
+
         assert len(files) == 0
         assert len(agents) == 0
 
@@ -63,14 +68,14 @@ class TestMentionParser:
         parser = MentionParser("/workspace")
         text = "Ask @unknown to do something"
         files, agents = parser.parse(text)
-        
+
         assert len(agents) == 0
 
     def test_parse_multiple_agents(self):
         parser = MentionParser("/workspace")
         text = "@explore and @build should work together"
         files, agents = parser.parse(text)
-        
+
         assert len(agents) == 2
 
     def test_resolve_file_absolute(self):
@@ -86,32 +91,32 @@ class TestMentionParser:
     def test_read_mentioned_files_with_reader(self, tmp_path):
         test_file = tmp_path / "test.txt"
         test_file.write_text("file content")
-        
+
         parser = MentionParser(str(tmp_path))
-        
+
         def mock_reader(path):
             if path.exists():
                 return path.read_text()
             return None
-        
+
         result = parser.read_mentioned_files("@test.txt", file_reader=mock_reader)
-        
+
         assert "test.txt" in result
         assert result["test.txt"] == "file content"
 
     def test_read_mentioned_files_truncate(self, tmp_path):
         test_file = tmp_path / "large.txt"
         test_file.write_text("x" * 10000)
-        
+
         parser = MentionParser(str(tmp_path))
-        
+
         def mock_reader(path):
             if path.exists():
                 return path.read_text()
             return None
-        
+
         result = parser.read_mentioned_files("@large.txt", file_reader=mock_reader)
-        
+
         assert len(result["large.txt"]) == 5000
 
 
@@ -133,53 +138,53 @@ class TestFileMentionCompleter:
     def test_complete_with_matches(self, tmp_path):
         (tmp_path / "test_file.py").touch()
         (tmp_path / "another.py").touch()
-        
+
         completer = FileMentionCompleter(str(tmp_path))
         results = completer.complete("test")
-        
+
         assert "test_file.py" in results
 
     def test_complete_ignores_git_dir(self, tmp_path):
         git_dir = tmp_path / ".git" / "config"
         git_dir.parent.mkdir(parents=True)
         git_dir.touch()
-        
+
         completer = FileMentionCompleter(str(tmp_path))
         results = completer.complete("")
-        
+
         assert not any(".git" in r for r in results)
 
     def test_complete_ignores_node_modules(self, tmp_path):
         nm_dir = tmp_path / "node_modules" / "pkg" / "index.js"
         nm_dir.parent.mkdir(parents=True)
         nm_dir.touch()
-        
+
         completer = FileMentionCompleter(str(tmp_path))
         results = completer.complete("")
-        
+
         assert not any("node_modules" in r for r in results)
 
     def test_complete_limits_results(self, tmp_path):
         for i in range(25):
             (tmp_path / f"file{i}.txt").touch()
-        
+
         completer = FileMentionCompleter(str(tmp_path))
         results = completer.complete("")
-        
+
         assert len(results) <= 20
 
     def test_complete_with_rglob_mock(self, tmp_path):
         results = []
-        
+
         def mock_rglob(pattern):
             return list(tmp_path.glob(pattern))
-        
+
         completer = FileMentionCompleter(str(tmp_path), rglob_func=mock_rglob)
         (tmp_path / "a.txt").touch()
         (tmp_path / "b.txt").touch()
-        
+
         results = completer.complete("a")
-        
+
         assert "a.txt" in results
 
 

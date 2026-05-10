@@ -17,7 +17,7 @@ class TestUndoSnapshot:
             description="Test snapshot",
             changed_files=["file1.py", "file2.py"],
             git_commit="abc123",
-            parent_commit="def456"
+            parent_commit="def456",
         )
         assert snapshot.id == "undo_001"
         assert snapshot.description == "Test snapshot"
@@ -64,13 +64,13 @@ class TestGitUndoManager:
         assert manager.snapshots == []
         assert manager.current_index == -1
 
-    @pytest.mark.skipif(not hasattr(Path, 'is_dir'), reason="Requires git")
+    @pytest.mark.skipif(not hasattr(Path, "is_dir"), reason="Requires git")
     def test_create_snapshot(self, manager):
         """Test create_snapshot method."""
         snapshot_id = manager.create_snapshot("test description")
         assert snapshot_id.startswith("undo_")
 
-    @pytest.mark.skipif(not hasattr(Path, 'is_dir'), reason="Requires git")
+    @pytest.mark.skipif(not hasattr(Path, "is_dir"), reason="Requires git")
     def test_undo_with_snapshots(self, manager):
         """Test undo with snapshots."""
         manager.create_snapshot("first")
@@ -80,7 +80,7 @@ class TestGitUndoManager:
         assert result is not None
         assert manager.current_index >= 0
 
-    @pytest.mark.skipif(not hasattr(Path, 'is_dir'), reason="Requires git")
+    @pytest.mark.skipif(not hasattr(Path, "is_dir"), reason="Requires git")
     def test_redo_with_snapshots(self, manager):
         """Test redo with snapshots."""
         manager.create_snapshot("first")
@@ -90,7 +90,7 @@ class TestGitUndoManager:
         result = manager.redo(1)
         assert result is not None
 
-    @pytest.mark.skipif(not hasattr(Path, 'is_dir'), reason="Requires git")
+    @pytest.mark.skipif(not hasattr(Path, "is_dir"), reason="Requires git")
     def test_undo_multiple_steps(self, manager):
         """Test undo with multiple steps."""
         for i in range(3):
@@ -99,7 +99,7 @@ class TestGitUndoManager:
         result = manager.undo(2)
         assert result is not None
 
-    @pytest.mark.skipif(not hasattr(Path, 'is_dir'), reason="Requires git")
+    @pytest.mark.skipif(not hasattr(Path, "is_dir"), reason="Requires git")
     def test_redo_multiple_steps(self, manager):
         """Test redo with multiple steps."""
         for i in range(3):
@@ -109,7 +109,7 @@ class TestGitUndoManager:
         result = manager.redo(2)
         assert result is not None
 
-    @pytest.mark.skipif(not hasattr(Path, 'is_dir'), reason="Requires git")
+    @pytest.mark.skipif(not hasattr(Path, "is_dir"), reason="Requires git")
     def test_get_history_with_snapshots(self, manager):
         """Test get_history with snapshots."""
         manager.create_snapshot("first")

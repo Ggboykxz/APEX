@@ -20,17 +20,10 @@ class CustomToolManager:
         self._tools: dict[str, CustomTool] = {}
 
     def register(
-        self,
-        name: str,
-        description: str,
-        parameters: dict,
-        handler: Callable[[dict], str]
+        self, name: str, description: str, parameters: dict, handler: Callable[[dict], str]
     ) -> None:
         self._tools[name] = CustomTool(
-            name=name,
-            description=description,
-            parameters=parameters,
-            handler=handler
+            name=name, description=description, parameters=parameters, handler=handler
         )
 
     def unregister(self, name: str) -> bool:
@@ -44,11 +37,7 @@ class CustomToolManager:
 
     def list_tools(self) -> list[dict]:
         return [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "parameters": tool.parameters
-            }
+            {"name": tool.name, "description": tool.description, "parameters": tool.parameters}
             for tool in self._tools.values()
         ]
 
@@ -68,8 +57,8 @@ class CustomToolManager:
                 "function": {
                     "name": f"custom_{tool.name}",
                     "description": tool.description,
-                    "parameters": tool.parameters
-                }
+                    "parameters": tool.parameters,
+                },
             }
             for tool in self._tools.values()
         ]
@@ -90,11 +79,11 @@ def load_custom_tools(
     config_path: Path,
     tool_manager: Optional[CustomToolManager] = None,
     yaml_loader: Optional[Callable] = None,
-    subprocess_runner: Optional[Callable] = None
+    subprocess_runner: Optional[Callable] = None,
 ) -> None:
     manager = tool_manager or CustomToolManager()
-    loader = yaml_loader or __import__('yaml').safe_load
-    runner = subprocess_runner or __import__('subprocess').run
+    loader = yaml_loader or __import__("yaml").safe_load
+    subprocess_runner or __import__("subprocess").run
 
     if not config_path.exists():
         return
@@ -124,18 +113,19 @@ def load_custom_tools(
                             cwd=wd,
                             capture_output=True,
                             text=True,
-                            timeout=30
+                            timeout=30,
                         )
                         return result.stdout or result.stderr or "[no output]"
                     except Exception as e:
                         return f"ERROR: {e}"
+
                 return handler
 
             manager.register(
                 name=tool_name,
                 description=description,
                 parameters=parameters,
-                handler=make_handler(command, cwd)
+                handler=make_handler(command, cwd),
             )
     except Exception as e:
         print(f"Failed to load custom tools: {e}")

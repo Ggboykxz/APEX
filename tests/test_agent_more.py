@@ -30,17 +30,17 @@ class TestAgentProperties:
 
     def test_current_agent_property(self, agent):
         """Test current_agent property."""
-        assert hasattr(agent, 'current_agent')
+        assert hasattr(agent, "current_agent")
         assert isinstance(agent.current_agent, str)
 
     def test_cwd_property(self, agent):
         """Test cwd property."""
-        assert hasattr(agent, 'cwd')
+        assert hasattr(agent, "cwd")
         assert agent.cwd is not None
 
     def test_usage_property(self, agent):
         """Test usage property."""
-        assert hasattr(agent, 'usage')
+        assert hasattr(agent, "usage")
         assert isinstance(agent.usage, dict)
 
 
@@ -72,6 +72,7 @@ class TestAgentCwd:
     def test_cwd_setter(self, agent):
         """Test cwd setter."""
         from pathlib import Path
+
         new_path = Path("/tmp")
         agent.cwd = new_path
         assert agent.cwd == new_path
@@ -87,9 +88,9 @@ class TestAgentUsage:
     def test_usage_keys(self, agent):
         """Test usage has expected keys."""
         usage = agent.usage
-        assert 'prompt_tokens' in usage
-        assert 'completion_tokens' in usage
-        assert 'total_tokens' in usage
+        assert "prompt_tokens" in usage
+        assert "completion_tokens" in usage
+        assert "total_tokens" in usage
 
 
 class TestAgentHistory:
@@ -101,5 +102,5 @@ class TestAgentHistory:
 
     def test_history_attribute(self, agent):
         """Test history attribute exists."""
-        assert hasattr(agent, 'history')
+        assert hasattr(agent, "history")
         assert isinstance(agent.history, list)

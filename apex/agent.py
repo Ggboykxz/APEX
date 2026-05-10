@@ -15,16 +15,6 @@ from .ui import UI
 from .agents import agent_manager
 from .permission import permission_manager, get_tool_permission
 
-from .permission import PermissionRequestDenied
-
-
-class PermissionRequestDenied(Exception):
-    def __init__(self, tool_name: str, permission: str, request_id: str):
-        self.tool_name = tool_name
-        self.permission = permission
-        self.request_id = request_id
-        super().__init__(f"Permission required for {tool_name}: {permission}")
-
 
 class Agent:
     def __init__(self, config: Config | None = None):
@@ -45,7 +35,7 @@ class Agent:
         agent_config = agent_manager.get(self._current_agent)
         self._system_message = {
             "role": "system",
-            "content": agent_config.system_prompt if agent_config else ""
+            "content": agent_config.system_prompt if agent_config else "",
         }
 
     @property
@@ -91,12 +81,35 @@ class Agent:
         self._set_agent_system_prompt()
         return self._current_agent
 
+    def cycle_reasoning_effort(self) -> str:
+        order = ["off", "high", "max"]
+        current = self.config.reasoning_effort
+        if current not in order:
+            current = "off"
+        idx = order.index(current)
+        next_idx = (idx + 1) % len(order)
+        self.config.reasoning_effort = order[next_idx]
+        return order[next_idx]
+
+    def auto_select_model(self, user_input: str) -> str:
+        text = user_input.lower()
+        if "explain" in text:
+            return "claude-4-sonnet"
+        if "debug" in text:
+            return "claude-4-opus"
+        if "refactor" in text or "create" in text:
+            return "gpt-4o"
+        if "reason" in text:
+            return "deepseek-r1"
+        if len(text) > 2000:
+            return "claude-4-sonnet"
+        return "gpt-4o-mini"
+
     def reset_history(self) -> None:
         self.history = []
         self._usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
     def _check_tool_permission(self, tool_name: str) -> tuple[bool, str]:
-        permission = get_tool_permission(tool_name)
         can_execute, reason = permission_manager.can_execute_tool(tool_name)
         return can_execute, reason
 
@@ -115,11 +128,15 @@ class Agent:
         }
         return request_id
 
-    def approve_permission(self, request_id: str, remember: bool = False, expires_in: int | None = None) -> bool:
+    def approve_permission(
+        self, request_id: str, remember: bool = False, expires_in: int | None = None
+    ) -> bool:
         """Approve a pending permission request."""
         if request_id not in self._pending_permissions:
             return False
-        result = permission_manager.approve_request(request_id, remember=remember, expires_in=expires_in)
+        result = permission_manager.approve_request(
+            request_id, remember=remember, expires_in=expires_in
+        )
         if result:
             del self._pending_permissions[request_id]
         return result
@@ -166,7 +183,9 @@ class Agent:
 
         return self._chat_internal(actual_input, max_rounds)
 
-    def _chat_as_subagent(self, subagent_name: str, task: str, max_rounds: int | None = None) -> str:
+    def _chat_as_subagent(
+        self, subagent_name: str, task: str, max_rounds: int | None = None
+    ) -> str:
         original_agent = self._current_agent
         self._current_agent = subagent_name
         self._set_agent_system_prompt()
@@ -186,10 +205,7 @@ class Agent:
         for round_num in range(max_rounds):
             try:
                 response = litellm.completion(
-                    model=model_str,
-                    messages=messages,
-                    tools=TOOL_SCHEMAS,
-                    timeout=120
+                    model=model_str, messages=messages, tools=TOOL_SCHEMAS, timeout=120
                 )
                 self._update_usage(response.usage)
                 if not response.choices[0].message.tool_calls:
@@ -208,67 +224,80 @@ class Agent:
                             tool_args = json.loads(tool_args)
                         except json.JSONDecodeError as e:
                             logging.getLogger(__name__).error(f"Invalid tool args JSON: {e}")
-                            messages.append({
-                                "role": "assistant",
-                                "tool_calls": [{
-                                    "id": tc.id,
-                                    "type": "function",
-                                    "function": {"name": tool_name, "arguments": tc.function.arguments}
-                                }]
-                            })
-                            messages.append({
-                                "role": "tool",
-                                "tool_call_id": tc.id,
-                                "content": f"ERROR: Invalid tool arguments format"
-                            })
+                            messages.append(
+                                {
+                                    "role": "assistant",
+                                    "tool_calls": [
+                                        {
+                                            "id": tc.id,
+                                            "type": "function",
+                                            "function": {
+                                                "name": tool_name,
+                                                "arguments": tc.function.arguments,
+                                            },
+                                        }
+                                    ],
+                                }
+                            )
+                            messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tc.id,
+                                    "content": "ERROR: Invalid tool arguments format",
+                                }
+                            )
                             continue
-                    
+
                     if not isinstance(tool_args, dict):
-                        logging.getLogger(__name__).error(f"Tool args is not a dict: {type(tool_args)}")
+                        logging.getLogger(__name__).error(
+                            f"Tool args is not a dict: {type(tool_args)}"
+                        )
                         continue
 
                     allowed, message = self._check_tool_permission(tool_name)
                     if not allowed:
-                        messages.append({
-                            "role": "assistant",
-                            "content": None,
-                            "tool_calls": [{
-                                "id": tc.id,
-                                "type": "function",
-                                "function": {
-                                    "name": tc.function.name,
-                                    "arguments": tc.function.arguments
-                                }
-                            }]
-                        })
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc.id,
-                            "content": f"ERROR: {message}"
-                        })
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": None,
+                                "tool_calls": [
+                                    {
+                                        "id": tc.id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": tc.function.name,
+                                            "arguments": tc.function.arguments,
+                                        },
+                                    }
+                                ],
+                            }
+                        )
+                        messages.append(
+                            {"role": "tool", "tool_call_id": tc.id, "content": f"ERROR: {message}"}
+                        )
                         continue
 
                     tool_calls_data.append((tc.id, tool_name, tool_args))
-                    messages.append({
-                        "role": "assistant",
-                        "content": None,
-                        "tool_calls": [{
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments
-                            }
-                        }]
-                    })
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": tc.id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tc.function.name,
+                                        "arguments": tc.function.arguments,
+                                    },
+                                }
+                            ],
+                        }
+                    )
 
                 results = self._execute_tools_parallel(tool_calls_data)
                 for tc_id, result in results:
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tc_id,
-                        "content": result
-                    })
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
             except AuthenticationError as e:
                 return f"ERROR: Authentication failed. Check your API key for {self.model}. Details: {e}"
             except RateLimitError as e:
@@ -277,12 +306,16 @@ class Agent:
                 logging.getLogger(__name__).error(f"BadRequestError: {e}")
                 return f"ERROR: Bad request. The model may not support tools. Details: {e}"
             except Exception as e:
-                logging.getLogger(__name__).error(f"Unexpected error in _chat_internal: {type(e).__name__}: {e}")
+                logging.getLogger(__name__).error(
+                    f"Unexpected error in _chat_internal: {type(e).__name__}: {e}"
+                )
                 return f"ERROR: {type(e).__name__}: {e}"
 
         return "ERROR: Max tool rounds reached. The conversation was terminated due to too many tool calls."
 
-    async def chat_streaming(self, user_input: str, max_rounds: int | None = None) -> AsyncGenerator[str, None]:
+    async def chat_streaming(
+        self, user_input: str, max_rounds: int | None = None
+    ) -> AsyncGenerator[str, None]:
         subagent_name, actual_input = self._parse_subagent_invocation(user_input)
 
         if subagent_name:
@@ -304,10 +337,12 @@ class Agent:
         agent_config = agent_manager.get(self._current_agent)
         self._system_message = {
             "role": "system",
-            "content": agent_config.system_prompt if agent_config else ""
+            "content": agent_config.system_prompt if agent_config else "",
         }
 
-    async def _chat_internal_streaming(self, user_input: str, max_rounds: int | None = None) -> AsyncGenerator[str, None]:
+    async def _chat_internal_streaming(
+        self, user_input: str, max_rounds: int | None = None
+    ) -> AsyncGenerator[str, None]:
         max_rounds = max_rounds or self.config.max_tool_rounds
         messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
         model_str = MODELS.get(self.model, self.model)
@@ -315,11 +350,7 @@ class Agent:
         for round_num in range(max_rounds):
             try:
                 response = litellm.completion(
-                    model=model_str,
-                    messages=messages,
-                    tools=TOOL_SCHEMAS,
-                    stream=True,
-                    timeout=120
+                    model=model_str, messages=messages, tools=TOOL_SCHEMAS, stream=True, timeout=120
                 )
 
                 full_content = ""
@@ -332,7 +363,7 @@ class Agent:
                     if chunk.choices[0].delta.tool_calls:
                         break
 
-                self._update_usage(chunk.usage if hasattr(chunk, 'usage') else None)
+                self._update_usage(chunk.usage if hasattr(chunk, "usage") else None)
 
                 if not full_content and chunk.choices[0].delta.tool_calls:
                     tool_calls_data = []
@@ -342,75 +373,91 @@ class Agent:
                             try:
                                 tool_args = json.loads(tool_args)
                             except json.JSONDecodeError as e:
-                                logging.getLogger(__name__).error(f"Invalid tool args JSON in streaming: {e}")
-                                messages.append({
-                                    "role": "assistant",
-                                    "content": None,
-                                    "tool_calls": [{
-                                        "id": tc.id,
-                                        "type": "function",
-                                        "function": {"name": tc.function.name, "arguments": tc.function.arguments}
-                                    }]
-                                })
-                                messages.append({
-                                    "role": "tool",
-                                    "tool_call_id": tc.id,
-                                    "content": f"ERROR: Invalid tool arguments format"
-                                })
+                                logging.getLogger(__name__).error(
+                                    f"Invalid tool args JSON in streaming: {e}"
+                                )
+                                messages.append(
+                                    {
+                                        "role": "assistant",
+                                        "content": None,
+                                        "tool_calls": [
+                                            {
+                                                "id": tc.id,
+                                                "type": "function",
+                                                "function": {
+                                                    "name": tc.function.name,
+                                                    "arguments": tc.function.arguments,
+                                                },
+                                            }
+                                        ],
+                                    }
+                                )
+                                messages.append(
+                                    {
+                                        "role": "tool",
+                                        "tool_call_id": tc.id,
+                                        "content": "ERROR: Invalid tool arguments format",
+                                    }
+                                )
                                 continue
-                        
+
                         if not isinstance(tool_args, dict):
-                            logging.getLogger(__name__).error(f"Tool args is not a dict: {type(tool_args)}")
+                            logging.getLogger(__name__).error(
+                                f"Tool args is not a dict: {type(tool_args)}"
+                            )
                             continue
 
                         allowed, message = self._check_tool_permission(tc.function.name)
                         if not allowed:
-                            messages.append({
-                                "role": "assistant",
-                                "content": None,
-                                "tool_calls": [{
-                                    "id": tc.id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": tc.function.name,
-                                        "arguments": tc.function.arguments
-                                    }
-                                }]
-                            })
-                            messages.append({
-                                "role": "tool",
-                                "tool_call_id": tc.id,
-                                "content": f"ERROR: {message}"
-                            })
+                            messages.append(
+                                {
+                                    "role": "assistant",
+                                    "content": None,
+                                    "tool_calls": [
+                                        {
+                                            "id": tc.id,
+                                            "type": "function",
+                                            "function": {
+                                                "name": tc.function.name,
+                                                "arguments": tc.function.arguments,
+                                            },
+                                        }
+                                    ],
+                                }
+                            )
+                            messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tc.id,
+                                    "content": f"ERROR: {message}",
+                                }
+                            )
                             continue
 
                         tool_calls_data.append((tc.id, tc.function.name, tool_args))
-                        messages.append({
-                            "role": "assistant",
-                            "content": None,
-                            "tool_calls": [{
-                                "id": tc.id,
-                                "type": "function",
-                                "function": {
-                                    "name": tc.function.name,
-                                    "arguments": tc.function.arguments
-                                }
-                            }]
-                        })
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": None,
+                                "tool_calls": [
+                                    {
+                                        "id": tc.id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": tc.function.name,
+                                            "arguments": tc.function.arguments,
+                                        },
+                                    }
+                                ],
+                            }
+                        )
 
                     results = self._execute_tools_parallel(tool_calls_data)
                     for tc_id, result in results:
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": tc_id,
-                            "content": result
-                        })
+                        messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
 
                     response = litellm.completion(
-                        model=model_str,
-                        messages=messages,
-                        tools=TOOL_SCHEMAS,
-                        timeout=120
+                        model=model_str, messages=messages, tools=TOOL_SCHEMAS, timeout=120
                     )
                     self._update_usage(response.usage)
 
@@ -440,14 +487,18 @@ class Agent:
 
         yield "ERROR: Max tool rounds reached."
 
-    def _execute_tools_parallel(self, tool_calls_data: list[tuple[str, str, dict]]) -> list[tuple[str, str]]:
+    def _execute_tools_parallel(
+        self, tool_calls_data: list[tuple[str, str, dict]]
+    ) -> list[tuple[str, str]]:
         results = []
         for tc_id, tool_name, tool_args in tool_calls_data:
             result = self._executor.execute(tool_name, tool_args)
             results.append((tc_id, result))
         return results
 
-    async def _execute_tools_parallel_async(self, tool_calls_data: list[tuple[str, str, dict]]) -> list[tuple[str, str]]:
+    async def _execute_tools_parallel_async(
+        self, tool_calls_data: list[tuple[str, str, dict]]
+    ) -> list[tuple[str, str]]:
         tool_calls_list = [(name, args) for _, name, args in tool_calls_data]
         results = await self._async_executor.execute_all_parallel(tool_calls_list)
         return [(tc_id, result) for (tc_id, _, _), result in zip(tool_calls_data, results)]

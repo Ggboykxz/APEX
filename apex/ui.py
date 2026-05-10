@@ -1,27 +1,19 @@
 """UI components for APEX - Premium terminal interface - Better than OpenCode."""
 
-from typing import Any, Optional, List
-from datetime import datetime
-from pathlib import Path
+from typing import Any, List
 
-from rich.console import Console, Group
+from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.markdown import Markdown
-from rich.table import Table, Column
-from rich.text import Text
-from rich.style import Style, StyleType
-from rich.box import Box, ROUNDED, SIMPLE_HEAVY, DOUBLE, HEAVY
+from rich.table import Table
+from rich.box import ROUNDED
 from rich.columns import Columns
-from rich.layout import Layout
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn
-from rich.live import Live
-from rich.console import ConsoleRenderable
 
 
 class APEXTheme:
     """Premium color themes - Better than OpenCode."""
-    
+
     # Dracula-inspired (default)
     DRACULA = {
         "bg": "#282A36",
@@ -36,7 +28,7 @@ class APEXTheme:
         "white": "#F8F8F2",
         "gray": "#6272A4",
     }
-    
+
     # Nord-inspired
     NORD = {
         "bg": "#2E3440",
@@ -51,7 +43,7 @@ class APEXTheme:
         "white": "#ECEFF4",
         "gray": "#4C566A",
     }
-    
+
     # One Dark
     ONE_DARK = {
         "bg": "#282C34",
@@ -66,7 +58,7 @@ class APEXTheme:
         "white": "#ABB2BF",
         "gray": "#5C6370",
     }
-    
+
     @classmethod
     def get(cls, name: str = "dracula") -> dict:
         return getattr(cls, name.upper(), cls.DRACULA)
@@ -74,12 +66,12 @@ class APEXTheme:
 
 class UI:
     """Premium UI - Outperforms OpenCode."""
-    
+
     def __init__(self, theme: str = "dracula"):
         self.console = Console()
         self.theme_name = theme
         self.theme = APEXTheme.get(theme)
-        
+
         # Icons for different elements
         self.ICONS = {
             "agent": "🤖",
@@ -103,7 +95,7 @@ class UI:
             "git_mod": "~",
             "git_del": "-",
         }
-    
+
     def _c(self, color: str, text: str, bold: bool = False) -> str:
         """Color helper."""
         style = f"bold {color}" if bold else color
@@ -115,19 +107,17 @@ class UI:
 
     def show_banner(self, model: str, cwd: str, agent: str = "coder") -> None:
         """Show clean, minimal banner inspired by OpenCode."""
-        from . import __version__
 
         # Get terminal width for centering
-        term_width = self.console.width or 80
 
         # Clean centered logo
         logo_lines = [
-            f"[bold #00e5ff]    ▲[/]",
-            f"[bold #00e5ff]   ╱ ╲[/]",
-            f"[bold #00e5ff]  ╱   ╲[/]",
-            f"[bold #00e5ff] ╱     ╲[/]",
-            f"[bold #00e5ff]╱───────╲[/]",
-            f"[bold white]APEX[/]",
+            "[bold #00e5ff]    ▲[/]",
+            "[bold #00e5ff]   ╱ ╲[/]",
+            "[bold #00e5ff]  ╱   ╲[/]",
+            "[bold #00e5ff] ╱     ╲[/]",
+            "[bold #00e5ff]╱───────╲[/]",
+            "[bold white]APEX[/]",
         ]
 
         # Print spacer
@@ -142,10 +132,10 @@ class UI:
             "coder": "#00e5ff",
             "architect": "#bd93f9",
             "reviewer": "#50fa7b",
-            "devops": "#ffb86c",
-            "analyst": "#ff79c6",
+            "shell": "#ff6b35",
+            "planner": "#ffaa00",
         }
-        agent_color = agent_colors.get(agent, "#00e5ff")
+        agent_colors.get(agent, "#00e5ff")
 
         self.console.print(
             f"[dim]{agent}[/] [dim]•[/] [dim]{model}[/]",
@@ -156,18 +146,14 @@ class UI:
         self.console.print()
 
         # Shortcuts bar at the bottom
-        shortcuts = (
-            f"[dim]tab[/] switch agent  "
-            f"[dim]ctrl+k[/] commands  "
-            f"[dim]ctrl+c[/] exit"
-        )
+        shortcuts = "[dim]tab[/] switch agent  [dim]ctrl+k[/] commands  [dim]ctrl+c[/] exit"
         self.console.print(shortcuts, justify="center")
         self.console.print()
 
     def show_help(self) -> None:
         """Show beautiful help - Better than OpenCode."""
         cyan = self._c("cyan", "")
-        
+
         help_table = Table(
             title=f" {self.ICONS['info']} APEX Commands ",
             show_header=True,
@@ -175,9 +161,12 @@ class UI:
             box=ROUNDED,
             padding=(0, 1),
         )
-        
+
         commands = [
-            (f"{cyan}/agent[cyan] [name]", "Switch agent (coder/architect/reviewer/devops/analyst)"),
+            (
+                f"{cyan}/agent[cyan] [name]",
+                "Switch agent (coder/architect/planner/reviewer/shell)",
+            ),
             (f"{cyan}/agents", "List all agents"),
             (f"{cyan}/subagents", "Show subagents (@name to invoke)"),
             (f"{cyan}/model [name]", "Change AI model"),
@@ -194,12 +183,12 @@ class UI:
             (f"{cyan}@file.py", "Include file"),
             (f"{cyan}@agent task", "Invoke subagent"),
         ]
-        
+
         for cmd, desc in commands:
             help_table.add_row(cmd, desc)
-        
+
         self.console.print(help_table)
-        
+
         # Keyboard shortcuts
         shortcuts = Table(box=None, show_header=False, padding=(1, 0))
         shortcuts.add_row(
@@ -213,11 +202,11 @@ class UI:
 
     def show_models(self, current: str) -> None:
         """Show models table - Better than OpenCode."""
-        cyan = self._c("cyan", "")
+        self._c("cyan", "")
         green = self._c("green", "")
-        
+
         from .config import MODELS
-        
+
         models_table = Table(
             title=f" {self.ICONS['model']} Available Models ",
             show_header=True,
@@ -228,22 +217,24 @@ class UI:
         models_table.add_column("Alias", style="cyan", width=22)
         models_table.add_column("Provider", style="dim", width=20)
         models_table.add_column("Status", width=12)
-        
+
         for alias in sorted(MODELS.keys())[:25]:
             model_str = MODELS[alias]
             provider = model_str.split("/")[0] if "/" in model_str else "unknown"
-            
+
             if alias == current:
                 status = f"{green}● Active"
             elif "free" in alias.lower():
                 status = f"{self._c('yellow', '○ Free')}"
             else:
                 status = ""
-            
+
             models_table.add_row(alias, provider, status)
-        
+
         self.console.print(models_table)
-        self.console.print(f"\n{self._c('dim', f'Showing 25 of {len(MODELS)} models. Use /models for full list.')}")
+        self.console.print(
+            f"\n{self._c('dim', f'Showing 25 of {len(MODELS)} models. Use /models for full list.')}"
+        )
 
     def print_user(self, text: str) -> None:
         """Print user input - Better styling."""
@@ -253,13 +244,15 @@ class UI:
     def print_thinking(self, message: str = "Thinking") -> Any:
         """Premium thinking indicator."""
         cyan = self._c("cyan", "")
-        return self.console.status(f"{cyan}{self.ICONS['thinking']} {message}...", spinner="dots", speed=0.7)
+        return self.console.status(
+            f"{cyan}{self.ICONS['thinking']} {message}...", spinner="dots", speed=0.7
+        )
 
     def print_response(self, text: str) -> None:
         """Print response with code highlighting - Better than OpenCode."""
-        cyan = self._c("cyan", "")
-        purple = self._c("purple", "")
-        
+        self._c("cyan", "")
+        self._c("purple", "")
+
         if "```" in text:
             parts = text.split("```")
             for i, part in enumerate(parts):
@@ -273,9 +266,9 @@ class UI:
                     code = lines[1] if len(lines) > 1 else ""
                     if code:
                         syntax = Syntax(
-                            code, 
-                            lang or "python", 
-                            theme="monokai", 
+                            code,
+                            lang or "python",
+                            theme="monokai",
                             line_numbers=True,
                             padding=1,
                             indent_guides=True,
@@ -296,14 +289,15 @@ class UI:
         """Tool call display - Premium."""
         cyan = self._c("cyan", "")
         gray = self._c("gray", "")
-        
+
         # Truncate args for display
         args_str = ", ".join(
-            f"{gray}{k}{cyan}={self._c('white', str(v)[:30])}" 
-            for k, v in list(args.items())[:3]
+            f"{gray}{k}{cyan}={self._c('white', str(v)[:30])}" for k, v in list(args.items())[:3]
         )
-        
-        self.console.print(f"  {self._c('cyan', '▶')} {self._c('white', name)}({args_str}{self._c('gray', '...)' if len(args) > 3 else '')})")
+
+        self.console.print(
+            f"  {self._c('cyan', '▶')} {self._c('white', name)}({args_str}{self._c('gray', '...)' if len(args) > 3 else '')})"
+        )
 
     def print_tool_result(self, name: str, result: str) -> None:
         """Tool result - Better than OpenCode."""
@@ -311,22 +305,22 @@ class UI:
         green = self._c("green", "")
         red = self._c("red", "")
         yellow = self._c("yellow", "")
-        
+
         border_color = {
             "ERROR:": red,
             "SUCCESS:": green,
             "WARNING:": yellow,
         }.get(result.split(":")[0] if ":" in result else "", cyan)
-        
+
         icon = {
             "ERROR:": "✗",
-            "SUCCESS:": "✓", 
+            "SUCCESS:": "✓",
             "WARNING:": "⚠",
         }.get(result.split(":")[0] if ":" in result else "", "●")
-        
+
         if len(result) > 2500:
-            result = result[:2500] + f"\n{self._c('dim', f'... ({len(result)-2500} more chars)')}"
-        
+            result = result[:2500] + f"\n{self._c('dim', f'... ({len(result) - 2500} more chars)')}"
+
         self.console.print(
             Panel(
                 result,
@@ -360,21 +354,18 @@ class UI:
 
     def print_git_status(self, branch: str, status: str, files: List[str]) -> None:
         """Git status - Better than OpenCode."""
-        cyan = self._c("cyan", "")
+        self._c("cyan", "")
         green = self._c("green", "")
         gray = self._c("gray", "")
-        
+
         branch_panel = Panel(
             f" {self._c('cyan', '⎇')} {branch} ",
             box=ROUNDED,
             border_style="cyan",
         )
-        
+
         if files:
-            files_text = "\n".join([
-                f"  {gray}{f}[/{gray}]" 
-                for f in files[:8]
-            ])
+            files_text = "\n".join([f"  {gray}{f}[/{gray}]" for f in files[:8]])
             files_panel = Panel(
                 files_text,
                 title=f" {len(files)} changed ",
@@ -393,7 +384,7 @@ class UI:
     def print_cost(self, usage: dict[str, int]) -> None:
         """Token cost display."""
         cyan = self._c("cyan", "")
-        
+
         table = Table(
             title=f" {self.ICONS['code']} Token Usage ",
             show_header=True,
@@ -402,15 +393,15 @@ class UI:
         )
         table.add_column("Type", style="cyan")
         table.add_column("Tokens", justify="right", style="white")
-        
+
         total = sum(usage.values())
         for token_type, count in usage.items():
             table.add_row(token_type, f"{count:,}")
-        
+
         table.add_row(f"[bold]{cyan}Total[/]", f"[bold]{total:,}[/]")
-        
+
         self.console.print(table)
-        
+
         cost = total * 0.00001
         self.console.print(f"  {self._c('gray', f'Estimated: ~${cost:.4f}')}")
 
@@ -423,7 +414,7 @@ class UI:
         cyan = self._c("cyan", "")
         gray = self._c("gray", "")
         purple = self._c("purple", "")
-        
+
         welcome = f"""
 {gray}┌─────────────────────────────────────────────────────────────────────┐
 │  {cyan}Welcome to APEX{gray}                                                       │
@@ -433,7 +424,7 @@ class UI:
 │  {gray}│  {purple}Press Tab to cycle through agents{gray}                                  │
 │  {gray}│  {purple}Press Ctrl+C to interrupt{gray}                                       │
 │  {gray}└─────────────────────────────────────────────────────────────────────┘[/]"""
-        
+
         self.console.print(welcome)
 
 

@@ -34,30 +34,18 @@ class TestPermissionRule:
         assert rule.action == PermissionAction.ALLOW
 
     def test_rule_with_reason(self):
-        rule = PermissionRule(
-            pattern="test",
-            action=PermissionAction.DENY,
-            reason="Not allowed"
-        )
+        rule = PermissionRule(pattern="test", action=PermissionAction.DENY, reason="Not allowed")
         assert rule.reason == "Not allowed"
 
     def test_rule_with_expiration(self):
         expires = time.time() + 3600
-        rule = PermissionRule(
-            pattern="test",
-            action=PermissionAction.ALLOW,
-            expires_at=expires
-        )
+        rule = PermissionRule(pattern="test", action=PermissionAction.ALLOW, expires_at=expires)
         assert rule.expires_at == expires
         assert not rule.is_expired()
 
     def test_rule_expired(self):
         expires = time.time() - 1
-        rule = PermissionRule(
-            pattern="test",
-            action=PermissionAction.ALLOW,
-            expires_at=expires
-        )
+        rule = PermissionRule(pattern="test", action=PermissionAction.ALLOW, expires_at=expires)
         assert rule.is_expired()
 
 
@@ -69,7 +57,7 @@ class TestPermissionRequest:
             request_id="req_1",
             tool_name="test_tool",
             permission="tool:execute",
-            args={"arg": "value"}
+            args={"arg": "value"},
         )
         assert request.request_id == "req_1"
         assert request.tool_name == "test_tool"
@@ -82,7 +70,7 @@ class TestPermissionRequest:
             tool_name="test_tool",
             permission="tool:execute",
             args={},
-            workspace_id="ws_123"
+            workspace_id="ws_123",
         )
         assert request.workspace_id == "ws_123"
 
@@ -138,31 +126,23 @@ class TestPermissionManager:
         assert len(manager._rules) > 0
 
     def test_can_execute_allow(self, manager):
-        manager._rules = [
-            PermissionRule("read_file", PermissionAction.ALLOW)
-        ]
+        manager._rules = [PermissionRule("read_file", PermissionAction.ALLOW)]
         can_exec, reason = manager.can_execute_tool("read_file")
         assert can_exec is True
 
     def test_can_execute_deny(self, manager):
-        manager._rules = [
-            PermissionRule("dangerous", PermissionAction.DENY)
-        ]
+        manager._rules = [PermissionRule("dangerous", PermissionAction.DENY)]
         can_exec, reason = manager.can_execute_tool("dangerous")
         assert can_exec is False
 
     def test_can_execute_ask(self, manager):
-        manager._rules = [
-            PermissionRule("ask_tool", PermissionAction.ASK, "Need confirmation")
-        ]
+        manager._rules = [PermissionRule("ask_tool", PermissionAction.ASK, "Need confirmation")]
         can_exec, reason = manager.can_execute_tool("ask_tool")
         assert can_exec is False
         assert "Need confirmation" in reason or "permission" in reason.lower()
 
     def test_can_execute_wildcard(self, manager):
-        manager._rules = [
-            PermissionRule("read_*", PermissionAction.ALLOW)
-        ]
+        manager._rules = [PermissionRule("read_*", PermissionAction.ALLOW)]
         can_exec, _ = manager.can_execute_tool("read_file")
         assert can_exec is True
 
@@ -173,18 +153,14 @@ class TestPermissionManager:
 
     def test_request_permission(self, manager):
         request_id = manager.request_permission(
-            tool_name="test_tool",
-            args={"key": "value"},
-            permission="tool:execute"
+            tool_name="test_tool", args={"key": "value"}, permission="tool:execute"
         )
         assert request_id.startswith("req_")
         assert request_id in manager._requests
 
     def test_approve_request(self, manager):
         request_id = manager.request_permission(
-            tool_name="test_tool",
-            args={},
-            permission="tool:execute"
+            tool_name="test_tool", args={}, permission="tool:execute"
         )
         result = manager.approve_request(request_id)
         assert result is True
@@ -192,9 +168,7 @@ class TestPermissionManager:
 
     def test_approve_request_with_remember(self, manager):
         request_id = manager.request_permission(
-            tool_name="remembered_tool",
-            args={},
-            permission="tool:execute"
+            tool_name="remembered_tool", args={}, permission="tool:execute"
         )
         manager.approve_request(request_id, remember=True)
         can_exec, _ = manager.can_execute_tool("remembered_tool")
@@ -206,9 +180,7 @@ class TestPermissionManager:
 
     def test_deny_request(self, manager):
         request_id = manager.request_permission(
-            tool_name="denied_tool",
-            args={},
-            permission="tool:execute"
+            tool_name="denied_tool", args={}, permission="tool:execute"
         )
         result = manager.deny_request(request_id)
         assert result is True
@@ -216,9 +188,7 @@ class TestPermissionManager:
 
     def test_deny_request_with_remember(self, manager):
         request_id = manager.request_permission(
-            tool_name="blocked_tool",
-            args={},
-            permission="tool:execute"
+            tool_name="blocked_tool", args={}, permission="tool:execute"
         )
         manager.deny_request(request_id, remember=True)
         can_exec, _ = manager.can_execute_tool("blocked_tool")
@@ -229,8 +199,8 @@ class TestPermissionManager:
         assert result is False
 
     def test_get_pending_requests(self, manager):
-        req1 = manager.request_permission("tool1", {}, "tool:execute")
-        req2 = manager.request_permission("tool2", {}, "tool:execute")
+        manager.request_permission("tool1", {}, "tool:execute")
+        manager.request_permission("tool2", {}, "tool:execute")
         pending = manager.get_pending_requests()
         assert len(pending) == 2
 

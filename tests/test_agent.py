@@ -12,14 +12,14 @@ class TestAgent:
         """Test agent initialization."""
         agent = Agent()
         assert agent is not None
-        assert hasattr(agent, 'config')
-        assert hasattr(agent, 'model')
-        assert hasattr(agent, 'history')
+        assert hasattr(agent, "config")
+        assert hasattr(agent, "model")
+        assert hasattr(agent, "history")
 
     def test_agent_current_agent_property(self):
         """Test current_agent property."""
         agent = Agent()
-        assert agent.current_agent == "build"
+        assert agent.current_agent == "coder"
 
     def test_agent_cwd_property(self):
         """Test cwd property."""
@@ -72,9 +72,9 @@ class TestAgent:
     def test_agent_switch_agent(self):
         """Test switch_agent method."""
         agent = Agent()
-        result = agent.switch_agent("plan")
+        result = agent.switch_agent("planner")
         assert result is True
-        assert agent.current_agent == "plan"
+        assert agent.current_agent == "planner"
 
     def test_agent_switch_agent_invalid(self):
         """Test switch_agent with invalid agent."""
@@ -105,5 +105,5 @@ class TestAgent:
     def test_agent_has_executor(self):
         """Test agent has executor attributes."""
         agent = Agent()
-        assert hasattr(agent, '_executor')
-        assert hasattr(agent, '_async_executor')
+        assert hasattr(agent, "_executor")
+        assert hasattr(agent, "_async_executor")

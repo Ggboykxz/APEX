@@ -6,7 +6,6 @@ Can be run with Bun/Node.js or standalone Python.
 import json
 import asyncio
 import hashlib
-import secrets
 import logging
 import os
 from datetime import datetime
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class APEXClient:
     """Represents a connected client."""
-    
+
     _rate_limit = 60
     _window = 60
     _request_times: dict[str, list[float]] = {}
@@ -30,20 +29,19 @@ class APEXClient:
         self.last_activity = datetime.now().isoformat()
         self.model = "gpt-4o-mini"
         self.agent_mode = "build"
-    
+
     def rate_check(self) -> bool:
         now = datetime.now().timestamp()
         if self.id not in self._request_times:
             self._request_times[self.id] = []
-        
+
         self._request_times[self.id] = [
-            t for t in self._request_times[self.id]
-            if now - t < self._window
+            t for t in self._request_times[self.id] if now - t < self._window
         ]
-        
+
         if len(self._request_times[self.id]) >= self._rate_limit:
             return False
-        
+
         self._request_times[self.id].append(now)
         return True
 
@@ -54,7 +52,7 @@ class APEXClient:
             "connected_at": self.connected_at,
             "last_activity": self.last_activity,
             "model": self.model,
-            "agent_mode": self.agent_mode
+            "agent_mode": self.agent_mode,
         }
 
 
@@ -69,10 +67,12 @@ class APIKeyManager:
                     token_hash = hashlib.sha256(token.encode()).hexdigest()
                     self._tokens[token_hash] = {
                         "token": token,
-                        "created_at": datetime.now().timestamp()
+                        "created_at": datetime.now().timestamp(),
                     }
-        self._require_auth = bool(self._tokens) or os.environ.get("APEX_REQUIRE_AUTH", "").lower() == "true"
-    
+        self._require_auth = (
+            bool(self._tokens) or os.environ.get("APEX_REQUIRE_AUTH", "").lower() == "true"
+        )
+
     def is_valid(self, token: str) -> bool:
         if not self._require_auth:
             return True
@@ -101,12 +101,13 @@ class APEXServer:
     async def handle_websocket(self, ws, path: str = "/ws", token: Optional[str] = None):
         """Handle WebSocket connections."""
         if self._key_manager._require_auth and not self._key_manager.is_valid(token):
-            logger.warning(f"Unauthorized WebSocket connection attempt")
+            logger.warning("Unauthorized WebSocket connection attempt")
             await ws.send_json({"type": "error", "message": "Unauthorized"})
             await ws.close()
             return
-        
+
         import uuid
+
         client_id = str(uuid.uuid4())
         client = APEXClient(client_id, token=token)
         self.clients[client_id] = client
@@ -114,11 +115,9 @@ class APEXServer:
         logger.info(f"Client {client_id} connected")
 
         try:
-            await ws.send_json({
-                "type": "welcome",
-                "client_id": client_id,
-                "message": "Connected to APEX server"
-            })
+            await ws.send_json(
+                {"type": "welcome", "client_id": client_id, "message": "Connected to APEX server"}
+            )
 
             async for msg in ws:
                 if not client.rate_check():
@@ -219,7 +218,7 @@ class APEXServer:
             "clients": len(self.clients),
             "client_list": [c.to_dict() for c in self.clients.values()],
             "agent_model": self._agent.model if self._agent else None,
-            "agent_mode": self._agent.current_agent if self._agent else None
+            "agent_mode": self._agent.current_agent if self._agent else None,
         }
 
 
@@ -230,7 +229,8 @@ async def run_server(host: str = "0.0.0.0", port: int = 8080):
     server = APEXServer(host, port)
 
     async def index(request):
-        return web.Response(text="""<!DOCTYPE html>
+        return web.Response(
+            text="""<!DOCTYPE html>
 <html>
 <head>
     <title>APEX Server</title>
@@ -244,7 +244,9 @@ async def run_server(host: str = "0.0.0.0", port: int = 8080):
     <p>WebSocket: ws://host:port/ws</p>
     <p>REST API: POST /chat, GET /status, POST /execute</p>
 </body>
-</html>""", content_type="text/html")
+</html>""",
+            content_type="text/html",
+        )
 
     async def ws_handler(request):
         ws = web.WebSocketResponse()
@@ -261,10 +263,7 @@ async def run_server(host: str = "0.0.0.0", port: int = 8080):
 
         if server._agent:
             response = server._agent.chat(message)
-            return web.json_response({
-                "response": response,
-                "usage": server._agent.usage
-            })
+            return web.json_response({"response": response, "usage": server._agent.usage})
 
         return web.json_response({"error": "Agent not initialized"}, status=500)
 

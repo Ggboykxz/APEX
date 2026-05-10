@@ -8,7 +8,6 @@ from apex.rate_limiter import (
     RateLimiter,
     RateLimitConfig,
     RateLimitResult,
-    StorageBackend,
     MemoryStorage,
     SQLiteStorage,
     create_rate_limiter,
@@ -27,9 +26,7 @@ class TestRateLimitConfig:
 
     def test_custom_values(self):
         config = RateLimitConfig(
-            requests_per_minute=10,
-            requests_per_hour=100,
-            requests_per_day=500
+            requests_per_minute=10, requests_per_hour=100, requests_per_day=500
         )
         assert config.requests_per_minute == 10
         assert config.requests_per_hour == 100
@@ -45,7 +42,7 @@ class TestRateLimitResult:
             remaining_minute=59,
             remaining_hour=999,
             remaining_day=9999,
-            reset_at=time.time() + 60
+            reset_at=time.time() + 60,
         )
         assert result.allowed is True
         assert result.remaining_minute == 59
@@ -57,7 +54,7 @@ class TestRateLimitResult:
             remaining_hour=0,
             remaining_day=0,
             reset_at=time.time() + 60,
-            retry_after=60
+            retry_after=60,
         )
         assert result.allowed is False
         assert result.retry_after == 60
@@ -151,11 +148,7 @@ class TestRateLimiter:
 
     @pytest.fixture
     def limiter(self):
-        config = RateLimitConfig(
-            requests_per_minute=5,
-            requests_per_hour=20,
-            requests_per_day=50
-        )
+        config = RateLimitConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=50)
         return RateLimiter(config=config)
 
     def test_check_rate_limit_allowed(self, limiter):
@@ -172,9 +165,7 @@ class TestRateLimiter:
 
     def test_check_rate_limit_hour_exceeded(self):
         config = RateLimitConfig(
-            requests_per_minute=1000,
-            requests_per_hour=5,
-            requests_per_day=100
+            requests_per_minute=1000, requests_per_hour=5, requests_per_day=100
         )
         limiter = RateLimiter(config=config)
         for _ in range(5):
@@ -185,9 +176,7 @@ class TestRateLimiter:
 
     def test_check_rate_limit_day_exceeded(self):
         config = RateLimitConfig(
-            requests_per_minute=1000,
-            requests_per_hour=1000,
-            requests_per_day=5
+            requests_per_minute=1000, requests_per_hour=1000, requests_per_day=5
         )
         limiter = RateLimiter(config=config)
         for _ in range(5):

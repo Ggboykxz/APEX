@@ -1,8 +1,6 @@
 """Comprehensive tests for agent.py."""
 
 import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
 from apex.agent import Agent
 
 
@@ -24,7 +22,7 @@ class TestAgentCore:
 
     def test_init_sets_current_agent(self, agent):
         """Test init sets default agent."""
-        assert agent.current_agent == "build"
+        assert agent.current_agent == "coder"
 
     def test_init_creates_system_message(self, agent):
         """Test init creates system message."""
@@ -50,9 +48,9 @@ class TestAgentCore:
 
     def test_switch_agent_valid(self, agent):
         """Test switch_agent with valid agent."""
-        result = agent.switch_agent("plan")
+        result = agent.switch_agent("planner")
         assert result is True
-        assert agent.current_agent == "plan"
+        assert agent.current_agent == "planner"
 
     def test_switch_agent_invalid(self, agent):
         """Test switch_agent with invalid agent."""
@@ -163,8 +161,8 @@ class TestAgentParsing:
 
     def test_parse_subagent_invocation_valid(self, agent):
         """Test parsing valid subagent invocation."""
-        subagent, task = agent._parse_subagent_invocation("@general fix this")
-        assert subagent == "general"
+        subagent, task = agent._parse_subagent_invocation("@reviewer fix this")
+        assert subagent == "reviewer"
         assert task == "fix this"
 
     def test_parse_subagent_invocation_invalid(self, agent):
@@ -179,7 +177,7 @@ class TestAgentParsing:
         assert allowed is True
 
     def test_check_tool_permission_denied(self, agent):
-        """Test tool permission denied for plan mode."""
-        agent.switch_agent("plan")
+        """Test tool permission denied for planner agent."""
+        agent.switch_agent("planner")
         allowed, message = agent._check_tool_permission("write_file")
         assert allowed is False

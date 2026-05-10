@@ -22,11 +22,7 @@ class MessagePart:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return {
-            "type": self.part_type.value,
-            "content": self.content,
-            "metadata": self.metadata
-        }
+        return {"type": self.part_type.value, "content": self.content, "metadata": self.metadata}
 
 
 @dataclass
@@ -39,7 +35,7 @@ class TokenUsage:
         return {
             "prompt_tokens": self.prompt_tokens,
             "completion_tokens": self.completion_tokens,
-            "total_tokens": self.total_tokens
+            "total_tokens": self.total_tokens,
         }
 
 
@@ -59,7 +55,7 @@ class Message:
             "parts": [p.to_dict() for p in self.parts],
             "token_usage": self.token_usage.to_dict() if self.token_usage else None,
             "cost_usd": self.cost_usd,
-            "timestamp": self.timestamp.isoformat()
+            "timestamp": self.timestamp.isoformat(),
         }
 
     @classmethod
@@ -67,45 +63,40 @@ class Message:
         return cls(
             id=data["id"],
             role=data["role"],
-            parts=[MessagePart(PartType(p["type"]), p["content"], p.get("metadata", {})) for p in data.get("parts", [])],
+            parts=[
+                MessagePart(PartType(p["type"]), p["content"], p.get("metadata", {}))
+                for p in data.get("parts", [])
+            ],
             token_usage=TokenUsage(**data["token_usage"]) if data.get("token_usage") else None,
             cost_usd=data.get("cost_usd"),
-            timestamp=datetime.fromisoformat(data["timestamp"]) if data.get("timestamp") else datetime.now()
+            timestamp=datetime.fromisoformat(data["timestamp"])
+            if data.get("timestamp")
+            else datetime.now(),
         )
 
     def add_text(self, text: str) -> None:
         self.parts.append(MessagePart(PartType.TEXT, text))
 
     def add_file(self, path: str, content: str = "") -> None:
-        self.parts.append(MessagePart(
-            PartType.FILE,
-            {"path": path, "content": content},
-            {"name": path.split("/")[-1]}
-        ))
+        self.parts.append(
+            MessagePart(
+                PartType.FILE, {"path": path, "content": content}, {"name": path.split("/")[-1]}
+            )
+        )
 
     def add_tool_call(self, tool_name: str, arguments: dict) -> None:
-        self.parts.append(MessagePart(
-            PartType.TOOL_CALL,
-            {"name": tool_name, "arguments": arguments}
-        ))
+        self.parts.append(
+            MessagePart(PartType.TOOL_CALL, {"name": tool_name, "arguments": arguments})
+        )
 
     def add_tool_result(self, tool_name: str, result: Any) -> None:
-        self.parts.append(MessagePart(
-            PartType.TOOL_RESULT,
-            {"name": tool_name, "result": result}
-        ))
+        self.parts.append(MessagePart(PartType.TOOL_RESULT, {"name": tool_name, "result": result}))
 
     def add_image(self, path: str, base64_data: str = "") -> None:
-        self.parts.append(MessagePart(
-            PartType.IMAGE,
-            {"path": path, "data": base64_data}
-        ))
+        self.parts.append(MessagePart(PartType.IMAGE, {"path": path, "data": base64_data}))
 
     def add_snapshot(self, snapshot_id: str) -> None:
-        self.parts.append(MessagePart(
-            PartType.SNAPSHOT,
-            snapshot_id
-        ))
+        self.parts.append(MessagePart(PartType.SNAPSHOT, snapshot_id))
 
     def get_text(self) -> str:
         return " ".join(p.content for p in self.parts if p.part_type == PartType.TEXT)

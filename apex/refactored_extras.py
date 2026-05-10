@@ -8,14 +8,14 @@ from dataclasses import dataclass
 
 
 class ShellExpander:
-    VAR_PATTERN = re.compile(r'\$\{?([a-zA-Z_][a-zA-Z0-9_]*)\}?')
-    
+    VAR_PATTERN = re.compile(r"\$\{?([a-zA-Z_][a-zA-Z0-9_]*)\}?")
+
     def __init__(
         self,
         env_provider: Optional[Callable[[], Dict[str, str]]] = None,
         path_expanduser: Optional[Callable[[str], str]] = None,
         path_expandvars: Optional[Callable[[str], str]] = None,
-        path_abspath: Optional[Callable[[str], str]] = None
+        path_abspath: Optional[Callable[[str], str]] = None,
     ):
         self._env_provider = env_provider or (lambda: os.environ)
         self._expanduser = path_expanduser or os.path.expanduser
@@ -49,11 +49,11 @@ class EnvManager:
         path_class: Optional[type] = None,
         path_read_text: Optional[Callable[[Path], str]] = None,
         path_write_text: Optional[Callable[[Path, str], None]] = None,
-        path_exists: Optional[Callable[[Path], bool]] = None
+        path_exists: Optional[Callable[[Path], bool]] = None,
     ):
         self.cwd = path_class(Path) if path_class else Path(cwd)
         self._local_env: dict[str, str] = {}
-        
+
         self._env_provider = env_provider or (lambda: os.environ)
         self._path_read_text = path_read_text or (lambda p: p.read_text())
         self._path_write_text = path_write_text or (lambda p, t: p.write_text(t))
@@ -159,11 +159,13 @@ class HistorySearch:
         self._entries: list[dict[str, Any]] = []
 
     def add(self, query: str, result: str, context: Optional[dict] = None) -> None:
-        self._entries.append({
-            "query": query,
-            "result": result,
-            "context": context or {},
-        })
+        self._entries.append(
+            {
+                "query": query,
+                "result": result,
+                "context": context or {},
+            }
+        )
 
     def search(self, query: str) -> list[dict[str, Any]]:
         results = []
@@ -183,7 +185,7 @@ def create_shell_expander(
     env_provider: Optional[Callable] = None,
     path_expanduser: Optional[Callable] = None,
     path_expandvars: Optional[Callable] = None,
-    path_abspath: Optional[Callable] = None
+    path_abspath: Optional[Callable] = None,
 ) -> ShellExpander:
     return ShellExpander(env_provider, path_expanduser, path_expandvars, path_abspath)
 

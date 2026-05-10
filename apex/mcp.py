@@ -73,18 +73,18 @@ class MCPClient:
 
             self._reader_task = asyncio.create_task(self._read_messages())
 
-            response = await self._send_request("initialize", {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {
-                    "tools": {},
-                    "resources": {},
-                    "prompts": {},
+            response = await self._send_request(
+                "initialize",
+                {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {
+                        "tools": {},
+                        "resources": {},
+                        "prompts": {},
+                    },
+                    "clientInfo": {"name": "apex", "version": "0.5.0"},
                 },
-                "clientInfo": {
-                    "name": "apex",
-                    "version": "0.5.0"
-                }
-            })
+            )
 
             if response:
                 self._capabilities = response.get("capabilities", {})
@@ -142,12 +142,7 @@ class MCPClient:
             return None
 
         request_id = str(uuid.uuid4())
-        request = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-            "params": params or {}
-        }
+        request = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
 
         future = asyncio.get_event_loop().create_future()
         self._pending_requests[request_id] = future
@@ -164,11 +159,7 @@ class MCPClient:
         if not self.process or not self.process.stdin:
             return
 
-        notification = {
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params or {}
-        }
+        notification = {"jsonrpc": "2.0", "method": method, "params": params or {}}
 
         try:
             self.process.stdin.write(json.dumps(notification) + "\n")
@@ -183,16 +174,14 @@ class MCPClient:
                 MCPTool(
                     name=t["name"],
                     description=t.get("description", ""),
-                    input_schema=t.get("inputSchema", {})
-                ) for t in result["tools"]
+                    input_schema=t.get("inputSchema", {}),
+                )
+                for t in result["tools"]
             ]
         return self._tools
 
     async def call_tool(self, tool_name: str, arguments: dict) -> str:
-        result = await self._send_request("tools/call", {
-            "name": tool_name,
-            "arguments": arguments
-        })
+        result = await self._send_request("tools/call", {"name": tool_name, "arguments": arguments})
         if result and "content" in result:
             return self._format_content(result["content"])
         return "ERROR: Tool call failed"
@@ -205,8 +194,9 @@ class MCPClient:
                     uri=r["uri"],
                     name=r.get("name", ""),
                     description=r.get("description", ""),
-                    mime_type=r.get("mimeType", "")
-                ) for r in result["resources"]
+                    mime_type=r.get("mimeType", ""),
+                )
+                for r in result["resources"]
             ]
         return self._resources
 
@@ -245,8 +235,8 @@ class MCPClient:
                 "function": {
                     "name": f"mcp_{self.config.name}_{tool.name}",
                     "description": f"[{self.config.name}] {tool.description}",
-                    "parameters": tool.input_schema
-                }
+                    "parameters": tool.input_schema,
+                },
             }
             for tool in self._tools
         ]
@@ -270,14 +260,16 @@ class MCPManager:
         self._servers: dict[str, MCPClient] = {}
         self._configs: dict[str, MCPServerConfig] = {}
 
-    def add_server(self, name: str, command: str, args: list[str] | None = None,
-                   env: dict | None = None, enabled: bool = True) -> None:
+    def add_server(
+        self,
+        name: str,
+        command: str,
+        args: list[str] | None = None,
+        env: dict | None = None,
+        enabled: bool = True,
+    ) -> None:
         config = MCPServerConfig(
-            name=name,
-            command=command,
-            args=args or [],
-            env=env or {},
-            enabled=enabled
+            name=name, command=command, args=args or [], env=env or {}, enabled=enabled
         )
         self._configs[name] = config
         self._servers[name] = MCPClient(config)
@@ -320,7 +312,7 @@ class MCPManager:
             {
                 "name": name,
                 "enabled": config.enabled,
-                "tools_count": len(client._tools) if client in self._servers else 0
+                "tools_count": len(client._tools) if client in self._servers else 0,
             }
             for name, config in self._configs.items()
             for client in [self._servers.get(name)]
@@ -330,12 +322,9 @@ class MCPManager:
         resources = []
         for name, client in self._servers.items():
             for r in client._resources:
-                resources.append({
-                    "server": name,
-                    "uri": r.uri,
-                    "name": r.name,
-                    "description": r.description
-                })
+                resources.append(
+                    {"server": name, "uri": r.uri, "name": r.name, "description": r.description}
+                )
         return resources
 
 
@@ -348,6 +337,7 @@ def load_mcp_config(config_path: Path) -> None:
 
     try:
         import yaml
+
         with open(config_path) as f:
             config = yaml.safe_load(f)
 
@@ -360,7 +350,7 @@ def load_mcp_config(config_path: Path) -> None:
                 command=server_config.get("command", ""),
                 args=server_config.get("args", []),
                 env=server_config.get("env", {}),
-                enabled=server_config.get("enabled", True)
+                enabled=server_config.get("enabled", True),
             )
     except Exception as e:
         print(f"Failed to load MCP config: {e}")

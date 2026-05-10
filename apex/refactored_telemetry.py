@@ -34,7 +34,7 @@ class Logger:
         self,
         log_dir: Path | None = None,
         session_id_factory: Callable[[], str] | None = None,
-        time_factory: Callable[[], float] | None = None
+        time_factory: Callable[[], float] | None = None,
     ):
         self._log_dir = log_dir or Path.home() / ".apex" / "logs"
         self._session_id_factory = session_id_factory or self._default_session_id
@@ -47,12 +47,14 @@ class Logger:
     def _default_session_id() -> str:
         return datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    def log(self, event_type: EventType, data: dict | None = None, duration_ms: float | None = None) -> None:
+    def log(
+        self, event_type: EventType, data: dict | None = None, duration_ms: float | None = None
+    ) -> None:
         event = TelemetryEvent(
             timestamp=datetime.now().isoformat(),
             event_type=event_type.value,
             data=data or {},
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
         )
         self._events.append(event)
 
@@ -63,11 +65,15 @@ class Logger:
         self.log(EventType.TOOL_CALL, {"tool": tool_name, "args": self._sanitize_args(args)})
 
     def log_tool_result(self, tool_name: str, result: str, duration_ms: float) -> None:
-        self.log(EventType.TOOL_RESULT, {
-            "tool": tool_name,
-            "success": not result.startswith("ERROR"),
-            "result_length": len(result)
-        }, duration_ms)
+        self.log(
+            EventType.TOOL_RESULT,
+            {
+                "tool": tool_name,
+                "success": not result.startswith("ERROR"),
+                "result_length": len(result),
+            },
+            duration_ms,
+        )
 
     def log_model_switch(self, old_model: str, new_model: str) -> None:
         self.log(EventType.MODEL_SWITCH, {"old": old_model, "new": new_model})
@@ -76,11 +82,10 @@ class Logger:
         self.log(EventType.AGENT_SWITCH, {"old": old_agent, "new": new_agent})
 
     def log_error(self, error_type: str, message: str, context: dict | None = None) -> None:
-        self.log(EventType.ERROR, {
-            "error_type": error_type,
-            "message": message,
-            "context": context or {}
-        })
+        self.log(
+            EventType.ERROR,
+            {"error_type": error_type, "message": message, "context": context or {}},
+        )
 
     def log_session_start(self, cwd: str) -> None:
         self._start_time = self._time_factory()
@@ -88,11 +93,14 @@ class Logger:
 
     def log_session_end(self) -> None:
         duration = (self._time_factory() - self._start_time) * 1000
-        self.log(EventType.SESSION_END, {
-            "session_id": self._current_session,
-            "duration_ms": duration,
-            "event_count": len(self._events)
-        })
+        self.log(
+            EventType.SESSION_END,
+            {
+                "session_id": self._current_session,
+                "duration_ms": duration,
+                "event_count": len(self._events),
+            },
+        )
 
     def _sanitize_args(self, args: dict) -> dict:
         sensitive_keys = {"api_key", "password", "token", "secret", "key"}
@@ -109,12 +117,17 @@ class Logger:
         log_file = self._log_dir / f"session_{self._current_session}.jsonl"
         with open(log_file, "w") as f:
             for event in self._events:
-                f.write(json.dumps({
-                    "timestamp": event.timestamp,
-                    "event_type": event.event_type,
-                    "data": event.data,
-                    "duration_ms": event.duration_ms
-                }) + "\n")
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": event.timestamp,
+                            "event_type": event.event_type,
+                            "data": event.data,
+                            "duration_ms": event.duration_ms,
+                        }
+                    )
+                    + "\n"
+                )
 
     def get_stats(self) -> dict[str, Any]:
         tool_counts = {}
@@ -135,7 +148,7 @@ class Logger:
             "total_events": len(self._events),
             "tool_calls": tool_counts,
             "errors": error_count,
-            "total_duration_ms": total_duration
+            "total_duration_ms": total_duration,
         }
 
     def print_summary(self) -> None:
@@ -146,9 +159,9 @@ class Logger:
         print(f"Tool Calls: {sum(stats['tool_calls'].values())}")
         print(f"Errors: {stats['errors']}")
         print(f"Duration: {stats['total_duration_ms']:.0f}ms")
-        if stats['tool_calls']:
+        if stats["tool_calls"]:
             print("\nTop Tools:")
-            for tool, count in sorted(stats['tool_calls'].items(), key=lambda x: -x[1])[:5]:
+            for tool, count in sorted(stats["tool_calls"].items(), key=lambda x: -x[1])[:5]:
                 print(f"  {tool}: {count}")
 
     @property
@@ -180,7 +193,7 @@ class PerformanceMonitor:
             "count": len(times),
             "avg": sum(times) / len(times),
             "min": min(times),
-            "max": max(times)
+            "max": max(times),
         }
 
     def get_all_stats(self) -> dict[str, dict[str, float]]:
@@ -190,7 +203,7 @@ class PerformanceMonitor:
 def create_logger(
     log_dir: Path | None = None,
     session_id_factory: Callable[[], str] | None = None,
-    time_factory: Callable[[], float] | None = None
+    time_factory: Callable[[], float] | None = None,
 ) -> Logger:
     return Logger(log_dir, session_id_factory, time_factory)
 

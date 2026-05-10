@@ -1,23 +1,20 @@
 """Tests for refactored slash module."""
 
-
-from apex.refactored_slash import (
-    Command, SlashCommandManager, create_command_manager
-)
+from apex.refactored_slash import Command, SlashCommandManager, create_command_manager
 
 
 class TestCommand:
     def test_init(self):
         def handler(args, context):
             return "ok"
-        
+
         cmd = Command(
             name="test",
             description="Test command",
             handler=handler,
             aliases=["t"],
             args=["arg1"],
-            requires_argument=True
+            requires_argument=True,
         )
         assert cmd.name == "test"
         assert cmd.description == "Test command"
@@ -35,19 +32,19 @@ class TestSlashCommandManager:
     def test_init_with_factory(self):
         def factory(name, desc, handler, requires_arg, args=None, aliases=None):
             return Command(name, desc, handler, aliases or [], args or [], requires_arg)
-        
+
         manager = SlashCommandManager(command_factory=factory)
         assert len(manager.commands) > 0
 
     def test_register(self):
         manager = SlashCommandManager()
-        
+
         def custom_handler(args, context):
             return "custom"
-        
+
         cmd = Command("custom", "Custom command", custom_handler)
         manager.register(cmd)
-        
+
         assert manager.get("custom") is not None
 
     def test_unregister(self):
@@ -63,13 +60,13 @@ class TestSlashCommandManager:
 
     def test_register_with_aliases(self):
         manager = SlashCommandManager()
-        
+
         def handler(args, context):
             return "ok"
-        
+
         cmd = Command("test", "Test", handler, aliases=["t"])
         manager.register(cmd)
-        
+
         assert manager.get("t") is not None
         assert manager.get("t").name == "test"
 
@@ -147,13 +144,13 @@ class TestSlashCommandManager:
 
     def test_execute_with_context(self):
         manager = SlashCommandManager()
-        
+
         def custom_handler(args, context):
             return f"cwd: {context.get('cwd', 'none')}"
-        
+
         cmd = Command("test", "Test", custom_handler)
         manager.register(cmd)
-        
+
         result = manager.execute("/test", {"cwd": "/workspace"})
         assert "/workspace" in result
 
@@ -221,6 +218,6 @@ class TestFactoryFunctions:
     def test_create_command_manager_with_factory(self):
         def factory(name, desc, handler, requires_arg, args=None, aliases=None):
             return Command(name, desc, handler, aliases or [], args or [], requires_arg)
-        
+
         manager = create_command_manager(factory)
         assert isinstance(manager, SlashCommandManager)

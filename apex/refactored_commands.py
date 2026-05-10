@@ -5,13 +5,7 @@ from typing import Optional, Dict, List, Callable
 
 
 class Command:
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        prompt: str,
-        args: Optional[List[str]] = None
-    ):
+    def __init__(self, name: str, description: str, prompt: str, args: Optional[List[str]] = None):
         self.name = name
         self.description = description
         self.prompt = prompt
@@ -30,15 +24,15 @@ class CommandManager:
         cwd: str,
         path_exists: Optional[Callable[[Path], bool]] = None,
         path_glob: Optional[Callable[[Path, str], List[Path]]] = None,
-        path_read_text: Optional[Callable[[Path], str]] = None
+        path_read_text: Optional[Callable[[Path], str]] = None,
     ):
         self.cwd = cwd
         self._commands: Dict[str, Command] = {}
-        
+
         self._path_exists = path_exists or (lambda p: p.exists())
         self._path_glob = path_glob or (lambda p, g: list(p.glob(g)))
         self._path_read_text = path_read_text or (lambda p: p.read_text())
-        
+
         self._load_commands()
 
     def _load_commands(self):
@@ -84,8 +78,7 @@ class CommandManager:
 
     def list_commands(self) -> List[Dict[str, str]]:
         return [
-            {"name": name, "description": cmd.description}
-            for name, cmd in self._commands.items()
+            {"name": name, "description": cmd.description} for name, cmd in self._commands.items()
         ]
 
     def execute(self, name: str, **kwargs) -> Optional[str]:
@@ -141,7 +134,7 @@ def create_command_manager(
     cwd: str,
     path_exists: Optional[Callable] = None,
     path_glob: Optional[Callable] = None,
-    path_read_text: Optional[Callable] = None
+    path_read_text: Optional[Callable] = None,
 ) -> CommandManager:
     return CommandManager(cwd, path_exists, path_glob, path_read_text)
 

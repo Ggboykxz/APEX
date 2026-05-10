@@ -32,40 +32,34 @@ class TestFileOperations:
 
     def test_execute_write_file(self, executor, temp_cwd):
         """Test write_file tool."""
-        result = executor.execute("write_file", {
-            "path": str(temp_cwd / "new.txt"),
-            "content": "test content"
-        })
+        result = executor.execute(
+            "write_file", {"path": str(temp_cwd / "new.txt"), "content": "test content"}
+        )
         assert "SUCCESS" in result
 
     def test_execute_write_file_nested(self, executor, temp_cwd):
         """Test write_file creates nested directories."""
-        result = executor.execute("write_file", {
-            "path": str(temp_cwd / "a" / "b" / "c.txt"),
-            "content": "nested"
-        })
+        result = executor.execute(
+            "write_file", {"path": str(temp_cwd / "a" / "b" / "c.txt"), "content": "nested"}
+        )
         assert "SUCCESS" in result
 
     def test_execute_edit_file(self, executor, temp_cwd):
         """Test edit_file tool."""
         test_file = temp_cwd / "edit_test.txt"
         test_file.write_text("hello world")
-        result = executor.execute("edit_file", {
-            "path": str(test_file),
-            "old_string": "world",
-            "new_string": "APEX"
-        })
+        result = executor.execute(
+            "edit_file", {"path": str(test_file), "old_string": "world", "new_string": "APEX"}
+        )
         assert "SUCCESS" in result
 
     def test_execute_edit_file_not_found(self, executor, temp_cwd):
         """Test edit_file with missing string."""
         test_file = temp_cwd / "test.txt"
         test_file.write_text("hello")
-        result = executor.execute("edit_file", {
-            "path": str(test_file),
-            "old_string": "nonexistent",
-            "new_string": "new"
-        })
+        result = executor.execute(
+            "edit_file", {"path": str(test_file), "old_string": "nonexistent", "new_string": "new"}
+        )
         assert "ERROR" in result
 
 
@@ -107,20 +101,14 @@ class TestSearchOperations:
     def test_execute_search_in_files(self, executor, temp_cwd):
         """Test search_in_files tool."""
         (temp_cwd / "test.txt").write_text("hello world search test")
-        result = executor.execute("search_in_files", {
-            "path": str(temp_cwd),
-            "pattern": "hello"
-        })
+        result = executor.execute("search_in_files", {"path": str(temp_cwd), "pattern": "hello"})
         assert "test.txt" in result
 
     def test_execute_glob_search(self, executor, temp_cwd):
         """Test glob_search tool."""
         (temp_cwd / "test.py").write_text("# python")
         (temp_cwd / "test.txt").write_text("text")
-        result = executor.execute("glob_search", {
-            "path": str(temp_cwd),
-            "pattern": "*.py"
-        })
+        result = executor.execute("glob_search", {"path": str(temp_cwd), "pattern": "*.py"})
         assert "test.py" in result
 
     def test_execute_get_file_tree(self, executor, temp_cwd):

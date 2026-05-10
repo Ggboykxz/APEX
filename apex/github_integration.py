@@ -10,6 +10,7 @@ from datetime import datetime
 @dataclass
 class GitHubIssue:
     """GitHub issue representation."""
+
     number: int
     title: str
     body: str
@@ -21,6 +22,7 @@ class GitHubIssue:
 @dataclass
 class GitHubPR:
     """GitHub pull request representation."""
+
     number: int
     title: str
     body: str
@@ -49,11 +51,7 @@ class GitHubClient:
     def _run_gh(self, *args) -> tuple[int, str, str]:
         """Run gh CLI command."""
         try:
-            result = subprocess.run(
-                ["gh"] + list(args),
-                capture_output=True,
-                text=True
-            )
+            result = subprocess.run(["gh"] + list(args), capture_output=True, text=True)
             return result.returncode, result.stdout, result.stderr
         except FileNotFoundError:
             return -1, "", "gh not found"
@@ -90,7 +88,7 @@ class GitHubClient:
             try:
                 data = json.loads(remote)
                 return data.get("owner", {}).get("login"), data.get("name")
-            except:
+            except (json.JSONDecodeError, KeyError):
                 pass
         return None
 
@@ -110,12 +108,7 @@ class GitHubClient:
         path = f"/repos/{self.owner}/{self.repo}/issues/{issue_num}"
         return self._api_request("GET", path)
 
-    def create_issue(
-        self,
-        title: str,
-        body: str,
-        labels: list[str] | None = None
-    ) -> dict | None:
+    def create_issue(self, title: str, body: str, labels: list[str] | None = None) -> dict | None:
         """Create a new issue."""
         path = f"/repos/{self.owner}/{self.repo}/issues"
         data = {"title": title, "body": body}
@@ -140,21 +133,10 @@ class GitHubClient:
         path = f"/repos/{self.owner}/{self.repo}/pulls/{pr_num}"
         return self._api_request("GET", path)
 
-    def create_pr(
-        self,
-        title: str,
-        body: str,
-        head: str,
-        base: str = "main"
-    ) -> dict | None:
+    def create_pr(self, title: str, body: str, head: str, base: str = "main") -> dict | None:
         """Create a pull request."""
         path = f"/repos/{self.owner}/{self.repo}/pulls"
-        data = {
-            "title": title,
-            "body": body,
-            "head": head,
-            "base": base
-        }
+        data = {"title": title, "body": body, "head": head, "base": base}
         return self._api_request("POST", path, data)
 
     def merge_pr(self, pr_num: int, method: str = "squash") -> bool:
@@ -179,11 +161,7 @@ class GitHubAutomation:
             self.client.set_repo(*self._repo)
 
     def auto_create_pr(
-        self,
-        title: str,
-        description: str,
-        branch: str,
-        base: str = "main"
+        self, title: str, description: str, branch: str, base: str = "main"
     ) -> dict | None:
         """Automatically create branch and PR."""
         if not self._repo:

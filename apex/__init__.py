@@ -92,10 +92,12 @@ def __getattr__(name):
     }
     if name in _lazy_modules:
         import importlib
+
         module_path, attr = _lazy_modules[name]
         module = importlib.import_module(module_path, __name__)
         return getattr(module, attr)
     raise AttributeError(f"module 'apex' has no attribute {name!r}")
+
 
 __all__ = [
     "MODELS",

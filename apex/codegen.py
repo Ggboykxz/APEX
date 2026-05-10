@@ -9,7 +9,9 @@ class CodeRefactorer:
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
 
-    def refactor_function(self, filepath: str, function_name: str, style: str = "modern") -> dict[str, Any]:
+    def refactor_function(
+        self, filepath: str, function_name: str, style: str = "modern"
+    ) -> dict[str, Any]:
         path = self.cwd / filepath
         if not path.exists():
             return {"error": "File not found"}
@@ -25,7 +27,9 @@ class CodeRefactorer:
                     elif style == "type_hints":
                         lines[i] = line.replace(")", ") -> Any ")
                     elif style == "modern":
-                        lines[i] = line.replace("def ", "async def ") if "async" not in lines[i] else line
+                        lines[i] = (
+                            line.replace("def ", "async def ") if "async" not in lines[i] else line
+                        )
 
                     new_content = "\n".join(lines)
                     path.write_text(new_content)
@@ -35,7 +39,9 @@ class CodeRefactorer:
         except Exception as e:
             return {"error": str(e)}
 
-    def extract_method(self, filepath: str, class_name: str, code: str, new_method: str) -> dict[str, Any]:
+    def extract_method(
+        self, filepath: str, class_name: str, code: str, new_method: str
+    ) -> dict[str, Any]:
         path = self.cwd / filepath
         if not path.exists():
             return {"error": "File not found"}
@@ -47,7 +53,9 @@ class CodeRefactorer:
                 return {"error": f"Class {class_name} not found"}
 
             new_method_code = f"\n    def {new_method}(self):\n        {code}\n"
-            content = content.replace(f"class {class_name}:", f"class {class_name}:{new_method_code}")
+            content = content.replace(
+                f"class {class_name}:", f"class {class_name}:{new_method_code}"
+            )
 
             path.write_text(content)
             return {"success": True, "method": new_method}
@@ -62,7 +70,7 @@ class CodeRefactorer:
         try:
             content = path.read_text()
 
-            pattern = f"def {re.escape(function_name)}\([^)]*\):.*?(?=\n(?:def |class |$))"
+            pattern = f"def {re.escape(function_name)}\\([^)]*\\):.*?(?=\n(?:def |class |$))"
             match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
 
             if not match:
@@ -88,12 +96,12 @@ class CodeRefactorer:
             content = path.read_text()
 
             type_mappings = {
-                r'\bint\b': 'int',
-                r'\bstr\b': 'str',
-                r'\blist\b': 'list',
-                r'\bdict\b': 'dict',
-                r'\bbool\b': 'bool',
-                r'\bfloat\b': 'float',
+                r"\bint\b": "int",
+                r"\bstr\b": "str",
+                r"\blist\b": "list",
+                r"\bdict\b": "dict",
+                r"\bbool\b": "bool",
+                r"\bfloat\b": "float",
             }
 
             for pattern, type_hint in type_mappings.items():
@@ -135,7 +143,14 @@ class DatabaseManager:
 
             lines.append(f"    {name}: {python_type} = None")
 
-        lines.extend(["", "    def __init__(self, **kwargs):", "        for key, value in kwargs.items():", "            setattr(self, key, value)"])
+        lines.extend(
+            [
+                "",
+                "    def __init__(self, **kwargs):",
+                "        for key, value in kwargs.items():",
+                "            setattr(self, key, value)",
+            ]
+        )
 
         return "\n".join(lines)
 
@@ -207,12 +222,10 @@ CMD ["java", "-jar", "target/app.jar"]
 
     def build_image(self, tag: str) -> dict[str, Any]:
         import subprocess
+
         try:
             result = subprocess.run(
-                ["docker", "build", "-t", tag, "."],
-                cwd=self.cwd,
-                capture_output=True,
-                text=True
+                ["docker", "build", "-t", tag, "."], cwd=self.cwd, capture_output=True, text=True
             )
             return {"success": result.returncode == 0, "output": result.stdout}
         except Exception as e:
@@ -225,6 +238,7 @@ class APIClientGenerator:
 
     def generate_from_openapi(self, spec_path: str) -> str:
         import json
+
         path = self.cwd / spec_path
         if not path.exists():
             return "ERROR: Spec file not found"
@@ -245,7 +259,9 @@ class APIClientGenerator:
                     if method in ["get", "post", "put", "delete", "patch"]:
                         func_name = f"{method}_{path_name.replace('/', '_').strip('_')}"
                         lines.append(f"    def {func_name}(self, **kwargs):")
-                        lines.append(f'        return self.session.{method}(f"{{self.base_url}}{path_name}", **kwargs)')
+                        lines.append(
+                            f'        return self.session.{method}(f"{{self.base_url}}{path_name}", **kwargs)'
+                        )
                         lines.append("")
 
             return "\n".join(lines)
@@ -274,7 +290,13 @@ class DocumentationGenerator:
         if not files:
             return "# Project\n\nNo Python files found."
 
-        lines = ["# Project\n", "## Overview\n", "## Installation\n", "```bash\npip install -r requirements.txt\n```\n", "## Usage\n"]
+        lines = [
+            "# Project\n",
+            "## Overview\n",
+            "## Installation\n",
+            "```bash\npip install -r requirements.txt\n```\n",
+            "## Usage\n",
+        ]
 
         for f in files[:5]:
             lines.append(f"### {f.stem}\n")
@@ -290,7 +312,7 @@ class DocumentationGenerator:
         content = path.read_text()
         lines = [f"# API Documentation: {filepath}\n"]
 
-        funcs = re.findall(r'def (\w+)\((.*?)\):', content)
+        funcs = re.findall(r"def (\w+)\((.*?)\):", content)
         for name, args in funcs:
             lines.append(f"## {name}\n")
             lines.append(f"**Parameters:** {args or 'none'}\n")
@@ -304,7 +326,7 @@ class DocumentationGenerator:
 
         for f in py_files:
             content = f.read_text()
-            for match in re.finditer(r'class (\w+).*:', content):
+            for match in re.finditer(r"class (\w+).*:", content):
                 classes.append({"file": str(f.relative_to(self.cwd)), "name": match.group(1)})
 
         lines = ["# Documentation\n", "## Classes\n"]
@@ -328,14 +350,14 @@ class PerformanceProfiler:
 
         analysis = {
             "lines": len(lines),
-            "functions": len(re.findall(r'def \w+', content)),
-            "classes": len(re.findall(r'class \w+', content)),
-            "imports": len(re.findall(r'^import |^from ', content, re.MULTILINE)),
+            "functions": len(re.findall(r"def \w+", content)),
+            "classes": len(re.findall(r"class \w+", content)),
+            "imports": len(re.findall(r"^import |^from ", content, re.MULTILINE)),
             "complexity_score": 0,
         }
 
-        loops = len(re.findall(r'\bfor\b|\bwhile\b', content))
-        conditionals = len(re.findall(r'\bif\b|\belif\b|\belse\b', content))
+        loops = len(re.findall(r"\bfor\b|\bwhile\b", content))
+        conditionals = len(re.findall(r"\bif\b|\belif\b|\belse\b", content))
 
         analysis["complexity_score"] = loops + conditionals
 
@@ -352,7 +374,7 @@ class PerformanceProfiler:
         if "for i in range" in content:
             suggestions.append("Use list comprehension instead of range loops")
 
-        if re.search(r'\.append\(', content):
+        if re.search(r"\.append\(", content):
             suggestions.append("Consider using list comprehension or generator")
 
         if "open(" in content and "with" not in content:

@@ -6,8 +6,14 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 from apex.cost_local import (
-    ModelPricing, MODEL_PRICING, CostTracker, LocalExecutionManager,
-    ZenIntegration, cost_tracker, local_manager, zen_integration
+    ModelPricing,
+    MODEL_PRICING,
+    CostTracker,
+    LocalExecutionManager,
+    ZenIntegration,
+    cost_tracker,
+    local_manager,
+    zen_integration,
 )
 
 
@@ -115,7 +121,7 @@ class TestLocalExecutionManager:
     @pytest.fixture
     def manager(self, temp_dir):
         """Create manager with temp dir."""
-        with patch.object(Path, 'home', return_value=temp_dir):
+        with patch.object(Path, "home", return_value=temp_dir):
             return LocalExecutionManager()
 
     def test_init(self, manager):
@@ -153,14 +159,14 @@ class TestLocalExecutionManager:
         assert "ollama" in providers
         assert "lm_studio" in providers
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_check_provider_available(self, mock_urlopen, manager):
         """Test check_provider_available."""
         mock_urlopen.return_value.status = 200
         result = manager.check_provider_available("ollama")
         assert result is True
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_check_provider_unavailable(self, mock_urlopen, manager):
         """Test provider unavailable."""
         mock_urlopen.side_effect = Exception("Connection refused")

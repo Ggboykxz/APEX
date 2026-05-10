@@ -52,27 +52,39 @@ class WorkspaceManager:
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=self._root, capture_output=True, text=True, timeout=5
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 ctx.branch = result.stdout.strip()
 
             result = subprocess.run(
                 ["git", "rev-parse", "HEAD"],
-                cwd=self._root, capture_output=True, text=True, timeout=5
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 ctx.commit = result.stdout.strip()[:8]
 
             result = subprocess.run(
                 ["git", "status", "--porcelain"],
-                cwd=self._root, capture_output=True, text=True, timeout=5
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             ctx.is_dirty = bool(result.stdout.strip())
 
             result = subprocess.run(
                 ["git", "remote", "get-url", "origin"],
-                cwd=self._root, capture_output=True, text=True, timeout=5
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 ctx.remote_url = result.stdout.strip()
@@ -83,27 +95,43 @@ class WorkspaceManager:
 
                     result = subprocess.run(
                         ["git", "fetch", "--dry-run"],
-                        cwd=self._root, capture_output=True, text=True, timeout=5
+                        cwd=self._root,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
                     )
 
             result = subprocess.run(
                 ["git", "log", "@{u}..HEAD", "--oneline"],
-                cwd=self._root, capture_output=True, text=True, timeout=5
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
-            ctx.commits_ahead = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
+            ctx.commits_ahead = (
+                len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
+            )
 
             result = subprocess.run(
                 ["git", "log", "HEAD..@{u}", "--oneline"],
-                cwd=self._root, capture_output=True, text=True, timeout=5
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
-            ctx.commits_behind = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
+            ctx.commits_behind = (
+                len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
+            )
 
             if "GITHUB_HEAD_REF" in subprocess.os.environ:
                 ctx.pr_number = int(subprocess.os.environ.get("GITHUB_PR_NUMBER", 0))
 
             result = subprocess.run(
                 ["git", "tag", "--list", "-l", "--sort=-creatordate"],
-                cwd=self._root, capture_output=True, text=True, timeout=5
+                cwd=self._root,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if result.returncode == 0:
                 ctx.tags = result.stdout.strip().split("\n")[:5]

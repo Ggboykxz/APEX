@@ -58,6 +58,7 @@ class TaskQueue:
 
     def _save_tasks(self):
         """Save tasks to disk."""
+
         def task_to_dict(t: Task) -> dict:
             d = asdict(t)
             d["status"] = t.status.value
@@ -73,15 +74,11 @@ class TaskQueue:
         return f"task_{timestamp}_{len(self._tasks) + 1}"
 
     def enqueue(
-        self,
-        name: str,
-        description: str,
-        payload: dict[str, Any],
-        priority: int = 0
+        self, name: str, description: str, payload: dict[str, Any], priority: int = 0
     ) -> str:
         """Add a task to the queue."""
         task_id = self._generate_id()
-        
+
         task = Task(
             id=task_id,
             name=name,
@@ -92,48 +89,44 @@ class TaskQueue:
             started_at=None,
             completed_at=None,
             result=None,
-            error=None
+            error=None,
         )
-        
+
         self._tasks[task_id] = task
         self._save_tasks()
-        
+
         return task_id
 
     def get(self, task_id: str) -> Task | None:
         """Get a task by ID."""
         return self._tasks.get(task_id)
 
-    def list_tasks(
-        self,
-        status: TaskStatus | None = None,
-        limit: int = 100
-    ) -> list[Task]:
+    def list_tasks(self, status: TaskStatus | None = None, limit: int = 100) -> list[Task]:
         """List tasks, optionally filtered by status."""
         tasks = list(self._tasks.values())
-        
+
         if status:
             tasks = [t for t in tasks if t.status == status]
-        
+
         tasks.sort(key=lambda t: t.created_at, reverse=True)
         return tasks[:limit]
 
     def start_worker(self, handler: Callable[[Task], dict[str, Any]], max_workers: int = 2):
         """Start background workers to process tasks."""
         self._running = True
-        
+
         def worker():
             while self._running:
                 pending = self.list_tasks(TaskStatus.PENDING, 1)
                 if not pending:
                     time.sleep(1)
                     continue
-                
+
                 task = pending[0]
                 task.status = TaskStatus.RUNNING
                 task.started_at = datetime.now().isoformat()
                 self._save_tasks()
-                
+
                 try:
                     result = handler(task)
                     task.status = TaskStatus.COMPLETED
@@ -141,10 +134,10 @@ class TaskQueue:
                 except Exception as e:
                     task.status = TaskStatus.FAILED
                     task.error = str(e)
-                
+
                 task.completed_at = datetime.now().isoformat()
                 self._save_tasks()
-        
+
         for _ in range(max_workers):
             worker_thread = threading.Thread(target=worker, daemon=True)
             worker_thread.start()
@@ -162,18 +155,17 @@ class TaskQueue:
         task = self._tasks.get(task_id)
         if not task or task.status != TaskStatus.PENDING:
             return False
-        
+
         task.status = TaskStatus.CANCELLED
         self._save_tasks()
         return True
 
     def clear_completed(self) -> int:
         """Remove completed tasks."""
-        completed = [tid for tid, t in self._tasks.items() 
-                     if t.status == TaskStatus.COMPLETED]
+        completed = [tid for tid, t in self._tasks.items() if t.status == TaskStatus.COMPLETED]
         for tid in completed:
             del self._tasks[tid]
-        
+
         self._save_tasks()
         return len(completed)
 

@@ -5,7 +5,10 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 from apex.lsp_diagnostics import (
-    Diagnostic, LANGUAGE_SERVERS, LSPDiagnostics, DiagnosticContextBuilder
+    Diagnostic,
+    LANGUAGE_SERVERS,
+    LSPDiagnostics,
+    DiagnosticContextBuilder,
 )
 
 
@@ -14,13 +17,7 @@ class TestDiagnostic:
 
     def test_init(self):
         """Test initialization."""
-        diag = Diagnostic(
-            severity="error",
-            message="Test error",
-            line=10,
-            column=5,
-            source="lsp"
-        )
+        diag = Diagnostic(severity="error", message="Test error", line=10, column=5, source="lsp")
         assert diag.severity == "error"
         assert diag.message == "Test error"
         assert diag.line == 10

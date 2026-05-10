@@ -3,7 +3,6 @@
 import logging
 import sqlite3
 import time
-import uuid
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
@@ -111,8 +110,7 @@ class SQLiteStorage(StorageBackend):
         window_durations = {"minute": 60, "hour": 3600, "day": 86400}
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT window, count, timestamp FROM rate_limits WHERE key = ?",
-                (key,)
+                "SELECT window, count, timestamp FROM rate_limits WHERE key = ?", (key,)
             )
             for window, count, timestamp in cursor:
                 if window in window_durations:
@@ -129,7 +127,7 @@ class SQLiteStorage(StorageBackend):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT count, timestamp FROM rate_limits WHERE key = ? AND window = ?",
-                (key, window)
+                (key, window),
             )
             row = cursor.fetchone()
             if row:
@@ -137,17 +135,17 @@ class SQLiteStorage(StorageBackend):
                 if now - timestamp > duration:
                     conn.execute(
                         "UPDATE rate_limits SET count = 1, timestamp = ? WHERE key = ? AND window = ?",
-                        (now, key, window)
+                        (now, key, window),
                     )
                 else:
                     conn.execute(
                         "UPDATE rate_limits SET count = count + 1 WHERE key = ? AND window = ?",
-                        (key, window)
+                        (key, window),
                     )
             else:
                 conn.execute(
                     "INSERT INTO rate_limits (key, window, count, timestamp) VALUES (?, ?, 1, ?)",
-                    (key, window, now)
+                    (key, window, now),
                 )
             conn.commit()
 
@@ -157,13 +155,15 @@ class SQLiteStorage(StorageBackend):
             for window, duration in [("minute", 60), ("hour", 3600), ("day", 86400)]:
                 conn.execute(
                     "DELETE FROM rate_limits WHERE window = ? AND timestamp < ?",
-                    (window, now - duration)
+                    (window, now - duration),
                 )
             conn.commit()
 
 
 class RateLimiter:
-    def __init__(self, config: Optional[RateLimitConfig] = None, storage: Optional[StorageBackend] = None):
+    def __init__(
+        self, config: Optional[RateLimitConfig] = None, storage: Optional[StorageBackend] = None
+    ):
         self.config = config or RateLimitConfig()
         self.storage = storage or MemoryStorage()
         self._cleanup_interval = 3600
@@ -183,7 +183,7 @@ class RateLimiter:
                 remaining_hour=max(0, self.config.requests_per_hour - counts["hour"]),
                 remaining_day=max(0, self.config.requests_per_day - counts["day"]),
                 reset_at=reset_at,
-                retry_after=60
+                retry_after=60,
             )
         if counts["hour"] >= self.config.requests_per_hour:
             reset_at = now + 3600
@@ -193,7 +193,7 @@ class RateLimiter:
                 remaining_hour=0,
                 remaining_day=max(0, self.config.requests_per_day - counts["day"]),
                 reset_at=reset_at,
-                retry_after=3600
+                retry_after=3600,
             )
         if counts["day"] >= self.config.requests_per_day:
             reset_at = now + 86400
@@ -203,7 +203,7 @@ class RateLimiter:
                 remaining_hour=0,
                 remaining_day=0,
                 reset_at=reset_at,
-                retry_after=86400
+                retry_after=86400,
             )
         self.storage.increment(key, "minute")
         self.storage.increment(key, "hour")
@@ -213,7 +213,7 @@ class RateLimiter:
             remaining_minute=self.config.requests_per_minute - counts["minute"] - 1,
             remaining_hour=self.config.requests_per_hour - counts["hour"] - 1,
             remaining_day=self.config.requests_per_day - counts["day"] - 1,
-            reset_at=now + 60
+            reset_at=now + 60,
         )
 
     def reset(self, key: str) -> None:
@@ -228,7 +228,9 @@ class RateLimiter:
         }
 
 
-def create_rate_limiter(config: Optional[RateLimitConfig] = None, use_sqlite: bool = False) -> RateLimiter:
+def create_rate_limiter(
+    config: Optional[RateLimitConfig] = None, use_sqlite: bool = False
+) -> RateLimiter:
     if use_sqlite:
         return RateLimiter(config=config, storage=SQLiteStorage())
     return RateLimiter(config=config, storage=MemoryStorage())

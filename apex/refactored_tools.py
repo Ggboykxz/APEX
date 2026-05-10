@@ -8,17 +8,17 @@ import subprocess
 
 class FileOperations:
     """Testable file operations."""
-    
+
     def __init__(self, cwd: Path):
         self.cwd = cwd
-    
+
     def resolve_path(self, path: str) -> Path:
         """Resolve path relative to cwd."""
         p = Path(path)
         if p.is_absolute():
             return p
         return self.cwd / p
-    
+
     def read_file(self, path: str) -> str:
         """Read a file."""
         full_path = self.resolve_path(path)
@@ -26,10 +26,10 @@ class FileOperations:
             return f"ERROR: File not found: {path}"
         try:
             lines = full_path.read_text().splitlines()
-            return "\n".join(f"{i+1}: {line}" for i, line in enumerate(lines))
+            return "\n".join(f"{i + 1}: {line}" for i, line in enumerate(lines))
         except Exception as e:
             return f"ERROR: Cannot read file: {e}"
-    
+
     def write_file(self, path: str, content: str) -> str:
         """Write content to file."""
         full_path = self.resolve_path(path)
@@ -39,7 +39,7 @@ class FileOperations:
             return f"SUCCESS: Wrote {len(content)} chars to {path}"
         except Exception as e:
             return f"ERROR: Cannot write file: {e}"
-    
+
     def edit_file(self, path: str, old_string: str, new_string: str) -> str:
         """Edit a file by replacing old_string with new_string."""
         full_path = self.resolve_path(path)
@@ -54,7 +54,7 @@ class FileOperations:
             return f"SUCCESS: Edited {path}"
         except Exception as e:
             return f"ERROR: Cannot edit file: {e}"
-    
+
     def delete_file(self, path: str) -> str:
         """Delete a file or directory."""
         full_path = self.resolve_path(path)
@@ -65,11 +65,12 @@ class FileOperations:
                 full_path.unlink()
             elif full_path.is_dir():
                 import shutil
+
                 shutil.rmtree(full_path)
             return f"SUCCESS: Deleted {path}"
         except Exception as e:
             return f"ERROR: Cannot delete: {e}"
-    
+
     def create_directory(self, path: str) -> str:
         """Create a directory."""
         full_path = self.resolve_path(path)
@@ -78,7 +79,7 @@ class FileOperations:
             return f"SUCCESS: Created directory {path}"
         except Exception as e:
             return f"ERROR: Cannot create directory: {e}"
-    
+
     def list_files(self, path: str = ".") -> str:
         """List files in directory."""
         full_path = self.resolve_path(path)
@@ -98,10 +99,11 @@ class FileOperations:
             return "\n".join(entries) if entries else "[empty directory]"
         except Exception as e:
             return f"ERROR: Cannot list directory: {e}"
-    
+
     def search_in_files(self, pattern: str, path: str = ".") -> str:
         """Search for pattern in files."""
         import re
+
         full_path = self.resolve_path(path)
         if not full_path.exists():
             return f"ERROR: Path not found: {path}"
@@ -122,10 +124,11 @@ class FileOperations:
             return f"ERROR: Invalid regex: {e}"
         except Exception as e:
             return f"ERROR: Search failed: {e}"
-    
+
     def glob_search(self, pattern: str, path: str = ".") -> str:
         """Glob search for files."""
         import fnmatch
+
         full_path = self.resolve_path(path)
         if not full_path.exists():
             return f"ERROR: Path not found: {path}"
@@ -138,32 +141,32 @@ class FileOperations:
 
 class GitOperations:
     """Testable git operations."""
-    
+
     def __init__(self, cwd: Path):
         self.cwd = cwd
-    
+
     def resolve_path(self, path: str) -> Path:
         p = Path(path)
         if p.is_absolute():
             return p
         return self.cwd / p
-    
+
     def get_git_status(self, path: str = ".") -> str:
         """Get git status."""
         full_path = self.resolve_path(path)
         git_dir = full_path / ".git"
         if not git_dir.exists():
             return "[Not a git repository]"
-        
+
         try:
             import subprocess
+
             result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                cwd=full_path, capture_output=True, text=True
+                ["git", "status", "--porcelain"], cwd=full_path, capture_output=True, text=True
             )
             if result.returncode != 0:
                 return "[Git command failed]"
-            
+
             lines = ["[GIT] Status:"]
             for line in result.stdout.strip().split("\n"):
                 if line:
@@ -175,19 +178,22 @@ class GitOperations:
             return "[Git not found]"
         except Exception as e:
             return f"[Error: {e}]"
-    
+
     def get_git_log(self, path: str = ".", max_count: int = 10) -> str:
         """Get git log."""
         full_path = self.resolve_path(path)
         git_dir = full_path / ".git"
         if not git_dir.exists():
             return "[Not a git repository]"
-        
+
         try:
             import subprocess
+
             result = subprocess.run(
                 ["git", "log", f"-{max_count}", "--oneline"],
-                cwd=full_path, capture_output=True, text=True
+                cwd=full_path,
+                capture_output=True,
+                text=True,
             )
             if result.returncode != 0:
                 return "[Git command failed]"
@@ -196,19 +202,19 @@ class GitOperations:
             return "[Git not found]"
         except Exception as e:
             return f"[Error: {e}]"
-    
+
     def git_diff(self, path: str = ".") -> str:
         """Get git diff."""
         full_path = self.resolve_path(path)
         git_dir = full_path / ".git"
         if not git_dir.exists():
             return "[Not a git repository]"
-        
+
         try:
             import subprocess
+
             result = subprocess.run(
-                ["git", "diff", "--stat"],
-                cwd=full_path, capture_output=True, text=True
+                ["git", "diff", "--stat"], cwd=full_path, capture_output=True, text=True
             )
             return result.stdout if result.stdout else "[No changes]"
         except FileNotFoundError:
@@ -219,71 +225,99 @@ class GitOperations:
 
 class CommandOperations:
     DEFAULT_ALLOWED_COMMANDS = {
-        "git", "npm", "node", "python", "python3", "pip", "ruff", "pytest",
-        "cargo", "go", "make", "ls", "cat", "head", "tail", "grep", "find",
-        "curl", "wget", "touch", "mkdir", "rm", "cp", "mv", "chmod", "pwd"
+        "git",
+        "npm",
+        "node",
+        "python",
+        "python3",
+        "pip",
+        "ruff",
+        "pytest",
+        "cargo",
+        "go",
+        "make",
+        "ls",
+        "cat",
+        "head",
+        "tail",
+        "grep",
+        "find",
+        "curl",
+        "wget",
+        "touch",
+        "mkdir",
+        "rm",
+        "cp",
+        "mv",
+        "chmod",
+        "pwd",
     }
-    
+
     _blocked_patterns = [
-        r"curl.*-X\s+(POST|PUT|DELETE)", r"rm\s+-rf\s+/",
-        r"wget.*--execute", r"chmod\s+777", r">\s*/etc/",
-        r"\$\(", r"`", r"\$\{", r"\|\s*sh"
+        r"curl.*-X\s+(POST|PUT|DELETE)",
+        r"rm\s+-rf\s+/",
+        r"wget.*--execute",
+        r"chmod\s+777",
+        r">\s*/etc/",
+        r"\$\(",
+        r"`",
+        r"\$\{",
+        r"\|\s*sh",
     ]
-    
+
     def __init__(self, cwd: Path, allowed_commands: set[str] | None = None):
         self.cwd = cwd
         self._allowed_commands = allowed_commands or self.DEFAULT_ALLOWED_COMMANDS.copy()
         self._allowlist_enabled = True
-    
+
     def resolve_path(self, path: str) -> Path:
         p = Path(path)
         if p.is_absolute():
             resolved = p.resolve()
         else:
             resolved = (self.cwd / p).resolve()
-        
+
         try:
             resolved.relative_to(self.cwd.resolve())
         except ValueError:
             return self.cwd / ".access_denied"
-        
+
         return resolved
-    
+
     def _check_command_safety(self, command: str) -> tuple[bool, str]:
         import re
+
         for pattern in self._blocked_patterns:
             if re.search(pattern, command):
-                return False, f"Blocked pattern detected"
-        
+                return False, "Blocked pattern detected"
+
         parts = command.strip().split()
         if not parts:
             return False, "Empty command"
-        
+
         if self._allowlist_enabled and parts[0] not in self._allowed_commands:
             return False, f"Command '{parts[0]}' not in allowlist"
-        
+
         return True, ""
-    
+
     def set_allowlist(self, commands: set[str]) -> None:
         self._allowed_commands = commands
-    
+
     def set_allowlist_enabled(self, enabled: bool) -> None:
         self._allowlist_enabled = enabled
-    
+
     def run_command(self, command: str, cwd: Optional[str] = None) -> str:
         """Run a shell command."""
-        import subprocess
-        
+
         safe, message = self._check_command_safety(command)
         if not safe:
             return f"ERROR: {message}"
-        
+
         work_dir = self.resolve_path(cwd) if cwd else self.cwd
         try:
             args = shlex.split(command)
             result = subprocess.run(
-                args, shell=False, cwd=work_dir,
-                capture_output=True, text=True, timeout=60
+                args, shell=False, cwd=work_dir, capture_output=True, text=True, timeout=60
             )
             if result.returncode == 0:
                 return result.stdout if result.stdout else "[Command completed with no output]"
@@ -298,27 +332,29 @@ class CommandOperations:
 
 class WebOperations:
     """Testable web operations."""
-    
+
     def __init__(self, cwd: Path):
         self.cwd = cwd
-    
+
     def web_search(self, query: str) -> str:
         """Perform web search."""
         return f"[Web search placeholder: {query}]"
-    
+
     def fetch_url(self, url: str) -> str:
         """Fetch URL content."""
         import aiohttp
         import asyncio
-        
+
         async def _fetch():
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                    async with session.get(
+                        url, timeout=aiohttp.ClientTimeout(total=10)
+                    ) as response:
                         return await response.text()
             except Exception as e:
                 return f"ERROR: {e}"
-        
+
         try:
             return asyncio.run(_fetch())
         except Exception as e:

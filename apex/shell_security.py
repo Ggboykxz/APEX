@@ -147,9 +147,34 @@ class ShellSecurityAnalyzer:
     ]
 
     SAFE_COMMANDS = [
-        "ls", "pwd", "cd", "echo", "cat", "head", "tail", "grep", "find", "which",
-        "whoami", "id", "uname", "date", "history", "man", "help", "env", "printenv",
-        "type", "alias", "export", "source", "read", "printf", "test", "true", "false",
+        "ls",
+        "pwd",
+        "cd",
+        "echo",
+        "cat",
+        "head",
+        "tail",
+        "grep",
+        "find",
+        "which",
+        "whoami",
+        "id",
+        "uname",
+        "date",
+        "history",
+        "man",
+        "help",
+        "env",
+        "printenv",
+        "type",
+        "alias",
+        "export",
+        "source",
+        "read",
+        "printf",
+        "test",
+        "true",
+        "false",
     ]
 
     def __init__(self):
@@ -269,7 +294,7 @@ class ShellSecurityAnalyzer:
             args=args,
             warnings=warnings,
             requires_confirmation=requires_confirmation,
-            description=description
+            description=description,
         )
 
     def is_safe(self, command: str) -> bool:
@@ -277,7 +302,9 @@ class ShellSecurityAnalyzer:
         return analysis.safe and not analysis.requires_confirmation
 
     def get_allowed_commands(self) -> list[str]:
-        return list(set(self.SAFE_COMMANDS + ["npm", "pip", "git", "make", "cargo", "go", "python", "node"]))
+        return list(
+            set(self.SAFE_COMMANDS + ["npm", "pip", "git", "make", "cargo", "go", "python", "node"])
+        )
 
 
 shell_analyzer = ShellSecurityAnalyzer()

@@ -1,7 +1,6 @@
 """Session persistence for APEX - save and load conversation sessions."""
 
 import json
-import os
 import re
 import hashlib
 import base64
@@ -78,7 +77,10 @@ class SessionManager:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{timestamp}_{safe_name}.json"
         filepath = (self._sessions_dir / filename).resolve()
-        if self._sessions_dir.resolve() not in filepath.parents and filepath.parent != self._sessions_dir.resolve():
+        if (
+            self._sessions_dir.resolve() not in filepath.parents
+            and filepath.parent != self._sessions_dir.resolve()
+        ):
             raise ValueError(f"Invalid session path: {filepath}")
 
         session_data = {
@@ -130,12 +132,14 @@ class SessionManager:
             try:
                 with open(filepath) as f:
                     data = json.load(f)
-                    sessions.append({
-                        "name": data.get("name", "unknown"),
-                        "timestamp": data.get("timestamp", ""),
-                        "model": data.get("model", ""),
-                        "history_len": len(data.get("history", [])),
-                    })
+                    sessions.append(
+                        {
+                            "name": data.get("name", "unknown"),
+                            "timestamp": data.get("timestamp", ""),
+                            "model": data.get("model", ""),
+                            "history_len": len(data.get("history", [])),
+                        }
+                    )
             except Exception:
                 continue
         return sorted(sessions, key=lambda s: s["timestamp"], reverse=True)
@@ -151,26 +155,22 @@ class SessionManager:
         }
         json_str = json.dumps(session_data, separators=(",", ":"))
         compressed = base64.b64encode(json_str.encode()).decode()
-        
+
         full_hash = hashlib.sha256()
         full_hash.update(json_str.encode())
         full_hash.update(str(datetime.now().timestamp()).encode())
         full_hash.update(secrets.token_bytes(32))
         share_id = full_hash.hexdigest()[:16]
-        
+
         share_dir = self._sessions_dir / "shared"
         share_dir.mkdir(exist_ok=True)
         filepath = share_dir / f"{share_id}.json"
-        
+
         nonce = secrets.token_hex(16)
-        
+
         with open(filepath, "w") as f:
-            json.dump({
-                "data": compressed,
-                "nonce": nonce,
-                "id": share_id
-            }, f)
-        
+            json.dump({"data": compressed, "nonce": nonce, "id": share_id}, f)
+
         logger.info(f"Created shared session: {share_id}")
         return f"apex://share/{share_id}"
 
@@ -184,10 +184,10 @@ class SessionManager:
             with open(filepath) as f:
                 wrapper = json.load(f)
             compressed = wrapper.get("data", "")
-            
+
             json_str = base64.b64decode(compressed.encode()).decode()
             session_data = json.loads(json_str)
-            
+
             agent.switch_model(session_data.get("model", "claude-sonnet"))
             agent.cwd = Path(session_data.get("cwd", "."))
             agent.history = session_data.get("history", [])

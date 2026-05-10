@@ -33,7 +33,7 @@ class TestConfig:
         config._apex_dir = temp_dir
         config._config_file = temp_dir / "config.json"
         config._data = {}
-        
+
         config.model = "gpt-4o"
         assert config.model == "gpt-4o"
 
@@ -43,7 +43,7 @@ class TestConfig:
         config._apex_dir = temp_dir
         config._config_file = temp_dir / "config.json"
         config._data = {}
-        
+
         config.cwd = Path("/custom/path")
         assert str(config.cwd) == "/custom/path"
 
@@ -53,7 +53,7 @@ class TestConfig:
         config._apex_dir = temp_dir
         config._config_file = temp_dir / "config.json"
         config._data = {}
-        
+
         config.max_tool_rounds = 50
         assert config.max_tool_rounds == 50
 
@@ -63,7 +63,7 @@ class TestConfig:
         config._apex_dir = temp_dir
         config._config_file = temp_dir / "config.json"
         config._data = {}
-        
+
         config.theme = "dracula"
         assert config.theme == "dracula"
 
@@ -73,7 +73,7 @@ class TestConfig:
         config._apex_dir = temp_dir
         config._config_file = temp_dir / "config.json"
         config._data = {}
-        
+
         config.auto_commit = True
         assert config.auto_commit is True
 
@@ -83,7 +83,7 @@ class TestConfig:
         config._apex_dir = temp_dir
         config._config_file = temp_dir / "config.json"
         config._data = {"custom_key": "custom_value"}
-        
+
         assert config.get("custom_key") == "custom_value"
         assert config.get("missing_key", "default") == "default"
 
@@ -93,7 +93,7 @@ class TestConfig:
         config._apex_dir = temp_dir
         config._config_file = temp_dir / "config.json"
         config._data = {}
-        
+
         config.set("new_key", "new_value")
         assert config.get("new_key") == "new_value"
 
@@ -113,7 +113,24 @@ class TestModels:
 
     def test_models_valid_providers(self):
         """Test all models have valid provider prefix."""
-        valid_providers = ["anthropic/", "openai/", "google/", "xai/", "amazon/", "qwen/", "cohere/", "meta/", "mistral/", "deepseek/", "openrouter/", "azure/", "microsoft/", "groq/", "ollama/", "meta-llama/"]
+        valid_providers = [
+            "anthropic/",
+            "openai/",
+            "google/",
+            "xai/",
+            "amazon/",
+            "qwen/",
+            "cohere/",
+            "meta/",
+            "mistral/",
+            "deepseek/",
+            "openrouter/",
+            "azure/",
+            "microsoft/",
+            "groq/",
+            "ollama/",
+            "meta-llama/",
+        ]
         for alias, model_id in MODELS.items():
             has_valid_provider = any(model_id.startswith(p) for p in valid_providers)
             assert has_valid_provider, f"Invalid provider in {alias}: {model_id}"

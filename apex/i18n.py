@@ -88,16 +88,16 @@ def detect_locale() -> str:
     lang = os.environ.get("LANG", "")
     if not lang:
         return "en"
-    
+
     lang = lang.split(".")[0].lower()
-    
+
     if "ja" in lang:
         return "ja"
     if "zh" in lang:
         return "zh-Hans"
     if "pt" in lang:
         return "pt-BR"
-    
+
     return "en"
 
 
@@ -107,7 +107,7 @@ class I18n:
     def __init__(self, locale: str = "auto"):
         if locale == "auto":
             locale = detect_locale()
-        
+
         self.locale = locale if locale in LOCALES else "en"
         self._strings = LOCALES[self.locale]
 

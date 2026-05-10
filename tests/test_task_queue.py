@@ -21,7 +21,7 @@ class TestTask:
             started_at=None,
             completed_at=None,
             result=None,
-            error=None
+            error=None,
         )
         assert task.id == "test-1"
         assert task.name == "test_task"
@@ -49,11 +49,7 @@ class TestTaskQueue:
 
     def test_enqueue(self, queue):
         """Test enqueue method."""
-        task_id = queue.enqueue(
-            name="test_task",
-            description="Test",
-            payload={"key": "value"}
-        )
+        task_id = queue.enqueue(name="test_task", description="Test", payload={"key": "value"})
         assert task_id.startswith("task_")
         task = queue.get(task_id)
         assert task is not None
@@ -106,6 +102,7 @@ class TestTaskQueue:
 
     def test_start_worker(self, queue):
         """Test start_worker method."""
+
         def handler(task):
             return {"result": "success"}
 

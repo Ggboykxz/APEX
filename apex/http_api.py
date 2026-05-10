@@ -1,5 +1,6 @@
 """HTTP/SSE API server for APEX - headless agent workflows with security."""
 
+import asyncio
 import json
 import logging
 import time
@@ -9,24 +10,18 @@ from aiohttp import web
 
 from .agent import Agent
 from .rate_limiter import (
-    RateLimiter,
     create_rate_limiter,
     RateLimitConfig,
     RateLimitResult,
 )
 from .api_key import (
     key_manager,
-    create_key_manager,
     InvalidKeyError,
     KeyExpiredError,
     KeyDisabledError,
 )
 from .billing import (
     billing_manager,
-    calculate_cost,
-    InsufficientBalanceError,
-    TrialExpiredError,
-    QuotaExceededError,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +34,9 @@ class AuthMiddleware:
         self.require_auth = require_auth
         self.key_manager = key_manager
 
-    async def authenticate(self, request: web.Request) -> tuple[bool, Optional[str], Optional[dict]]:
+    async def authenticate(
+        self, request: web.Request
+    ) -> tuple[bool, Optional[str], Optional[dict]]:
         """Authenticate request and return (success, api_key, key_info)."""
         if not self.require_auth:
             return True, None, None
@@ -100,7 +97,9 @@ class HTTPServer:
         self.app.router.add_get("/metrics", self.metrics)
         self.app.router.add_get("/rate-limit/status", self.rate_limit_status)
 
-    async def _check_auth(self, request: web.Request) -> tuple[Optional[web.Response], Optional[dict]]:
+    async def _check_auth(
+        self, request: web.Request
+    ) -> tuple[Optional[web.Response], Optional[dict]]:
         """Check authentication, returns error response if failed."""
         success, api_key, key_info = await self.auth_middleware.authenticate(request)
         if self.require_auth and not success:
@@ -110,7 +109,9 @@ class HTTPServer:
             ), None
         return None, key_info
 
-    async def _check_rate_limit(self, key_info: Optional[dict]) -> tuple[Optional[web.Response], Optional[RateLimitResult]]:
+    async def _check_rate_limit(
+        self, key_info: Optional[dict]
+    ) -> tuple[Optional[web.Response], Optional[RateLimitResult]]:
         """Check rate limit, returns error response if exceeded."""
         key = f"key:{key_info['key_id']}" if key_info else "anonymous"
         result = self.rate_limiter.check_rate_limit(key)
@@ -160,11 +161,13 @@ class HTTPServer:
 
     async def health(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
-        return web.json_response({
-            "status": "ok",
-            "agent": self.agent.model,
-            "timestamp": time.time(),
-        })
+        return web.json_response(
+            {
+                "status": "ok",
+                "agent": self.agent.model,
+                "timestamp": time.time(),
+            }
+        )
 
     async def chat(self, request: web.Request) -> web.Response:
         """Standard chat endpoint."""
@@ -196,16 +199,20 @@ class HTTPServer:
                     workspace_id=key_info["workspace_id"],
                 )
 
-            return web.json_response({
-                "response": response,
-                "model": self.agent.model,
-                "usage": self.agent.usage,
-                "rate_limit": {
-                    "remaining_minute": result.remaining_minute,
-                    "remaining_hour": result.remaining_hour,
-                    "remaining_day": result.remaining_day,
-                } if result else None,
-            })
+            return web.json_response(
+                {
+                    "response": response,
+                    "model": self.agent.model,
+                    "usage": self.agent.usage,
+                    "rate_limit": {
+                        "remaining_minute": result.remaining_minute,
+                        "remaining_hour": result.remaining_hour,
+                        "remaining_day": result.remaining_day,
+                    }
+                    if result
+                    else None,
+                }
+            )
         except Exception as e:
             logger.error(f"Chat error: {e}")
             return web.json_response({"error": str(e)}, status=500)
@@ -275,10 +282,8 @@ class HTTPServer:
     async def list_models(self, request: web.Request) -> web.Response:
         """List available models."""
         from .config import MODELS
-        models = [
-            {"alias": alias, "model": model_id}
-            for alias, model_id in MODELS.items()
-        ]
+
+        models = [{"alias": alias, "model": model_id} for alias, model_id in MODELS.items()]
         return web.json_response({"models": models})
 
     async def session_save(self, request: web.Request) -> web.Response:
@@ -288,6 +293,7 @@ class HTTPServer:
             return auth_error
 
         from .session import SessionManager
+
         try:
             data = await request.json()
             name = data.get("name", "http_session")
@@ -304,6 +310,7 @@ class HTTPServer:
             return auth_error
 
         from .session import SessionManager
+
         try:
             data = await request.json()
             name = data.get("name")
@@ -396,5 +403,44 @@ async def run_server(
 
 if __name__ == "__main__":
     import sys
+
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
     asyncio.run(run_server(port=port))
+
+
+def start_tui_server(port: int = 8080, agent: "Agent | None" = None) -> object:
+    """Start the HTTP server for TUI in a background thread.
+
+    Returns the server instance so callers can stop it later.
+    """
+    import threading
+
+    server = APEXHTTPServer(host="127.0.0.1", port=port)
+    if agent is not None:
+        server.agent = agent
+
+    loop = asyncio.new_event_loop()
+
+    def _run():
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(server.start())
+        loop.run_forever()
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    # Give the server a moment to bind the port
+    import time
+
+    time.sleep(0.3)
+    server._thread = thread
+    server._loop = loop
+    return server
+
+
+def stop_tui_server(server: object) -> None:
+    """Stop a TUI server started by start_tui_server."""
+    if server is None:
+        return
+    loop = getattr(server, "_loop", None)
+    if loop and loop.is_running():
+        loop.call_soon_threadsafe(loop.stop)

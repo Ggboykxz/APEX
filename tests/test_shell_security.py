@@ -40,7 +40,7 @@ class TestCommandAnalysis:
             command="cat file.txt",
             args=["file.txt"],
             warnings=[],
-            requires_confirmation=False
+            requires_confirmation=False,
         )
         assert analysis.safe is True
         assert analysis.category == CommandCategory.FILE_READ
@@ -52,7 +52,7 @@ class TestCommandAnalysis:
             command="sudo rm file",
             args=["rm", "file"],
             warnings=["Requires elevated privileges"],
-            requires_confirmation=True
+            requires_confirmation=True,
         )
         assert len(analysis.warnings) == 1
 

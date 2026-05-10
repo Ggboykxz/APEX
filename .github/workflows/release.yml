@@ -121,17 +121,27 @@ jobs:
           generate_release_notes: true
           files: dist/*
           body: |
-            ## APEX v1.0.0 — First Stable Release
+            ## APEX v1.1.0 — TUI & Agent Update
 
             The universal AI coding agent. Every model. One terminal.
 
-            ### What's New
-            - **100+ LLM Models** — Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, Ollama, and more
-            - **5 Agents** — Coder, Architect, Reviewer, DevOps, Analyst
-            - **75+ Tools** — File, Code, Shell, Git, Web, Database, Docker, K8s, Cloud, Security
-            - **OpenTUI + React TUI** — Modern terminal UI with keyboard-driven interface
-            - **MCP/LSP** — External tool servers and language server protocol support
-            - **Security** — Shell analysis, permissions, rate limiting, API key management
+            ### What's New in v1.1.0
+            - **HTTP SSE Backend** — TUI connects via Server-Sent Events instead of stdin/stdout IPC
+            - **Real-Time Token Streaming** — Live prompt/completion token counts
+            - **Per-Message Cost Tracking** — Model-specific pricing with cost per message
+            - **Agent Rename** — DevOps→Shell, Analyst→Planner, new Architect agent
+            - **8 New Models** — claude-3.7-sonnet, llama-3.3-70b, mistral-medium, phi-4, and more
+            - **Agent-Colored Theming** — Dynamic colors based on active agent
+            - **Context Percentage** — Live context window utilization monitoring
+            - **Model Validation** — 400 error for unknown models
+            - **Proprietary License** — Updated from MIT to Proprietary
+
+            ### 5 Built-in Agents
+            - **Coder** — Full tool access for development work
+            - **Architect** — Read-only architecture analysis and design decisions
+            - **Planner** — Read-only analysis and step-by-step planning
+            - **Reviewer** — Code review specialist (subagent)
+            - **Shell** — Infrastructure and deployment with confirmation for destructive ops
 
             ### Installation
 

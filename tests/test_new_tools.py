@@ -25,11 +25,10 @@ def test_preview_edit_basic(executor, tmp_path):
     test_file = tmp_path / "test.py"
     test_file.write_text("def hello():\n    return 'world'")
 
-    result = executor.execute("preview_edit", {
-        "path": str(test_file),
-        "old_string": "return 'world'",
-        "new_string": "return 'hello'"
-    })
+    result = executor.execute(
+        "preview_edit",
+        {"path": str(test_file), "old_string": "return 'world'", "new_string": "return 'hello'"},
+    )
 
     assert "[PREVIEW" in result
     assert "def hello():" in result
@@ -37,11 +36,9 @@ def test_preview_edit_basic(executor, tmp_path):
 
 
 def test_preview_edit_file_not_found(executor):
-    result = executor.execute("preview_edit", {
-        "path": "/nonexistent/file.py",
-        "old_string": "old",
-        "new_string": "new"
-    })
+    result = executor.execute(
+        "preview_edit", {"path": "/nonexistent/file.py", "old_string": "old", "new_string": "new"}
+    )
     assert "ERROR: File not found" in result
 
 
@@ -49,11 +46,9 @@ def test_preview_edit_string_not_found(executor, tmp_path):
     test_file = tmp_path / "test.py"
     test_file.write_text("hello")
 
-    result = executor.execute("preview_edit", {
-        "path": str(test_file),
-        "old_string": "not found",
-        "new_string": "new"
-    })
+    result = executor.execute(
+        "preview_edit", {"path": str(test_file), "old_string": "not found", "new_string": "new"}
+    )
     assert "ERROR: String not found" in result
 
 
@@ -61,14 +56,14 @@ def test_apply_edit_valid_preview(executor, tmp_path):
     test_file = tmp_path / "test.py"
     test_file.write_text("def hello():\n    return 'world'")
 
-    preview_result = executor.execute("preview_edit", {
-        "path": str(test_file),
-        "old_string": "return 'world'",
-        "new_string": "return 'hello'"
-    })
+    preview_result = executor.execute(
+        "preview_edit",
+        {"path": str(test_file), "old_string": "return 'world'", "new_string": "return 'hello'"},
+    )
 
     import re
-    match = re.search(r'\[PREVIEW ([a-f0-9]+)\]', preview_result)
+
+    match = re.search(r"\[PREVIEW ([a-f0-9]+)\]", preview_result)
     assert match is not None
 
     preview_id = match.group(1)
@@ -101,10 +96,7 @@ def test_ask_user(executor):
 
 
 def test_ask_user_with_options(executor):
-    result = executor.execute("ask_user", {
-        "question": "Choose one",
-        "options": ["Yes", "No"]
-    })
+    result = executor.execute("ask_user", {"question": "Choose one", "options": ["Yes", "No"]})
     assert "WAITING FOR USER INPUT" in result
     assert "Yes" in result
     assert "No" in result

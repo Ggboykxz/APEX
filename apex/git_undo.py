@@ -11,6 +11,7 @@ from dataclasses import dataclass, asdict
 @dataclass
 class UndoSnapshot:
     """Represents a snapshot for undo/redo."""
+
     id: str
     timestamp: str
     description: str
@@ -34,10 +35,7 @@ class GitUndoManager:
         """Run git command."""
         try:
             result = subprocess.run(
-                ["git"] + list(args),
-                cwd=self.cwd,
-                capture_output=True,
-                text=True
+                ["git"] + list(args), cwd=self.cwd, capture_output=True, text=True
             )
             return result.returncode, result.stdout, result.stderr
         except FileNotFoundError:
@@ -52,17 +50,21 @@ class GitUndoManager:
                     data = json.load(f)
                     self.snapshots = [UndoSnapshot(**s) for s in data.get("snapshots", [])]
                     self.current_index = data.get("current_index", -1)
-            except:
+            except (json.JSONDecodeError, OSError, KeyError):
                 pass
 
     def _save_history(self):
         """Save undo history to disk."""
         history_file = self._undo_dir / "history.json"
         with open(history_file, "w") as f:
-            json.dump({
-                "snapshots": [asdict(s) for s in self.snapshots],
-                "current_index": self.current_index
-            }, f, indent=2)
+            json.dump(
+                {
+                    "snapshots": [asdict(s) for s in self.snapshots],
+                    "current_index": self.current_index,
+                },
+                f,
+                indent=2,
+            )
 
     def _get_current_files(self) -> list[str]:
         """Get list of current tracked files."""
@@ -99,11 +101,11 @@ class GitUndoManager:
             description=description or f"Auto-snapshot at {timestamp}",
             changed_files=changed_files,
             git_commit=git_commit,
-            parent_commit=parent_commit
+            parent_commit=parent_commit,
         )
 
         if self.current_index < len(self.snapshots) - 1:
-            self.snapshots = self.snapshots[:self.current_index + 1]
+            self.snapshots = self.snapshots[: self.current_index + 1]
 
         self.snapshots.append(snapshot)
         self.current_index = len(self.snapshots) - 1
@@ -159,7 +161,7 @@ class GitUndoManager:
                 "id": s.id,
                 "timestamp": s.timestamp,
                 "description": s.description,
-                "is_current": i == self.current_index
+                "is_current": i == self.current_index,
             }
             for i, s in enumerate(self.snapshots)
         ]

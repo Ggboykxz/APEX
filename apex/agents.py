@@ -1,6 +1,5 @@
 """Multi-agent system for APEX - Primary and subagent support with permissions."""
 
-
 AGENT_CODER_PROMPT = """You are APEX Coder Agent — the senior developer agent with full tool access.
 
 Your principles:
@@ -21,15 +20,40 @@ When uncertain, ask the user for clarification using ask_user tool.
 Output code that works. Your goal is to complete the task, not just describe it."""
 
 
-AGENT_ARCHITECT_PROMPT = """You are APEX Architect Agent — the analysis and planning agent (read-only).
+AGENT_ARCHITECT_PROMPT = """You are APEX Architect Agent — the analysis and design agent (read-only).
 
-Your role is to help users understand their codebase and plan changes without making modifications.
+Your role is to help users understand their codebase architecture and make high-level design decisions.
 
 Your principles:
 - You cannot modify files. You have READ-ONLY access
 - Provide detailed analysis and actionable suggestions
 - When asked for changes, explain what should be done instead of doing it
 - Use "I cannot modify files in architect mode. Here's what I recommend:" format
+- Provide code examples in your suggestions
+
+You can use:
+- read_file, list_files, search_in_files, glob_search, get_file_tree
+- get_git_status, get_git_log, git_diff, get_repo_map, get_language_stats
+- web_search, fetch_url for research
+
+You cannot use:
+- write_file, edit_file, delete_file, create_directory
+- run_command (unless read-only like git status, git log, grep)
+- run_test, format_file, install_package
+- task (subagent invocation)
+
+Be thorough in your analysis. Explain WHY you suggest something, not just WHAT."""
+
+
+AGENT_PLANNER_PROMPT = """You are APEX Planner Agent — the analysis and planning agent (read-only).
+
+Your role is to help users understand their codebase and create detailed implementation plans before any code is written.
+
+Your principles:
+- You cannot modify files. You have READ-ONLY access
+- Provide detailed analysis and actionable suggestions
+- When asked for changes, create a step-by-step implementation plan
+- Use "I cannot modify files in planner mode. Here's what I recommend:" format
 - Provide code examples in your suggestions
 
 You can use:
@@ -68,7 +92,7 @@ Be thorough and specific in your reviews. Reference specific line numbers and co
 Provide actionable suggestions with code examples for each issue found."""
 
 
-AGENT_DEVOPS_PROMPT = """You are APEX DevOps Agent — infrastructure and deployment specialist.
+AGENT_SHELL_PROMPT = """You are APEX Shell Agent — infrastructure and deployment specialist.
 
 Your role is to help with:
 - Docker container management and image builds
@@ -93,28 +117,6 @@ You have full tool access with confirmation for destructive operations:
 - Install and configure tools
 
 When uncertain about system changes, always ask the user first."""
-
-
-AGENT_ANALYST_PROMPT = """You are APEX Analyst Agent — data analysis and reporting specialist with read-only access.
-
-Your role is to help with:
-- Analyzing data files (CSV, JSON, logs, etc.)
-- Generating reports and summaries
-- Extracting insights from codebases
-- Producing documentation
-- Cost analysis and optimization suggestions
-- Code metrics and statistics
-
-You have READ-ONLY access to:
-- read_file, list_files, search_in_files, glob_search, get_file_tree
-- get_git_status, get_git_log, git_diff
-- get_repo_map, get_language_stats
-- web_search, fetch_url
-
-You CANNOT modify any files or run commands.
-
-Be data-driven and precise. Use specific numbers and evidence to support your analysis.
-Present findings in a clear, structured format with actionable recommendations."""
 
 
 PERMISSION_ALLOW = "allow"
@@ -167,7 +169,7 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
     ),
     "architect": AgentConfig(
         name="architect",
-        description="Read-only agent for analysis and planning",
+        description="Read-only agent for architecture analysis and design decisions",
         system_prompt=AGENT_ARCHITECT_PROMPT,
         mode="primary",
         permission={
@@ -181,12 +183,12 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
             "webfetch": PERMISSION_ALLOW,
             "websearch": PERMISSION_ALLOW,
         },
-        color="#bd93f9",
+        color="#a855f7",
     ),
-    "reviewer": AgentConfig(
-        name="reviewer",
-        description="Code review specialist — read-only, never modifies files",
-        system_prompt=AGENT_REVIEWER_PROMPT,
+    "planner": AgentConfig(
+        name="planner",
+        description="Read-only agent for analysis and planning",
+        system_prompt=AGENT_PLANNER_PROMPT,
         mode="primary",
         permission={
             "read": PERMISSION_ALLOW,
@@ -199,12 +201,30 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
             "webfetch": PERMISSION_ALLOW,
             "websearch": PERMISSION_ALLOW,
         },
-        color="#50fa7b",
+        color="#ffaa00",
     ),
-    "devops": AgentConfig(
-        name="devops",
+    "reviewer": AgentConfig(
+        name="reviewer",
+        description="Code review specialist — read-only, never modifies files",
+        system_prompt=AGENT_REVIEWER_PROMPT,
+        mode="subagent",
+        permission={
+            "read": PERMISSION_ALLOW,
+            "edit": PERMISSION_DENY,
+            "glob": PERMISSION_ALLOW,
+            "grep": PERMISSION_ALLOW,
+            "list": PERMISSION_ALLOW,
+            "bash": PERMISSION_DENY,
+            "task": PERMISSION_DENY,
+            "webfetch": PERMISSION_ALLOW,
+            "websearch": PERMISSION_ALLOW,
+        },
+        color="#00ff88",
+    ),
+    "shell": AgentConfig(
+        name="shell",
         description="Infrastructure and deployment specialist",
-        system_prompt=AGENT_DEVOPS_PROMPT,
+        system_prompt=AGENT_SHELL_PROMPT,
         mode="primary",
         permission={
             "read": PERMISSION_ALLOW,
@@ -217,25 +237,7 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
             "webfetch": PERMISSION_ALLOW,
             "websearch": PERMISSION_ALLOW,
         },
-        color="#ffb86c",
-    ),
-    "analyst": AgentConfig(
-        name="analyst",
-        description="Data analysis and reporting — read-only with output generation",
-        system_prompt=AGENT_ANALYST_PROMPT,
-        mode="primary",
-        permission={
-            "read": PERMISSION_ALLOW,
-            "edit": PERMISSION_DENY,
-            "glob": PERMISSION_ALLOW,
-            "grep": PERMISSION_ALLOW,
-            "list": PERMISSION_ALLOW,
-            "bash": PERMISSION_DENY,
-            "task": PERMISSION_DENY,
-            "webfetch": PERMISSION_ALLOW,
-            "websearch": PERMISSION_ALLOW,
-        },
-        color="#ff79c6",
+        color="#ff6b35",
     ),
 }
 
@@ -274,11 +276,29 @@ class AgentManager:
             return False, f"Tool '{tool_name}' requires confirmation for agent '{agent_name}'"
 
     def _get_tool_category(self, tool_name: str) -> str:
-        read_tools = {"read_file", "list_files", "search_in_files", "glob_search",
-                      "get_file_tree", "get_git_status", "get_git_log", "git_diff",
-                      "get_repo_map", "get_language_stats", "fetch_url", "read_image"}
-        edit_tools = {"write_file", "edit_file", "delete_file", "create_directory",
-                      "run_test", "format_file", "install_package"}
+        read_tools = {
+            "read_file",
+            "list_files",
+            "search_in_files",
+            "glob_search",
+            "get_file_tree",
+            "get_git_status",
+            "get_git_log",
+            "git_diff",
+            "get_repo_map",
+            "get_language_stats",
+            "fetch_url",
+            "read_image",
+        }
+        edit_tools = {
+            "write_file",
+            "edit_file",
+            "delete_file",
+            "create_directory",
+            "run_test",
+            "format_file",
+            "install_package",
+        }
         bash_tools = {"run_command"}
         web_tools = {"web_search", "fetch_url"}
 

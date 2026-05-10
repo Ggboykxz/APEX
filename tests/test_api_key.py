@@ -2,8 +2,12 @@
 
 import pytest
 from apex.api_key import (
-    KeyManager, APIKeyInfo, Workspace,
-    InvalidKeyError, KeyExpiredError, KeyDisabledError,
+    KeyManager,
+    APIKeyInfo,
+    Workspace,
+    InvalidKeyError,
+    KeyExpiredError,
+    KeyDisabledError,
 )
 
 

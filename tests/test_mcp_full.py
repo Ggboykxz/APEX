@@ -17,8 +17,12 @@ class TestDataClasses:
 
     def test_mcp_server_config(self):
         c = MCPServerConfig(
-            name="srv", command="echo", args=["arg"],
-            env={"K": "v"}, enabled=True, transport="stdio"
+            name="srv",
+            command="echo",
+            args=["arg"],
+            env={"K": "v"},
+            enabled=True,
+            transport="stdio",
         )
         assert c.name == "srv"
         assert c.enabled is True

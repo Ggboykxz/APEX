@@ -15,7 +15,9 @@ class Command:
 
 
 class SlashCommandManager:
-    def __init__(self, command_factory: Optional[Callable[[str, str, Callable, bool], Command]] = None):
+    def __init__(
+        self, command_factory: Optional[Callable[[str, str, Callable, bool], Command]] = None
+    ):
         self._commands: dict[str, Command] = {}
         self._aliases: dict[str, str] = {}
         self._command_factory = command_factory
@@ -28,90 +30,66 @@ class SlashCommandManager:
         handler: Callable,
         args: Optional[list[str]] = None,
         requires_argument: bool = False,
-        aliases: Optional[list[str]] = None
+        aliases: Optional[list[str]] = None,
     ) -> Command:
         if self._command_factory:
-            return self._command_factory(name, description, handler, requires_argument, args, aliases)
+            return self._command_factory(
+                name, description, handler, requires_argument, args, aliases
+            )
         return Command(
             name=name,
             description=description,
             handler=handler,
             args=args or [],
             requires_argument=requires_argument,
-            aliases=aliases or []
+            aliases=aliases or [],
         )
 
     def _register_default_commands(self):
-        self.register(self._create_command(
-            "agent", "Switch to a different agent", self._cmd_agent, 
-            ["agent_name"], True
-        ))
-        self.register(self._create_command(
-            "model", "Switch to a different model", self._cmd_model,
-            ["model_name"], True
-        ))
-        self.register(self._create_command(
-            "cwd", "Change working directory", self._cmd_cwd,
-            ["path"], True
-        ))
-        self.register(self._create_command(
-            "clear", "Clear conversation history", self._cmd_clear
-        ))
-        self.register(self._create_command(
-            "save", "Save current session", self._cmd_save, ["name"]
-        ))
-        self.register(self._create_command(
-            "load", "Load a saved session", self._cmd_load,
-            ["name"], True
-        ))
-        self.register(self._create_command(
-            "share", "Share current session", self._cmd_share
-        ))
-        self.register(self._create_command(
-            "undo", "Undo last change", self._cmd_undo
-        ))
-        self.register(self._create_command(
-            "redo", "Redo last undone change", self._cmd_redo
-        ))
-        self.register(self._create_command(
-            "git", "Show git status", self._cmd_git
-        ))
-        self.register(self._create_command(
-            "map", "Show repository map", self._cmd_map
-        ))
-        self.register(self._create_command(
-            "help", "Show available commands", self._cmd_help
-        ))
-        self.register(self._create_command(
-            "cost", "Show token cost summary", self._cmd_cost
-        ))
-        self.register(self._create_command(
-            "agents", "List all agents", self._cmd_agents
-        ))
-        self.register(self._create_command(
-            "subagents", "List all subagents", self._cmd_subagents
-        ))
-        self.register(self._create_command(
-            "models", "List all available models", self._cmd_models
-        ))
-        self.register(self._create_command(
-            "init", "Initialize project", self._cmd_init
-        ))
-        self.register(self._create_command(
-            "analyze", "Analyze project structure", self._cmd_analyze
-        ))
-        self.register(self._create_command(
-            "approve", "Approve pending plan", self._cmd_approve
-        ))
-        self.register(self._create_command(
-            "reject", "Reject pending plan", self._cmd_reject, ["reason"]
-        ))
-        self.register(self._create_command(
-            "shell", "Start interactive shell", self._cmd_shell, ["shell_name"]
-        ))
-        self.register(self._create_command(
-            "commands", "List custom commands", self._cmd_commands
-        ))
+        self.register(
+            self._create_command(
+                "agent", "Switch to a different agent", self._cmd_agent, ["agent_name"], True
+            )
+        )
+        self.register(
+            self._create_command(
+                "model", "Switch to a different model", self._cmd_model, ["model_name"], True
+            )
+        )
+        self.register(
+            self._create_command("cwd", "Change working directory", self._cmd_cwd, ["path"], True)
+        )
+        self.register(self._create_command("clear", "Clear conversation history", self._cmd_clear))
+        self.register(
+            self._create_command("save", "Save current session", self._cmd_save, ["name"])
+        )
+        self.register(
+            self._create_command("load", "Load a saved session", self._cmd_load, ["name"], True)
+        )
+        self.register(self._create_command("share", "Share current session", self._cmd_share))
+        self.register(self._create_command("undo", "Undo last change", self._cmd_undo))
+        self.register(self._create_command("redo", "Redo last undone change", self._cmd_redo))
+        self.register(self._create_command("git", "Show git status", self._cmd_git))
+        self.register(self._create_command("map", "Show repository map", self._cmd_map))
+        self.register(self._create_command("help", "Show available commands", self._cmd_help))
+        self.register(self._create_command("cost", "Show token cost summary", self._cmd_cost))
+        self.register(self._create_command("agents", "List all agents", self._cmd_agents))
+        self.register(self._create_command("subagents", "List all subagents", self._cmd_subagents))
+        self.register(self._create_command("models", "List all available models", self._cmd_models))
+        self.register(self._create_command("init", "Initialize project", self._cmd_init))
+        self.register(
+            self._create_command("analyze", "Analyze project structure", self._cmd_analyze)
+        )
+        self.register(self._create_command("approve", "Approve pending plan", self._cmd_approve))
+        self.register(
+            self._create_command("reject", "Reject pending plan", self._cmd_reject, ["reason"])
+        )
+        self.register(
+            self._create_command(
+                "shell", "Start interactive shell", self._cmd_shell, ["shell_name"]
+            )
+        )
+        self.register(self._create_command("commands", "List custom commands", self._cmd_commands))
 
     def register(self, command: Command) -> None:
         self._commands[command.name] = command
@@ -133,8 +111,7 @@ class SlashCommandManager:
 
     def list_commands(self) -> list[dict[str, str]]:
         return [
-            {"name": cmd.name, "description": cmd.description}
-            for cmd in self._commands.values()
+            {"name": cmd.name, "description": cmd.description} for cmd in self._commands.values()
         ]
 
     def parse(self, text: str) -> Optional[tuple[str, list[str]]]:

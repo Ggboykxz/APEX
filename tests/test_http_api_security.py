@@ -3,7 +3,6 @@
 import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
-from aiohttp import web
 from apex.http_api import (
     HTTPServer,
     AuthMiddleware,
@@ -146,18 +145,16 @@ class TestHTTPServer:
             host="127.0.0.1",
             port=8080,
             require_auth=False,
-            rate_limit_config=RateLimitConfig(requests_per_minute=1)
+            rate_limit_config=RateLimitConfig(requests_per_minute=1),
         )
 
         request = MagicMock()
         request.json = AsyncMock(return_value={"message": "hello"})
-        server.rate_limiter.check_rate_limit = MagicMock(return_value=MagicMock(
-            allowed=False,
-            retry_after=60,
-            remaining_minute=0,
-            remaining_hour=0,
-            remaining_day=0
-        ))
+        server.rate_limiter.check_rate_limit = MagicMock(
+            return_value=MagicMock(
+                allowed=False, retry_after=60, remaining_minute=0, remaining_hour=0, remaining_day=0
+            )
+        )
 
         response = await server.chat(request)
         assert response.status == 429

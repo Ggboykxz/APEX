@@ -7,11 +7,7 @@ from datetime import datetime
 class ContextManager:
     """Manage large context with compaction and prefix caching."""
 
-    def __init__(
-        self,
-        max_tokens: int = 1000000,
-        compaction_threshold: float = 0.9
-    ):
+    def __init__(self, max_tokens: int = 1000000, compaction_threshold: float = 0.9):
         self.max_tokens = max_tokens
         self.compaction_threshold = compaction_threshold
         self._messages: list[dict[str, Any]] = []
@@ -63,13 +59,15 @@ class ContextManager:
         elif strategy == "merge":
             self._compact_merge()
 
-        self._compaction_history.append({
-            "timestamp": datetime.now().isoformat(),
-            "strategy": strategy,
-            "before_tokens": original_count,
-            "after_tokens": self._token_count,
-            "messages_removed": len(self._messages)
-        })
+        self._compaction_history.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "strategy": strategy,
+                "before_tokens": original_count,
+                "after_tokens": self._token_count,
+                "messages_removed": len(self._messages),
+            }
+        )
 
         return original_count - self._token_count
 
@@ -84,12 +82,11 @@ class ContextManager:
 
         summary = self._create_summary(old)
 
-        self._messages = system_messages + [
-            {
-                "role": "system",
-                "content": f"[Previous conversation summary: {summary}]"
-            }
-        ] + recent
+        self._messages = (
+            system_messages
+            + [{"role": "system", "content": f"[Previous conversation summary: {summary}]"}]
+            + recent
+        )
 
         self._recalc_tokens()
 
@@ -140,10 +137,7 @@ class ContextManager:
 
     def _recalc_tokens(self):
         """Recalculate total token count."""
-        self._token_count = sum(
-            self.estimate_tokens(m.get("content", ""))
-            for m in self._messages
-        )
+        self._token_count = sum(self.estimate_tokens(m.get("content", "")) for m in self._messages)
 
     def record_cache_hit(self):
         """Record a cache hit."""
@@ -163,7 +157,7 @@ class ContextManager:
             "cache_hits": self._cache_hits,
             "cache_misses": self._cache_misses,
             "hit_rate": hit_rate,
-            "total_requests": total
+            "total_requests": total,
         }
 
     @property
