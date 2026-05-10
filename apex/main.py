@@ -21,6 +21,7 @@ from .ui import UI
 from .memory import Memory
 from .session import SessionManager
 from .context import get_repo_map, get_language_stats
+from .http_api import start_tui_server, stop_tui_server
 from . import __version__
 from rich.panel import Panel
 
@@ -612,121 +613,6 @@ def run_cicd_mode(prompt: str, agent: Agent, ui: UI, output_format: str = "text"
             ui.print_error(f"Error: {e}")
 
 
-def _start_http_server_thread(port: int, agent: Agent) -> threading.Thread:
-    """Start the APEX HTTP API server in a background thread."""
-    import asyncio
-    from aiohttp import web
-    from .rate_limiter import RateLimitConfig, create_rate_limiter
-    from .api_key import key_manager
-    from .billing import billing_manager
-
-    class AuthMiddleware:
-        def __init__(self, require_auth: bool):
-            self.require_auth = require_auth
-            self.key_manager = key_manager
-
-        async def authenticate(self, request: web.Request):
-            if not self.require_auth:
-                return True, None, None
-            auth_header = request.headers.get("Authorization", "")
-            api_key = None
-            if auth_header.startswith("Bearer "):
-                api_key = auth_header[7:]
-            else:
-                api_key = request.query.get("api_key") or request.headers.get("X-API-Key")
-            if not api_key:
-                return False, None, None
-            try:
-                key_info = self.key_manager.validate_key(api_key)
-                return True, api_key, key_info
-            except Exception:
-                return False, api_key, None
-
-    app = web.Application()
-    auth = AuthMiddleware(require_auth=False)
-    rate_limiter = create_rate_limiter(config=RateLimitConfig(), use_sqlite=False)
-
-    async def health(request):
-        return web.json_response({"status": "ok", "agent": agent.model, "timestamp": time.time()})
-
-    async def chat_stream(request):
-        try:
-            data = await request.json()
-            message = data.get("message", "")
-            model = data.get("model")
-
-            if model and model in MODELS:
-                agent.switch_model(model)
-
-            response = web.StreamResponse()
-            response.content_type = "text/event-stream"
-            response.headers["Cache-Control"] = "no-cache"
-            await response.prepare(request)
-
-            full_response = ""
-            async for chunk in agent.chat_streaming(message):
-                full_response += chunk
-                await response.write(f"data: {json.dumps({'chunk': chunk})}\n\n".encode())
-
-            usage = agent.usage or {}
-            await response.write(f"data: {json.dumps({'usage': usage})}\n\n".encode())
-            return response
-        except Exception as e:
-            return web.json_response({"error": str(e)}, status=500)
-
-    async def list_models(request):
-        models = [{"alias": alias, "model": model_id} for alias, model_id in MODELS.items()]
-        return web.json_response({"models": models})
-
-    app.router.add_get("/health", health)
-    app.router.add_post("/chat/stream", chat_stream)
-    app.router.add_get("/models", list_models)
-
-    loop = asyncio.new_event_loop()
-    runner = web.AppRunner(app)
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, "127.0.0.1", port)
-    loop.run_until_complete(site.start())
-
-    def run_loop():
-        asyncio.set_event_loop(loop)
-        try:
-            import time as _time
-            while getattr(server_thread, "_running", True):
-                _time.sleep(0.1)
-        finally:
-            loop.run_until_complete(runner.cleanup())
-            loop.close()
-
-    server_data = {"runner": runner, "loop": loop}
-
-    def run_server():
-        asyncio.set_event_loop(loop)
-        try:
-            import time as _time
-            while getattr(server_thread, "_running", True):
-                _time.sleep(0.1)
-        finally:
-            try:
-                loop.run_until_complete(runner.cleanup())
-            except Exception:
-                pass
-            loop.close()
-
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread._running = True
-    server_thread._server_data = server_data
-    server_thread.start()
-    return server_thread
-
-
-def _stop_http_server(server_thread: threading.Thread) -> None:
-    """Stop the HTTP server thread."""
-    if server_thread and server_thread.is_alive():
-        server_thread._running = False
-        server_thread.join(timeout=2)
-
-
 def run_apex_tui(agent: Agent, ui: UI) -> None:
     """Run APEX TUI - OpenTUI + React terminal interface with real backend."""
     tui_path = Path(__file__).parent.parent / "tui-frontend" / "src" / "App.tsx"
@@ -740,7 +626,7 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
         return
 
     ui.print_info("Starting APEX HTTP API server on port 8080...")
-    server_thread = _start_http_server_thread(port=8080, agent=agent)
+    server_thread = start_tui_server(port=8080, agent=agent)
 
     ui.print_info("Starting APEX TUI with OpenTUI (Ctrl+C to exit)...")
 
@@ -785,8 +671,8 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
     except Exception as e:
         ui.print_error(f"OpenTUI error: {e}")
     finally:
-        ui.print_info("Shutting down HTTP server...")
-        _stop_http_server(server_thread)
+        if server_thread:
+            stop_tui_server(server_thread)
 
 
 def main() -> None:
