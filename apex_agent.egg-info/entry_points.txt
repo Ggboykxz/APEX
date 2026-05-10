@@ -1,2 +1,3 @@
 [console_scripts]
 apex = apex.main:main
+apex-tui = apex.tui:main

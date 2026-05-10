@@ -2,6 +2,35 @@
 
 All notable changes to APEX will be documented in this file.
 
+## [1.3.1] - 2026-05-10
+
+### TUI Architecture (Major)
+
+- **OpenTUI-like System** — Complete TUI framework mirroring OpenCode's architecture
+  - Routes: HomeRoute, SessionRoute, PluginRoute
+  - Components: Dialog, Toast, ToastManager, StatusBar, CommandPalette
+  - Contexts: ThemeContext, RouteContext, EventBus
+  - KeymapManager with layered keybindings and leader key support
+  - Plugin system with hooks (on_tui_ready, on_tui_exit, on_route_change)
+
+- **6 Built-in Themes** — opencode, dracula, nord, tokyonight, gruvbox, github
+  - JSON theme files for easy customization
+  - ThemeManager with built-in + custom theme loading
+
+- **New TUI Launch** — `apex --new-tui` for OpenTUI-like experience
+  - Route-based navigation (HOME, SESSION, PLUGIN)
+  - Event-driven architecture (on/once/off/emit)
+  - Status bar with mode indicators
+
+### Security
+
+- Full security integration in agent.py and tools.py
+- Shell security protection for dangerous commands
+- Permission system with ASK/DENY/ALLOW flow
+- Rate limiting with workspace-based API keys
+
+---
+
 ## [1.4.0] - 2026-05-09
 
 ### Security (Major)
@@ -44,10 +73,6 @@ All notable changes to APEX will be documented in this file.
 - Security section in README.md
 - Security API reference in docs/api.md
 - Updated docs/index.md with security features
-
----
-
-## [1.3.0] - 2026-05-09
 
 ### Added
 - **100+ Model Support** via litellm integration

@@ -21,6 +21,17 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 - **API Key Management** — Workspace-based keys with expiration
 - **Billing System** — Cost tracking and quota management
 
+### TUI Modes
+- **New OpenTUI-like TUI** — Route-based navigation with themes and keymaps
+- **Classic Textual TUI** — Original APEX UI
+- **Bun-based OpenTUI** — JavaScript frontend
+
+```bash
+apex --new-tui  # New Python TUI (recommended)
+apex --ui       # Original Textual TUI
+apex --tui      # Bun-based OpenTUI
+```
+
 ## Why APEX?
 
 | Feature | APEX | OpenCode | Claude Code | Aider |
@@ -31,6 +42,8 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 | API key management | ✅ | ❌ | ❌ | ❌ |
 | Rate limiting | ✅ | ❌ | ❌ | ❌ |
 | Billing & cost tracking | ✅ | ❌ | ❌ | ⚠️ |
+| OpenTUI-like TUI | ✅ | ❌ | ❌ | ❌ |
+| 6 built-in themes | ✅ | ❌ | ❌ | ❌ |
 | Offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
 | Rich syntax UI | ✅ | ✅ | ✅ | ❌ |
 | Session persistence | ✅ | ❌ | ✅ | ❌ |

@@ -43,11 +43,41 @@
 | Live token cost tracker | ✅ | ❌ | ❌ | ✅ |
 | Session persistence | ✅ | ❌ | ✅ | ❌ |
 | **Shell security** | ✅ | ❌ | ❌ | ❌ |
+| **OpenTUI-like TUI** | ✅ | ❌ | ❌ | ❌ |
+| **6 themes** (dracula, nord, etc.) | ✅ | ❌ | ❌ | ❌ |
 | **Permission system** | ✅ | ❌ | ❌ | ❌ |
 | **Rate limiting** | ✅ | ❌ | ❌ | ❌ |
 | **API key management** | ✅ | ❌ | ❌ | ❌ |
 | `pip install` | ✅ | ❌ | ❌ | ✅ |
 | Built in Africa 🇬🇦 | ✅ | ❌ | ❌ | ❌ |
+
+---
+
+## 🎨 TUI Modes
+
+APEX offers multiple TUI experiences:
+
+### New OpenTUI-like TUI (Recommended)
+```bash
+apex --new-tui
+```
+
+Features:
+- Route-based navigation (Home, Session, Plugin views)
+- Event-driven architecture with ThemeContext, RouteContext, EventBus
+- KeymapManager with layered keybindings and leader key support
+- 6 built-in themes: opencode, dracula, nord, tokyonight, gruvbox, github
+- Toast notifications, Command Palette, Status Bar
+
+### Classic Textual TUI
+```bash
+apex --ui
+```
+
+### Bun-based OpenTUI
+```bash
+apex --tui
+```
 
 ---
 
