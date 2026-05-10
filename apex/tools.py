@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -1519,9 +1520,10 @@ class ToolExecutor:
             return f"WARNING: This command requires confirmation. Category: {analysis.category.value}, Warnings: {'; '.join(analysis.warnings)}"
 
         try:
+            args = shlex.split(command)
             result = subprocess.run(
-                command,
-                shell=True,
+                args,
+                shell=False,
                 cwd=self.cwd,
                 capture_output=True,
                 text=True,

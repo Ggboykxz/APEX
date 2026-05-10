@@ -2,6 +2,8 @@
 
 from pathlib import Path
 from typing import Optional
+import shlex
+import subprocess
 
 
 class FileOperations:
@@ -278,8 +280,9 @@ class CommandOperations:
         
         work_dir = self.resolve_path(cwd) if cwd else self.cwd
         try:
+            args = shlex.split(command)
             result = subprocess.run(
-                command, shell=True, cwd=work_dir,
+                args, shell=False, cwd=work_dir,
                 capture_output=True, text=True, timeout=60
             )
             if result.returncode == 0:

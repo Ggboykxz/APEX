@@ -1,9 +1,10 @@
 """Session persistence for APEX - save and load conversation sessions."""
 
 import json
+import os
+import re
 import hashlib
 import base64
-import os
 import secrets
 import logging
 from datetime import datetime
@@ -73,9 +74,12 @@ class SessionManager:
         self._sessions_dir.mkdir(parents=True, exist_ok=True)
 
     def save(self, agent: Agent, name: str = "default") -> Path:
+        safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{name}.json"
-        filepath = self._sessions_dir / filename
+        filename = f"{timestamp}_{safe_name}.json"
+        filepath = (self._sessions_dir / filename).resolve()
+        if self._sessions_dir.resolve() not in filepath.parents and filepath.parent != self._sessions_dir.resolve():
+            raise ValueError(f"Invalid session path: {filepath}")
 
         session_data = {
             "name": name,

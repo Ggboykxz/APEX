@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Callable, Optional
 from dataclasses import dataclass
+import shlex
+import subprocess
 
 
 @dataclass
@@ -116,9 +118,9 @@ def load_custom_tools(
             def make_handler(cmd: str, wd: str):
                 def handler(args: dict) -> str:
                     try:
-                        result = runner(
-                            cmd.format(**args),
-                            shell=True,
+                        result = subprocess.run(
+                            shlex.split(cmd.format(**args)),
+                            shell=False,
                             cwd=wd,
                             capture_output=True,
                             text=True,
