@@ -35,7 +35,7 @@ class MentionParser:
             path = match.group(1)
             file_mentions.append(FileMention(path, match.start(), match.end()))
 
-        agent_names = {"explore", "general", "build", "plan"}
+        agent_names = {"coder", "architect", "reviewer", "devops", "analyst"}
         for match in self.AGENT_PATTERN.finditer(text):
             name = match.group(1).lower()
             if name in agent_names:

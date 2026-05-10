@@ -113,50 +113,56 @@ class UI:
         """Get themed color."""
         return self.theme.get(key, "white")
 
-    def show_banner(self, model: str, cwd: str, agent: str = "build") -> None:
-        """Show premium banner - Better than OpenCode."""
-        bg = self._t("bg")
-        cyan = self._c("cyan", "")
-        orange = self._c("orange", "")
-        green = self._c("green", "")
-        dim = self._c("gray", "")
-        
-        # ASCII Logo
-        logo = f"""
-[cyan bold]  █████╗ ████████╗████████╗██████╗  ██████╗ ███████╗██╗     ███████╗[/]
-[purple bold] ██╔══██╗╚══██╔══╝██╔═══██╗██╔══██╗██╔═══██╗██╔════╝██║     ██╔════╝[/]
-[pink bold] ███████║   ██║   ██║   ██║██████╔╝██║   ██║███████╗██║     ███████╗[/]
-[orange bold] ██╔══██║   ██║   ██║   ██║██╔══██╗██║   ██║╚════██║██║     ╚════██║[/]
-[yellow bold] ██║  ██║   ██║   ╚██████╔╝██║  ██║╚██████╔╝███████║███████╗███████║[/]
-[green bold] ╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚══════╝╚══════╝[/]
+    def show_banner(self, model: str, cwd: str, agent: str = "coder") -> None:
+        """Show clean, minimal banner inspired by OpenCode."""
+        from . import __version__
 
-[dim]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/]
-{datetime.now().strftime('%Y-%m-%d')} [dim]│[/] {datetime.now().strftime('%H:%M:%S')} [dim]│[/] APEX v1.3.0"""
-        
-        # Status bar with agent badges
-        status = Table(box=None, show_header=False, padding=(0, 2))
-        
-        # Agent badge
+        # Get terminal width for centering
+        term_width = self.console.width or 80
+
+        # Clean centered logo
+        logo_lines = [
+            f"[bold #00e5ff]    ▲[/]",
+            f"[bold #00e5ff]   ╱ ╲[/]",
+            f"[bold #00e5ff]  ╱   ╲[/]",
+            f"[bold #00e5ff] ╱     ╲[/]",
+            f"[bold #00e5ff]╱───────╲[/]",
+            f"[bold white]APEX[/]",
+        ]
+
+        # Print spacer
+        self.console.print()
+
+        # Print centered logo
+        for line in logo_lines:
+            self.console.print(line, justify="center")
+
+        # Subtitle with model info
         agent_colors = {
-            "build": "cyan",
-            "plan": "yellow", 
-            "explore": "green",
-            "general": "magenta",
+            "coder": "#00e5ff",
+            "architect": "#bd93f9",
+            "reviewer": "#50fa7b",
+            "devops": "#ffb86c",
+            "analyst": "#ff79c6",
         }
-        agent_color = agent_colors.get(agent, "cyan")
-        
-        status.add_row(
-            f"{self._c(agent_color, self.ICONS['agent'])} {self._c(agent_color, f' {agent.upper()}', True)}  "
-            f"{self._c('gray', '│')}  "
-            f"{self._c('cyan', self.ICONS['model'])} {model}  "
-            f"{self._c('gray', '│')}  "
-            f"{self._c('green', self.ICONS['folder'])} {cwd}  "
-            f"{self._c('gray', '│')}  "
-            f"{self._c('purple', '⌨')} Tab=Agent ⌨ Ctrl+C=Exit"
+        agent_color = agent_colors.get(agent, "#00e5ff")
+
+        self.console.print(
+            f"[dim]{agent}[/] [dim]•[/] [dim]{model}[/]",
+            justify="center",
         )
-        
-        self.console.print(Panel(logo, box=SIMPLE_HEAVY, style=f"on {bg}", padding=(1, 2)))
-        self.console.print(Panel(status, box=SIMPLE_HEAVY, padding=(0, 1), border_style="cyan"))
+
+        # Clean separator line
+        self.console.print()
+
+        # Shortcuts bar at the bottom
+        shortcuts = (
+            f"[dim]tab[/] switch agent  "
+            f"[dim]ctrl+k[/] commands  "
+            f"[dim]ctrl+c[/] exit"
+        )
+        self.console.print(shortcuts, justify="center")
+        self.console.print()
 
     def show_help(self) -> None:
         """Show beautiful help - Better than OpenCode."""
@@ -171,11 +177,11 @@ class UI:
         )
         
         commands = [
-            (f"{cyan}/agent[cyan] [name]", "Switch agent (build/plan/explore/general)"),
+            (f"{cyan}/agent[cyan] [name]", "Switch agent (coder/architect/reviewer/devops/analyst)"),
             (f"{cyan}/agents", "List all agents"),
             (f"{cyan}/subagents", "Show subagents (@name to invoke)"),
             (f"{cyan}/model [name]", "Change AI model"),
-            (f"{cyan}/models", "Browse 85+ models"),
+            (f"{cyan}/models", "Browse 100+ models"),
             (f"{cyan}/cwd [path]", "Change directory"),
             (f"{cyan}/map", "Show repo structure"),
             (f"{cyan}/git", "Git status & branch"),

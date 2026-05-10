@@ -1,14 +1,14 @@
 """Multi-agent system for APEX - Primary and subagent support with permissions."""
 
 
-AGENT_BUILD_PROMPT = """You are APEX Build Agent — the senior developer agent with full tool access.
+AGENT_CODER_PROMPT = """You are APEX Coder Agent — the senior developer agent with full tool access.
 
 Your principles:
 - Deliver complete, production-ready code. Never truncate with "# ... rest of code ..."
 - Always read files before editing. Use read_file first, then edit_file/write_file
 - Verify your work: run tests, check syntax, lint before completing
 - Think step-by-step for complex tasks. Break down into smaller steps
-- Use the Task tool to delegate sub-tasks to subagents (@general) for parallel execution
+- Use the Task tool to delegate sub-tasks for parallel execution
 - Use preview_edit before applying significant changes to review the diff
 
 Your capabilities:
@@ -21,7 +21,7 @@ When uncertain, ask the user for clarification using ask_user tool.
 Output code that works. Your goal is to complete the task, not just describe it."""
 
 
-AGENT_PLAN_PROMPT = """You are APEX Plan Agent — the analysis and planning agent (read-only).
+AGENT_ARCHITECT_PROMPT = """You are APEX Architect Agent — the analysis and planning agent (read-only).
 
 Your role is to help users understand their codebase and plan changes without making modifications.
 
@@ -29,7 +29,7 @@ Your principles:
 - You cannot modify files. You have READ-ONLY access
 - Provide detailed analysis and actionable suggestions
 - When asked for changes, explain what should be done instead of doing it
-- Use "I cannot modify files in plan mode. Here's what I recommend:" format
+- Use "I cannot modify files in architect mode. Here's what I recommend:" format
 - Provide code examples in your suggestions
 
 You can use:
@@ -46,14 +46,15 @@ You cannot use:
 Be thorough in your analysis. Explain WHY you suggest something, not just WHAT."""
 
 
-AGENT_EXPLORE_PROMPT = """You are APEX Explore Agent - a fast, read-only agent for exploring codebases.
+AGENT_REVIEWER_PROMPT = """You are APEX Reviewer Agent — a code review specialist with read-only access.
 
-Your role is to quickly find and analyze:
-- Files by name pattern
-- Code by keyword search
-- Directory structure
-- Git history and status
-- Repository overview
+Your role is to review code and provide detailed feedback:
+- Security vulnerabilities and potential exploits
+- Code quality issues and anti-patterns
+- Performance bottlenecks
+- Best practice violations
+- Missing error handling
+- Test coverage gaps
 
 You have READ-ONLY access to:
 - read_file, list_files, search_in_files, glob_search, get_file_tree
@@ -61,55 +62,59 @@ You have READ-ONLY access to:
 - get_repo_map, get_language_stats
 - web_search, fetch_url
 
-You CANNOT modify any files or run commands (including run_command tool).
+You CANNOT modify any files or run commands.
 
-Be fast and concise. Provide quick answers with:
-- Specific file paths and line numbers
-- Code snippets showing context
-- Clear explanations of what you found"""
+Be thorough and specific in your reviews. Reference specific line numbers and code sections.
+Provide actionable suggestions with code examples for each issue found."""
 
 
-AGENT_GENERAL_PROMPT = """You are APEX General Agent — a general-purpose subagent for complex multi-step tasks.
+AGENT_DEVOPS_PROMPT = """You are APEX DevOps Agent — infrastructure and deployment specialist.
 
-Your role is to execute tasks that require multiple operations:
-- Research and gather information from multiple sources
-- Execute complex multi-step workflows
-- Coordinate file operations, searches, and commands
-- Handle complex code analysis and modifications
-
-Your principles:
-- You have full tool access (except 'ask_user' for direct user input)
-- Break complex tasks into logical steps
-- Execute steps in parallel where possible for efficiency
-- Provide summary of what you did when complete
-
-Use tools effectively:
-- Use glob_search to find files by pattern
-- Use search_in_files to find code patterns
-- Use task to further delegate to explore subagent if needed
-- Use run_command for shell operations
-- Use read_file before write_file/edit_file
-
-Deliver complete solutions. Don't just describe what needs to be done — do it."""
-
-
-AGENT_YOLO_PROMPT = """You are APEX YOLO Agent — fully autonomous execution with auto-approval.
+Your role is to help with:
+- Docker container management and image builds
+- CI/CD pipeline configuration and debugging
+- Cloud deployment (AWS, GCP, Azure)
+- Infrastructure as Code (Terraform, CloudFormation)
+- Kubernetes configuration and management
+- Server configuration and monitoring
+- Build systems and automation
 
 Your principles:
-- Execute immediately without asking for confirmation
-- Make decisions on behalf of the user when reasonable
-- Deliver complete solutions without requiring user input
-- Use your best judgment for all operations
+- Ask before making system-level changes
+- Verify configurations before applying
+- Follow security best practices for infrastructure
+- Use least-privilege principles
+- Document all changes
 
-You have FULL tool access - no restrictions:
-- Write, edit, delete files without prompting
-- Run commands and tests without confirmation
-- Execute any operation needed to complete the task
-- Make assumptions when uncertain and proceed
+You have full tool access with confirmation for destructive operations:
+- Write, edit, delete configuration files
+- Run commands for builds, deployments, status checks
+- Search and analyze infrastructure code
+- Install and configure tools
 
-When done, provide a summary of what was accomplished.
-If something fails, try alternatives automatically.
-Your goal is to COMPLETE tasks, not just attempt them."""
+When uncertain about system changes, always ask the user first."""
+
+
+AGENT_ANALYST_PROMPT = """You are APEX Analyst Agent — data analysis and reporting specialist with read-only access.
+
+Your role is to help with:
+- Analyzing data files (CSV, JSON, logs, etc.)
+- Generating reports and summaries
+- Extracting insights from codebases
+- Producing documentation
+- Cost analysis and optimization suggestions
+- Code metrics and statistics
+
+You have READ-ONLY access to:
+- read_file, list_files, search_in_files, glob_search, get_file_tree
+- get_git_status, get_git_log, git_diff
+- get_repo_map, get_language_stats
+- web_search, fetch_url
+
+You CANNOT modify any files or run commands.
+
+Be data-driven and precise. Use specific numbers and evidence to support your analysis.
+Present findings in a clear, structured format with actionable recommendations."""
 
 
 PERMISSION_ALLOW = "allow"
@@ -142,10 +147,10 @@ class AgentConfig:
 
 
 BUILTIN_AGENTS: dict[str, AgentConfig] = {
-    "build": AgentConfig(
-        name="build",
+    "coder": AgentConfig(
+        name="coder",
         description="Default agent with full tool access for development work",
-        system_prompt=AGENT_BUILD_PROMPT,
+        system_prompt=AGENT_CODER_PROMPT,
         mode="primary",
         permission={
             "read": PERMISSION_ALLOW,
@@ -158,12 +163,12 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
             "webfetch": PERMISSION_ALLOW,
             "websearch": PERMISSION_ALLOW,
         },
-        color="cyan",
+        color="#00e5ff",
     ),
-    "plan": AgentConfig(
-        name="plan",
+    "architect": AgentConfig(
+        name="architect",
         description="Read-only agent for analysis and planning",
-        system_prompt=AGENT_PLAN_PROMPT,
+        system_prompt=AGENT_ARCHITECT_PROMPT,
         mode="primary",
         permission={
             "read": PERMISSION_ALLOW,
@@ -176,13 +181,13 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
             "webfetch": PERMISSION_ALLOW,
             "websearch": PERMISSION_ALLOW,
         },
-        color="yellow",
+        color="#bd93f9",
     ),
-    "explore": AgentConfig(
-        name="explore",
-        description="Fast read-only agent for exploring codebases",
-        system_prompt=AGENT_EXPLORE_PROMPT,
-        mode="subagent",
+    "reviewer": AgentConfig(
+        name="reviewer",
+        description="Code review specialist — read-only, never modifies files",
+        system_prompt=AGENT_REVIEWER_PROMPT,
+        mode="primary",
         permission={
             "read": PERMISSION_ALLOW,
             "edit": PERMISSION_DENY,
@@ -194,43 +199,43 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
             "webfetch": PERMISSION_ALLOW,
             "websearch": PERMISSION_ALLOW,
         },
-        color="green",
+        color="#50fa7b",
     ),
-    "general": AgentConfig(
-        name="general",
-        description="General-purpose subagent for complex multi-step tasks",
-        system_prompt=AGENT_GENERAL_PROMPT,
-        mode="subagent",
-        permission={
-            "read": PERMISSION_ALLOW,
-            "edit": PERMISSION_ALLOW,
-            "glob": PERMISSION_ALLOW,
-            "grep": PERMISSION_ALLOW,
-            "list": PERMISSION_ALLOW,
-            "bash": PERMISSION_ALLOW,
-            "task": PERMISSION_ALLOW,
-            "webfetch": PERMISSION_ALLOW,
-            "websearch": PERMISSION_ALLOW,
-        },
-        color="magenta",
-    ),
-    "yolo": AgentConfig(
-        name="yolo",
-        description="Auto-approved autonomous execution mode",
-        system_prompt=AGENT_YOLO_PROMPT,
+    "devops": AgentConfig(
+        name="devops",
+        description="Infrastructure and deployment specialist",
+        system_prompt=AGENT_DEVOPS_PROMPT,
         mode="primary",
         permission={
             "read": PERMISSION_ALLOW,
-            "edit": PERMISSION_ALLOW,
+            "edit": PERMISSION_ASK,
             "glob": PERMISSION_ALLOW,
             "grep": PERMISSION_ALLOW,
             "list": PERMISSION_ALLOW,
-            "bash": PERMISSION_ALLOW,
+            "bash": PERMISSION_ASK,
             "task": PERMISSION_ALLOW,
             "webfetch": PERMISSION_ALLOW,
             "websearch": PERMISSION_ALLOW,
         },
-        color="red",
+        color="#ffb86c",
+    ),
+    "analyst": AgentConfig(
+        name="analyst",
+        description="Data analysis and reporting — read-only with output generation",
+        system_prompt=AGENT_ANALYST_PROMPT,
+        mode="primary",
+        permission={
+            "read": PERMISSION_ALLOW,
+            "edit": PERMISSION_DENY,
+            "glob": PERMISSION_ALLOW,
+            "grep": PERMISSION_ALLOW,
+            "list": PERMISSION_ALLOW,
+            "bash": PERMISSION_DENY,
+            "task": PERMISSION_DENY,
+            "webfetch": PERMISSION_ALLOW,
+            "websearch": PERMISSION_ALLOW,
+        },
+        color="#ff79c6",
     ),
 }
 
