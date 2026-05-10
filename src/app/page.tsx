@@ -8,7 +8,8 @@ import {
   Cpu, Globe, Lock, Eye, FileCode, Search, Play, Command,
   Layers, Sparkles, Box, Activity, Clock, Heart, BookOpen,
   Menu, X, ChevronRight, HomeIcon, Settings, Puzzle, AlertCircle,
-  ArrowLeft, Hash
+  ArrowLeft, Hash, GitPullRequest, CircleDot, Radio, Tag, Commit,
+  GitCommit, MessageSquare, Megaphone, Loader2
 } from 'lucide-react'
 
 /* ──────────── NAV STATE ──────────── */
@@ -120,6 +121,71 @@ const COMPARISON = [
   { feature: 'Plugin System', apex: true, opencode: false, claudecode: false, aider: false },
   { feature: 'Open Source', apex: true, opencode: true, claudecode: false, aider: true },
 ]
+
+/* ──────────── GITHUB TYPES ──────────── */
+
+interface GitHubRepoData {
+  stargazers_count: number
+  forks_count: number
+  open_issues_count: number
+  subscribers_count: number
+  contributors: number
+  latest_release: { tag_name: string; published_at: string } | null
+}
+
+interface GitHubIssue {
+  number: number
+  title: string
+  state: 'open' | 'closed'
+  created_at: string
+  user: { login: string }
+  labels: { name: string; color: string }[]
+}
+
+interface GitHubPullRequest {
+  number: number
+  title: string
+  state: 'open' | 'closed'
+  merged_at: string | null
+  created_at: string
+  user: { login: string }
+  labels: { name: string; color: string }[]
+}
+
+interface GitHubRelease {
+  tag_name: string
+  name: string
+  published_at: string
+  body: string
+}
+
+interface GitHubData {
+  repo: GitHubRepoData | null
+  issues: GitHubIssue[]
+  pullRequests: GitHubPullRequest[]
+  releases: GitHubRelease[]
+}
+
+/* ──────────── HELPER: RELATIVE TIME ──────────── */
+
+function timeAgo(dateString: string): string {
+  const now = Date.now()
+  const date = new Date(dateString).getTime()
+  const diff = now - date
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  const weeks = Math.floor(days / 7)
+  const months = Math.floor(days / 30)
+
+  if (seconds < 60) return `${seconds}s ago`
+  if (minutes < 60) return `${minutes}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days < 7) return `${days}d ago`
+  if (weeks < 5) return `${weeks}w ago`
+  return `${months}mo ago`
+}
 
 
 /* ──────────── helper components ──────────── */
@@ -855,12 +921,13 @@ const DOC_CONTENT: Record<DocSection, React.ReactNode> = {
 
 /* ──────────── SHARED NAV COMPONENT ──────────── */
 
-function NavBar({ pageView, setPageView, scrolled, mobileMenuOpen, setMobileMenuOpen }: {
+function NavBar({ pageView, setPageView, scrolled, mobileMenuOpen, setMobileMenuOpen, apiStatus }: {
   pageView: PageView
   setPageView: (v: PageView) => void
   scrolled: boolean
   mobileMenuOpen: boolean
   setMobileMenuOpen: (v: boolean) => void
+  apiStatus: 'online' | 'offline' | 'loading'
 }) {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -889,6 +956,12 @@ function NavBar({ pageView, setPageView, scrolled, mobileMenuOpen, setMobileMenu
                 <a href="#agents" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Agents</a>
                 <a href="#models" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Models</a>
                 <a href="#tools" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Tools</a>
+                <a href="#activity" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                  <Activity className="w-3.5 h-3.5" /> Activity
+                </a>
+                <a href="https://github.com/Ggboykxz/APEX/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                  <GitBranch className="w-3.5 h-3.5" /> Roadmap
+                </a>
                 <button onClick={() => setPageView('docs')} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
                   <BookOpen className="w-4 h-4" /> Docs
                 </button>
@@ -902,6 +975,15 @@ function NavBar({ pageView, setPageView, scrolled, mobileMenuOpen, setMobileMenu
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <Github className="w-4 h-4" /> GitHub
             </a>
+            {/* API Status Indicator */}
+            <div className="flex items-center gap-1.5 text-xs font-mono">
+              <span className={`w-1.5 h-1.5 rounded-full pulse-dot ${
+                apiStatus === 'online' ? 'bg-apex-green' : apiStatus === 'offline' ? 'bg-apex-red' : 'bg-apex-yellow'
+              }`} />
+              <span className={apiStatus === 'online' ? 'text-apex-green' : apiStatus === 'offline' ? 'text-apex-red' : 'text-apex-yellow'}>
+                API · {apiStatus === 'online' ? 'Online' : apiStatus === 'offline' ? 'Offline' : 'Sync'}
+              </span>
+            </div>
             {pageView === 'landing' && (
               <a href="#install"
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-apex-cyan text-background text-sm font-medium hover:bg-apex-cyan/90 transition-colors">
@@ -911,6 +993,12 @@ function NavBar({ pageView, setPageView, scrolled, mobileMenuOpen, setMobileMenu
           </div>
 
           <div className="flex items-center gap-2 md:hidden">
+            {/* Mobile API status */}
+            <div className="flex items-center gap-1 text-xs font-mono">
+              <span className={`w-1.5 h-1.5 rounded-full pulse-dot ${
+                apiStatus === 'online' ? 'bg-apex-green' : apiStatus === 'offline' ? 'bg-apex-red' : 'bg-apex-yellow'
+              }`} />
+            </div>
             {pageView === 'landing' && (
               <button onClick={() => setPageView('docs')} className="p-2 text-muted-foreground hover:text-foreground">
                 <BookOpen className="w-5 h-5" />
@@ -944,6 +1032,38 @@ export default function Home() {
   const [docsSidebarOpen, setDocsSidebarOpen] = useState(false)
   const docContentRef = useRef<HTMLDivElement>(null)
 
+  // GitHub live data
+  const [githubData, setGithubData] = useState<GitHubData | null>(null)
+  const [githubLoading, setGithubLoading] = useState(true)
+  const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'loading'>('loading')
+
+  // Fetch GitHub data
+  useEffect(() => {
+    let isMounted = true
+    const fetchGithub = async () => {
+      try {
+        setGithubLoading(true)
+        const res = await fetch('/api/github')
+        if (!res.ok) throw new Error('Failed to fetch')
+        const data: GitHubData = await res.json()
+        if (isMounted) {
+          setGithubData(data)
+          setApiStatus('online')
+          setGithubLoading(false)
+        }
+      } catch {
+        if (isMounted) {
+          setApiStatus('offline')
+          setGithubLoading(false)
+        }
+      }
+    }
+    fetchGithub()
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchGithub, 300000)
+    return () => { isMounted = false; clearInterval(interval) }
+  }, [])
+
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', handleScroll)
@@ -968,7 +1088,7 @@ export default function Home() {
   if (pageView === 'docs') {
     return (
       <div className="min-h-screen flex flex-col bg-background">
-        <NavBar pageView={pageView} setPageView={setPageView} scrolled={scrolled} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
+        <NavBar pageView={pageView} setPageView={setPageView} scrolled={scrolled} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} apiStatus={apiStatus} />
         <div className="flex flex-1 pt-16">
           {/* Sidebar */}
           <aside className={`fixed md:sticky top-16 left-0 bottom-0 z-40 w-64 shrink-0 border-r border-border bg-background overflow-y-auto transition-transform duration-200 ${
@@ -1041,10 +1161,81 @@ export default function Home() {
   /* ─── LANDING VIEW ─── */
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <NavBar pageView={pageView} setPageView={setPageView} scrolled={scrolled} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} />
+      <NavBar pageView={pageView} setPageView={setPageView} scrolled={scrolled} mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} apiStatus={apiStatus} />
+
+      {/* ─── LIVE TICKER BAR ─── */}
+      <div className="relative pt-16">
+        <div className="bg-card/80 border-b border-border/50 overflow-hidden">
+          <div className="flex items-center">
+            <div className="shrink-0 px-3 py-2 bg-apex-cyan/10 border-r border-border/50 flex items-center gap-1.5">
+              <Radio className="w-3 h-3 text-apex-cyan" />
+              <span className="text-xs font-mono font-bold text-apex-cyan uppercase">Live</span>
+            </div>
+            <div className="overflow-hidden flex-1">
+              {githubLoading ? (
+                <div className="flex items-center gap-2 px-4 py-2">
+                  <Loader2 className="w-3 h-3 text-muted-foreground animate-spin" />
+                  <span className="text-xs text-muted-foreground font-mono">Loading activity...</span>
+                </div>
+              ) : githubData ? (
+                <div className="ticker-track">
+                  {/* Duplicate content for seamless loop */}
+                  {[...githubData.issues.slice(0, 5), ...githubData.pullRequests.slice(0, 5), ...githubData.releases.slice(0, 3),
+                    ...githubData.issues.slice(0, 5), ...githubData.pullRequests.slice(0, 5), ...githubData.releases.slice(0, 3)
+                  ].map((item, i) => {
+                    const isIssue = 'state' in item && !('merged_at' in item)
+                    const isPR = 'merged_at' in item
+                    const isRelease = 'tag_name' in item && 'body' in item
+                    return (
+                      <a
+                        key={i}
+                        href={
+                          isRelease
+                            ? `https://github.com/Ggboykxz/APEX/releases/tag/${(item as GitHubRelease).tag_name}`
+                            : `https://github.com/Ggboykxz/APEX/issues/${(item as GitHubIssue | GitHubPullRequest).number}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 flex items-center gap-2 px-4 py-2 hover:bg-card transition-colors border-r border-border/30"
+                      >
+                        {isIssue && (
+                          <>
+                            <CircleDot className={`w-3 h-3 ${(item as GitHubIssue).state === 'open' ? 'text-apex-green' : 'text-apex-red'}`} />
+                            <span className="text-xs font-mono text-muted-foreground">ISS #{(item as GitHubIssue).number}</span>
+                            <span className="text-xs text-foreground truncate max-w-[200px]">{(item as GitHubIssue).title}</span>
+                            <span className="text-xs text-muted-foreground">{timeAgo((item as GitHubIssue).created_at)}</span>
+                          </>
+                        )}
+                        {isPR && (
+                          <>
+                            <GitPullRequest className={`w-3 h-3 ${(item as GitHubPullRequest).merged_at ? 'text-apex-magenta' : (item as GitHubPullRequest).state === 'open' ? 'text-apex-green' : 'text-apex-red'}`} />
+                            <span className="text-xs font-mono text-muted-foreground">PR #{(item as GitHubPullRequest).number}</span>
+                            <span className="text-xs text-foreground truncate max-w-[200px]">{(item as GitHubPullRequest).title}</span>
+                            <span className="text-xs text-muted-foreground">{timeAgo((item as GitHubPullRequest).created_at)}</span>
+                          </>
+                        )}
+                        {isRelease && (
+                          <>
+                            <Tag className="w-3 h-3 text-apex-cyan" />
+                            <span className="text-xs font-mono text-apex-cyan">{(item as GitHubRelease).tag_name}</span>
+                            <span className="text-xs text-foreground truncate max-w-[200px]">{(item as GitHubRelease).name || 'Release'}</span>
+                            <span className="text-xs text-muted-foreground">{timeAgo((item as GitHubRelease).published_at)}</span>
+                          </>
+                        )}
+                      </a>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="px-4 py-2 text-xs text-muted-foreground font-mono">Unable to load activity feed</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ─── HERO ─── */}
-      <section className="relative pt-32 pb-20 overflow-hidden">
+      <section className="relative pt-20 pb-20 overflow-hidden">
         <div className="absolute inset-0 grid-pattern" />
         <div className="absolute inset-0 radial-gradient" />
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-apex-cyan/5 rounded-full blur-3xl" />
@@ -1134,18 +1325,70 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ─── STATS ─── */}
+      {/* ─── GITHUB STATS BAR ─── */}
       <section className="py-20 relative">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {STATS.map((stat, i) => (
-              <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: i * 0.1 }}
-                className="text-center p-4 rounded-xl border border-border/50 bg-card/50 hover:border-apex-cyan/20 transition-all">
-                <stat.icon className="w-5 h-5 text-apex-cyan mx-auto mb-2" />
-                <div className="text-2xl md:text-3xl font-bold font-mono mb-1"><AnimatedCounter value={stat.value} /></div>
-                <div className="text-xs text-muted-foreground">{stat.label}</div>
-              </motion.div>
-            ))}
+            {/* Stars */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0 }}
+              className="text-center p-4 rounded-xl border border-border/50 bg-card/50 hover:border-apex-yellow/20 transition-all">
+              <Star className="w-5 h-5 text-apex-yellow mx-auto mb-2" />
+              <div className="text-2xl md:text-3xl font-bold font-mono mb-1">
+                {githubLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" /> :
+                  <AnimatedCounter value={String(githubData?.repo?.stargazers_count ?? 0)} />}
+              </div>
+              <div className="text-xs text-muted-foreground">Stars</div>
+            </motion.div>
+            {/* Forks */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.1 }}
+              className="text-center p-4 rounded-xl border border-border/50 bg-card/50 hover:border-apex-cyan/20 transition-all">
+              <GitBranch className="w-5 h-5 text-apex-cyan mx-auto mb-2" />
+              <div className="text-2xl md:text-3xl font-bold font-mono mb-1">
+                {githubLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" /> :
+                  <AnimatedCounter value={String(githubData?.repo?.forks_count ?? 0)} />}
+              </div>
+              <div className="text-xs text-muted-foreground">Forks</div>
+            </motion.div>
+            {/* Contributors */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.2 }}
+              className="text-center p-4 rounded-xl border border-border/50 bg-card/50 hover:border-apex-green/20 transition-all">
+              <Users className="w-5 h-5 text-apex-green mx-auto mb-2" />
+              <div className="text-2xl md:text-3xl font-bold font-mono mb-1">
+                {githubLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" /> :
+                  <AnimatedCounter value={String(githubData?.repo?.contributors ?? 0)} />}
+              </div>
+              <div className="text-xs text-muted-foreground">Contributors</div>
+            </motion.div>
+            {/* Latest Version */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.3 }}
+              className="text-center p-4 rounded-xl border border-border/50 bg-card/50 hover:border-apex-magenta/20 transition-all">
+              <Tag className="w-5 h-5 text-apex-magenta mx-auto mb-2" />
+              <div className="text-lg md:text-xl font-bold font-mono mb-1 text-apex-magenta">
+                {githubLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" /> :
+                  githubData?.repo?.latest_release?.tag_name || '—'}
+              </div>
+              <div className="text-xs text-muted-foreground">Latest</div>
+            </motion.div>
+            {/* Open Issues */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.4 }}
+              className="text-center p-4 rounded-xl border border-border/50 bg-card/50 hover:border-apex-yellow/20 transition-all">
+              <CircleDot className="w-5 h-5 text-apex-yellow mx-auto mb-2" />
+              <div className="text-2xl md:text-3xl font-bold font-mono mb-1">
+                {githubLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" /> :
+                  <AnimatedCounter value={String(githubData?.repo?.open_issues_count ?? 0)} />}
+              </div>
+              <div className="text-xs text-muted-foreground">Open Issues</div>
+            </motion.div>
+            {/* Watchers */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.5 }}
+              className="text-center p-4 rounded-xl border border-border/50 bg-card/50 hover:border-apex-cyan/20 transition-all">
+              <Eye className="w-5 h-5 text-apex-cyan mx-auto mb-2" />
+              <div className="text-2xl md:text-3xl font-bold font-mono mb-1">
+                {githubLoading ? <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" /> :
+                  <AnimatedCounter value={String(githubData?.repo?.subscribers_count ?? 0)} />}
+              </div>
+              <div className="text-xs text-muted-foreground">Watchers</div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -1229,6 +1472,237 @@ export default function Home() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── ACTIVITY FEED ─── */}
+      <section id="activity" className="py-20 relative overflow-hidden">
+        <div className="absolute inset-0 grid-pattern opacity-30" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
+          <SectionHeader badge="LIVE ACTIVITY" title="Project Activity" description="Real-time feed of issues, pull requests, and releases from the APEX repository." />
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Issues Column */}
+            <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}
+              className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
+              <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CircleDot className="w-4 h-4 text-apex-green" />
+                  <h3 className="font-mono font-bold text-sm">Recent Issues</h3>
+                </div>
+                <a href="https://github.com/Ggboykxz/APEX/issues" target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground hover:text-apex-cyan transition-colors font-mono flex items-center gap-1">
+                  View all <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <div className="max-h-96 overflow-y-auto divide-y divide-border/30">
+                {githubLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : githubData && githubData.issues.length > 0 ? (
+                  githubData.issues.slice(0, 8).map(issue => (
+                    <a key={issue.number} href={`https://github.com/Ggboykxz/APEX/issues/${issue.number}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-start gap-3 px-5 py-3 hover:bg-card/80 transition-colors group">
+                      <CircleDot className={`w-4 h-4 mt-0.5 shrink-0 ${issue.state === 'open' ? 'text-apex-green' : 'text-apex-red'}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-foreground group-hover:text-apex-cyan transition-colors truncate">{issue.title}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs font-mono text-muted-foreground">#{issue.number}</span>
+                          <span className="text-xs text-muted-foreground">opened by <span className="text-apex-cyan">{issue.user.login}</span></span>
+                          <span className="text-xs text-muted-foreground">{timeAgo(issue.created_at)}</span>
+                          {issue.labels.slice(0, 2).map(label => (
+                            <span key={label.name} className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                              style={{ backgroundColor: `#${label.color}20`, color: `#${label.color}`, border: `1px solid #${label.color}40` }}>
+                              {label.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </a>
+                  ))
+                ) : (
+                  <div className="px-5 py-8 text-center text-sm text-muted-foreground">No issues found</div>
+                )}
+              </div>
+            </motion.div>
+
+            {/* Pull Requests Column */}
+            <motion.div initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}
+              className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
+              <div className="px-5 py-4 border-b border-border/50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <GitPullRequest className="w-4 h-4 text-apex-magenta" />
+                  <h3 className="font-mono font-bold text-sm">Recent Pull Requests</h3>
+                </div>
+                <a href="https://github.com/Ggboykxz/APEX/pulls" target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground hover:text-apex-cyan transition-colors font-mono flex items-center gap-1">
+                  View all <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <div className="max-h-96 overflow-y-auto divide-y divide-border/30">
+                {githubLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : githubData && githubData.pullRequests.length > 0 ? (
+                  githubData.pullRequests.slice(0, 8).map(pr => (
+                    <a key={pr.number} href={`https://github.com/Ggboykxz/APEX/pull/${pr.number}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-start gap-3 px-5 py-3 hover:bg-card/80 transition-colors group">
+                      <GitPullRequest className={`w-4 h-4 mt-0.5 shrink-0 ${
+                        pr.merged_at ? 'text-apex-magenta' : pr.state === 'open' ? 'text-apex-green' : 'text-apex-red'
+                      }`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-foreground group-hover:text-apex-cyan transition-colors truncate">{pr.title}</span>
+                          {pr.merged_at && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-apex-magenta/10 text-apex-magenta border border-apex-magenta/20">merged</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs font-mono text-muted-foreground">#{pr.number}</span>
+                          <span className="text-xs text-muted-foreground">by <span className="text-apex-cyan">{pr.user.login}</span></span>
+                          <span className="text-xs text-muted-foreground">{timeAgo(pr.created_at)}</span>
+                          {pr.labels.slice(0, 2).map(label => (
+                            <span key={label.name} className="px-1.5 py-0.5 rounded text-[10px] font-mono"
+                              style={{ backgroundColor: `#${label.color}20`, color: `#${label.color}`, border: `1px solid #${label.color}40` }}>
+                              {label.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </a>
+                  ))
+                ) : (
+                  <div className="px-5 py-8 text-center text-sm text-muted-foreground">No pull requests found</div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── DAILY DISPATCH ─── */}
+      <section className="py-20 relative">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <SectionHeader badge="DISPATCH" title="Daily Highlights" description="The latest from the APEX project — releases, merges, and key changes." />
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* Latest Release */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4 }}
+              className="md:col-span-1 p-6 rounded-xl border border-border/50 bg-card/50 hover:border-apex-cyan/20 transition-all">
+              <div className="flex items-center gap-2 mb-4">
+                <Tag className="w-5 h-5 text-apex-cyan" />
+                <h3 className="font-mono font-bold text-sm">Latest Release</h3>
+              </div>
+              {githubLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : githubData && githubData.releases.length > 0 ? (
+                <div>
+                  <div className="text-2xl font-bold font-mono text-apex-cyan mb-2">
+                    {githubData.releases[0].tag_name}
+                  </div>
+                  <div className="text-sm text-muted-foreground mb-3">
+                    {githubData.releases[0].name || 'Release'}
+                  </div>
+                  <div className="text-xs text-muted-foreground mb-4">
+                    Published {timeAgo(githubData.releases[0].published_at)}
+                  </div>
+                  {githubData.releases[0].body && (
+                    <div className="text-xs text-muted-foreground leading-relaxed line-clamp-4 mb-4 whitespace-pre-line">
+                      {githubData.releases[0].body.split('\n').filter(l => !l.startsWith('#') && l.trim()).slice(0, 4).join('\n')}
+                    </div>
+                  )}
+                  <a href={`https://github.com/Ggboykxz/APEX/releases/tag/${githubData.releases[0].tag_name}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-apex-cyan hover:underline font-mono">
+                    View release <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">No releases found</div>
+              )}
+            </motion.div>
+
+            {/* Recent Merged PRs Highlights */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.1 }}
+              className="md:col-span-1 p-6 rounded-xl border border-border/50 bg-card/50 hover:border-apex-green/20 transition-all">
+              <div className="flex items-center gap-2 mb-4">
+                <GitCommit className="w-5 h-5 text-apex-green" />
+                <h3 className="font-mono font-bold text-sm">Merged Highlights</h3>
+              </div>
+              {githubLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : githubData ? (
+                <div className="space-y-3">
+                  {githubData.pullRequests.filter(pr => pr.merged_at).slice(0, 5).map(pr => (
+                    <a key={pr.number} href={`https://github.com/Ggboykxz/APEX/pull/${pr.number}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="block group">
+                      <div className="flex items-start gap-2">
+                        <GitPullRequest className="w-3.5 h-3.5 mt-0.5 shrink-0 text-apex-magenta" />
+                        <div className="min-w-0">
+                          <div className="text-xs text-foreground group-hover:text-apex-cyan transition-colors truncate">
+                            {pr.title}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            #{pr.number} by {pr.user.login} · {timeAgo(pr.merged_at!)}
+                          </div>
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                  {githubData.pullRequests.filter(pr => pr.merged_at).length === 0 && (
+                    <div className="text-xs text-muted-foreground">No merged PRs in recent activity</div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">No data available</div>
+              )}
+            </motion.div>
+
+            {/* Key Changes / Release Log */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.4, delay: 0.2 }}
+              className="md:col-span-1 p-6 rounded-xl border border-border/50 bg-card/50 hover:border-apex-yellow/20 transition-all">
+              <div className="flex items-center gap-2 mb-4">
+                <Megaphone className="w-5 h-5 text-apex-yellow" />
+                <h3 className="font-mono font-bold text-sm">Release Log</h3>
+              </div>
+              {githubLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : githubData && githubData.releases.length > 0 ? (
+                <div className="space-y-3">
+                  {githubData.releases.map(release => (
+                    <a key={release.tag_name} href={`https://github.com/Ggboykxz/APEX/releases/tag/${release.tag_name}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="block group">
+                      <div className="flex items-start gap-2">
+                        <Tag className="w-3.5 h-3.5 mt-0.5 shrink-0 text-apex-cyan" />
+                        <div className="min-w-0">
+                          <div className="text-xs font-mono text-apex-cyan group-hover:text-foreground transition-colors">
+                            {release.tag_name}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {timeAgo(release.published_at)}
+                          </div>
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">No releases found</div>
+              )}
+            </motion.div>
           </div>
         </div>
       </section>
