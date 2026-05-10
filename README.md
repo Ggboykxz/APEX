@@ -53,17 +53,11 @@
 
 ## 🎨 TUI
 
-APEX features a modern terminal UI built with [OpenTUI](https://github.com/anomalyco/opentui) + React:
+APEX features a modern terminal UI built with [OpenTUI](https://github.com/anomalyco/opentui) + React. The TUI connects to the APEX backend via HTTP SSE for real-time token streaming, live cost tracking, and context percentage monitoring.
 
 ```bash
-# Launch the TUI
+# Launch the TUI (starts backend HTTP server + Bun frontend automatically)
 apex --tui
-
-# Or via npm
-bun run tui
-
-# Or directly
-cd tui-frontend && bun run start
 ```
 
 ### Keybindings
@@ -72,6 +66,7 @@ cd tui-frontend && bun run start
 |-----|--------|
 | `Tab` | Switch agent |
 | `Ctrl+K` | Model selector |
+| `Ctrl+L` | Clear messages + reset metrics |
 | `Ctrl+O` | Toggle sidebar |
 | `Ctrl+T` | Toggle tools panel |
 | `?` | Help panel |
@@ -81,9 +76,11 @@ cd tui-frontend && bun run start
 ### Features
 - **5 Agents**: Coder, Architect, Reviewer, DevOps, Analyst
 - **100+ Models**: OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, xAI, etc.
+- **Live Metrics**: Token streaming (prompt/completion), per-message cost, total spent, context %
+- **Agent Theming**: Title bar, status bar, and borders change color per agent
 - **75+ Tools**: File, Code, Shell, Git, Web, Database, Docker, K8s, Cloud, Security
 - **MCP/LSP**: Server status monitoring
-- **Theme**: Dark (#0d1117), Cyan (#00e5ff), Green (#00ff88)
+- **HTTP Backend**: Local SSE server on port 8080, error banners with auto-dismiss
 
 ---
 
