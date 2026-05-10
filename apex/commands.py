@@ -1,124 +1,164 @@
+"""Custom commands system for APEX - User and project commands."""
+
+import os
+import re
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Optional, Callable, Dict, List
+from dataclasses import dataclass
 
 
+@dataclass
 class Command:
-    def __init__(self, name: str, description: str, prompt: str, args: Optional[List[str]] = None):
-        self.name = name
-        self.description = description
-        self.prompt = prompt
-        self.args = args or []
-
-    def render(self, **kwargs) -> str:
-        result = self.prompt
-        for key, value in kwargs.items():
-            result = result.replace(f"{{{key}}}", str(value))
-        return result
+    name: str
+    description: str
+    content: str
+    category: str = "general"
+    short_help: str = ""
+    
+    @property
+    def trigger(self) -> str:
+        return f"{self.category}:{self.name}"
 
 
 class CommandManager:
-    def __init__(self, cwd: str):
-        self.cwd = cwd
+    """Manages custom commands for APEX."""
+    
+    USER_COMMANDS_DIR = Path.home() / ".apex" / "commands"
+    PROJECT_COMMANDS_DIR = ".apex" / "commands"
+    
+    def __init__(self, cwd: Optional[Path] = None):
+        self.cwd = cwd or Path.cwd()
         self._commands: Dict[str, Command] = {}
+        self._handlers: Dict[str, Callable] = {}
         self._load_commands()
-
-    def _load_commands(self):
-        command_dirs = [
-            Path(self.cwd) / ".apex" / "commands",
-            Path.home() / ".apex" / "commands",
-        ]
-
-        for command_dir in command_dirs:
-            if not command_dir.exists():
-                continue
-            for file in command_dir.glob("*.md"):
-                self._load_command_file(file)
-
-    def _load_command_file(self, filepath: Path):
-        try:
-            content = filepath.read_text()
-            lines = content.strip().split("\n")
-
-            name = filepath.stem
-            description = ""
-            prompt_lines = []
-            in_prompt = False
-
-            for line in lines:
-                if line.startswith("## Description:"):
-                    description = line.split(":", 1)[1].strip()
-                    continue
-                if line.strip() == "## Prompt":
-                    in_prompt = True
-                    continue
-                if in_prompt:
-                    prompt_lines.append(line)
-
-            prompt = "\n".join(prompt_lines).strip()
-            if prompt:
-                self._commands[name] = Command(name, description, prompt)
-        except Exception:
-            pass
-
-    def get(self, name: str) -> Optional[Command]:
-        return self._commands.get(name)
-
-    def list_commands(self) -> List[Dict[str, str]]:
-        return [
-            {"name": name, "description": cmd.description}
-            for name, cmd in self._commands.items()
-        ]
-
-    def execute(self, name: str, **kwargs) -> Optional[str]:
-        cmd = self._commands.get(name)
-        if not cmd:
+    
+    def _load_commands(self) -> None:
+        """Load commands from directories."""
+        self._load_user_commands()
+        self._load_project_commands()
+    
+    def _load_user_commands(self) -> None:
+        """Load global user commands."""
+        if self.USER_COMMANDS_DIR.exists():
+            self._load_from_dir(self.USER_COMMANDS_DIR, "user")
+    
+    def _load_project_commands(self) -> None:
+        """Load project-specific commands."""
+        project_dir = self.cwd / self.PROJECT_COMMANDS_DIR
+        if project_dir.exists():
+            self._load_from_dir(project_dir, "project")
+    
+    def _load_from_dir(self, directory: Path, category: str) -> None:
+        """Load all .md files from a directory."""
+        for md_file in directory.glob("*.md"):
+            try:
+                content = md_file.read_text()
+                command = self._parse_command(content, md_file.stem, category)
+                if command:
+                    self._commands[command.trigger] = command
+            except Exception:
+                pass
+    
+    def _parse_command(self, content: str, name: str, category: str) -> Optional[Command]:
+        """Parse a command from markdown content."""
+        lines = content.strip().split("\n")
+        if not lines:
             return None
-        return cmd.render(**kwargs)
-
-    def add_command(self, name: str, description: str, prompt: str):
-        self._commands[name] = Command(name, description, prompt)
-
-    def remove_command(self, name: str) -> bool:
-        if name in self._commands:
-            del self._commands[name]
-            return True
-        return False
-
-
-class PlanApproval:
-    def __init__(self):
-        self._pending_plan: Optional[str] = None
-        self._approved: bool = False
-
-    def set_plan(self, plan: str):
-        self._pending_plan = plan
-        self._approved = False
-
-    def approve(self):
-        self._approved = True
-
-    def reject(self):
-        self._pending_plan = None
-        self._approved = False
-
-    def get_plan(self) -> Optional[str]:
-        if self._approved:
-            return self._pending_plan
+        
+        title = lines[0].strip()
+        description = ""
+        if len(lines) > 1:
+            description = " ".join(lines[1:]).strip()
+        
+        return Command(
+            name=name,
+            description=description,
+            content=content,
+            category=category
+        )
+    
+    def register_command(
+        self,
+        name: str,
+        handler: Callable,
+        category: str = "user",
+        description: str = ""
+    ) -> None:
+        """Register a programmatic command."""
+        self._handlers[f"{category}:{name}"] = handler
+        self._commands[f"{category}:{name}"] = Command(
+            name=name,
+            description=description,
+            content=f"<!-- Programmatic command: {name} -->",
+            category=category
+        )
+    
+    def get_command(self, trigger: str) -> Optional[Command]:
+        """Get a command by trigger."""
+        return self._commands.get(trigger)
+    
+    def execute(self, trigger: str, context: Dict) -> Optional[str]:
+        """Execute a command."""
+        if trigger in self._handlers:
+            return self._handlers[trigger](context)
+        
+        command = self.get_command(trigger)
+        if command:
+            return self._expand_template(command.content, context)
+        
         return None
+    
+    def _expand_template(self, content: str, context: Dict) -> str:
+        """Expand template variables in command content."""
+        result = content
+        
+        for key, value in context.items():
+            placeholder = f"{{{key}}}"
+            result = result.replace(placeholder, str(value))
+        
+        for key, value in os.environ.items():
+            placeholder = f"${{{key}}}"
+            result = result.replace(placeholder, value)
+        
+        return result
+    
+    def list_commands(self, category: Optional[str] = None) -> List[Command]:
+        """List all commands, optionally filtered by category."""
+        commands = list(self._commands.values())
+        if category:
+            commands = [c for c in commands if c.category == category]
+        return commands
+    
+    def search(self, query: str) -> List[Command]:
+        """Search commands by name or description."""
+        query_lower = query.lower()
+        return [
+            c for c in self._commands.values()
+            if query_lower in c.name.lower() or query_lower in c.description.lower()
+        ]
+    
+    def create_command(self, name: str, content: str, category: str = "user", description: str = "") -> None:
+        """Create a new command file."""
+        if category == "user":
+            directory = self.USER_COMMANDS_DIR
+        else:
+            directory = self.cwd / self.PROJECT_COMMANDS_DIR
+        
+        directory.mkdir(parents=True, exist_ok=True)
+        
+        file_path = directory / f"{name}.md"
+        full_content = f"# {name}\n\n{description}\n\n{content}"
+        file_path.write_text(full_content)
+        
+        command = Command(
+            name=name,
+            description=description,
+            content=content,
+            category=category
+        )
+        self._commands[command.trigger] = command
 
-    def is_awaiting_approval(self) -> bool:
-        return self._pending_plan is not None and not self._approved
 
-    def clear(self):
-        self._pending_plan = None
-        self._approved = False
-
-
-_command_manager: Optional[CommandManager] = None
-
-
-def get_command_manager(cwd: str) -> CommandManager:
-    global _command_manager
-    if _command_manager is None:
-        _command_manager = CommandManager(cwd)
-    return _command_manager
+def create_command_manager(cwd: Optional[Path] = None) -> CommandManager:
+    """Factory function to create a command manager."""
+    return CommandManager(cwd)
