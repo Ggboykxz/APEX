@@ -214,6 +214,19 @@
   animation: blink 1s step-end infinite;
 }
 
+/* Ticker scroll animation */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: flex;
+  animation: ticker-scroll 60s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
 /* Smooth section scroll */
 html {
   scroll-behavior: smooth;
