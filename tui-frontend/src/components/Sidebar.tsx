@@ -41,7 +41,7 @@ export function Sidebar({ activeAgent, onAgentSelect, visible }: SidebarProps) {
       }}
     >
       <box style={{ height: 2, paddingLeft: 1, backgroundColor: apexTheme.bgOverlay }}>
-        <text style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>▲ APEX v1.0</text>
+        <text style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>▲ APEX v1.2</text>
         <text style={{ fg: apexTheme.textMuted }}>Agentic Coding Platform</text>
       </box>
 

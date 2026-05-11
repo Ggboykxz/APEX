@@ -194,7 +194,19 @@ main() {
         echo -e "${MUTED}Default model set to: $default_model${NC}"
     fi
 
+    # Offer TUI installation
     echo ""
+    echo -e "${CYAN}TUI Mode (Optional)${NC}"
+    echo -e "${MUTED}APEX TUI requires Bun runtime and TUI frontend files.${NC}"
+    if command -v bun &>/dev/null; then
+        echo -e "${GREEN}Bun already installed${NC}"
+    else
+        echo -e "${YELLOW}Bun not found. Install it for TUI support:${NC}"
+        echo -e "  ${MUTED}curl -fsSL https://bun.sh/install | bash${NC}"
+    fi
+    echo -e "${MUTED}After installing Bun, run: apex --install-tui${NC}"
+    echo ""
+
     echo -e "${GREEN}${BOLD}APEX v${APEX_VERSION} installed successfully!${NC}"
     echo ""
     echo -e "  ${CYAN}1.${NC} Set your API key:"
@@ -207,7 +219,8 @@ main() {
     echo -e "     ${GREEN}apex --model ollama-llama3${NC}"
     echo ""
     echo -e "  ${MUTED}TUI mode:${NC}"
-    echo -e "     ${GREEN}apex --tui${NC}"
+    echo -e "     ${GREEN}apex --install-tui${NC}  ${MUTED}# First time only${NC}"
+    echo -e "     ${GREEN}apex --tui${NC}         ${MUTED}# Launch TUI${NC}"
     echo ""
     echo -e "  ${MUTED}Docker:${NC}"
     echo -e "     ${GREEN}docker run -it -v \$(pwd):/workspace ghcr.io/ggboykxz/apex${NC}"
