@@ -4,7 +4,7 @@
 # ============================================
 
 # ---- Stage 1: Python backend ----
-FROM python:3.12-slim AS python-base
+FROM python:3.14-slim AS python-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -28,7 +28,7 @@ RUN bun install --frozen-lockfile
 COPY tui-frontend/ ./
 
 # ---- Stage 3: Final image ----
-FROM python:3.12-slim AS final
+FROM python:3.14-slim AS final
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl git ca-certificates unzip && \
