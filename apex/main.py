@@ -664,7 +664,7 @@ def _find_tui_dir() -> Path | None:
     # 2. Installed package: tui-frontend/ is a sibling of site-packages
     for candidate in [
         Path(__file__).parent.parent.parent / "tui-frontend",  # site-packages/tui-frontend/
-        Path.home() / ".apex" / "tui-frontend",             # ~/.apex/tui-frontend/
+        Path.home() / ".apex" / "tui-frontend",  # ~/.apex/tui-frontend/
     ]:
         if (candidate / "src" / "App.tsx").exists():
             return candidate
@@ -686,6 +686,7 @@ def _find_bun() -> str | None:
 
     # Check PATH
     import shutil
+
     bun_in_path = shutil.which("bun")
     if bun_in_path:
         return bun_in_path
@@ -738,7 +739,9 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
     if not bun_path:
         bun_path = _install_bun(ui)
     if not bun_path:
-        ui.print_error("Could not find or install bun. Install manually: curl -fsSL https://bun.sh/install | bash")
+        ui.print_error(
+            "Could not find or install bun. Install manually: curl -fsSL https://bun.sh/install | bash"
+        )
         return False
 
     try:
@@ -838,7 +841,6 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
 
 def _install_tui_command(ui: UI) -> None:
     """Install TUI dependencies: bun runtime + tui-frontend source files."""
-    import shutil
 
     # Step 1: Install bun
     bun_path = _find_bun()
@@ -871,7 +873,10 @@ def _install_tui_command(ui: UI) -> None:
             try:
                 result = subprocess.run(
                     [
-                        "git", "clone", "--depth", "1",
+                        "git",
+                        "clone",
+                        "--depth",
+                        "1",
                         "https://github.com/Ggboykxz/APEX.git",
                         str(apex_dir / "apex-tmp"),
                     ],
@@ -882,6 +887,7 @@ def _install_tui_command(ui: UI) -> None:
                 if result.returncode == 0:
                     # Copy only tui-frontend
                     import shutil as sh
+
                     sh.copytree(
                         str(apex_dir / "apex-tmp" / "tui-frontend"),
                         str(tui_target),
