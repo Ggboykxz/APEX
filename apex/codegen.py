@@ -298,7 +298,7 @@ class DocumentationGenerator:
             "## Usage\n",
         ]
 
-        for f in files[:5]:
+        for f in sorted(files)[:5]:
             lines.append(f"### {f.stem}\n")
             lines.append(f"Run with: `python {f.name}`\n")
 
