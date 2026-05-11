@@ -2,7 +2,29 @@
 
 All notable changes to APEX are documented in this file. The project follows [Semantic Versioning](https://semver.org/).
 
-## v1.2.0 (Current) — 2026-05-11
+## v1.3.0 (Current) — 2026-05-11
+
+### CLI
+- **Subcommand Support**: `apex tui`, `apex ui`, `apex models`, `apex install-tui` now work as natural subcommands
+- **Help Text**: `apex --help` now shows a subcommands section
+- Backward compatible: `apex --tui`, `apex --list-models` still work
+
+### TUI
+- **Pip Install Fix**: TUI now works after `pip install apex-ai` via auto-setup
+- **Auto Bun Install**: Bun runtime is automatically installed if not found
+- **Auto Dependency Install**: TUI npm dependencies are installed on first run
+- **`apex install-tui`**: One-time TUI setup command
+- **`python -m apex`**: Now supported
+
+### Website
+- **Official Provider Logos**: Real brand logos for all 21 AI providers (Simple Icons)
+- **Website Content Fixes**: Corrected inconsistencies across all documentation and site pages
+
+### CI/CD
+- Fixed Docker build failure (removed data-files from pyproject.toml)
+- Fixed 7 failing CI workflows + codegen/UI test failures
+
+## v1.2.0 — 2026-05-11
 
 - **Version bump**: 1.1.0 → 1.2.0
 - **Dockerfile fix**: Corrected Python site-packages path from `python3.12` to `python3.13` to match the `python:3.13-slim` base image

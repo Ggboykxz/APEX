@@ -14,13 +14,26 @@ You can also add the key to a `.env` file in your project root or configure it t
 
 ## Step 2 — Launch APEX
 
-Start the terminal UI by simply running:
+Start the interactive REPL by simply running:
 
 ```bash
 apex
 ```
 
-This opens the APEX TUI — a rich terminal interface built with OpenTUI and React featuring a dark theme (`#0d1117` background) with cyan (`#00e5ff`) and green (`#00ff88`) accents. The interface provides a chat panel, model selector, tool panel, and sidebar for managing sessions.
+Or launch the TUI (Terminal User Interface) directly:
+
+```bash
+apex tui
+```
+
+If you installed via pip, set up the TUI first:
+
+```bash
+apex install-tui    # One-time setup
+apex tui            # Launch TUI
+```
+
+The TUI is a rich terminal interface built with OpenTUI and React featuring a dark theme (`#0d1117` background) with cyan (`#00e5ff`) and green (`#00ff88`) accents. The interface provides a chat panel, model selector, tool panel, and sidebar for managing sessions.
 
 ## Step 3 — Your First Prompt
 

@@ -77,6 +77,18 @@ const VERSIONS = [
     ]
   },
   {
+    version: 'v1.3.0', name: 'CLI Subcommands & TUI Fix', status: 'released' as const, progress: 100, color: '#00ff88',
+    desc: 'CLI subcommands (apex tui), TUI works after pip install, official provider logos, Docker build fix.',
+    features: [
+      { text: 'CLI Subcommands: apex tui, apex models, apex install-tui', done: true },
+      { text: 'TUI works after pip install (auto-setup)', done: true },
+      { text: 'Official Provider Logos (21 AI providers)', done: true },
+      { text: 'Docker build fix (removed data-files)', done: true },
+      { text: 'Website content fixes across all pages', done: true },
+      { text: 'CI fixes: 7 failing workflows resolved', done: true },
+    ]
+  },
+  {
     version: 'v1.4.0', name: 'Power', status: 'next' as const, progress: 60, color: '#00ff88',
     desc: 'Streaming responses, git tools, web search, persistent memory, and model benchmarking — more powerful workflows.',
     features: [

@@ -141,7 +141,7 @@ const SECURITY_FEATURES = [
 ]
 
 const SUPPORTED_VERSIONS = [
-  { version: 'v1.2.0', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
+  { version: 'v1.3.0', status: 'Active', support: 'Full support, security patches', color: '#00ff88' },
   { version: 'v1.0.0', status: 'Maintained', support: 'Security patches only', color: '#00e5ff' },
 ]
 

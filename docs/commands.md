@@ -1,6 +1,17 @@
 # Commands
 
-APEX provides multiple ways to interact: **slash commands**, **keyboard shortcuts**, and **@mentions**.
+APEX provides multiple ways to interact: **CLI subcommands**, **slash commands**, **keyboard shortcuts**, and **@mentions**.
+
+## CLI Subcommands (v1.3.0+)
+
+APEX supports convenient subcommands as positional arguments:
+
+| Subcommand | Equivalent Flag | Description |
+|---|---|---|
+| `apex tui` | `apex --tui` | Launch the Terminal User Interface |
+| `apex ui` | `apex --ui` | Same as `apex tui` |
+| `apex models` | `apex --list-models` | List all available LLM models |
+| `apex install-tui` | `apex --install-tui` | Install TUI dependencies (Bun + tui-frontend) |
 
 ## Slash Commands
 
@@ -8,9 +19,11 @@ APEX provides multiple ways to interact: **slash commands**, **keyboard shortcut
 
 | Command | Description |
 |---------|-------------|
-| `/agent [name]` | Switch to a different agent (build/plan/explore/general) |
+| `/agent [name]` | Switch to a different agent (coder/architect/planner/reviewer/shell) |
 | `/agents` | List all available agents |
 | `/subagents` | List all subagents |
+| `/coder` | Switch to Coder mode (full tool access) |
+| `/architect` | Switch to Architect mode (read-only) |
 
 ### Model Commands
 
@@ -18,13 +31,15 @@ APEX provides multiple ways to interact: **slash commands**, **keyboard shortcut
 |---------|-------------|
 | `/model <alias>` | Switch to a different model |
 | `/models` | List all available models |
+| `/reasoning` | Cycle reasoning effort (off → high → max) |
 
 ### Navigation Commands
 
 | Command | Description |
 |---------|-------------|
 | `/cwd <path>` | Change current working directory |
-| `/cd <path>` | Alias for `/cwd` |
+| `/map` | Show repository map |
+| `/stats` | Show language statistics |
 
 ### Session Commands
 
@@ -33,17 +48,18 @@ APEX provides multiple ways to interact: **slash commands**, **keyboard shortcut
 | `/save [name]` | Save current session |
 | `/load <name]` | Load a previous session |
 | `/sessions` | List saved sessions |
-| `/share` | Generate share link for current session |
+| `/clear` | Clear conversation history |
+| `/history` | Show conversation history |
 
 ### Git Commands
 
 | Command | Description |
 |---------|-------------|
 | `/git` | Show git status |
-| `/branch` | Show current branch |
-| `/branches` | List all branches |
-| `/checkout <branch>` | Switch to branch |
-| `/commit <message>` | Commit changes |
+| `/undo` | Undo last AI action (Git-powered) |
+| `/redo` | Redo previously undone action |
+| `/restore [snapshot]` | Restore a workspace snapshot |
+| `/revert [n]` | Revert n turns |
 
 ### Analysis Commands
 
@@ -51,26 +67,8 @@ APEX provides multiple ways to interact: **slash commands**, **keyboard shortcut
 |---------|-------------|
 | `/map` | Show repository map |
 | `/stats` | Show language statistics |
-| `/analyze` | Analyze project structure |
 
-### Utility Commands
-
-| Command | Description |
-|---------|-------------|
-| `/clear` | Clear conversation history |
-| `/history` | Show conversation history |
-| `/cost` | Show token usage and estimated cost |
-| `/help` | Show this help message |
-| `/exit` | Exit APEX |
-
-### Plan Approval Commands
-
-| Command | Description |
-|---------|-------------|
-| `/approve` | Approve pending plan |
-| `/reject [reason]` | Reject pending plan |
-
-## Memory Commands
+### Memory Commands
 
 Store persistent facts across sessions:
 
@@ -83,9 +81,22 @@ Store persistent facts across sessions:
 /memory search python
 /memory search database
 
+# View all facts
+/memory
+
 # Clear memory
 /memory clear
 ```
+
+### Utility Commands
+
+| Command | Description |
+|---------|-------------|
+| `/help` | Show help message |
+| `/exit` | Exit APEX |
+| `/skills` | List available skills |
+| `/github [cmd]` | GitHub integration (issues, prs) |
+| `/local [enable/disable]` | Toggle local execution |
 
 ## @Mentions
 
@@ -104,9 +115,8 @@ Reference files for context:
 Invoke subagents for specific tasks:
 
 ```
-@explore "Find all API endpoints"
-@general "Search for authentication logic"
-@build "Refactor this function"
+@reviewer "Review this code for bugs"
+@shell "Deploy to staging"
 ```
 
 ## Keyboard Shortcuts
@@ -114,10 +124,13 @@ Invoke subagents for specific tasks:
 | Shortcut | Action |
 |----------|--------|
 | `Tab` | Cycle through agents |
+| `Ctrl+K` | Model selector overlay |
+| `Ctrl+L` | Clear messages + reset metrics |
+| `Ctrl+O` | Toggle sidebar |
+| `Ctrl+T` | Toggle tools panel |
 | `Ctrl+C` | Cancel current operation |
-| `Ctrl+L` | Clear screen |
-| `Ctrl+D` | Exit APEX |
-| `Up/Down` | Navigate command history |
+| `?` | Help panel |
+| `Escape` | Close overlay |
 
 ## Examples
 
@@ -125,7 +138,7 @@ Invoke subagents for specific tasks:
 
 ```bash
 apex> /model gpt-4o
-apex> /model claude-4-sonnet
+apex> /model claude-sonnet-4
 apex> /model deepseek-chat
 ```
 
@@ -134,7 +147,6 @@ apex> /model deepseek-chat
 ```bash
 apex> /save my-project
 apex> /load my-project
-apex> /share
 ```
 
 ### Project Analysis
@@ -143,15 +155,13 @@ apex> /share
 apex> /map
 apex> /stats
 apex> /git
-apex> /analyze
 ```
 
 ### Using @Mentions
 
 ```bash
 apex> @src/auth.py explain how authentication works
-apex> @explore "Find all database queries"
-apex> @general "Search for TODO comments"
+apex> @reviewer "Review the payment module"
 ```
 
 ## Custom Commands

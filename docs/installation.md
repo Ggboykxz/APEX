@@ -46,7 +46,8 @@ pip install -e ".[dev]"
 
 ```bash
 apex --version
-apex --list-models
+apex models          # List available models (subcommand)
+apex --list-models   # Same thing (flag)
 ```
 
 ## API Keys
@@ -70,6 +71,20 @@ COHERE_API_KEY=...
 ```
 
 For local models (Ollama), no API key needed.
+
+## TUI Setup
+
+After installing apex-ai via pip, you need to set up the TUI frontend:
+
+```bash
+# One-time TUI setup (installs Bun + downloads tui-frontend)
+apex install-tui
+
+# Then launch TUI
+apex tui
+```
+
+For dev/git users, the TUI works directly: `apex tui` (auto-installs deps on first run).
 
 ## Upgrade
 

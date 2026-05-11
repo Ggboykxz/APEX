@@ -21,15 +21,13 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 - **API Key Management** — Workspace-based keys with expiration
 - **Billing System** — Cost tracking and quota management
 
-### TUI Modes
-- **New OpenTUI-like TUI** — Route-based navigation with themes and keymaps
-- **Classic Textual TUI** — Original APEX UI
-- **Bun-based OpenTUI** — JavaScript frontend
+### TUI
+- **OpenTUI + React TUI** — Modern terminal UI with agent-colored theming, live metrics, and HTTP SSE backend
 
 ```bash
-apex --new-tui  # New Python TUI (recommended)
-apex --ui       # Original Textual TUI
-apex --tui      # Bun-based OpenTUI
+apex tui        # Launch TUI (subcommand, v1.3.0+)
+apex --tui      # Same thing (flag style)
+apex install-tui  # One-time TUI setup (after pip install)
 ```
 
 ## Why APEX?
@@ -61,11 +59,20 @@ pip install apex-ai
 # Interactive REPL
 apex
 
+# Launch TUI
+apex tui
+
 # One-shot prompt
 apex "write a hello world program"
 
 # Specific model
 apex --model gpt-4o "explain this code"
+
+# List available models
+apex models
+
+# CI/CD mode
+apex -p "check for security issues" -f json
 ```
 
 ## Security Quick Start

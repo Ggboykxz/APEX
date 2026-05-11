@@ -2,7 +2,7 @@
 
 ## ✅ v1.0.0 — First Stable Release (released May 10, 2026)
 - 100+ model support via litellm
-- 5 specialized agents (Coder, Architect, Reviewer, DevOps, Analyst)
+- 5 specialized agents (Coder, Architect, Reviewer, Shell, Planner)
 - 75+ built-in tools
 - Beautiful TUI (OpenTUI + React)
 - `pip install apex-ai`
@@ -40,6 +40,14 @@
 - 2,842 tests passing, 0 failures
 - Dockerfile Python 3.13-slim base image
 - Branch protection on main (no force push, PR reviews required, 5 status checks)
+
+## ✅ v1.3.0 — CLI Subcommands & TUI Fix (released May 11, 2026)
+- CLI subcommands: `apex tui`, `apex ui`, `apex models`, `apex install-tui`
+- TUI works after pip install (auto-installs Bun + downloads tui-frontend)
+- Official provider logos for all 21 AI providers (Simple Icons)
+- Website content fixes across all documentation and site pages
+- Fixed Docker build failure (removed data-files from pyproject.toml)
+- CI fixes: resolved 7 failing workflows + codegen/UI test failures
 
 ## 🎯 v2.0.0 — Intelligence
 - Repo map (understand full codebase structure)

@@ -582,8 +582,8 @@ result = limiter.check_rate_limit("user_123")
 
 ## Projet Status
 
-- **Version**: 1.2.0
-- **Tests**: 1148 passing
+- **Version**: 1.3.0
+- **Tests**: 2842 passing
 - **License**: Proprietary — All rights reserved (voir [LICENSE](../LICENSE))
 
 ## Installation
@@ -599,7 +599,10 @@ git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e .
 ```bash
 apex                        # REPL interactif
 apex "prompt"              # One-shot
-apex --tui                  # OpenTUI + React TUI (HTTP SSE backend)
+apex tui                    # OpenTUI + React TUI (sous-commande, v1.3.0+)
+apex --tui                  # Même chose (flag, équivalent)
+apex models                 # Lister les modèles disponibles
+apex install-tui            # Installer les dépendances TUI
 apex --model gpt-4o        # Modèle spécifique
 apex -p "prompt" -f json   # Mode CI/CD
 ```
@@ -625,4 +628,4 @@ apex -p "prompt" -f json   # Mode CI/CD
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v1.2.0 — Inspired by OpenCode*
+*APEX v1.3.0 — Inspired by OpenCode*

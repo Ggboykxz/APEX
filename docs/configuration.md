@@ -27,11 +27,14 @@ APEX stores configuration in `~/.apex/config.json`:
 ## CLI Options
 
 ```bash
+apex tui                    # Launch TUI (subcommand)
+apex --tui                  # Same thing (flag)
 apex --model gpt-4o          # Use specific model
 apex --cwd /path/to/project  # Set working directory
 apex --stream                # Enable streaming
 apex --auto-commit           # Auto commit changes
-apex --list-models           # List available models
+apex models                  # List available models
+apex install-tui             # One-time TUI setup
 ```
 
 ## Environment Variables

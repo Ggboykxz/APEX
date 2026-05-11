@@ -1,6 +1,6 @@
 # Tools
 
-APEX provides **40+ built-in tools** for file operations, git, web, testing, LSP, and more. These tools are automatically selected by the AI based on your requests.
+APEX provides **75+ built-in tools** for file operations, git, web, testing, LSP, MCP, Docker, databases, and more. These tools are automatically selected by the AI based on your requests.
 
 ## File Operations
 

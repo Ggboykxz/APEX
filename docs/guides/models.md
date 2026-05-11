@@ -1,6 +1,6 @@
 # Supported Models
 
-APEX supports over 100 language models from every major provider, giving you the freedom to choose the best model for each task. Whether you need the reasoning power of frontier models, the cost-efficiency of smaller variants, or the privacy of fully local inference, APEX has you covered with seamless provider switching and unified tool access across all models.
+APEX supports **170+ language models** from every major provider, giving you the freedom to choose the best model for each task. Whether you need the reasoning power of frontier models, the cost-efficiency of smaller variants, or the privacy of fully local inference, APEX has you covered with seamless provider switching and unified tool access across all models.
 
 ## OpenAI
 

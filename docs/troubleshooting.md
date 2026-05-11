@@ -15,7 +15,7 @@ pip uninstall apex-ai
 pip install apex-ai
 
 # Or use python module
-python -m apex.main --version
+python -m apex --version
 ```
 
 ### Import errors
@@ -28,7 +28,7 @@ python --version
 pip install --upgrade pip
 
 # Reinstall dependencies
-pip install -r requirements.txt
+pip install --force-reinstall apex-ai
 ```
 
 ## API Key Issues
@@ -47,7 +47,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 ### "Rate limit exceeded"
 
-```python
+```bash
 # Switch to a faster model
 /model gpt-4o-mini
 
@@ -77,7 +77,10 @@ GROQ_API_KEY=gsk_...
 ### Model not found
 
 ```bash
-# List available models
+# List available models (subcommand)
+apex models
+
+# Or use flag
 apex --list-models
 
 # Use exact model name
@@ -86,7 +89,7 @@ apex --model gpt-4o "hello"
 
 ### Model doesn't support tools
 
-Some models (like o1) don't support function calling:
+Some models don't support function calling:
 
 ```
 Switch to a tool-capable model:
@@ -101,7 +104,7 @@ Paths are relative to current working directory:
 
 ```bash
 # Check current directory
-pwd
+/cwd
 
 # Change directory
 /cwd /path/to/project
@@ -130,7 +133,7 @@ Increase timeout in config:
 
 ### "Unknown agent"
 
-Available agents: coder, architect, reviewer, devops, analyst
+Available agents: coder, architect, planner, reviewer, shell
 
 ```bash
 /agents
@@ -142,9 +145,55 @@ Available agents: coder, architect, reviewer, devops, analyst
 Some tools are blocked for certain agents:
 
 - Architect agent: Cannot use write_file, edit_file, run_command
-- Reviewer agent: Cannot modify any files
+- Planner agent: Read-only, cannot modify any files
+- Reviewer agent: Subagent mode, cannot modify any files
 
-Switch to coder agent for full access.
+Switch to coder agent for full access: `/coder`
+
+## TUI Issues
+
+### "TUI frontend not found"
+
+The TUI frontend needs to be installed separately after pip install:
+
+```bash
+# One-time TUI setup (installs Bun + downloads tui-frontend)
+apex install-tui
+
+# Or use the flag
+apex --install-tui
+
+# Then launch the TUI
+apex tui
+```
+
+### "Bun not found"
+
+The TUI requires the Bun runtime. Install it:
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+
+# Then launch TUI
+apex tui
+```
+
+### TUI doesn't start after pip install
+
+Follow this sequence:
+
+```bash
+# 1. Install apex
+pip install apex-ai
+
+# 2. Install TUI dependencies (one-time)
+apex install-tui
+
+# 3. Launch TUI
+apex tui
+```
+
+For dev/git users, the TUI works directly: `apex tui` (auto-installs deps on first run).
 
 ## Performance Issues
 
@@ -207,8 +256,7 @@ if state:
 
 Check server is running:
 
-```bash
-# List configured servers
+```python
 mcp_manager.list_servers()
 ```
 
@@ -243,6 +291,19 @@ Check git status:
 /git
 ```
 
+### Undo AI changes
+
+```bash
+# Undo last AI action
+/undo
+
+# Undo last 3 actions
+/undo 3
+
+# Redo
+/redo
+```
+
 ## Getting Help
 
 ### Debug mode
@@ -258,9 +319,6 @@ apex --verbose "your prompt"
 ```bash
 # View session logs
 ls ~/.apex/logs/
-
-# Session summary
-apex /cost
 ```
 
 ### Report issues

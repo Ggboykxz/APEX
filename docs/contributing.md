@@ -7,9 +7,9 @@ We are thrilled that you want to contribute to APEX! Whether you are fixing a bu
 Start by forking the repository on GitHub and cloning your fork locally:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/apex.git
-cd apex
-git remote add upstream https://github.com/apex-ai/apex.git
+git clone https://github.com/YOUR_USERNAME/APEX.git
+cd APEX
+git remote add upstream https://github.com/Ggboykxz/APEX.git
 ```
 
 Keep your fork synchronized with the upstream repository by regularly running `git fetch upstream` and merging changes into your local branch.
@@ -59,6 +59,6 @@ All tests must pass before submitting a pull request. If you are adding a new fe
 2. Make your changes with clear, descriptive commit messages
 3. Ensure all tests pass and linting is clean
 4. Push to your fork: `git push origin feature/my-new-feature`
-5. Open a pull request against the `main` branch of `apex-ai/apex`
+5. Open a pull request against the `main` branch of `Ggboykxz/APEX`
 
 In your PR description, explain the motivation for the change, reference any related issues, and note any breaking changes. A maintainer will review your code, provide feedback, and merge once approved. Thank you for contributing!

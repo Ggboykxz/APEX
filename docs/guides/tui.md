@@ -4,7 +4,7 @@ APEX features a rich terminal user interface built with OpenTUI and React, deliv
 
 ## Architecture
 
-The TUI communicates with the APEX backend through a local HTTP server started automatically when launching `apex --tui`. The server runs on `127.0.0.1:8080` and exposes a streaming endpoint at `/chat/stream`. Messages are streamed token-by-token using Server-Sent Events (SSE).
+The TUI communicates with the APEX backend through a local HTTP server started automatically when launching `apex tui` (or `apex --tui`). The server runs on `127.0.0.1:8080` and exposes a streaming endpoint at `/chat/stream`. Messages are streamed token-by-token using Server-Sent Events (SSE).
 
 ## Layout
 

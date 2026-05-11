@@ -1,6 +1,6 @@
 # Models
 
-APEX supports 150+ models from 20+ providers via litellm. Switch anytime with `/model`.
+APEX supports **170+ models** from 21+ providers via litellm. Switch anytime with `/model` or `apex models`.
 
 ## Anthropic Claude
 
@@ -286,4 +286,4 @@ apex> /model gpt-4o
 apex> /models
 ```
 
-Or use CLI: `apex --model gpt-4o "your prompt"`
+Or use CLI: `apex --model gpt-4o "your prompt"` or list models: `apex models`
