@@ -62,6 +62,9 @@ def parse_args() -> argparse.Namespace:
         help="Output format",
     )
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode (less output)")
+    parser.add_argument(
+        "--install-tui", action="store_true", help="Install TUI dependencies (bun + tui-frontend)"
+    )
     return parser.parse_args()
 
 
@@ -651,17 +654,139 @@ def run_cicd_mode(
             ui.print_error(f"Error: {e}")
 
 
+def _find_tui_dir() -> Path | None:
+    """Find the tui-frontend directory, supporting both dev and pip-installed layouts."""
+    # 1. Development mode: tui-frontend/ is a sibling of apex/ package dir
+    dev_path = Path(__file__).parent.parent / "tui-frontend"
+    if (dev_path / "src" / "App.tsx").exists():
+        return dev_path
+
+    # 2. Installed package: tui-frontend/ is a sibling of site-packages
+    for candidate in [
+        Path(__file__).parent.parent.parent / "tui-frontend",  # site-packages/tui-frontend/
+        Path.home() / ".apex" / "tui-frontend",  # ~/.apex/tui-frontend/
+    ]:
+        if (candidate / "src" / "App.tsx").exists():
+            return candidate
+
+    return None
+
+
+def _find_bun() -> str | None:
+    """Find the bun executable, installing it if needed."""
+    # Check common locations
+    bun_candidates = [
+        Path.home() / ".bun" / "bin" / "bun",
+        Path("/usr/local/bin/bun"),
+        Path("/usr/bin/bun"),
+    ]
+    for candidate in bun_candidates:
+        if candidate.exists():
+            return str(candidate)
+
+    # Check PATH
+    import shutil
+
+    bun_in_path = shutil.which("bun")
+    if bun_in_path:
+        return bun_in_path
+
+    return None
+
+
+def _install_bun(ui: UI) -> str | None:
+    """Attempt to install bun automatically."""
+    ui.print_info("Bun not found. Installing bun runtime...")
+    try:
+        install_cmd = ["curl", "-fsSL", "https://bun.sh/install"]
+        result = subprocess.run(
+            install_cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            return None
+
+        # Run the install script
+        install_result = subprocess.run(
+            ["bash", "-c", result.stdout],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env={**os.environ, "BUN_INSTALL": str(Path.home() / ".bun")},
+        )
+        if install_result.returncode != 0:
+            return None
+
+        bun_path = Path.home() / ".bun" / "bin" / "bun"
+        if bun_path.exists():
+            ui.print_success("Bun installed successfully!")
+            return str(bun_path)
+    except Exception:
+        pass
+    return None
+
+
+def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
+    """Install TUI dependencies if needed (bun install)."""
+    node_modules = tui_dir / "node_modules"
+    if node_modules.exists():
+        return True
+
+    ui.print_info("Installing TUI dependencies (first run)...")
+    bun_path = _find_bun()
+    if not bun_path:
+        bun_path = _install_bun(ui)
+    if not bun_path:
+        ui.print_error(
+            "Could not find or install bun. Install manually: curl -fsSL https://bun.sh/install | bash"
+        )
+        return False
+
+    try:
+        result = subprocess.run(
+            [bun_path, "install"],
+            cwd=str(tui_dir),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            ui.print_success("TUI dependencies installed!")
+            return True
+        else:
+            ui.print_error(f"bun install failed: {result.stderr[:200]}")
+            return False
+    except Exception as e:
+        ui.print_error(f"Failed to install TUI dependencies: {e}")
+        return False
+
+
 def run_apex_tui(agent: Agent, ui: UI) -> None:
     """Run APEX TUI - OpenTUI + React terminal interface with real backend."""
-    tui_path = Path(__file__).parent.parent / "tui-frontend" / "src" / "App.tsx"
-    if not tui_path.exists():
-        ui.print_error("OpenTUI not found. Run: cd tui-frontend && bun install")
+    # Find tui-frontend directory
+    tui_dir = _find_tui_dir()
+    if not tui_dir:
+        ui.print_error("TUI frontend not found.")
+        ui.print_info("Install TUI support with: apex --install-tui")
+        ui.print_info("Or clone the repo and run from source.")
         return
 
-    bun_path = Path.home() / ".bun" / "bin" / "bun"
-    if not bun_path.exists():
+    # Find bun runtime
+    bun_path = _find_bun()
+    if not bun_path:
+        ui.print_info("Bun runtime not found. Attempting to install...")
+        bun_path = _install_bun(ui)
+    if not bun_path:
         ui.print_error("Bun not found. Install: curl -fsSL https://bun.sh/install | bash")
         return
+
+    # Ensure TUI dependencies are installed
+    if not _setup_tui_frontend(tui_dir, ui):
+        return
+
+    tui_entry = tui_dir / "src" / "App.tsx"
 
     ui.print_info("Starting APEX HTTP API server on port 8080...")
     server_thread = start_tui_server(port=8080, agent=agent)
@@ -669,18 +794,19 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
     ui.print_info("Starting APEX TUI with OpenTUI (Ctrl+C to exit)...")
 
     env = os.environ.copy()
-    env["PATH"] = str(bun_path.parent) + ":" + env.get("PATH", "")
+    env["PATH"] = str(Path(bun_path).parent) + ":" + env.get("PATH", "")
     env["APEX_HTTP_PORT"] = "8080"
 
     try:
         proc = subprocess.Popen(
-            [str(bun_path), str(tui_path)],
+            [bun_path, str(tui_entry)],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
             text=True,
             bufsize=1,
+            cwd=str(tui_dir),
         )
 
         def read_output():
@@ -713,6 +839,78 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
             stop_tui_server(server_thread)
 
 
+def _install_tui_command(ui: UI) -> None:
+    """Install TUI dependencies: bun runtime + tui-frontend source files."""
+
+    # Step 1: Install bun
+    bun_path = _find_bun()
+    if bun_path:
+        ui.print_success(f"Bun already installed: {bun_path}")
+    else:
+        ui.print_info("Installing Bun runtime...")
+        bun_path = _install_bun(ui)
+        if not bun_path:
+            ui.print_error("Failed to install Bun. Install manually:")
+            ui.print_info("  curl -fsSL https://bun.sh/install | bash")
+            return
+        ui.print_success(f"Bun installed: {bun_path}")
+
+    # Step 2: Check for tui-frontend
+    tui_dir = _find_tui_dir()
+    if tui_dir:
+        ui.print_success(f"TUI frontend found: {tui_dir}")
+    else:
+        # Clone tui-frontend to ~/.apex/
+        apex_dir = Path.home() / ".apex"
+        apex_dir.mkdir(parents=True, exist_ok=True)
+        tui_target = apex_dir / "tui-frontend"
+
+        if tui_target.exists():
+            ui.print_success(f"TUI frontend already at: {tui_target}")
+            tui_dir = tui_target
+        else:
+            ui.print_info("Downloading TUI frontend from GitHub...")
+            try:
+                result = subprocess.run(
+                    [
+                        "git",
+                        "clone",
+                        "--depth",
+                        "1",
+                        "https://github.com/Ggboykxz/APEX.git",
+                        str(apex_dir / "apex-tmp"),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                if result.returncode == 0:
+                    # Copy only tui-frontend
+                    import shutil as sh
+
+                    sh.copytree(
+                        str(apex_dir / "apex-tmp" / "tui-frontend"),
+                        str(tui_target),
+                    )
+                    sh.rmtree(str(apex_dir / "apex-tmp"), ignore_errors=True)
+                    tui_dir = tui_target
+                    ui.print_success(f"TUI frontend installed: {tui_target}")
+                else:
+                    ui.print_error(f"Failed to download: {result.stderr[:200]}")
+                    return
+            except Exception as e:
+                ui.print_error(f"Failed to download TUI frontend: {e}")
+                return
+
+    # Step 3: Install TUI npm dependencies
+    if tui_dir:
+        if _setup_tui_frontend(tui_dir, ui):
+            ui.print_success("TUI setup complete! Run: apex --tui")
+        else:
+            ui.print_error("Failed to install TUI dependencies.")
+            ui.print_info("Try manually: cd ~/.apex/tui-frontend && bun install")
+
+
 def main() -> None:
     args = parse_args()
     config = Config()
@@ -730,6 +928,10 @@ def main() -> None:
 
     if args.list_models:
         list_models(ui)
+        sys.exit(0)
+
+    if args.install_tui:
+        _install_tui_command(ui)
         sys.exit(0)
 
     if args.ui or args.tui:

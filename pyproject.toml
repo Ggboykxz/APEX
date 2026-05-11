@@ -73,6 +73,24 @@ include = ["apex*"]
 [tool.setuptools.package-data]
 apex = ["py.typed"]
 
+[tool.setuptools.data-files]
+tui-frontend = [
+    "tui-frontend/package.json",
+    "tui-frontend/bun.lock",
+    "tui-frontend/tsconfig.json",
+    "tui-frontend/src/App.tsx",
+    "tui-frontend/src/components/ApexApp.tsx",
+    "tui-frontend/src/components/ChatPanel.tsx",
+    "tui-frontend/src/components/StatusBar.tsx",
+    "tui-frontend/src/components/Sidebar.tsx",
+    "tui-frontend/src/components/ModelSelector.tsx",
+    "tui-frontend/src/components/HelpPanel.tsx",
+    "tui-frontend/src/components/ToolPanel.tsx",
+    "tui-frontend/src/data/apex-data.ts",
+    "tui-frontend/src/theme/apex.ts",
+    "tui-frontend/src/theme/themes.ts",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
