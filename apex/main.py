@@ -156,21 +156,6 @@ def handle_command(
                     ui.console.print(f"  [{role}]: {truncated}")
             return True
 
-        case "/cost":
-            from .cost_local import cost_tracker
-
-            usage = agent.usage
-            cost_info = cost_tracker.get_session_cost()
-            ui.console.print("[cyan]Session Cost:[/cyan]")
-            ui.console.print(f"  Input tokens: {cost_info['input_tokens']}")
-            ui.console.print(f"  Output tokens: {cost_info['output_tokens']}")
-            ui.console.print(f"  Total: ${cost_info['total_cost']:.6f}")
-            ui.console.print("[cyan]Token usage:[/cyan]")
-            ui.console.print(f"  Prompt: {usage.get('prompt_tokens', 0)}")
-            ui.console.print(f"  Completion: {usage.get('completion_tokens', 0)}")
-            ui.console.print(f"  Total: {usage.get('total_tokens', 0)}")
-            return True
-
         case "/save":
             sm = SessionManager()
             name = arg or "default"

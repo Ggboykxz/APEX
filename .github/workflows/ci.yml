@@ -38,7 +38,7 @@ jobs:
         run: ruff format --check apex/ tests/
 
       - name: Type check
-        run: mypy apex/ --ignore-missing-imports || true
+        run: mypy apex/ --ignore-missing-imports
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -62,9 +62,7 @@ jobs:
           pip install -e ".[dev]" || pip install -e .
 
       - name: Run tests
-        run: |
-          pytest --tb=short -q --junitxml=test-results.xml \
-            || echo "Some tests failed, but collection succeeded"
+        run: pytest --tb=short -q --junitxml=test-results.xml
 
       - name: Test summary
         if: always()

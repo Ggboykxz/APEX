@@ -206,41 +206,47 @@ class KeyManager:
         if not key or not key.startswith("apex_"):
             raise InvalidKeyError("Invalid API key format")
         key_hash = hashlib.sha256(key.encode()).hexdigest()
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                """SELECT key_id, key_hash, workspace_id, name, created_at, expires_at, last_used,
-                   request_count, is_active, rate_limit_per_minute, rate_limit_per_hour, permissions, metadata
-                   FROM api_keys WHERE key_hash = ?""",
-                (key_hash,),
-            )
-            row = cursor.fetchone()
-            if not row:
-                raise InvalidKeyError("API key not found")
-            key_info = APIKeyInfo(
-                key_id=row[0],
-                key_hash=row[1],
-                workspace_id=row[2],
-                name=row[3],
-                created_at=row[4],
-                expires_at=row[5],
-                last_used=row[6],
-                request_count=row[7],
-                is_active=bool(row[8]),
-                rate_limit_per_minute=row[9],
-                rate_limit_per_hour=row[10],
-                permissions=_safe_parse(row[11], []) if row[11] else [],
-                metadata=_safe_parse(row[12], {}) if row[12] else {},
-            )
-        if not key_info.is_active:
-            raise KeyDisabledError("API key is disabled")
-        if key_info.expires_at and time.time() > key_info.expires_at:
-            raise KeyExpiredError("API key has expired")
-        conn.execute(
-            "UPDATE api_keys SET last_used = ?, request_count = request_count + 1 WHERE key_id = ?",
-            (time.time(), key_info.key_id),
-        )
-        conn.commit()
-        return key_info
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute(
+                    """SELECT key_id, key_hash, workspace_id, name, created_at, expires_at, last_used,
+                       request_count, is_active, rate_limit_per_minute, rate_limit_per_hour, permissions, metadata
+                       FROM api_keys WHERE key_hash = ?""",
+                    (key_hash,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise InvalidKeyError("API key not found")
+                key_info = APIKeyInfo(
+                    key_id=row[0],
+                    key_hash=row[1],
+                    workspace_id=row[2],
+                    name=row[3],
+                    created_at=row[4],
+                    expires_at=row[5],
+                    last_used=row[6],
+                    request_count=row[7],
+                    is_active=bool(row[8]),
+                    rate_limit_per_minute=row[9],
+                    rate_limit_per_hour=row[10],
+                    permissions=_safe_parse(row[11], []) if row[11] else [],
+                    metadata=_safe_parse(row[12], {}) if row[12] else {},
+                )
+                if not key_info.is_active:
+                    raise KeyDisabledError("API key is disabled")
+                if key_info.expires_at and time.time() > key_info.expires_at:
+                    raise KeyExpiredError("API key has expired")
+                conn.execute(
+                    "UPDATE api_keys SET last_used = ?, request_count = request_count + 1 WHERE key_id = ?",
+                    (time.time(), key_info.key_id),
+                )
+                conn.commit()
+                return key_info
+        except (InvalidKeyError, KeyDisabledError, KeyExpiredError):
+            raise
+        except Exception as e:
+            logger.error(f"Failed to validate API key: {e}")
+            raise InvalidKeyError(f"Failed to validate API key: {e}") from e
 
     def revoke_key(self, key_id: str) -> bool:
         with sqlite3.connect(self.db_path) as conn:
