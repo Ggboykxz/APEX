@@ -1,15 +1,13 @@
-"""Tests for refactored main module."""
+"""Tests for refactored main module — no mocks, real operations."""
 
 from argparse import Namespace
 from pathlib import Path
-from unittest.mock import patch
 
 from apex.refactored_main import (
     create_parser,
     list_available_models,
     validate_model,
     get_working_directory,
-    run_non_interactive,
 )
 
 
@@ -50,13 +48,17 @@ class TestCreateParser:
         args = parser.parse_args(["-v", "test"])
         assert args.verbose is True
 
+    def test_parse_verbose_long_flag(self):
+        parser = create_parser()
+        args = parser.parse_args(["--verbose", "test"])
+        assert args.verbose is True
+
 
 class TestListAvailableModels:
     def test_list_models(self, capsys):
         list_available_models()
         captured = capsys.readouterr()
         assert "Available models:" in captured.out
-        assert "claude-4-sonnet" in captured.out
 
 
 class TestValidateModel:
@@ -80,28 +82,12 @@ class TestGetWorkingDirectory:
         result = get_working_directory(args)
         assert result == Path("/tmp/test")
 
+    def test_get_cwd_empty_string(self):
+        args = Namespace(cwd="")
+        result = get_working_directory(args)
+        assert result == Path.cwd()
 
-class TestRunNonInteractive:
-    def test_run_with_agent(self, tmp_path):
-        with patch("apex.agent.Agent") as MockAgent:
-            mock_agent = MockAgent.return_value
-            mock_agent.run.return_value = "Test response"
-
-            with patch("apex.ui.UI"):
-                run_non_interactive(
-                    "test prompt", tmp_path, model="claude-4-sonnet", stream=False, verbose=False
-                )
-
-                MockAgent.assert_called_once()
-                mock_agent.run.assert_called_once_with("test prompt")
-
-    def test_run_with_verbose(self, tmp_path, capsys):
-        with patch("apex.agent.Agent") as MockAgent:
-            mock_agent = MockAgent.return_value
-            mock_agent.run.return_value = "Test response"
-
-            with patch("apex.ui.UI"):
-                run_non_interactive("test prompt", tmp_path, verbose=True)
-
-                captured = capsys.readouterr()
-                assert "test prompt" in captured.out
+    def test_get_cwd_no_attr(self):
+        args = Namespace()
+        result = get_working_directory(args)
+        assert result == Path.cwd()

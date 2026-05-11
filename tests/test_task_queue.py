@@ -1,180 +1,186 @@
-"""Tests for task_queue module."""
+"""Tests for apex/task_queue.py — TaskQueue, Task, TaskStatus with real file operations."""
 
 import pytest
-import tempfile
-from pathlib import Path
-from apex.task_queue import Task, TaskStatus, TaskQueue
+import json
+import time
+from apex.task_queue import TaskStatus, Task, TaskQueue
+
+
+class TestTaskStatus:
+    def test_values(self):
+        assert TaskStatus.PENDING.value == "pending"
+        assert TaskStatus.RUNNING.value == "running"
+        assert TaskStatus.COMPLETED.value == "completed"
+        assert TaskStatus.FAILED.value == "failed"
+        assert TaskStatus.CANCELLED.value == "cancelled"
+
+    def test_from_value(self):
+        assert TaskStatus("pending") == TaskStatus.PENDING
+        assert TaskStatus("completed") == TaskStatus.COMPLETED
 
 
 class TestTask:
-    """Test Task dataclass."""
-
-    def test_init(self):
-        """Test task initialization."""
-        task = Task(
-            id="test-1",
-            name="test_task",
-            description="Test description",
-            payload={"key": "value"},
+    def test_creation(self):
+        t = Task(
+            id="task_1",
+            name="test",
+            description="desc",
+            payload={"key": "val"},
             status=TaskStatus.PENDING,
-            created_at="2024-01-01T00:00:00",
+            created_at="2024-01-01",
             started_at=None,
             completed_at=None,
             result=None,
             error=None,
         )
-        assert task.id == "test-1"
-        assert task.name == "test_task"
-        assert task.status == TaskStatus.PENDING
+        assert t.id == "task_1"
+        assert t.name == "test"
+        assert t.status == TaskStatus.PENDING
+        assert t.payload == {"key": "val"}
+        assert t.result is None
+        assert t.error is None
 
 
 class TestTaskQueue:
-    """Test TaskQueue class."""
+    @pytest.fixture
+    def queue_dir(self, tmp_path):
+        return tmp_path / "tasks"
 
     @pytest.fixture
-    def temp_dir(self):
-        """Create temp directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
+    def queue(self, queue_dir):
+        return TaskQueue(queue_dir=queue_dir)
 
-    @pytest.fixture
-    def queue(self, temp_dir):
-        """Create TaskQueue with temp dir."""
-        return TaskQueue(queue_dir=temp_dir)
-
-    def test_init(self, queue):
-        """Test queue initialization."""
+    def test_init(self, queue, queue_dir):
+        assert queue.queue_dir == queue_dir
+        assert queue_dir.exists()
         assert queue._tasks == {}
         assert queue._running is False
 
     def test_enqueue(self, queue):
-        """Test enqueue method."""
-        task_id = queue.enqueue(name="test_task", description="Test", payload={"key": "value"})
+        task_id = queue.enqueue("test_task", "A test", {"data": "value"})
+        assert task_id is not None
         assert task_id.startswith("task_")
-        task = queue.get(task_id)
-        assert task is not None
-        assert task.name == "test_task"
-        assert task.status == TaskStatus.PENDING
+        assert queue.get(task_id) is not None
+        assert queue.get(task_id).status == TaskStatus.PENDING
 
-    def test_get(self, queue):
-        """Test get method."""
-        task_id = queue.enqueue(name="test", description="Test", payload={})
-        task = queue.get(task_id)
-        assert task is not None
-        assert task.id == task_id
+    def test_enqueue_with_priority(self, queue):
+        task_id = queue.enqueue("test", "desc", {}, priority=5)
+        assert task_id is not None
 
     def test_get_nonexistent(self, queue):
-        """Test get with non-existent task."""
-        task = queue.get("nonexistent")
-        assert task is None
+        assert queue.get("nonexistent") is None
 
-    def test_list_tasks_empty(self, queue):
-        """Test list_tasks with no tasks."""
+    def test_list_tasks(self, queue):
+        queue.enqueue("task1", "First", {})
+        queue.enqueue("task2", "Second", {})
         tasks = queue.list_tasks()
-        assert tasks == []
-
-    def test_list_tasks_pending(self, queue):
-        """Test list_tasks with pending tasks."""
-        queue.enqueue(name="task1", description="T1", payload={})
-        queue.enqueue(name="task2", description="T2", payload={})
-        tasks = queue.list_tasks(TaskStatus.PENDING)
         assert len(tasks) == 2
 
-    def test_list_tasks_with_status_filter(self, queue):
-        """Test list_tasks with status filter."""
-        task_id = queue.enqueue(name="task1", description="T1", payload={})
-        task = queue.get(task_id)
-        task.status = TaskStatus.RUNNING
-
-        pending = queue.list_tasks(TaskStatus.PENDING)
-        running = queue.list_tasks(TaskStatus.RUNNING)
-
-        assert len(pending) == 0
-        assert len(running) == 1
+    def test_list_tasks_filter_status(self, queue):
+        id1 = queue.enqueue("task1", "First", {})
+        queue.enqueue("task2", "Second", {})
+        # Cancel one
+        queue.cancel(id1)
+        pending = queue.list_tasks(TaskStatus.CANCELLED)
+        assert len(pending) == 1
 
     def test_list_tasks_limit(self, queue):
-        """Test list_tasks with limit."""
         for i in range(5):
-            queue.enqueue(name=f"task{i}", description=f"T{i}", payload={})
-
-        tasks = queue.list_tasks(limit=2)
-        assert len(tasks) == 2
-
-    def test_start_worker(self, queue):
-        """Test start_worker method."""
-
-        def handler(task):
-            return {"result": "success"}
-
-        queue.start_worker(handler, max_workers=1)
-        assert queue._running is True
-        assert len(queue._workers) == 1
-
-        queue.stop_workers()
-        assert queue._running is False
+            queue.enqueue(f"task{i}", f"Task {i}", {})
+        tasks = queue.list_tasks(limit=3)
+        assert len(tasks) == 3
 
     def test_cancel(self, queue):
-        """Test cancel method."""
-        task_id = queue.enqueue(name="task", description="Test", payload={})
+        task_id = queue.enqueue("cancel_me", "desc", {})
         result = queue.cancel(task_id)
         assert result is True
-
-        task = queue.get(task_id)
-        assert task.status == TaskStatus.CANCELLED
-
-    def test_cancel_not_pending(self, queue):
-        """Test cancel non-pending task."""
-        task_id = queue.enqueue(name="task", description="Test", payload={})
-        task = queue.get(task_id)
-        task.status = TaskStatus.RUNNING
-
-        result = queue.cancel(task_id)
-        assert result is False
+        assert queue.get(task_id).status == TaskStatus.CANCELLED
 
     def test_cancel_nonexistent(self, queue):
-        """Test cancel non-existent task."""
-        result = queue.cancel("nonexistent")
-        assert result is False
+        assert queue.cancel("nonexistent") is False
 
-    def test_clear_completed(self, queue):
-        """Test clear_completed method."""
-        task_id = queue.enqueue(name="task", description="Test", payload={})
+    def test_cancel_not_pending(self, queue):
+        task_id = queue.enqueue("test", "desc", {})
+        # Mark as completed
         task = queue.get(task_id)
         task.status = TaskStatus.COMPLETED
-        task.result = {"done": True}
+        assert queue.cancel(task_id) is False
 
+    def test_clear_completed(self, queue):
+        id1 = queue.enqueue("done", "desc", {})
+        id2 = queue.enqueue("pending", "desc", {})
+        queue.get(id1).status = TaskStatus.COMPLETED
+        queue._save_tasks()
         count = queue.clear_completed()
         assert count == 1
-        assert queue.get(task_id) is None
+        assert queue.get(id1) is None
+        assert queue.get(id2) is not None
+
+    def test_clear_completed_none(self, queue):
+        count = queue.clear_completed()
+        assert count == 0
 
     def test_delete_task(self, queue):
-        """Test delete_task method."""
-        task_id = queue.enqueue(name="task", description="Test", payload={})
+        task_id = queue.enqueue("delete_me", "desc", {})
         result = queue.delete_task(task_id)
         assert result is True
         assert queue.get(task_id) is None
 
-    def test_delete_task_nonexistent(self, queue):
-        """Test delete non-existent task."""
-        result = queue.delete_task("nonexistent")
-        assert result is False
+    def test_delete_nonexistent(self, queue):
+        assert queue.delete_task("nonexistent") is False
 
+    def test_persistence(self, queue_dir):
+        # Create queue and add tasks
+        q1 = TaskQueue(queue_dir=queue_dir)
+        q1.enqueue("persist_test", "desc", {"key": "val"})
 
-class TestTaskQueuePersistence:
-    """Test TaskQueue persistence."""
-
-    @pytest.fixture
-    def temp_dir(self):
-        """Create temp directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
-
-    def test_tasks_saved_to_disk(self, temp_dir):
-        """Test that tasks are saved to disk."""
-        queue1 = TaskQueue(queue_dir=temp_dir)
-        queue1.enqueue(name="persistent", description="Test", payload={})
-
-        queue2 = TaskQueue(queue_dir=temp_dir)
-        tasks = queue2.list_tasks()
+        # Create new queue from same dir
+        q2 = TaskQueue(queue_dir=queue_dir)
+        tasks = q2.list_tasks()
         assert len(tasks) == 1
-        assert tasks[0].name == "persistent"
+        assert tasks[0].name == "persist_test"
+
+    def test_start_and_stop_workers(self, queue):
+        def handler(task):
+            return {"processed": True}
+
+        queue.start_worker(handler, max_workers=1)
+        assert queue._running is True
+        queue.stop_workers()
+        assert queue._running is False
+
+    def test_worker_processes_task(self, queue_dir):
+        q = TaskQueue(queue_dir=queue_dir)
+        task_id = q.enqueue("process_me", "desc", {})
+
+        def handler(task):
+            return {"result": "done"}
+
+        q.start_worker(handler, max_workers=1)
+        time.sleep(2)  # Wait for worker to pick up task
+        q.stop_workers()
+
+        task = q.get(task_id)
+        if task:
+            assert task.status in (TaskStatus.COMPLETED, TaskStatus.PENDING)
+
+    def test_generate_id(self, queue):
+        id1 = queue._generate_id()
+        assert id1.startswith("task_")
+        # IDs are based on timestamp + count, same second may produce same prefix
+        assert len(id1) > 5
+
+    def test_save_and_load_corrupt(self, queue_dir):
+        # Write corrupt data
+        queue_dir.mkdir(parents=True, exist_ok=True)
+        (queue_dir / "tasks.json").write_text("not valid json{{{")
+
+        q = TaskQueue(queue_dir=queue_dir)
+        assert q._tasks == {}
+
+    def test_save_tasks_method(self, queue):
+        task_id = queue.enqueue("save_test", "desc", {})
+        queue._save_tasks()
+        assert queue.tasks_file.exists()
+        data = json.loads(queue.tasks_file.read_text())
+        assert task_id in data

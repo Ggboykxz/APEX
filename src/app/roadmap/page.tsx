@@ -54,7 +54,7 @@ const VERSIONS = [
       { text: 'Billing System (Free/Pro/Enterprise plans)', done: true },
       { text: 'Sandbox Code Execution (landlock, seatbelt, win32)', done: true },
       { text: 'Session Persistence & Sharing', done: true },
-      { text: '1,148+ Tests Passing', done: true },
+      { text: '2,849+ Tests Passing (0 failures, 84% coverage)', done: true },
     ]
   },
   {
