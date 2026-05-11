@@ -234,8 +234,8 @@ export default function AgentsPage() {
         {/* OpenCode Architecture */}
         <section className="py-12 bg-card/30">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Layers className="w-6 h-6 text-apex-cyan" /> OpenCode Architecture (v1.0.0)</h2>
-            <p className="text-muted-foreground mb-6">APEX v1.0.0 features the OpenCode architecture — structured messages, snapshots, custom commands, and a typed event bus that powers the agent system.</p>
+            <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Layers className="w-6 h-6 text-apex-cyan" /> OpenCode Architecture (v1.2.0)</h2>
+            <p className="text-muted-foreground mb-6">APEX v1.2.0 features the OpenCode architecture — structured messages, snapshots, custom commands, and a typed event bus that powers the agent system.</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-5 rounded-xl border border-apex-cyan/20 bg-apex-cyan/5">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">Structured Parts</h3>
