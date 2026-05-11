@@ -1,19 +1,5 @@
-#!/usr/bin/env bun
-/**
- * APEX TUI - AI-Powered Engineering eXtended
- * OpenTUI + React Terminal Interface
- *
- * Usage: bun run src/App.tsx
- */
-
-import { createCliRenderer } from "@opentui/core"
-import { createRoot } from "@opentui/react"
-
+import React from "react"
+import { render } from "ink"
 import { ApexApp } from "./components/ApexApp.js"
 
-async function main() {
-  const renderer = await createCliRenderer()
-  createRoot(renderer).render(<ApexApp />)
-}
-
-main().catch(console.error)
+render(React.createElement(ApexApp))

@@ -4,38 +4,43 @@ All notable changes to APEX will be documented in this file.
 
 ## [1.4.0] - 2026-05-11
 
-### Breaking Change: TUI is now the default mode
+### Breaking Change: TUI is now the default mode + Ink replaces OpenTUI
 
 - **`apex` now launches TUI by default** — Running `apex` without arguments starts the Terminal UI instead of the CLI REPL
 - **`apex --cli` or `apex cli`** — New flag and subcommand to explicitly launch the CLI REPL mode
-- No more silent fallback to CLI when TUI fails — the system tries multiple runtimes first
+- **Replaced OpenTUI with Ink** — OpenTUI required Bun's `bun:ffi` to load a Zig native library, which does NOT work with Node.js. Ink is a pure-JavaScript React terminal framework that works with any Node.js runtime
+- **TUI now works on Windows** — No Bun dependency needed! Just Node.js (which you already have)
 
-### Node.js / tsx Fallback for TUI (Windows Compatibility)
+### New TUI Frontend (Ink + React)
 
-- **Multi-runtime TUI launch**: When `bun` is not available or incompatible (common on Windows), APEX now tries multiple runtimes in cascade:
-  1. **bun** (preferred, native TSX support)
-  2. **tsx** via local `node_modules/.bin/tsx` (Node.js + TypeScript runtime)
-  3. **npx tsx** (auto-downloads tsx if not installed)
-  4. **node --experimental-strip-types** (Node 22+ native TypeScript support)
-- **`_try_run_tui_process()`**: Generic TUI launcher that works with any runtime command, replacing the old bun-only `_try_run_tui_with_bun()`
-- **`_ensure_tsx()` / `_install_tsx()`**: Helpers to detect and install tsx as a devDependency for Node.js TUI support
-- **tsx ^4.19.0** added as a devDependency in `tui-frontend/package.json`
-- **Node.js scripts** added: `dev:node` and `start:node` for running TUI with tsx
-- **`node_modules/.bin` added to PATH** when launching TUI, ensuring local binaries are found
+- **Ink 5** — React-based terminal UI framework (pure JS, no native dependencies)
+- **ink-text-input** — Chat input component
+- **ink-spinner** — Loading indicator during AI generation
+- **Same component architecture**: ApexApp, ChatPanel, Sidebar, StatusBar
+- **Same keyboard shortcuts**: Tab (agents), Ctrl+O (sidebar), Ctrl+L (clear), Ctrl+Q (quit)
+- **Same HTTP SSE backend**: Connects to `127.0.0.1:8080` for real AI chat streaming
+- **Same features**: Agent switching, model info, token/cost tracking, context percentage
 
-### Windows Compatibility Improvements
+### Python Backend Improvements
 
-- **Bun path discovery**: Now checks `%USERPROFILE%\.bun\bin\bun.exe`, `%USERPROFILE%\.bun\bin\bun`, and `%LOCALAPPDATA%\bun\bun.exe`
-- **Bun installation**: Windows now uses PowerShell (`irm bun.sh/install.ps1 | iex`) instead of curl+bash
-- **French Windows error detection**: Added "version de" pattern to detect incompatible bun errors in French-language Windows
+- **HTTP server started ONCE** — Fixed port 8080 conflict where server was restarted for each runtime attempt
+- **tsx auto-installed** — If tsx is not found, it's automatically installed via `npm install --save-dev tsx`
+- **Generic `_try_run_tui_process()`** — Works with any runtime command (tsx, node, etc.)
+- **Better crash detection** — stderr is now captured in a separate thread, preventing deadlocks
+- **Clean server lifecycle** — Server is started before runtime attempts and always stopped in a `finally` block
 
-### Other Improvements
+### Windows Compatibility
 
-- **Dependency check**: `_setup_tui_frontend()` now verifies `@opentui` exists in `node_modules` (not just that `node_modules/` directory exists)
+- **Bun no longer required** — The TUI runs entirely on Node.js + tsx
+- **Bun path discovery**: Still checks Windows-specific paths for future Bun compatibility
+- **Bun installation**: Windows uses PowerShell (`irm bun.sh/install.ps1 | iex`) as fallback
+
+### Other Changes
+
+- **Dependency check**: `_setup_tui_frontend()` now verifies `ink` exists in `node_modules`
 - **Increased npm install timeout**: 120s → 180s for slow connections
-- **Improved error messages**: When all TUI runtimes fail, shows actionable fix suggestions (install bun, install Node.js, use --cli)
-- **`apex install-tui`**: Now also installs tsx when bun is not available, and the success message says `apex` (not `apex --tui`)
-- **Version bumped to 1.4.0** across `__init__.py`, `pyproject.toml`, and `tui-frontend/package.json`
+- **tui-frontend/package.json**: Updated to use Ink instead of OpenTUI, tsx for running TSX files
+- **Version bumped to 1.4.0**
 
 ---
 

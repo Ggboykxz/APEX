@@ -1,110 +1,31 @@
-import { TextAttributes } from "@opentui/core"
+import React from "react"
+import { Box, Text } from "ink"
 import { apexTheme } from "../theme/apex.js"
-import { APEX_AGENTS, type ApexAgent } from "../data/apex-data.js"
+import { APEX_AGENTS } from "../data/apex-data.js"
 
 interface SidebarProps {
   activeAgent: string
-  onAgentSelect: (agentId: string) => void
-  visible: boolean
+  onAgentSelect: (id: string) => void
 }
 
-function AgentItem({ agent, active, onSelect }: { agent: ApexAgent; active: boolean; onSelect: () => void }) {
+export function Sidebar({ activeAgent }: SidebarProps) {
   return (
-    <box
-      style={{ width: "100%", height: 1, paddingLeft: 1, backgroundColor: active ? agent.color + "20" : "transparent" }}
-      onMouseDown={onSelect}
-    >
-      <text>
-        <span style={{ fg: agent.color, attributes: TextAttributes.BOLD }}>{agent.icon}</span>
-        <span style={{ fg: active ? agent.color : apexTheme.textDim }}> {agent.name}</span>
-      </text>
-      <text>
-        <span style={{ fg: agent.color }}>{active ? "●" : "○"}</span>
-      </text>
-    </box>
-  )
-}
-
-export function Sidebar({ activeAgent, onAgentSelect, visible }: SidebarProps) {
-  if (!visible) return null
-
-  return (
-    <box
-      id="apex-sidebar"
-      style={{
-        width: 22,
-        flexDirection: "column",
-        backgroundColor: apexTheme.bgSurface,
-        border: true,
-        borderColor: apexTheme.border,
-        borderStyle: "single",
-      }}
-    >
-      <box style={{ height: 2, paddingLeft: 1, backgroundColor: apexTheme.bgOverlay }}>
-        <text style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>▲ APEX v1.2</text>
-        <text style={{ fg: apexTheme.textMuted }}>Agentic Coding Platform</text>
-      </box>
-
-      <box style={{ height: 1, backgroundColor: apexTheme.border }} />
-
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text style={{ fg: apexTheme.textMuted, attributes: TextAttributes.BOLD }}>AGENTS</text>
-      </box>
-
-      {APEX_AGENTS.map((agent) => (
-        <AgentItem key={agent.id} agent={agent} active={agent.id === activeAgent} onSelect={() => onAgentSelect(agent.id)} />
+    <Box flexDirection="column" width={20} borderStyle="single" borderColor={apexTheme.border} paddingX={1}>
+      <Box marginBottom={1}>
+        <Text color={apexTheme.cyan} bold>AGENTS</Text>
+      </Box>
+      {APEX_AGENTS.map((a) => (
+        <Box key={a.id} marginBottom={0}>
+          <Text color={a.id === activeAgent ? a.color : apexTheme.gray}>
+            {a.id === activeAgent ? "● " : "  "}
+            {a.name}
+          </Text>
+        </Box>
       ))}
-
-      <box style={{ height: 1, backgroundColor: apexTheme.border }} />
-
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text style={{ fg: apexTheme.textMuted, attributes: TextAttributes.BOLD }}>SESSIONS</text>
-      </box>
-
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text>
-          <span style={{ fg: apexTheme.green }}>●</span>
-          <span style={{ fg: apexTheme.text }}> Current</span>
-        </text>
-      </box>
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text>
-          <span style={{ fg: apexTheme.textMuted }}>○</span>
-          <span style={{ fg: apexTheme.textDim }}> Saved</span>
-        </text>
-      </box>
-
-      <box style={{ height: 1, backgroundColor: apexTheme.border }} />
-
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text style={{ fg: apexTheme.textMuted, attributes: TextAttributes.BOLD }}>SERVERS</text>
-      </box>
-
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text>
-          <span style={{ fg: apexTheme.green }}>●</span>
-          <span style={{ fg: apexTheme.text }}> 5 MCP · 3 LSP</span>
-        </text>
-      </box>
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text>
-          <span style={{ fg: apexTheme.warning }}>○</span>
-          <span style={{ fg: apexTheme.textDim }}> 1 Offline</span>
-        </text>
-      </box>
-
-      <box style={{ flexGrow: 1 }} />
-
-      <box style={{ height: 1, backgroundColor: apexTheme.border }} />
-
-      <box style={{ height: 1, paddingLeft: 1 }}>
-        <text>
-          <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>Ctrl+K</span>
-          <span style={{ fg: apexTheme.textMuted }}> Models  </span>
-          <span style={{ fg: apexTheme.cyan, attributes: TextAttributes.BOLD }}>Tab</span>
-          <span style={{ fg: apexTheme.textMuted }}> Agents</span>
-        </text>
-      </box>
-    </box>
+      <Box marginTop={1} flexDirection="column">
+        <Text color={apexTheme.dimGray}>──────────</Text>
+        <Text color={apexTheme.dimGray}>Tab to switch</Text>
+      </Box>
+    </Box>
   )
 }

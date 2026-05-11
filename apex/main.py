@@ -68,7 +68,7 @@ def parse_args() -> argparse.Namespace:
         dest="auto_commit",
         help="Auto commit after successful task",
     )
-    parser.add_argument("--ui", action="store_true", help="Launch APEX TUI (OpenTUI + React)")
+    parser.add_argument("--ui", action="store_true", help="Launch APEX TUI (Ink + React)")
     parser.add_argument("--tui", "-t", action="store_true", help="Launch APEX TUI (same as --ui)")
     parser.add_argument(
         "--cli", action="store_true",
@@ -85,7 +85,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode (less output)")
     parser.add_argument(
-        "--install-tui", action="store_true", help="Install TUI dependencies (bun + tui-frontend)"
+        "--install-tui", action="store_true", help="Install TUI dependencies (Node.js + tui-frontend)"
     )
     return parser.parse_args()
 
@@ -792,7 +792,7 @@ def _install_bun(ui: UI) -> str | None:
 def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
     """Install TUI dependencies if needed (bun install, with npm fallback)."""
     node_modules = tui_dir / "node_modules"
-    if node_modules.exists() and (node_modules / "@opentui").exists():
+    if node_modules.exists() and (node_modules / "ink").exists():
         return True
 
     ui.print_info("Installing TUI dependencies (first run)...")
@@ -849,38 +849,34 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
 
 
 def _try_run_tui_process(
-    tui_dir: Path, runtime_cmd: list[str], agent: Agent, ui: UI,
+    tui_dir: Path, runtime_cmd: list[str], ui: UI,
     runtime_name: str = "OpenTUI",
 ) -> bool:
     """Try to run the TUI frontend with the given runtime command.
 
+    The HTTP API server must already be started before calling this.
+
     Args:
         tui_dir: Path to tui-frontend directory.
-        runtime_cmd: Command list to run (e.g. ["bun", "src/App.tsx"] or ["npx", "tsx", "src/App.tsx"]).
-        agent: APEX Agent instance.
+        runtime_cmd: Command list to run (e.g. ["bun", "src/App.tsx"] or ["tsx", "src/App.tsx"]).
         ui: UI instance for messages.
         runtime_name: Display name for the runtime.
 
-    Returns True if TUI ran successfully.
+    Returns True if TUI ran and exited normally. False if it crashed.
     """
-    tui_entry = tui_dir / "src" / "App.tsx"
-
-    ui.print_info("Starting APEX HTTP API server on port 8080...")
-    server_thread = start_tui_server(port=8080, agent=agent)
-
     ui.print_info(f"Starting APEX TUI with {runtime_name} (Ctrl+C to exit)...")
 
     env = os.environ.copy()
+    # Add local node_modules/.bin to PATH so tsx is found
+    local_bin = tui_dir / "node_modules" / ".bin"
+    if local_bin.exists():
+        path_sep = ";" if sys.platform == "win32" else ":"
+        env["PATH"] = str(local_bin) + path_sep + env.get("PATH", "")
     # Add bun directory to PATH (in case runtime needs it for resolution)
     bun_path = _find_bun()
     if bun_path:
         path_sep = ";" if sys.platform == "win32" else ":"
         env["PATH"] = str(Path(bun_path).parent) + path_sep + env.get("PATH", "")
-    # Also add local node_modules/.bin to PATH
-    local_bin = tui_dir / "node_modules" / ".bin"
-    if local_bin.exists():
-        path_sep = ";" if sys.platform == "win32" else ":"
-        env["PATH"] = str(local_bin) + path_sep + env.get("PATH", "")
     env["APEX_HTTP_PORT"] = "8080"
 
     try:
@@ -895,7 +891,22 @@ def _try_run_tui_process(
             cwd=str(tui_dir),
         )
 
-        def read_output():
+        # Read stderr in a separate thread to avoid deadlock
+        stderr_lines: list[str] = []
+
+        def read_stderr():
+            try:
+                for line in iter(proc.stderr.readline, ""):
+                    if line.strip():
+                        stderr_lines.append(line.rstrip())
+            except Exception:
+                pass
+
+        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
+        stderr_thread.start()
+
+        # Read stdout for JSON quit signals
+        def read_stdout():
             try:
                 for line in iter(proc.stdout.readline, ""):
                     if not line.strip():
@@ -910,39 +921,37 @@ def _try_run_tui_process(
             except Exception:
                 pass
 
-        thread = threading.Thread(target=read_output, daemon=True)
-        thread.start()
+        stdout_thread = threading.Thread(target=read_stdout, daemon=True)
+        stdout_thread.start()
 
-        # Wait a moment to check if the runtime crashes immediately
-        time.sleep(1.5)
+        # Wait to check if the runtime crashes immediately
+        time.sleep(2.0)
         if proc.poll() is not None:
-            stderr_output = ""
-            try:
-                stderr_output = proc.stderr.read() if proc.stderr else ""
-            except Exception:
-                pass
-            stop_tui_server(server_thread)
+            stderr_output = "\n".join(stderr_lines)
             if "not compatible" in stderr_output.lower() or "version de" in stderr_output.lower():
                 ui.print_error(f"{runtime_name} is not compatible with this Windows version.")
                 return False
             elif proc.returncode != 0:
                 ui.print_error(f"{runtime_name} exited with code {proc.returncode}")
                 if stderr_output:
-                    ui.print_info(f"Error: {stderr_output[:300]}")
+                    ui.print_info(f"Error: {stderr_output[:400]}")
+                return False
+            else:
+                # Exited with code 0 immediately - probably didn't start properly
+                ui.print_error(f"{runtime_name} exited immediately")
                 return False
 
+        # TUI is running - block until it exits
         while proc.poll() is None:
             time.sleep(0.1)
 
         return True
 
     except FileNotFoundError:
-        ui.print_error(f"{runtime_name} executable not found.")
-        stop_tui_server(server_thread)
+        ui.print_error(f"{runtime_name} executable not found: {runtime_cmd[0]}")
         return False
     except Exception as e:
         ui.print_error(f"{runtime_name} error: {e}")
-        stop_tui_server(server_thread)
         return False
 
 
@@ -992,14 +1001,10 @@ def _install_tsx(tui_dir: Path, ui: UI) -> str | None:
 
 
 def run_apex_tui(agent: Agent, ui: UI) -> None:
-    """Run APEX TUI - OpenTUI + React terminal interface with real backend.
+    """Run APEX TUI - Ink + React terminal interface with real backend.
 
-    Tries multiple runtimes in order:
-    1. bun (preferred, native TSX support)
-    2. npx tsx (Node.js with tsx TypeScript runtime)
-    3. node --experimental-strip-types (Node 22+ native TS)
-
-    Only falls back to CLI REPL if ALL TUI options fail.
+    The TUI uses Ink (React for terminal) which works with Node.js.
+    Falls back to CLI REPL only if Node.js is not available.
     """
     # Find tui-frontend directory
     tui_dir = _find_tui_dir()
@@ -1015,61 +1020,50 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
         run_repl(agent, ui)
         return
 
+    # Ensure tsx is available for running TSX files with Node.js
+    tsx_path = _ensure_tsx(tui_dir)
+    if not tsx_path:
+        tsx_path = _install_tsx(tui_dir, ui)
+
     tui_entry = str(tui_dir / "src" / "App.tsx")
 
-    # --- Attempt 1: bun (preferred) ---
-    bun_path = _find_bun()
-    if bun_path:
-        success = _try_run_tui_process(
-            tui_dir, [bun_path, tui_entry], agent, ui, runtime_name="Bun + OpenTUI",
-        )
-        if success:
-            return
-        ui.print_warning("Bun TUI failed, trying Node.js fallback...\n")
+    # Build the runtime command
+    runtime_cmd: list[str] | None = None
+    runtime_name: str = ""
 
-    # --- Attempt 2: npx tsx ---
-    npx_path = _find_npx()
-    tsx_path = _ensure_tsx(tui_dir)
     if tsx_path:
-        success = _try_run_tui_process(
-            tui_dir, [tsx_path, tui_entry], agent, ui, runtime_name="Node.js + tsx",
-        )
-        if success:
-            return
-        ui.print_warning("tsx TUI failed, trying npx tsx...\n")
-    elif npx_path:
-        # Try npx tsx (will auto-download tsx)
-        success = _try_run_tui_process(
-            tui_dir, [npx_path, "tsx", tui_entry], agent, ui, runtime_name="npx tsx",
-        )
-        if success:
-            return
-        ui.print_warning("npx tsx failed, trying to install tsx locally...\n")
-        # Install tsx locally and retry
-        tsx_path = _install_tsx(tui_dir, ui)
-        if tsx_path:
-            success = _try_run_tui_process(
-                tui_dir, [tsx_path, tui_entry], agent, ui, runtime_name="Node.js + tsx",
-            )
-            if success:
-                return
+        runtime_cmd = [tsx_path, tui_entry]
+        runtime_name = "Node.js + tsx"
+    else:
+        # Fallback: try node with native TS support (Node 22+)
+        node_path = _find_node()
+        if node_path:
+            runtime_cmd = [node_path, "--experimental-strip-types", tui_entry]
+            runtime_name = "Node.js (native TS)"
 
-    # --- Attempt 3: node --experimental-strip-types (Node 22+) ---
-    node_path = _find_node()
-    if node_path:
-        success = _try_run_tui_process(
-            tui_dir,
-            [node_path, "--experimental-strip-types", tui_entry],
-            agent, ui,
-            runtime_name="Node.js (native TS)",
-        )
+    if not runtime_cmd:
+        ui.print_error("\nNo TUI runtime available. Install Node.js: https://nodejs.org")
+        ui.print_info("Or use CLI mode: apex --cli\n")
+        ui.print_warning("Falling back to CLI mode...\n")
+        run_repl(agent, ui)
+        return
+
+    # Start the HTTP API server ONCE (shared with TUI)
+    ui.print_info("Starting APEX HTTP API server on port 8080...")
+    server = start_tui_server(port=8080, agent=agent)
+    time.sleep(0.5)
+
+    try:
+        success = _try_run_tui_process(tui_dir, runtime_cmd, ui, runtime_name=runtime_name)
         if success:
             return
+    finally:
+        stop_tui_server(server)
 
-    # --- All TUI options failed ---
-    ui.print_error("\nAll TUI runtimes failed. Possible fixes:")
-    ui.print_info("  1. Install bun: https://bun.sh")
-    ui.print_info("  2. Install Node.js: https://nodejs.org (LTS recommended)")
+    # TUI failed
+    ui.print_error(f"\n{runtime_name} TUI failed. Possible fixes:")
+    ui.print_info("  1. Install Node.js: https://nodejs.org (LTS recommended)")
+    ui.print_info("  2. Run: apex install-tui")
     ui.print_info("  3. Use CLI mode: apex --cli\n")
     ui.print_warning("Falling back to CLI mode...\n")
     run_repl(agent, ui)

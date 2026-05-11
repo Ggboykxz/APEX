@@ -1,14 +1,10 @@
-import { useKeyboard, useRenderer } from "@opentui/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { TextAttributes } from "@opentui/core"
-import { apexTheme } from "../theme/apex.js"
-import { APEX_AGENTS, APEX_MODELS, type ChatMessage } from "../data/apex-data.js"
-import { Sidebar } from "./Sidebar.js"
+import React, { useState, useCallback, useEffect, useRef } from "react"
+import { Box, Text, useInput, useApp } from "ink"
 import { ChatPanel } from "./ChatPanel.js"
 import { StatusBar } from "./StatusBar.js"
-import { ModelSelector } from "./ModelSelector.js"
-import { HelpPanel } from "./HelpPanel.js"
-import { ToolPanel } from "./ToolPanel.js"
+import { Sidebar } from "./Sidebar.js"
+import { apexTheme } from "../theme/apex.js"
+import { APEX_AGENTS, APEX_MODELS, type ChatMessage } from "../data/apex-data.js"
 
 const HTTP_PORT = parseInt(process.env.APEX_HTTP_PORT ?? "8080", 10)
 const API_BASE = `http://127.0.0.1:${HTTP_PORT}`
@@ -31,7 +27,7 @@ function calcMessageCost(promptTokens: number, completionTokens: number, modelId
 }
 
 export function ApexApp() {
-  const renderer = useRenderer()
+  const { exit } = useApp()
 
   const [activeAgent, setActiveAgent] = useState("coder")
   const [activeModel, setActiveModel] = useState("claude-4-sonnet")
@@ -39,13 +35,8 @@ export function ApexApp() {
   const [inputValue, setInputValue] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(true)
-  const [toolPanelVisible, setToolPanelVisible] = useState(false)
-  const [modelSelectorVisible, setModelSelectorVisible] = useState(false)
-  const [modelSearch, setModelSearch] = useState("")
-  const [helpVisible, setHelpVisible] = useState(false)
-  const [helpTab, setHelpTab] = useState<"keybindings" | "agents" | "tools">("keybindings")
-  const [sessionStart] = useState(Date.now())
   const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [sessionStart] = useState(Date.now())
 
   const [totalPromptTokens, setTotalPromptTokens] = useState(0)
   const [totalCompletionTokens, setTotalCompletionTokens] = useState(0)
@@ -54,68 +45,21 @@ export function ApexApp() {
   const [livePromptTokens, setLivePromptTokens] = useState(0)
   const [liveCompletionTokens, setLiveCompletionTokens] = useState(0)
 
-  const agent = useMemo(() => APEX_AGENTS.find((a) => a.id === activeAgent) ?? APEX_AGENTS[0]!, [activeAgent])
-  const model = useMemo(() => APEX_MODELS.find((m) => m.id === activeModel), [activeModel])
+  const agent = APEX_AGENTS.find((a) => a.id === activeAgent) ?? APEX_AGENTS[0]!
+  const model = APEX_MODELS.find((m) => m.id === activeModel)
+  const totalTokens = totalPromptTokens + totalCompletionTokens
+  const contextPct = model?.contextWindow && totalTokens > 0
+    ? Math.min(100, (totalTokens / model.contextWindow) * 100)
+    : 0
 
-  const totalTokens = useMemo(() => totalPromptTokens + totalCompletionTokens, [totalPromptTokens, totalCompletionTokens])
-
-  const contextPct = useMemo(() => {
-    if (!model?.contextWindow || totalTokens === 0) return 0
-    return Math.min(100, (totalTokens / model.contextWindow) * 100)
-  }, [model, totalTokens])
-
-  const sessionDuration = useMemo(() => {
+  const sessionDuration = (() => {
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000)
     const mins = Math.floor(elapsed / 60)
     const secs = elapsed % 60
     return `${mins}:${secs.toString().padStart(2, "0")}`
-  }, [sessionStart, messages.length])
+  })()
 
-  useKeyboard((key) => {
-    if (key.ctrl && key.name === "k") {
-      setModelSelectorVisible((v) => !v)
-      setModelSearch("")
-      return
-    }
-    if (key.ctrl && key.name === "o") {
-      setSidebarVisible((v) => !v)
-      return
-    }
-    if (key.ctrl && key.name === "t") {
-      setToolPanelVisible((v) => !v)
-      return
-    }
-    if (key.name === "?" && !modelSelectorVisible) {
-      setHelpVisible((v) => !v)
-      return
-    }
-    if (key.name === "escape") {
-      if (modelSelectorVisible) { setModelSelectorVisible(false); return }
-      if (helpVisible) { setHelpVisible(false); return }
-    }
-    if (key.name === "tab" && !modelSelectorVisible && !helpVisible) {
-      const currentIdx = APEX_AGENTS.findIndex((a) => a.id === activeAgent)
-      const nextIdx = (currentIdx + 1) % APEX_AGENTS.length
-      setActiveAgent(APEX_AGENTS[nextIdx]!.id)
-      return
-    }
-    if (key.ctrl && key.name === "q") {
-      process.exit(0)
-    }
-    if (key.ctrl && key.name === "l") {
-      setMessages([])
-      setInputValue("")
-      setTotalPromptTokens(0)
-      setTotalCompletionTokens(0)
-      setTotalSpent(0)
-      return
-    }
-  })
-
-  useEffect(() => {
-    if (renderer) renderer.setBackgroundColor(apexTheme.bg)
-  }, [renderer])
-
+  // Auto-dismiss connection errors
   useEffect(() => {
     if (connectionError) {
       const timer = setTimeout(() => setConnectionError(null), 5000)
@@ -123,6 +67,7 @@ export function ApexApp() {
     }
   }, [connectionError])
 
+  // Send message to API
   const sendMessage = useCallback(async (userMessage: string) => {
     setIsGenerating(true)
     setConnectionError(null)
@@ -210,6 +155,7 @@ export function ApexApp() {
         }
       }
 
+      // Process remaining buffer
       if (buffer.trim()) {
         const parsed = parseSSE(buffer)
         if (parsed.chunk) fullContent += parsed.chunk
@@ -240,7 +186,7 @@ export function ApexApp() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg.includes("fetch") || msg.includes("ECONNREFUSED") || msg.includes("NetworkError")) {
-        setConnectionError("Cannot connect to APEX backend. Make sure `apex --tui` is running.")
+        setConnectionError("Cannot connect to APEX backend on port " + HTTP_PORT)
       } else {
         setConnectionError(`Error: ${msg}`)
       }
@@ -263,62 +209,80 @@ export function ApexApp() {
       setLivePromptTokens(0)
       setLiveCompletionTokens(0)
     }
-  }, [activeAgent, activeModel])
+  }, [activeAgent, activeModel, livePromptTokens, liveCompletionTokens])
 
-  const handleSubmit = useCallback(() => {
-    if (!inputValue.trim() || isGenerating) return
-    const msg = inputValue.trim()
-    setInputValue("")
-    sendMessage(msg)
-  }, [inputValue, isGenerating, sendMessage])
+  // Handle keyboard input
+  useInput((input, key) => {
+    if (key.ctrl && input === "q") {
+      exit()
+      return
+    }
+    if (key.ctrl && input === "o") {
+      setSidebarVisible((v) => !v)
+      return
+    }
+    if (key.ctrl && input === "l") {
+      setMessages([])
+      setInputValue("")
+      setTotalPromptTokens(0)
+      setTotalCompletionTokens(0)
+      setTotalSpent(0)
+      return
+    }
+    if (key.tab) {
+      const currentIdx = APEX_AGENTS.findIndex((a) => a.id === activeAgent)
+      const nextIdx = (currentIdx + 1) % APEX_AGENTS.length
+      setActiveAgent(APEX_AGENTS[nextIdx]!.id)
+      return
+    }
+    if (key.return && inputValue.trim() && !isGenerating) {
+      const msg = inputValue.trim()
+      setInputValue("")
+      sendMessage(msg)
+      return
+    }
+    if (key.backspace || key.delete) {
+      setInputValue((v) => v.slice(0, -1))
+      return
+    }
+    if (input && !key.ctrl && !key.meta) {
+      setInputValue((v) => v + input)
+    }
+  })
 
   return (
-    <box id="apex-root" style={{ flexDirection: "column", flexGrow: 1, backgroundColor: apexTheme.bg }}>
-      {connectionError ? (
-        <box style={{ height: 1, flexDirection: "row", backgroundColor: apexTheme.error }}>
-          <text>
-            <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>⚠ {connectionError}</span>
-          </text>
-        </box>
-      ) : null}
+    <Box flexDirection="column" flexGrow={1}>
+      {/* Connection Error Banner */}
+      {connectionError && (
+        <Box width="100%">
+          <Text backgroundColor={apexTheme.error} color="#000000" bold>
+            {" "}⚠ {connectionError}{" "}
+          </Text>
+        </Box>
+      )}
 
-      <box id="apex-titlebar" style={{ height: 1, flexDirection: "row", justifyContent: "center", backgroundColor: agent?.color ?? apexTheme.cyan }}>
-        <text>
-          <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>▲ APEX</span>
-          <span style={{ fg: "#000000" }}> — {agent?.name ?? "Coder"} · {model?.name ?? "No Model"}</span>
-          <span style={{ fg: "#000000" }}> │ </span>
-          <span style={{ fg: "#000000" }}>{messages.length} msgs</span>
-          <span style={{ fg: "#000000" }}> │ </span>
-          <span style={{ fg: "#000000" }}>{contextPct.toFixed(1)}% ctx</span>
-          <span style={{ fg: "#000000" }}> │ </span>
-          <span style={{ fg: "#000000" }}>${totalSpent.toFixed(4)}</span>
-          <span style={{ fg: "#000000" }}> │ </span>
-          <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>Ctrl+K</span>
-          <span style={{ fg: "#000000" }}> Models  </span>
-          <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>Tab</span>
-          <span style={{ fg: "#000000" }}> Agents  </span>
-          <span style={{ fg: "#000000", attributes: TextAttributes.BOLD }}>?</span>
-          <span style={{ fg: "#000000" }}> Help</span>
-        </text>
-      </box>
+      {/* Title Bar */}
+      <Box width="100%" justifyContent="center" backgroundColor={agent.color}>
+        <Text color="#000000" bold>
+          ▲ APEX — {agent.name} · {model?.name ?? "No Model"} │ {messages.length} msgs │ {contextPct.toFixed(1)}% ctx │ ${totalSpent.toFixed(4)}
+        </Text>
+      </Box>
 
-      <box id="apex-main" style={{ flexDirection: "row", flexGrow: 1 }}>
-        <Sidebar activeAgent={activeAgent} onAgentSelect={setActiveAgent} visible={sidebarVisible} />
+      {/* Main Area */}
+      <Box flexDirection="row" flexGrow={1}>
+        {sidebarVisible && (
+          <Sidebar activeAgent={activeAgent} onAgentSelect={setActiveAgent} />
+        )}
         <ChatPanel
           messages={messages}
           inputValue={inputValue}
-          onInputChange={setInputValue}
-          onSubmit={handleSubmit}
           activeAgent={activeAgent}
           activeModel={activeModel}
           isGenerating={isGenerating}
-          livePromptTokens={livePromptTokens}
-          liveCompletionTokens={liveCompletionTokens}
-          liveCost={calcMessageCost(livePromptTokens, liveCompletionTokens, activeModel)}
         />
-        <ToolPanel visible={toolPanelVisible} activeAgent={activeAgent} />
-      </box>
+      </Box>
 
+      {/* Status Bar */}
       <StatusBar
         activeAgent={activeAgent}
         activeModel={activeModel}
@@ -330,24 +294,6 @@ export function ApexApp() {
         messageCount={messages.length}
         sessionDuration={sessionDuration}
       />
-
-      <ModelSelector
-        visible={modelSelectorVisible}
-        searchQuery={modelSearch}
-        onSearchChange={setModelSearch}
-        onSelect={setActiveModel}
-        onClose={() => setModelSelectorVisible(false)}
-        activeModel={activeModel}
-        activeAgent={activeAgent}
-      />
-
-      <HelpPanel
-        visible={helpVisible}
-        onClose={() => setHelpVisible(false)}
-        tab={helpTab}
-        onTabChange={setHelpTab}
-        activeAgent={activeAgent}
-      />
-    </box>
+    </Box>
   )
 }
