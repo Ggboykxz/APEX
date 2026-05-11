@@ -413,25 +413,46 @@ def start_tui_server(port: int = 8080, agent: "Agent | None" = None) -> object:
 
     Returns the server instance so callers can stop it later.
     """
+    import sys
     import threading
 
     server = APEXHTTPServer(host="127.0.0.1", port=port)
     if agent is not None:
         server.agent = agent
 
-    loop = asyncio.new_event_loop()
+    # On Windows, use SelectorEventLoop to avoid ProactorEventLoop crashes
+    # when the loop is stopped/cleaned up from another thread.
+    if sys.platform == "win32":
+        loop = asyncio.SelectorEventLoop()
+    else:
+        loop = asyncio.new_event_loop()
 
     def _run():
         asyncio.set_event_loop(loop)
-        loop.run_until_complete(server.start())
-        loop.run_forever()
+        try:
+            loop.run_until_complete(server.start())
+            loop.run_forever()
+        except Exception:
+            pass
+        finally:
+            try:
+                # Clean up pending tasks gracefully
+                pending = asyncio.all_tasks(loop)
+                for task in pending:
+                    task.cancel()
+                if pending:
+                    loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.run_until_complete(loop.shutdown_asyncgens())
+                loop.close()
+            except Exception:
+                pass
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
     # Give the server a moment to bind the port
     import time
 
-    time.sleep(0.3)
+    time.sleep(0.5)
     server._thread = thread
     server._loop = loop
     return server
@@ -443,4 +464,7 @@ def stop_tui_server(server: object) -> None:
         return
     loop = getattr(server, "_loop", None)
     if loop and loop.is_running():
-        loop.call_soon_threadsafe(loop.stop)
+        try:
+            loop.call_soon_threadsafe(loop.stop)
+        except RuntimeError:
+            pass  # Loop already stopped

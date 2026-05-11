@@ -745,63 +745,68 @@ def _install_bun(ui: UI) -> str | None:
 
 
 def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
-    """Install TUI dependencies if needed (bun install)."""
+    """Install TUI dependencies if needed (bun install, with npm fallback)."""
     node_modules = tui_dir / "node_modules"
     if node_modules.exists():
         return True
 
     ui.print_info("Installing TUI dependencies (first run)...")
-    bun_path = _find_bun()
-    if not bun_path:
-        bun_path = _install_bun(ui)
-    if not bun_path:
-        ui.print_error(
-            "Could not find or install bun. Install manually: curl -fsSL https://bun.sh/install | bash"
-        )
-        return False
 
-    try:
-        result = subprocess.run(
-            [bun_path, "install"],
-            cwd=str(tui_dir),
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode == 0:
-            ui.print_success("TUI dependencies installed!")
-            return True
-        else:
-            ui.print_error(f"bun install failed: {result.stderr[:200]}")
+    # Try bun first
+    bun_path = _find_bun()
+    if bun_path:
+        try:
+            result = subprocess.run(
+                [bun_path, "install"],
+                cwd=str(tui_dir),
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                ui.print_success("TUI dependencies installed!")
+                return True
+            else:
+                ui.print_warning(f"bun install failed: {result.stderr[:200]}")
+                ui.print_info("Trying npm as fallback...")
+        except Exception as e:
+            ui.print_warning(f"bun install error: {e}")
+            ui.print_info("Trying npm as fallback...")
+
+    # Fallback to npm (works on Windows where bun may not be compatible)
+    import shutil
+    npm_path = shutil.which("npm")
+    if npm_path:
+        try:
+            result = subprocess.run(
+                [npm_path, "install"],
+                cwd=str(tui_dir),
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                ui.print_success("TUI dependencies installed with npm!")
+                return True
+            else:
+                ui.print_error(f"npm install failed: {result.stderr[:200]}")
+                return False
+        except Exception as e:
+            ui.print_error(f"npm install error: {e}")
             return False
-    except Exception as e:
-        ui.print_error(f"Failed to install TUI dependencies: {e}")
-        return False
+
+    ui.print_error(
+        "Could not install TUI dependencies. Neither bun nor npm is available.\n"
+        "Install bun: curl -fsSL https://bun.sh/install | bash\n"
+        "Or install Node.js: https://nodejs.org"
+    )
+    return False
 
 
-def run_apex_tui(agent: Agent, ui: UI) -> None:
-    """Run APEX TUI - OpenTUI + React terminal interface with real backend."""
-    # Find tui-frontend directory
-    tui_dir = _find_tui_dir()
-    if not tui_dir:
-        ui.print_error("TUI frontend not found.")
-        ui.print_info("Install TUI support with: apex --install-tui")
-        ui.print_info("Or clone the repo and run from source.")
-        return
-
-    # Find bun runtime
-    bun_path = _find_bun()
-    if not bun_path:
-        ui.print_info("Bun runtime not found. Attempting to install...")
-        bun_path = _install_bun(ui)
-    if not bun_path:
-        ui.print_error("Bun not found. Install: curl -fsSL https://bun.sh/install | bash")
-        return
-
-    # Ensure TUI dependencies are installed
-    if not _setup_tui_frontend(tui_dir, ui):
-        return
-
+def _try_run_tui_with_bun(
+    tui_dir: Path, bun_path: str, agent: Agent, ui: UI
+) -> bool:
+    """Try to run the OpenTUI frontend with bun. Returns True if TUI ran."""
     tui_entry = tui_dir / "src" / "App.tsx"
 
     ui.print_info("Starting APEX HTTP API server on port 8080...")
@@ -810,7 +815,8 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
     ui.print_info("Starting APEX TUI with OpenTUI (Ctrl+C to exit)...")
 
     env = os.environ.copy()
-    env["PATH"] = str(Path(bun_path).parent) + ":" + env.get("PATH", "")
+    path_sep = ";" if sys.platform == "win32" else ":"
+    env["PATH"] = str(Path(bun_path).parent) + path_sep + env.get("PATH", "")
     env["APEX_HTTP_PORT"] = "8080"
 
     try:
@@ -843,16 +849,74 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
         thread = threading.Thread(target=read_output, daemon=True)
         thread.start()
 
+        # Wait a moment to check if bun crashes immediately
+        time.sleep(1.5)
+        if proc.poll() is not None:
+            stderr_output = ""
+            try:
+                stderr_output = proc.stderr.read() if proc.stderr else ""
+            except Exception:
+                pass
+            stop_tui_server(server_thread)
+            if "not compatible" in stderr_output.lower() or "version" in stderr_output.lower():
+                ui.print_error("Bun is not compatible with this Windows version.")
+                return False
+            elif proc.returncode != 0:
+                ui.print_error(f"OpenTUI exited with code {proc.returncode}")
+                if stderr_output:
+                    ui.print_info(f"Error: {stderr_output[:200]}")
+                return False
+
         while proc.poll() is None:
             time.sleep(0.1)
 
+        return True
+
     except FileNotFoundError:
-        ui.print_error("Bun not found. Install: curl -fsSL https://bun.sh/install | bash")
+        ui.print_error("Bun executable not found.")
+        stop_tui_server(server_thread)
+        return False
     except Exception as e:
         ui.print_error(f"OpenTUI error: {e}")
-    finally:
-        if server_thread:
-            stop_tui_server(server_thread)
+        stop_tui_server(server_thread)
+        return False
+
+
+def run_apex_tui(agent: Agent, ui: UI) -> None:
+    """Run APEX TUI - OpenTUI + React terminal interface with real backend.
+
+    Falls back to the rich CLI REPL if Bun/OpenTUI is not available
+    (e.g. on Windows where Bun may not be compatible).
+    """
+    # Find tui-frontend directory
+    tui_dir = _find_tui_dir()
+    if not tui_dir:
+        ui.print_warning("TUI frontend not found. Falling back to CLI mode.")
+        ui.print_info("Install TUI support with: apex --install-tui\n")
+        run_repl(agent, ui)
+        return
+
+    # Find bun runtime
+    bun_path = _find_bun()
+    if not bun_path:
+        ui.print_info("Bun runtime not found. Attempting to install...")
+        bun_path = _install_bun(ui)
+    if not bun_path:
+        ui.print_warning("Bun not found. Falling back to CLI mode.\n")
+        run_repl(agent, ui)
+        return
+
+    # Ensure TUI dependencies are installed
+    if not _setup_tui_frontend(tui_dir, ui):
+        ui.print_warning("TUI dependencies not installed. Falling back to CLI mode.\n")
+        run_repl(agent, ui)
+        return
+
+    # Try running OpenTUI; fall back to CLI if it fails
+    success = _try_run_tui_with_bun(tui_dir, bun_path, agent, ui)
+    if not success:
+        ui.print_warning("\nTUI unavailable. Launching APEX CLI mode instead...\n")
+        run_repl(agent, ui)
 
 
 def _install_tui_command(ui: UI) -> None:

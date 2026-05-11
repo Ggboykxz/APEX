@@ -2,6 +2,23 @@
 
 All notable changes to APEX will be documented in this file.
 
+## [1.3.1] - 2026-05-11
+
+### Windows Compatibility
+
+- **Fixed TUI crash on Windows**: `asyncio.ProactorEventLoop` caused "Task was destroyed but it is pending!" crash when launching `apex tui` on Windows. Now uses `SelectorEventLoop` on Windows for stability
+- **Graceful TUI fallback**: When Bun is incompatible with the Windows version (common on older Windows), `apex tui` now falls back to the rich CLI REPL instead of crashing
+- **npm fallback for dependencies**: TUI dependency installation (`_setup_tui_frontend`) now tries `npm install` as a fallback when `bun install` fails — works on Windows where Bun may not be compatible
+- **Windows PATH separator fix**: TUI launch now uses `;` as PATH separator on Windows instead of `:`
+
+### Bug Fixes
+
+- **Asyncio cleanup**: HTTP API server thread now properly cancels pending tasks and shuts down async generators before closing the event loop, preventing resource leaks
+- **stop_tui_server robustness**: Added try/except around `loop.stop()` to handle already-stopped loops gracefully
+- **Bun crash detection**: TUI launch now waits 1.5 seconds after starting bun to detect immediate crashes (incompatible version, missing runtime) and falls back to CLI mode
+
+---
+
 ## [1.3.0] - 2026-05-11
 
 ### CLI
