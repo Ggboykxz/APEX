@@ -4,6 +4,8 @@ Uses real objects only (no mocks).  Focuses on branches and edge cases not
 covered by the other test files.
 """
 
+import os
+
 import pytest
 
 litellm = pytest.importorskip("litellm")
@@ -298,6 +300,10 @@ class TestChatGenericException:
     APIConnectionError which falls through to the generic Exception handler.
     """
 
+    @pytest.mark.skipif(
+        bool(os.environ.get("CI")),
+        reason="Requires Ollama running, not available in CI",
+    )
     def test_ollama_connection_error_caught(self, agent):
         agent.switch_model("ollama-llama3")
         result = agent._chat_internal("hello", max_rounds=1)
@@ -314,6 +320,10 @@ class TestChatBadRequestError:
     litellm to raise BadRequestError.
     """
 
+    @pytest.mark.skipif(
+        bool(os.environ.get("CI")),
+        reason="Requires API access, not available in CI",
+    )
     def test_bad_request_error_caught(self, agent):
         agent.switch_model("llama-3.2-3b-free")
         result = agent._chat_internal("hello", max_rounds=1)
@@ -321,6 +331,10 @@ class TestChatBadRequestError:
         assert result.startswith("ERROR:")
         assert "Bad request" in result
 
+    @pytest.mark.skipif(
+        bool(os.environ.get("CI")),
+        reason="Requires API access, not available in CI",
+    )
     def test_bad_request_via_chat(self, agent):
         agent.switch_model("llama-3.2-3b-free")
         result = agent.chat("hello", max_rounds=1)
@@ -331,6 +345,10 @@ class TestChatBadRequestError:
 class TestStreamingBadRequestError:
     """Test _chat_internal_streaming with BadRequestError (covers lines 481-483)."""
 
+    @pytest.mark.skipif(
+        bool(os.environ.get("CI")),
+        reason="Requires API access, not available in CI",
+    )
     @pytest.mark.asyncio
     async def test_streaming_bad_request_error_caught(self, agent):
         agent.switch_model("llama-3.2-3b-free")
@@ -366,6 +384,10 @@ class TestStreamingMaxRoundsReached:
 class TestStreamingGenericException:
     """Test _chat_internal_streaming with generic exception (covers lines 484-486)."""
 
+    @pytest.mark.skipif(
+        bool(os.environ.get("CI")),
+        reason="Requires Ollama running, not available in CI",
+    )
     @pytest.mark.asyncio
     async def test_streaming_ollama_connection_error(self, agent):
         agent.switch_model("ollama-llama3")
