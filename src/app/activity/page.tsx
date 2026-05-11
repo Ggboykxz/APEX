@@ -98,7 +98,7 @@ export default function ActivityPage() {
   useEffect(() => {
     let m = true
     const f = async () => { try { const d = await fetchGitHubData(); if (m) { setGithubData(d); setLoading(false) } } catch { if (m) setLoading(false) } }
-    f(); const i = setInterval(f, 300000); return () => { m = false; clearInterval(i) }
+    f(); const i = setInterval(f, 600000); return () => { m = false; clearInterval(i) }
   }, [])
 
   const filteredIssues = filter === 'all' || filter === 'issues' ? githubData?.issues ?? [] : []

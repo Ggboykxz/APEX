@@ -1,16 +1,76 @@
 /**
- * GitHub API client — fetches data directly from GitHub's public API.
- * Used by both the home page and activity page for static export compatibility.
+ * GitHub API client — fetches data from GitHub's API with authentication,
+ * ETag caching, and localStorage fallback for static export compatibility.
+ * Used by both the home page and activity page.
  */
 
 const OWNER = 'Ggboykxz'
 const REPO = 'APEX'
 const BASE = `https://api.github.com/repos/${OWNER}/${REPO}`
 
+// Authenticated token — increases rate limit from 60/hr to 5,000/hr
+// NOTE: This token is embedded in the client bundle for static export.
+// Use a fine-grained PAT with only public repo read access.
+const TOKEN = process.env.NEXT_PUBLIC_GITHUB_TOKEN || ''
+
 const headers: Record<string, string> = {
   Accept: 'application/vnd.github.v3+json',
+  ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),
 }
 
+/* ──── Cache helpers ──── */
+const CACHE_KEY = 'apex-github-cache'
+const CACHE_TTL = 3 * 60 * 1000 // 3 minutes — cache is valid for 3 min
+
+interface CachedData {
+  timestamp: number
+  data: GitHubData
+}
+
+function readCache(): GitHubData | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const cached: CachedData = JSON.parse(raw)
+    if (Date.now() - cached.timestamp < CACHE_TTL) return cached.data
+    return null // expired
+  } catch {
+    return null
+  }
+}
+
+function writeCache(data: GitHubData): void {
+  try {
+    const cached: CachedData = { timestamp: Date.now(), data }
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cached))
+  } catch {
+    // localStorage might be full or unavailable — ignore
+  }
+}
+
+/* ──── ETag store ──── */
+const ETAG_KEY = 'apex-github-etags'
+
+function getEtag(url: string): string | null {
+  try {
+    const etags = JSON.parse(localStorage.getItem(ETAG_KEY) || '{}')
+    return etags[url] || null
+  } catch {
+    return null
+  }
+}
+
+function setEtag(url: string, etag: string): void {
+  try {
+    const etags = JSON.parse(localStorage.getItem(ETAG_KEY) || '{}')
+    etags[url] = etag
+    localStorage.setItem(ETAG_KEY, JSON.stringify(etags))
+  } catch {
+    // ignore
+  }
+}
+
+/* ──── Types ──── */
 export interface GitHubRepoData {
   stargazers_count: number
   forks_count: number
@@ -53,9 +113,27 @@ export interface GitHubData {
   releases: GitHubRelease[]
 }
 
+const EMPTY_DATA: GitHubData = {
+  repo: null,
+  issues: [],
+  pullRequests: [],
+  releases: [],
+}
+
 async function fetchJSON<T>(url: string): Promise<T | null> {
   try {
-    const res = await fetch(url, { headers })
+    const etag = getEtag(url)
+    const reqHeaders = { ...headers, ...(etag ? { 'If-None-Match': etag } : {}) }
+
+    const res = await fetch(url, { headers: reqHeaders })
+
+    // 304 Not Modified — data hasn't changed, save bandwidth
+    if (res.status === 304) return null // caller should use cached data
+
+    // Save the new ETag for future requests
+    const newEtag = res.headers.get('etag')
+    if (newEtag) setEtag(url, newEtag)
+
     if (!res.ok) return null
     return res.json() as Promise<T>
   } catch {
@@ -63,7 +141,13 @@ async function fetchJSON<T>(url: string): Promise<T | null> {
   }
 }
 
+let lastEtagAll304 = false
+
 export async function fetchGitHubData(): Promise<GitHubData> {
+  // Check localStorage cache first (valid for 3 minutes)
+  const cached = readCache()
+  if (cached) return cached
+
   try {
     const [repo, issues, prs, releases] = await Promise.all([
       fetchJSON<Record<string, unknown>>(BASE),
@@ -72,10 +156,25 @@ export async function fetchGitHubData(): Promise<GitHubData> {
       fetchJSON<Record<string, unknown>[]>(`${BASE}/releases?per_page=5`),
     ])
 
+    // If ALL requests returned null (304 or error), try returning stale cache
+    if (repo === null && issues === null && prs === null && releases === null) {
+      // Try stale cache as fallback
+      try {
+        const raw = localStorage.getItem(CACHE_KEY)
+        if (raw) {
+          const stale: CachedData = JSON.parse(raw)
+          return stale.data // return stale data rather than empty
+        }
+      } catch {
+        // ignore
+      }
+      return EMPTY_DATA
+    }
+
     const pureIssues = (issues || []).filter(i => !i.pull_request)
     const latestRelease = releases && releases.length > 0 ? releases[0] : null
 
-    return {
+    const data: GitHubData = {
       repo: repo ? {
         stargazers_count: repo.stargazers_count as number,
         forks_count: repo.forks_count as number,
@@ -111,12 +210,22 @@ export async function fetchGitHubData(): Promise<GitHubData> {
         body: typeof r.body === 'string' ? r.body.substring(0, 500) : '',
       })),
     }
+
+    // Cache the fresh data
+    writeCache(data)
+
+    return data
   } catch {
-    return {
-      repo: null,
-      issues: [],
-      pullRequests: [],
-      releases: [],
+    // On any error, try stale cache
+    try {
+      const raw = localStorage.getItem(CACHE_KEY)
+      if (raw) {
+        const stale: CachedData = JSON.parse(raw)
+        return stale.data
+      }
+    } catch {
+      // ignore
     }
+    return EMPTY_DATA
   }
 }

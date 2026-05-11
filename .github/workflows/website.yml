@@ -67,6 +67,7 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
           NEXTAUTH_SECRET: "build-time-dummy-secret"
           NEXTAUTH_URL: "http://localhost:3000"
+          NEXT_PUBLIC_GITHUB_TOKEN: ${{ secrets.NEXT_PUBLIC_GITHUB_TOKEN }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

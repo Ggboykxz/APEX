@@ -170,7 +170,7 @@ export default function Home() {
       } catch { if (isMounted) { setApiStatus('offline'); setGithubLoading(false) } }
     }
     fetchGithub()
-    const interval = setInterval(fetchGithub, 300000)
+    const interval = setInterval(fetchGithub, 600000)
     return () => { isMounted = false; clearInterval(interval) }
   }, [])
 
@@ -361,7 +361,7 @@ export default function Home() {
                 <h2 className="text-2xl md:text-3xl font-bold font-mono">Today&apos;s Dispatch</h2>
                 <p className="text-sm text-muted-foreground font-mono mt-1">{getEditionDate()}</p>
               </div>
-              <span className="text-xs font-mono text-muted-foreground">Curated by apex · 5min cron</span>
+              <span className="text-xs font-mono text-muted-foreground">Curated by apex · 10min cron</span>
             </div>
 
             {githubLoading ? (
