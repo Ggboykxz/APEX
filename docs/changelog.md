@@ -5,7 +5,7 @@ All notable changes to APEX are documented in this file. The project follows [Se
 ## v1.2.0 (Current) — 2026-05-11
 
 - **Version bump**: 1.1.0 → 1.2.0
-- **Dockerfile fix**: Corrected Python site-packages path from `python3.12` to `python3.14` to match the `python:3.14-slim` base image
+- **Dockerfile fix**: Corrected Python site-packages path from `python3.12` to `python3.13` to match the `python:3.13-slim` base image
 
 ## v1.1.0 — 2026-05-10
 
@@ -30,7 +30,7 @@ All notable changes to APEX are documented in this file. The project follows [Se
 ## v1.0.0 — 2026-05-10
 
 - First stable release
-- 100+ LLM models via litellm (Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, Ollama, xAI, Qwen, Cohere, etc.)
+- 170+ LLM models via litellm (Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, Ollama, xAI, Qwen, Cohere, etc.)
 - 5 specialized agents (Coder, Architect, Planner, Reviewer, Shell)
 - 75+ built-in tools (File, Code, Shell, Git, Web, Database, Docker, K8s, Cloud, Security)
 - OpenTUI + React terminal interface

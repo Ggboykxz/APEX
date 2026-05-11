@@ -39,7 +39,7 @@ Pressing `Tab` cycles through APEX's five built-in agents: Coder, Architect, Pla
 
 ## Model Selector
 
-Pressing `Ctrl+K` opens the model selector overlay with all 100+ supported models organized by provider (Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, Meta, xAI, Qwen, Cohere, Ollama, etc.). Each model entry shows its approximate context window size and cost category (e.g., `$0.00` for local models).
+Pressing `Ctrl+K` opens the model selector overlay with all 170+ supported models organized by provider (Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, Meta, xAI, Qwen, Cohere, Ollama, etc.). Each model entry shows its approximate context window size and cost category (e.g., `$0.00` for local models).
 
 ## Connection Error Handling
 
