@@ -584,7 +584,7 @@ result = limiter.check_rate_limit("user_123")
 
 - **Version**: 1.1.0
 - **Tests**: 1148 passing
-- **License**: MIT
+- **License**: Proprietary — All rights reserved (voir [LICENSE](../LICENSE))
 
 ## Installation
 
