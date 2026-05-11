@@ -35,7 +35,7 @@ All notable changes to APEX will be documented in this file.
   - `typescript` 5.9.3 → 6.0.3
   - `eslint` 9.39.4 → 10.3.0
   - `lucide-react` 0.525 → 0.577
-  - Python Docker image 3.12-slim → 3.14-slim
+  - Python Docker image 3.12-slim → 3.13-slim
 
 ### Tests
 
@@ -44,7 +44,7 @@ All notable changes to APEX will be documented in this file.
 
 ### Docker
 
-- **Dockerfile Fix**: Corrected Python site-packages path from `python3.12` to `python3.14` to match the `python:3.14-slim` base image
+- **Dockerfile Fix**: Corrected Python site-packages path from `python3.12` to `python3.13` to match the `python:3.13-slim` base image
 
 ### Website
 

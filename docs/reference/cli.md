@@ -14,7 +14,7 @@ apex [OPTIONS]
 
 | Flag | Short | Description | Default |
 |---|---|---|---|
-| `--model <name>` | `-m` | Set the default LLM model for this session. Accepts any of the 100+ supported model names (e.g., `gpt-4o`, `claude-sonnet-4-20250514`, `ollama/llama3`). | Value from `config.json` |
+| `--model <name>` | `-m` | Set the default LLM model for this session. Accepts any of the 170+ supported model names (e.g., `gpt-4o`, `claude-sonnet-4-20250514`, `ollama/llama3`). | Value from `config.json` |
 | `--ui` | | Launch the web-based UI instead of the TUI. Opens a browser tab at `http://localhost:3000`. | TUI |
 | `--tui` | | Explicitly launch the terminal UI (default behavior). Useful when both UI modes are configured. | Enabled |
 | `--cwd <path>` | | Set the working directory for the session. APEX will scope all file and shell operations to this directory. | Current directory |

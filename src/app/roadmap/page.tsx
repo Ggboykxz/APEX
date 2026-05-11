@@ -54,7 +54,7 @@ const VERSIONS = [
       { text: 'Billing System (Free/Pro/Enterprise plans)', done: true },
       { text: 'Sandbox Code Execution (landlock, seatbelt, win32)', done: true },
       { text: 'Session Persistence & Sharing', done: true },
-      { text: '2,849+ Tests Passing (0 failures, 84% coverage)', done: true },
+      { text: '2,842+ Tests Passing (0 failures, 8 skipped in CI)', done: true },
     ]
   },
   {
@@ -224,7 +224,7 @@ export default function RoadmapPage() {
         <section className="py-16 bg-card/30">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
             <h2 className="text-2xl font-bold font-mono mb-4">Help Shape the Future</h2>
-            <p className="text-muted-foreground mb-6">APEX is open source. Every contribution moves the roadmap forward — from bug fixes to major features.</p>
+            <p className="text-muted-foreground mb-6">APEX welcomes contributions. Every contribution moves the roadmap forward — from bug fixes to major features.</p>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a href="/contribute" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-apex-cyan text-background font-medium hover:bg-apex-cyan/90 transition-colors"><Users className="w-4 h-4" /> Contribute</a>
               <a href="https://github.com/Ggboykxz/APEX/blob/main/ROADMAP.md" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-border text-foreground font-medium hover:bg-card transition-colors"><GitBranch className="w-4 h-4" /> View ROADMAP.md</a>

@@ -38,7 +38,7 @@ Environment variables can also be exported in your shell profile for global avai
 
 ## Model Selection
 
-With support for 100+ models, APEX lets you pick your preferred model at several levels. Set `default_model` in `config.json` for a persistent default, override it per session with `apex --model claude-sonnet-4-20250514`, or switch models on the fly inside the TUI using `Ctrl+K`. Local models via Ollama are fully supported — simply set the model name to `ollama/<model-name>` and ensure the Ollama daemon is running. APEX automatically detects available Ollama models and includes them in the model selector.
+With support for 170+ models, APEX lets you pick your preferred model at several levels. Set `default_model` in `config.json` for a persistent default, override it per session with `apex --model claude-sonnet-4-20250514`, or switch models on the fly inside the TUI using `Ctrl+K`. Local models via Ollama are fully supported — simply set the model name to `ollama/<model-name>` and ensure the Ollama daemon is running. APEX automatically detects available Ollama models and includes them in the model selector.
 
 ## Agents
 
@@ -49,7 +49,7 @@ APEX ships with 5 specialized agents, each designed for different tasks:
 | **Coder** | Write and edit code | Asks before destructive actions |
 | **Architect** | Read and analyze codebase | Read-only by default |
 | **Reviewer** | Code review and suggestions | Read-only, never modifies files |
-| **DevOps** | Infrastructure and deployment | Asks before system changes |
-| **Analyst** | Data analysis and reports | Read-only with output generation |
+| **Shell** | Infrastructure and deployment | Asks before system changes |
+| **Planner** | Data analysis and reports | Read-only with output generation |
 
 Switch agents with `Tab` in the TUI or use `/agent coder`, `/agent architect`, etc.

@@ -17,14 +17,29 @@
 - Docker image (ghcr.io/ggboykxz/apex)
 - CI/CD pipeline (7 workflows)
 
-## ✅ v1.2.0 — Power (released May 10, 2026)
-- Streaming responses via HTTP SSE (real-time token streaming)
-- Live cost tracking (per-message + session total)
-- Context percentage monitoring
+## ✅ v1.1.0 — TUI & Agent Update (released May 11, 2026)
+- HTTP SSE backend for TUI (replaces stdin/stdout IPC)
+- Real-time token streaming (prompt/completion counts)
+- Per-message cost tracking with model-specific pricing
+- Context percentage monitoring (live context window utilization)
 - Agent-colored theming (titlebar, statusbar, borders per agent)
-- Unified HTTP server (`start_tui_server` in http_api.py)
-- 8 models added to backend (claude-3.7-sonnet, llama-3.3-70b, mistral-large, etc.)
-- Model switch error feedback with auto-dismiss banner
+- Model switch via HTTP API with error feedback
+- 8 models added (claude-3.7-sonnet, llama-3.3-70b, mistral-large, etc.)
+- Agent rename: DevOps → Shell, Analyst → Planner
+- Architect agent (distinct primary, read-only)
+- Reviewer reclassified as subagent
+- Unified HTTP server (start_tui_server/stop_tui_server)
+
+## ✅ v1.2.0 — Security & CI Hardening (released May 11, 2026)
+- API key validation hardening (try/except on SQLite errors)
+- Sandbox secure permissions (0o700 on dirs, 0o600 on files)
+- License field fix (PEP 639 compliant)
+- Removed broken `/cost` command
+- Fixed 7 failing CI workflows (Markdown Lint, Next.js Build, Coverage, Build check, TUI Build/Lint/TypeScript, Release Docker, Security Audit, CI Lint, CI Test)
+- 13 Dependabot PRs merged
+- 2,842 tests passing, 0 failures
+- Dockerfile Python 3.13-slim base image
+- Branch protection on main (no force push, PR reviews required, 5 status checks)
 
 ## 🎯 v2.0.0 — Intelligence
 - Repo map (understand full codebase structure)

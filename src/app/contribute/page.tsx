@@ -54,7 +54,7 @@ const PROJECT_TREE = `APEX/
 │   ├── tui/              # Textual TUI frontend
 │   ├── cli/              # CLI interface
 │   └── utils/            # Shared utilities
-├── tests/                # 2,849+ tests (84% coverage)
+├── tests/                # 2,842+ tests (0 failures)
 │   ├── test_agents/
 │   ├── test_tools/
 │   ├── test_security/
@@ -90,9 +90,9 @@ export default function ContributePage() {
           <div className="absolute inset-0 grid-pattern" />
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Open Source</div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Contribute</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">Contribute to <span className="animated-gradient-text">APEX</span></h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">APEX is built by the community. Every contribution matters — from bug reports to major features.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">APEX welcomes contributions from everyone. Every contribution matters — from bug reports to major features.</p>
             </motion.div>
           </div>
         </section>
@@ -199,7 +199,7 @@ export default function ContributePage() {
                 { name: 'prompt_toolkit', desc: 'Rich CLI input with autocomplete and history' },
                 { name: 'textual', desc: 'Full-featured TUI framework' },
                 { name: 'pydantic', desc: 'Data validation and settings management' },
-                { name: 'pytest', desc: 'Testing framework with 2,849+ tests' },
+                { name: 'pytest', desc: 'Testing framework with 2,842+ tests' },
                 { name: 'ruff', desc: 'Fast Python linter and formatter' },
                 { name: 'rich', desc: 'Beautiful terminal formatting and markdown' },
                 { name: 'click', desc: 'CLI argument parsing and commands' },
