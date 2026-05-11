@@ -1,13 +1,15 @@
 {
   "name": "apex-tui",
-  "version": "1.2.0",
+  "version": "1.3.1",
   "description": "APEX Terminal User Interface - OpenTUI + React",
   "module": "src/App.tsx",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "bun run src/App.tsx",
-    "start": "bun run src/App.tsx"
+    "start": "bun run src/App.tsx",
+    "dev:node": "tsx src/App.tsx",
+    "start:node": "tsx src/App.tsx"
   },
   "dependencies": {
     "@opentui/core": "^0.2.6",
@@ -17,6 +19,7 @@
   "devDependencies": {
     "@types/bun": "latest",
     "@types/react": "^19.2.0",
+    "tsx": "^4.19.0",
     "typescript": "^6"
   }
 }

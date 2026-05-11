@@ -35,6 +35,7 @@ _SUBCOMMANDS: dict[str, dict[str, bool]] = {
     "ui": {"tui": True},
     "models": {"list_models": True},
     "install-tui": {"install_tui": True},
+    "cli": {"cli": True},
 }
 
 
@@ -45,10 +46,11 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "subcommands:\n"
-            "  tui             Launch APEX TUI (same as --tui)\n"
-            "  ui              Launch APEX TUI (same as --ui)\n"
-            "  models          List all available models (same as --list-models)\n"
-            "  install-tui     Install TUI dependencies (same as --install-tui)\n"
+            "  tui             Launch APEX TUI (default when no args given)\n"
+            "  ui              Launch APEX TUI (same as tui)\n"
+            "  cli             Launch APEX in CLI REPL mode\n"
+            "  models          List all available models\n"
+            "  install-tui     Install TUI dependencies (bun + tui-frontend)\n"
         ),
     )
     parser.add_argument("prompt", nargs="?", help="One-shot prompt to execute")
@@ -68,6 +70,10 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--ui", action="store_true", help="Launch APEX TUI (OpenTUI + React)")
     parser.add_argument("--tui", "-t", action="store_true", help="Launch APEX TUI (same as --ui)")
+    parser.add_argument(
+        "--cli", action="store_true",
+        help="Launch APEX in CLI REPL mode (default is TUI)",
+    )
     parser.add_argument("-p", dest="prompt_direct", help="Direct prompt (CI/CD mode, no TUI)")
     parser.add_argument(
         "-f",
@@ -689,13 +695,22 @@ def _find_tui_dir() -> Path | None:
 
 
 def _find_bun() -> str | None:
-    """Find the bun executable, installing it if needed."""
-    # Check common locations
+    """Find the bun executable."""
+    # Check common locations (cross-platform)
     bun_candidates = [
         Path.home() / ".bun" / "bin" / "bun",
         Path("/usr/local/bin/bun"),
         Path("/usr/bin/bun"),
     ]
+    # Windows-specific paths
+    if sys.platform == "win32":
+        local_app = os.environ.get("LOCALAPPDATA", "")
+        user_profile = os.environ.get("USERPROFILE", "")
+        bun_candidates.extend([
+            Path(user_profile) / ".bun" / "bin" / "bun.exe",
+            Path(user_profile) / ".bun" / "bin" / "bun",
+            Path(local_app) / "bun" / "bun.exe",
+        ])
     for candidate in bun_candidates:
         if candidate.exists():
             return str(candidate)
@@ -710,32 +725,62 @@ def _find_bun() -> str | None:
     return None
 
 
+def _find_node() -> str | None:
+    """Find the node executable."""
+    import shutil
+    return shutil.which("node")
+
+
+def _find_npx() -> str | None:
+    """Find the npx executable."""
+    import shutil
+    return shutil.which("npx")
+
+
 def _install_bun(ui: UI) -> str | None:
     """Attempt to install bun automatically."""
     ui.print_info("Bun not found. Installing bun runtime...")
     try:
-        install_cmd = ["curl", "-fsSL", "https://bun.sh/install"]
-        result = subprocess.run(
-            install_cmd,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode != 0:
-            return None
+        if sys.platform == "win32":
+            # Windows: use PowerShell to install bun
+            ps_cmd = (
+                'irm bun.sh/install.ps1 | iex'
+            )
+            result = subprocess.run(
+                ["powershell", "-Command", ps_cmd],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env={**os.environ, "BUN_INSTALL": str(Path.home() / ".bun")},
+            )
+            if result.returncode != 0:
+                ui.print_warning(f"Bun install failed: {result.stderr[:200]}")
+                return None
+        else:
+            # Unix: use curl + bash
+            install_cmd = ["curl", "-fsSL", "https://bun.sh/install"]
+            result = subprocess.run(
+                install_cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode != 0:
+                return None
 
-        # Run the install script
-        install_result = subprocess.run(
-            ["bash", "-c", result.stdout],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            env={**os.environ, "BUN_INSTALL": str(Path.home() / ".bun")},
-        )
-        if install_result.returncode != 0:
-            return None
+            install_result = subprocess.run(
+                ["bash", "-c", result.stdout],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env={**os.environ, "BUN_INSTALL": str(Path.home() / ".bun")},
+            )
+            if install_result.returncode != 0:
+                return None
 
         bun_path = Path.home() / ".bun" / "bin" / "bun"
+        if sys.platform == "win32":
+            bun_path = bun_path.with_suffix(".exe") if not bun_path.exists() else bun_path
         if bun_path.exists():
             ui.print_success("Bun installed successfully!")
             return str(bun_path)
@@ -747,7 +792,7 @@ def _install_bun(ui: UI) -> str | None:
 def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
     """Install TUI dependencies if needed (bun install, with npm fallback)."""
     node_modules = tui_dir / "node_modules"
-    if node_modules.exists():
+    if node_modules.exists() and (node_modules / "@opentui").exists():
         return True
 
     ui.print_info("Installing TUI dependencies (first run)...")
@@ -783,7 +828,7 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
                 cwd=str(tui_dir),
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=180,
             )
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed with npm!")
@@ -797,31 +842,50 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
 
     ui.print_error(
         "Could not install TUI dependencies. Neither bun nor npm is available.\n"
-        "Install bun: curl -fsSL https://bun.sh/install | bash\n"
+        "Install bun: https://bun.sh\n"
         "Or install Node.js: https://nodejs.org"
     )
     return False
 
 
-def _try_run_tui_with_bun(
-    tui_dir: Path, bun_path: str, agent: Agent, ui: UI
+def _try_run_tui_process(
+    tui_dir: Path, runtime_cmd: list[str], agent: Agent, ui: UI,
+    runtime_name: str = "OpenTUI",
 ) -> bool:
-    """Try to run the OpenTUI frontend with bun. Returns True if TUI ran."""
+    """Try to run the TUI frontend with the given runtime command.
+
+    Args:
+        tui_dir: Path to tui-frontend directory.
+        runtime_cmd: Command list to run (e.g. ["bun", "src/App.tsx"] or ["npx", "tsx", "src/App.tsx"]).
+        agent: APEX Agent instance.
+        ui: UI instance for messages.
+        runtime_name: Display name for the runtime.
+
+    Returns True if TUI ran successfully.
+    """
     tui_entry = tui_dir / "src" / "App.tsx"
 
     ui.print_info("Starting APEX HTTP API server on port 8080...")
     server_thread = start_tui_server(port=8080, agent=agent)
 
-    ui.print_info("Starting APEX TUI with OpenTUI (Ctrl+C to exit)...")
+    ui.print_info(f"Starting APEX TUI with {runtime_name} (Ctrl+C to exit)...")
 
     env = os.environ.copy()
-    path_sep = ";" if sys.platform == "win32" else ":"
-    env["PATH"] = str(Path(bun_path).parent) + path_sep + env.get("PATH", "")
+    # Add bun directory to PATH (in case runtime needs it for resolution)
+    bun_path = _find_bun()
+    if bun_path:
+        path_sep = ";" if sys.platform == "win32" else ":"
+        env["PATH"] = str(Path(bun_path).parent) + path_sep + env.get("PATH", "")
+    # Also add local node_modules/.bin to PATH
+    local_bin = tui_dir / "node_modules" / ".bin"
+    if local_bin.exists():
+        path_sep = ";" if sys.platform == "win32" else ":"
+        env["PATH"] = str(local_bin) + path_sep + env.get("PATH", "")
     env["APEX_HTTP_PORT"] = "8080"
 
     try:
         proc = subprocess.Popen(
-            [bun_path, str(tui_entry)],
+            runtime_cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -842,14 +906,14 @@ def _try_run_tui_with_bun(
                             proc.terminate()
                             return
                     except json.JSONDecodeError:
-                        continue
+                        pass
             except Exception:
                 pass
 
         thread = threading.Thread(target=read_output, daemon=True)
         thread.start()
 
-        # Wait a moment to check if bun crashes immediately
+        # Wait a moment to check if the runtime crashes immediately
         time.sleep(1.5)
         if proc.poll() is not None:
             stderr_output = ""
@@ -858,13 +922,13 @@ def _try_run_tui_with_bun(
             except Exception:
                 pass
             stop_tui_server(server_thread)
-            if "not compatible" in stderr_output.lower() or "version" in stderr_output.lower():
-                ui.print_error("Bun is not compatible with this Windows version.")
+            if "not compatible" in stderr_output.lower() or "version de" in stderr_output.lower():
+                ui.print_error(f"{runtime_name} is not compatible with this Windows version.")
                 return False
             elif proc.returncode != 0:
-                ui.print_error(f"OpenTUI exited with code {proc.returncode}")
+                ui.print_error(f"{runtime_name} exited with code {proc.returncode}")
                 if stderr_output:
-                    ui.print_info(f"Error: {stderr_output[:200]}")
+                    ui.print_info(f"Error: {stderr_output[:300]}")
                 return False
 
         while proc.poll() is None:
@@ -873,36 +937,75 @@ def _try_run_tui_with_bun(
         return True
 
     except FileNotFoundError:
-        ui.print_error("Bun executable not found.")
+        ui.print_error(f"{runtime_name} executable not found.")
         stop_tui_server(server_thread)
         return False
     except Exception as e:
-        ui.print_error(f"OpenTUI error: {e}")
+        ui.print_error(f"{runtime_name} error: {e}")
         stop_tui_server(server_thread)
         return False
+
+
+def _ensure_tsx(tui_dir: Path) -> str | None:
+    """Ensure tsx is available for running TSX files with Node.js.
+
+    Returns the path to tsx executable, or None if not available.
+    """
+    # Check if tsx is already in local node_modules
+    local_tsx = tui_dir / "node_modules" / ".bin" / ("tsx.cmd" if sys.platform == "win32" else "tsx")
+    if local_tsx.exists():
+        return str(local_tsx)
+
+    # Check if tsx is in PATH
+    import shutil
+    tsx_in_path = shutil.which("tsx")
+    if tsx_in_path:
+        return tsx_in_path
+
+    return None
+
+
+def _install_tsx(tui_dir: Path, ui: UI) -> str | None:
+    """Install tsx as a devDependency for the TUI frontend."""
+    import shutil
+    npm_path = shutil.which("npm")
+    if not npm_path:
+        return None
+
+    ui.print_info("Installing tsx runtime for Node.js TUI support...")
+    try:
+        result = subprocess.run(
+            [npm_path, "install", "--save-dev", "tsx"],
+            cwd=str(tui_dir),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            ui.print_success("tsx installed successfully!")
+            return _ensure_tsx(tui_dir)
+        else:
+            ui.print_warning(f"tsx install failed: {result.stderr[:200]}")
+    except Exception as e:
+        ui.print_warning(f"tsx install error: {e}")
+    return None
 
 
 def run_apex_tui(agent: Agent, ui: UI) -> None:
     """Run APEX TUI - OpenTUI + React terminal interface with real backend.
 
-    Falls back to the rich CLI REPL if Bun/OpenTUI is not available
-    (e.g. on Windows where Bun may not be compatible).
+    Tries multiple runtimes in order:
+    1. bun (preferred, native TSX support)
+    2. npx tsx (Node.js with tsx TypeScript runtime)
+    3. node --experimental-strip-types (Node 22+ native TS)
+
+    Only falls back to CLI REPL if ALL TUI options fail.
     """
     # Find tui-frontend directory
     tui_dir = _find_tui_dir()
     if not tui_dir:
-        ui.print_warning("TUI frontend not found. Falling back to CLI mode.")
-        ui.print_info("Install TUI support with: apex --install-tui\n")
-        run_repl(agent, ui)
-        return
-
-    # Find bun runtime
-    bun_path = _find_bun()
-    if not bun_path:
-        ui.print_info("Bun runtime not found. Attempting to install...")
-        bun_path = _install_bun(ui)
-    if not bun_path:
-        ui.print_warning("Bun not found. Falling back to CLI mode.\n")
+        ui.print_warning("TUI frontend not found. Install with: apex install-tui")
+        ui.print_info("Falling back to CLI mode.\n")
         run_repl(agent, ui)
         return
 
@@ -912,11 +1015,64 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
         run_repl(agent, ui)
         return
 
-    # Try running OpenTUI; fall back to CLI if it fails
-    success = _try_run_tui_with_bun(tui_dir, bun_path, agent, ui)
-    if not success:
-        ui.print_warning("\nTUI unavailable. Launching APEX CLI mode instead...\n")
-        run_repl(agent, ui)
+    tui_entry = str(tui_dir / "src" / "App.tsx")
+
+    # --- Attempt 1: bun (preferred) ---
+    bun_path = _find_bun()
+    if bun_path:
+        success = _try_run_tui_process(
+            tui_dir, [bun_path, tui_entry], agent, ui, runtime_name="Bun + OpenTUI",
+        )
+        if success:
+            return
+        ui.print_warning("Bun TUI failed, trying Node.js fallback...\n")
+
+    # --- Attempt 2: npx tsx ---
+    npx_path = _find_npx()
+    tsx_path = _ensure_tsx(tui_dir)
+    if tsx_path:
+        success = _try_run_tui_process(
+            tui_dir, [tsx_path, tui_entry], agent, ui, runtime_name="Node.js + tsx",
+        )
+        if success:
+            return
+        ui.print_warning("tsx TUI failed, trying npx tsx...\n")
+    elif npx_path:
+        # Try npx tsx (will auto-download tsx)
+        success = _try_run_tui_process(
+            tui_dir, [npx_path, "tsx", tui_entry], agent, ui, runtime_name="npx tsx",
+        )
+        if success:
+            return
+        ui.print_warning("npx tsx failed, trying to install tsx locally...\n")
+        # Install tsx locally and retry
+        tsx_path = _install_tsx(tui_dir, ui)
+        if tsx_path:
+            success = _try_run_tui_process(
+                tui_dir, [tsx_path, tui_entry], agent, ui, runtime_name="Node.js + tsx",
+            )
+            if success:
+                return
+
+    # --- Attempt 3: node --experimental-strip-types (Node 22+) ---
+    node_path = _find_node()
+    if node_path:
+        success = _try_run_tui_process(
+            tui_dir,
+            [node_path, "--experimental-strip-types", tui_entry],
+            agent, ui,
+            runtime_name="Node.js (native TS)",
+        )
+        if success:
+            return
+
+    # --- All TUI options failed ---
+    ui.print_error("\nAll TUI runtimes failed. Possible fixes:")
+    ui.print_info("  1. Install bun: https://bun.sh")
+    ui.print_info("  2. Install Node.js: https://nodejs.org (LTS recommended)")
+    ui.print_info("  3. Use CLI mode: apex --cli\n")
+    ui.print_warning("Falling back to CLI mode...\n")
+    run_repl(agent, ui)
 
 
 def _install_tui_command(ui: UI) -> None:
@@ -982,13 +1138,19 @@ def _install_tui_command(ui: UI) -> None:
                 ui.print_error(f"Failed to download TUI frontend: {e}")
                 return
 
-    # Step 3: Install TUI npm dependencies
+    # Step 3: Install tsx for Node.js fallback
+    if tui_dir and not _find_bun():
+        tsx_path = _ensure_tsx(tui_dir)
+        if not tsx_path:
+            _install_tsx(tui_dir, ui)
+
+    # Step 4: Install TUI npm dependencies
     if tui_dir:
         if _setup_tui_frontend(tui_dir, ui):
-            ui.print_success("TUI setup complete! Run: apex --tui")
+            ui.print_success("TUI setup complete! Run: apex")
         else:
             ui.print_error("Failed to install TUI dependencies.")
-            ui.print_info("Try manually: cd ~/.apex/tui-frontend && bun install")
+            ui.print_info("Try manually: cd ~/.apex/tui-frontend && npm install")
 
 
 def main() -> None:
@@ -1021,14 +1183,18 @@ def main() -> None:
         _install_tui_command(ui)
         sys.exit(0)
 
-    if args.ui or args.tui:
+    if args.cli:
+        # Explicit CLI mode requested
+        run_repl(agent, ui, args.stream)
+    elif args.ui or args.tui:
         run_apex_tui(agent, ui)
     elif args.prompt_direct:
         run_cicd_mode(args.prompt_direct, agent, ui, args.output_format, args.quiet)
     elif args.prompt:
         run_one_shot(args.prompt, agent, ui, args.stream)
     else:
-        run_repl(agent, ui, args.stream)
+        # Default: launch TUI
+        run_apex_tui(agent, ui)
 
 
 if __name__ == "__main__":
