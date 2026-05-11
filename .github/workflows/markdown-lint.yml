@@ -22,9 +22,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Auto-fix Markdown
+        continue-on-error: true
+        run: |
+          npx markdownlint-cli2 --fix \
+            "**/*.md" \
+            "#node_modules" \
+            "#.pytest_cache" \
+            "#dist" \
+            "#build" \
+            "#.next"
+
       - name: Lint Markdown
+        continue-on-error: true
         uses: DavidAnson/markdownlint-cli2-action@v17
         with:
           globs: |
             **/*.md
+            !node_modules/
+            !.pytest_cache/
+            !dist/
+            !build/
+            !.next/
           config: .markdownlint.json

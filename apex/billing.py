@@ -89,14 +89,14 @@ MODEL_COSTS = {
     # ── Ollama (free) ──
     "ollama": CostConfig(0.0, 0.0),
     # ── Backward-compatible aliases ──
-    "claude_opus": CostConfig(0.005, 0.025),       # alias → claude_opus_4_5
-    "claude_sonnet": CostConfig(0.003, 0.015),     # alias → claude_sonnet_4_5
-    "claude_haiku": CostConfig(0.001, 0.005),      # alias → claude_haiku_4_5
-    "gpt_4_turbo": CostConfig(0.01, 0.03),         # legacy
-    "gemini_2": CostConfig(0.0, 0.0),              # legacy free tier
-    "gemini_flash": CostConfig(0.0, 0.0),          # legacy free tier
+    "claude_opus": CostConfig(0.005, 0.025),  # alias → claude_opus_4_5
+    "claude_sonnet": CostConfig(0.003, 0.015),  # alias → claude_sonnet_4_5
+    "claude_haiku": CostConfig(0.001, 0.005),  # alias → claude_haiku_4_5
+    "gpt_4_turbo": CostConfig(0.01, 0.03),  # legacy
+    "gemini_2": CostConfig(0.0, 0.0),  # legacy free tier
+    "gemini_flash": CostConfig(0.0, 0.0),  # legacy free tier
     "deepseek_coder": CostConfig(0.00014, 0.00028),  # alias → deepseek_chat
-    "llama_3": CostConfig(0.0, 0.0),               # legacy free
+    "llama_3": CostConfig(0.0, 0.0),  # legacy free
 }
 
 
