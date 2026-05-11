@@ -14,7 +14,7 @@ MUTED='\033[0;90m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-APEX_VERSION="1.0.0"
+APEX_VERSION="1.1.0"
 version=""
 uninstall_mode=false
 default_model=""
