@@ -38,18 +38,65 @@ class CostConfig:
 
 
 MODEL_COSTS = {
-    "claude-opus": CostConfig(0.015, 0.075),
-    "claude-sonnet": CostConfig(0.003, 0.015),
-    "claude-haiku": CostConfig(0.00025, 0.00125),
-    "gpt-4o": CostConfig(0.005, 0.015),
-    "gpt-4o-mini": CostConfig(0.00015, 0.0006),
-    "gpt-4-turbo": CostConfig(0.01, 0.03),
-    "gemini-2": CostConfig(0.0, 0.0),
-    "gemini-flash": CostConfig(0.0, 0.0),
-    "deepseek-chat": CostConfig(0.0005, 0.002),
-    "deepseek-coder": CostConfig(0.001, 0.003),
-    "llama-3": CostConfig(0.0002, 0.0002),
+    # ── Anthropic ──
+    "claude_opus_4_7": CostConfig(0.005, 0.025),
+    "claude_sonnet_4_6": CostConfig(0.003, 0.015),
+    "claude_opus_4_5": CostConfig(0.005, 0.025),
+    "claude_sonnet_4_5": CostConfig(0.003, 0.015),
+    "claude_haiku_4_5": CostConfig(0.001, 0.005),
+    "claude_3_5_haiku": CostConfig(0.0008, 0.004),
+    "claude_3_5_sonnet": CostConfig(0.003, 0.015),
+    # ── OpenAI ──
+    "gpt_5": CostConfig(0.00125, 0.01),
+    "gpt_5_mini": CostConfig(0.00025, 0.002),
+    "gpt_5_nano": CostConfig(0.00005, 0.0004),
+    "gpt_4o": CostConfig(0.0025, 0.01),
+    "gpt_4o_mini": CostConfig(0.00015, 0.0006),
+    "gpt_4_1": CostConfig(0.002, 0.008),
+    "gpt_4_1_mini": CostConfig(0.0004, 0.0016),
+    "o3": CostConfig(0.002, 0.008),
+    "o3_mini": CostConfig(0.0011, 0.0044),
+    "o4_mini": CostConfig(0.0011, 0.0044),
+    # ── Google ──
+    "gemini_2_5_pro": CostConfig(0.00125, 0.01),
+    "gemini_2_5_flash": CostConfig(0.0003, 0.0025),
+    "gemini_3_pro": CostConfig(0.002, 0.012),
+    "gemini_3_flash": CostConfig(0.0005, 0.003),
+    "gemini_2_0_flash": CostConfig(0.0001, 0.0004),
+    # ── xAI ──
+    "grok_4": CostConfig(0.003, 0.015),
+    "grok_4_fast": CostConfig(0.0002, 0.0005),
+    "grok_3": CostConfig(0.003, 0.015),
+    "grok_3_mini": CostConfig(0.0003, 0.0005),
+    # ── DeepSeek ──
+    "deepseek_chat": CostConfig(0.00014, 0.00028),
+    "deepseek_reasoner": CostConfig(0.00014, 0.00028),
+    "deepseek_v4_flash": CostConfig(0.00014, 0.00028),
+    "deepseek_v4_pro": CostConfig(0.00174, 0.00348),
+    # ── Mistral ──
+    "mistral_large_latest": CostConfig(0.0005, 0.0015),
+    "mistral_medium_latest": CostConfig(0.002, 0.0075),
+    "mistral_small_latest": CostConfig(0.00015, 0.0006),
+    "codestral": CostConfig(0.0003, 0.0009),
+    # ── Alibaba ──
+    "qwen3_coder_plus": CostConfig(0.001, 0.005),
+    "qwen_plus": CostConfig(0.0004, 0.0012),
+    # ── Cohere ──
+    "command_a": CostConfig(0.0025, 0.01),
+    "command_r": CostConfig(0.00015, 0.0006),
+    # ── Groq ──
+    "llama_groq_3_3_70b": CostConfig(0.00059, 0.00079),
+    # ── Ollama (free) ──
     "ollama": CostConfig(0.0, 0.0),
+    # ── Backward-compatible aliases ──
+    "claude_opus": CostConfig(0.005, 0.025),       # alias → claude_opus_4_5
+    "claude_sonnet": CostConfig(0.003, 0.015),     # alias → claude_sonnet_4_5
+    "claude_haiku": CostConfig(0.001, 0.005),      # alias → claude_haiku_4_5
+    "gpt_4_turbo": CostConfig(0.01, 0.03),         # legacy
+    "gemini_2": CostConfig(0.0, 0.0),              # legacy free tier
+    "gemini_flash": CostConfig(0.0, 0.0),          # legacy free tier
+    "deepseek_coder": CostConfig(0.00014, 0.00028),  # alias → deepseek_chat
+    "llama_3": CostConfig(0.0, 0.0),               # legacy free
 }
 
 
@@ -173,7 +220,7 @@ class BillingManager:
         cache_tokens: int = 0,
     ) -> float:
         model_key = model.lower().replace("-", "_").replace(" ", "_")
-        cost_config = MODEL_COSTS.get(model_key, MODEL_COSTS.get("claude-sonnet"))
+        cost_config = MODEL_COSTS.get(model_key, MODEL_COSTS.get("claude_sonnet"))
         input_cost = (input_tokens / 1000) * cost_config.input_cost_per_1k
         output_cost = (output_tokens / 1000) * cost_config.output_cost_per_1k
         if use_cache and cache_tokens > 0:

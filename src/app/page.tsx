@@ -51,7 +51,7 @@ const INSTALL_COMMANDS: Record<string, { label: string; cmd: string }> = {
 }
 
 const FEATURES = [
-  { icon: Cpu, title: '100+ Models', description: 'Use any LLM from any provider. Claude, GPT-4o, Gemini, Grok, Llama, DeepSeek, Qwen, and 95+ more models via litellm.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
+  { icon: Cpu, title: '170+ Models', description: 'Use any LLM from any provider. GPT-5, Claude Sonnet 4.6, Gemini 3, Grok 4, DeepSeek V4, Qwen 3.6, and 150+ more models via litellm.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
   { icon: Bot, title: '5 Specialized Agents', description: 'Coder, Architect, Planner, Reviewer, and Shell agents with per-tool permission systems.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
   { icon: Wrench, title: '75+ Tools', description: 'File ops, search, git, web, LSP, code generation, sandboxed execution, clipboard, skills, and more — all built in and ready.', color: 'text-apex-yellow', glow: 'group-hover:shadow-[0_0_30px_rgba(255,170,0,0.15)]' },
   { icon: Shield, title: 'Security System', description: 'Shell command analysis, permission rulesets (ALLOW/DENY/ASK), rate limiting, API key management, billing system, and path traversal protection.', color: 'text-apex-red', glow: 'group-hover:shadow-[0_0_30px_rgba(255,68,68,0.15)]' },
@@ -62,7 +62,7 @@ const FEATURES = [
 ]
 
 const STATS = [
-  { value: '100+', label: 'Models Supported', icon: Cpu },
+  { value: '170+', label: 'Models Supported', icon: Cpu },
   { value: '75+', label: 'Built-in Tools', icon: Wrench },
   { value: '5', label: 'Specialized Agents', icon: Bot },
   { value: '2,849+', label: 'Tests Passing', icon: Check },
@@ -72,7 +72,7 @@ const STATS = [
 
 const PAGE_LINKS = [
   { href: '/agents', icon: Bot, title: 'Agents', desc: '5 specialized agents for every workflow', color: 'text-apex-cyan' },
-  { href: '/models', icon: Cpu, title: 'Models', desc: '100+ models from every major provider', color: 'text-apex-green' },
+  { href: '/models', icon: Cpu, title: 'Models', desc: '170+ models from 21 providers', color: 'text-apex-green' },
   { href: '/tools', icon: Wrench, title: 'Tools', desc: '75+ built-in tools for every workflow', color: 'text-apex-yellow' },
   { href: '/install', icon: Box, title: 'Install', desc: '6 installation methods for every platform', color: 'text-apex-cyan' },
   { href: '/security', icon: Shield, title: 'Security', desc: 'Permissions, rate limiting, and shell security', color: 'text-apex-red' },
@@ -272,7 +272,7 @@ export default function Home() {
               The Universal <span className="animated-gradient-text">AI Coding</span><br />Agent
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Every model. One terminal. APEX runs in your terminal with 100+ models, 75+ tools, and 5 specialized agents. Switch models mid-session. Snapshots, custom commands, and event bus built in.
+              Every model. One terminal. APEX runs in your terminal with 170+ models from 21 providers, 75+ tools, and 5 specialized agents. Switch models mid-session. Snapshots, custom commands, and event bus built in.
             </p>
 
             {/* Install Tabs */}
@@ -317,12 +317,12 @@ export default function Home() {
             <div className="flex items-center gap-2 px-4 py-3 bg-card border-b border-border">
               <div className="flex gap-1.5"><div className="w-3 h-3 rounded-full bg-apex-red/80" /><div className="w-3 h-3 rounded-full bg-apex-yellow/80" /><div className="w-3 h-3 rounded-full bg-apex-green/80" /></div>
               <span className="text-xs text-muted-foreground font-mono ml-2">apex — ~/my-project</span>
-              <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">coder</span><span className="text-muted-foreground">•</span><span className="flex items-center gap-1"><AnthropicIcon size={12} /><span>claude-4-sonnet</span></span></div>
+              <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">coder</span><span className="text-muted-foreground">•</span><span className="flex items-center gap-1"><AnthropicIcon size={12} /><span>claude-sonnet-4.6</span></span></div>
             </div>
             <div className="bg-[#0a0e14] p-6 font-mono text-sm leading-7 min-h-[320px]">
               <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.1.0 — Ready</div>
               <div className="mt-2"><span className="text-apex-green">user</span><span className="text-muted-foreground">@apex</span><span className="text-apex-cyan"> ~ </span><span className="text-foreground">Fix the authentication bug in auth.py</span></div>
-              <div className="mt-3 text-muted-foreground"><span className="text-apex-cyan">◆</span> Using <span className="text-foreground">coder</span> agent with <span className="text-apex-cyan">claude-4-sonnet</span></div>
+              <div className="mt-3 text-muted-foreground"><span className="text-apex-cyan">◆</span> Using <span className="text-foreground">coder</span> agent with <span className="text-apex-cyan">claude-sonnet-4.6</span></div>
               <div className="mt-2 space-y-1.5">
                 <div className="flex items-center gap-2"><span className="text-apex-yellow">▸</span><span className="text-muted-foreground">read_file</span><span className="text-foreground">auth.py</span></div>
                 <div className="flex items-center gap-2"><span className="text-apex-yellow">▸</span><span className="text-muted-foreground">search_in_files</span><span className="text-foreground">"authenticate" in src/</span></div>
@@ -369,7 +369,7 @@ export default function Home() {
                 )
               })}
             </div>
-            <p className="text-xs text-muted-foreground font-mono mt-6">+ 90 more models via litellm · <a href="/models" className="text-apex-cyan hover:underline">View all models →</a></p>
+            <p className="text-xs text-muted-foreground font-mono mt-6">+ 150 more models via litellm · <a href="/models" className="text-apex-cyan hover:underline">View all models →</a></p>
           </motion.div>
         </div>
       </section>
@@ -486,7 +486,7 @@ export default function Home() {
               <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Features
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4 font-mono">Everything You Need</h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">APEX combines the power of 100+ models, 75+ tools, 5 specialized agents, and OpenCode architecture in one terminal-native experience.</p>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">APEX combines the power of 170+ models, 75+ tools, 5 specialized agents, and OpenCode architecture in one terminal-native experience.</p>
           </motion.div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((feature, i) => (
@@ -521,7 +521,7 @@ export default function Home() {
               </div>
               <div className="md:pl-8 pt-6 md:pt-0">
                 <p className="eyebrow mb-2">03 · Model Freedom</p>
-                <h3 className="text-lg font-bold font-mono mb-3">100+ models by default</h3>
+                <h3 className="text-lg font-bold font-mono mb-3">170+ models by default</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">Use any LLM from any provider. Swap with /model command mid-session. Structured messages with Parts, snapshots with undo/redo, and custom commands.</p>
               </div>
             </div>
@@ -586,7 +586,7 @@ export default function Home() {
                 {/* LLM API */}
                 <rect x="640" y="25" width="200" height="50" rx="8" fill="#161b22" stroke="#30363d" strokeWidth="1.5" />
                 <text x="740" y="46" textAnchor="middle" fill="#e6edf3" fontSize="13" fontWeight="bold" fontFamily="monospace">LLM API</text>
-                <text x="740" y="62" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">100+ models</text>
+                <text x="740" y="62" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">170+ models</text>
 
                 {/* Tools */}
                 <rect x="640" y="120" width="200" height="75" rx="8" fill="#161b22" stroke="#30363d" strokeWidth="1.5" />

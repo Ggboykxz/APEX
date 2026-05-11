@@ -1,0 +1,53 @@
+# Auto-label configuration for APEX PRs
+# Used by actions/labeler@v5
+
+python:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apex/**
+          - tests/**
+          - "*.py"
+          - pyproject.toml
+          - requirements.txt
+
+website:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/**
+          - public/**
+          - package.json
+          - bun.lock
+          - tailwind.config.ts
+          - next.config.ts
+          - tsconfig.json
+          - eslint.config.mjs
+          - postcss.config.mjs
+          - components.json
+
+tui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - tui-frontend/**
+          - tui-frontend/package.json
+          - tui-frontend/tsconfig.json
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - "*.md"
+          - mkdocs.yml
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - .github/workflows/**
+          - .github/dependabot.yml
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - Dockerfile
+          - docker-compose*
+          - .dockerignore
