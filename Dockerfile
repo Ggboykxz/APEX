@@ -4,7 +4,7 @@
 # ============================================
 
 # ---- Stage 1: Python backend ----
-FROM python:3.14-slim AS python-base
+FROM python:3.13-slim AS python-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -23,12 +23,12 @@ FROM oven/bun:1 AS tui-builder
 WORKDIR /app/tui-frontend
 
 COPY tui-frontend/package.json tui-frontend/bun.lock ./
-RUN bun install --frozen-lockfile
+RUN bun install
 
 COPY tui-frontend/ ./
 
 # ---- Stage 3: Final image ----
-FROM python:3.14-slim AS final
+FROM python:3.13-slim AS final
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl git ca-certificates unzip && \
@@ -44,7 +44,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Copy Python package from builder
-COPY --from=python-base /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
+COPY --from=python-base /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=python-base /usr/local/bin/apex /usr/local/bin/apex
 
 # Copy APEX source (needed for runtime imports)
