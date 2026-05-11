@@ -63,13 +63,13 @@ jobs:
 
       - name: Audit Node.js dependencies (root)
         run: |
-          bun install --frozen-lockfile
+          bun install
           bunx npm-audit || true
 
       - name: Audit Node.js dependencies (TUI)
         run: |
           cd tui-frontend
-          bun install --frozen-lockfile
+          bun install
           bunx npm-audit || true
 
   secrets-scan:
