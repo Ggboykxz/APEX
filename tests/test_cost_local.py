@@ -51,8 +51,8 @@ class TestModelPricingDict:
         assert "gpt-4o-mini" in MODEL_PRICING
 
     def test_has_claude(self):
-        assert "claude-4-sonnet" in MODEL_PRICING
-        assert "claude-4-opus" in MODEL_PRICING
+        assert "claude-sonnet-4.6" in MODEL_PRICING
+        assert "claude-opus-4.7" in MODEL_PRICING
 
     def test_has_gemini(self):
         assert "gemini-1.5-flash" in MODEL_PRICING
@@ -60,7 +60,7 @@ class TestModelPricingDict:
 
     def test_has_deepseek(self):
         assert "deepseek-chat" in MODEL_PRICING
-        assert "deepseek-r1" in MODEL_PRICING
+        assert "deepseek-reasoner" in MODEL_PRICING
 
     def test_all_pricing_positive(self):
         for name, pricing in MODEL_PRICING.items():
@@ -86,8 +86,8 @@ class TestCostTracker:
     def test_record_usage_gpt4o(self, tracker):
         cost = tracker.record_usage("gpt-4o", 1000, 1000)
         assert cost > 0
-        # gpt-4o: 0.005/1k input, 0.015/1k output
-        expected = (1000 / 1000) * 0.005 + (1000 / 1000) * 0.015
+        # gpt-4o: 0.0025/1k input, 0.01/1k output (updated pricing)
+        expected = (1000 / 1000) * 0.0025 + (1000 / 1000) * 0.01
         assert abs(cost - expected) < 0.0001
 
     def test_record_usage_gpt4o_mini(self, tracker):

@@ -94,17 +94,15 @@ class TestModelCosts:
 
     def test_contains_known_models(self):
         expected_models = [
-            "claude-opus",
-            "claude-sonnet",
-            "claude-haiku",
-            "gpt-4o",
-            "gpt-4o-mini",
-            "gpt-4-turbo",
-            "gemini-2",
-            "gemini-flash",
-            "deepseek-chat",
-            "deepseek-coder",
-            "llama-3",
+            "claude_opus_4_7",
+            "claude_sonnet_4_6",
+            "claude_haiku_4_5",
+            "gpt_4o",
+            "gpt_4o_mini",
+            "gpt_4_1",
+            "gemini_2_5_pro",
+            "gemini_2_5_flash",
+            "deepseek_chat",
             "ollama",
         ]
         for model in expected_models:
@@ -116,20 +114,22 @@ class TestModelCosts:
 
     def test_opus_more_expensive_than_sonnet(self):
         assert (
-            MODEL_COSTS["claude-opus"].input_cost_per_1k
-            > MODEL_COSTS["claude-sonnet"].input_cost_per_1k
+            MODEL_COSTS["claude_opus_4_7"].input_cost_per_1k
+            > MODEL_COSTS["claude_sonnet_4_6"].input_cost_per_1k
         )
         assert (
-            MODEL_COSTS["claude-opus"].output_cost_per_1k
-            > MODEL_COSTS["claude-sonnet"].output_cost_per_1k
+            MODEL_COSTS["claude_opus_4_7"].output_cost_per_1k
+            > MODEL_COSTS["claude_sonnet_4_6"].output_cost_per_1k
         )
 
     def test_free_models_have_zero_cost(self):
-        assert MODEL_COSTS["gemini-2"].input_cost_per_1k == 0.0
-        assert MODEL_COSTS["gemini-2"].output_cost_per_1k == 0.0
-        assert MODEL_COSTS["gemini-flash"].input_cost_per_1k == 0.0
         assert MODEL_COSTS["ollama"].input_cost_per_1k == 0.0
         assert MODEL_COSTS["ollama"].output_cost_per_1k == 0.0
+        # backward-compatible free aliases
+        assert MODEL_COSTS["gemini_2"].input_cost_per_1k == 0.0
+        assert MODEL_COSTS["gemini_2"].output_cost_per_1k == 0.0
+        assert MODEL_COSTS["gemini_flash"].input_cost_per_1k == 0.0
+        assert MODEL_COSTS["llama_3"].input_cost_per_1k == 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -378,23 +378,19 @@ class TestBillingManagerCalculateCost:
         assert cost == round(expected, 6)
 
     def test_gpt4o_cost(self, manager):
-        # Model name normalization converts hyphens to underscores,
-        # but MODEL_COSTS uses hyphens as keys, so "gpt_4o" isn't found
-        # and falls back to claude-sonnet pricing.
+        # "gpt-4o" normalizes to "gpt_4o", which exists in MODEL_COSTS
         cost = manager.calculate_cost("gpt-4o", 1000, 1000)
-        # Fallback to claude-sonnet: (1000/1000)*0.003 + (1000/1000)*0.015 = 0.018
-        assert cost == 0.018
+        # gpt_4o: (1000/1000)*0.0025 + (1000/1000)*0.01 = 0.0025 + 0.01 = 0.0125
+        assert cost == 0.0125
 
     def test_free_model_cost(self, manager):
         cost = manager.calculate_cost("ollama", 1000, 1000)
         assert cost == 0.0
 
     def test_gemini_cost(self, manager):
-        # "gemini-2" normalizes to "gemini_2" (not in MODEL_COSTS),
-        # falls back to claude-sonnet pricing
+        # "gemini-2" normalizes to "gemini_2", a backward-compatible free alias
         cost = manager.calculate_cost("gemini-2", 10000, 5000)
-        # Fallback: (10000/1000)*0.003 + (5000/1000)*0.015 = 0.03 + 0.075 = 0.105
-        assert cost == 0.105
+        assert cost == 0.0
 
     def test_zero_tokens(self, manager):
         cost = manager.calculate_cost("gpt-4o", 0, 0)
@@ -410,8 +406,8 @@ class TestBillingManagerCalculateCost:
         assert cost == sonnet_cost
 
     def test_model_name_normalization_hyphens(self, manager):
-        """Model names with hyphens should be normalized."""
-        # "claude-sonnet" -> "claude_sonnet" (already in MODEL_COSTS as "claude-sonnet")
+        """Model names with hyphens should be normalized to underscores."""
+        # "claude-sonnet" -> "claude_sonnet" (backward-compatible alias)
         cost1 = manager.calculate_cost("claude-sonnet", 1000, 1000)
         cost2 = manager.calculate_cost("claude_sonnet", 1000, 1000)
         assert cost1 == cost2
@@ -429,24 +425,24 @@ class TestBillingManagerCalculateCost:
         assert cost >= 0
 
     def test_large_token_count(self, manager):
-        # claude-opus normalizes to claude_opus, falls back to claude-sonnet
+        # "claude-opus" normalizes to "claude_opus" (backward-compatible alias)
         cost = manager.calculate_cost("claude-opus", 1000000, 500000)
-        # Fallback to claude-sonnet: (1000000/1000)*0.003 + (500000/1000)*0.015 = 3.0 + 7.5
-        expected_input = (1000000 / 1000) * 0.003
-        expected_output = (500000 / 1000) * 0.015
+        # claude_opus: (1000000/1000)*0.005 + (500000/1000)*0.025 = 5.0 + 12.5
+        expected_input = (1000000 / 1000) * 0.005
+        expected_output = (500000 / 1000) * 0.025
         assert cost == round(expected_input + expected_output, 6)
 
     def test_deepseek_chat_cost(self, manager):
-        # "deepseek-chat" normalizes to "deepseek_chat", falls back to claude-sonnet
+        # "deepseek-chat" normalizes to "deepseek_chat", which exists in MODEL_COSTS
         cost = manager.calculate_cost("deepseek-chat", 1000, 1000)
-        # Fallback to claude-sonnet: (1000/1000)*0.003 + (1000/1000)*0.015 = 0.018
-        assert cost == 0.018
+        # deepseek_chat: (1000/1000)*0.00014 + (1000/1000)*0.00028 = 0.00042
+        assert cost == 0.00042
 
     def test_deepseek_coder_cost(self, manager):
-        # "deepseek-coder" normalizes to "deepseek_coder", falls back to claude-sonnet
+        # "deepseek-coder" normalizes to "deepseek_coder" (backward-compatible alias)
         cost = manager.calculate_cost("deepseek-coder", 1000, 1000)
-        # Fallback to claude-sonnet: (1000/1000)*0.003 + (1000/1000)*0.015 = 0.018
-        assert cost == 0.018
+        # Same pricing as deepseek_chat: (1000/1000)*0.00014 + (1000/1000)*0.00028 = 0.00042
+        assert cost == 0.00042
 
 
 # ---------------------------------------------------------------------------
@@ -511,7 +507,7 @@ class TestBillingManagerCheckQuota:
         # Pro plan monthly_limit is $20. Set used close to limit so projected cost exceeds it.
         account.used_this_month = 19.99
         # Use enough tokens to push past the $20 limit.
-        # claude-sonnet fallback: (10000/1000)*0.003 + (10000/1000)*0.015 = 0.03 + 0.15 = 0.18
+        # claude-sonnet (alias): (10000/1000)*0.003 + (10000/1000)*0.015 = 0.03 + 0.15 = 0.18
         # 19.99 + 0.18 = 20.17 > 20.0 → overage triggered, but allowed
         ok, msg = manager.check_quota("user-1", "claude-sonnet", 10000, 10000)
         assert ok is True

@@ -1,0 +1,108 @@
+# Dependabot configuration for APEX
+# Auto dependency updates across all ecosystems
+
+version: 2
+
+updates:
+  # Python pip dependencies
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    reviewers:
+      - Ggboykxz
+    labels:
+      - dependencies
+      - python
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    rebase-strategy: auto
+
+  # npm dependencies — Next.js frontend (src/)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    reviewers:
+      - Ggboykxz
+    labels:
+      - dependencies
+      - website
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    rebase-strategy: auto
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+
+  # npm dependencies — TUI frontend (tui-frontend/)
+  - package-ecosystem: npm
+    directory: /tui-frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    reviewers:
+      - Ggboykxz
+    labels:
+      - dependencies
+      - tui
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    rebase-strategy: auto
+
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    reviewers:
+      - Ggboykxz
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: ci
+      prefix-development: ci
+      include: scope
+    rebase-strategy: auto
+
+  # Docker base images
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    reviewers:
+      - Ggboykxz
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    rebase-strategy: auto

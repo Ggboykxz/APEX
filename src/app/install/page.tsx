@@ -71,14 +71,23 @@ const INSTALL_METHODS = [
 ]
 
 const API_KEYS = [
-  { provider: 'Anthropic', env: 'ANTHROPIC_API_KEY', prefix: 'sk-ant-', models: 'Claude 4 Sonnet, Opus 4, 3.5 Haiku', link: 'https://console.anthropic.com/' },
-  { provider: 'OpenAI', env: 'OPENAI_API_KEY', prefix: 'sk-', models: 'GPT-4o, o1, o3, GPT-4.5, o4-mini', link: 'https://platform.openai.com/api-keys' },
-  { provider: 'Google', env: 'GEMINI_API_KEY', prefix: 'AI', models: 'Gemini 2.5 Pro, Gemini 2.0 Flash', link: 'https://aistudio.google.com/apikey' },
-  { provider: 'xAI', env: 'XAI_API_KEY', prefix: 'xai-', models: 'Grok 3, Grok 3 Mini', link: 'https://console.x.ai/' },
+  { provider: 'Anthropic', env: 'ANTHROPIC_API_KEY', prefix: 'sk-ant-', models: 'Claude Sonnet 4.6, Opus 4.5, Claude 4.7', link: 'https://console.anthropic.com/' },
+  { provider: 'OpenAI', env: 'OPENAI_API_KEY', prefix: 'sk-', models: 'GPT-5, GPT-5 mini, o3, o4-mini', link: 'https://platform.openai.com/api-keys' },
+  { provider: 'Google', env: 'GEMINI_API_KEY', prefix: 'AI', models: 'Gemini 3, Gemini 2.5 Pro, Gemini 2.0 Flash', link: 'https://aistudio.google.com/apikey' },
+  { provider: 'xAI', env: 'XAI_API_KEY', prefix: 'xai-', models: 'Grok 4, Grok 3', link: 'https://console.x.ai/' },
   { provider: 'Groq', env: 'GROQ_API_KEY', prefix: 'gsk_', models: 'Llama Groq, Mixtral Groq', link: 'https://console.groq.com/' },
   { provider: 'Mistral', env: 'MISTRAL_API_KEY', prefix: '', models: 'Mistral Large, Codestral', link: 'https://console.mistral.ai/' },
-  { provider: 'DeepSeek', env: 'DEEPSEEK_API_KEY', prefix: '', models: 'DeepSeek V3, DeepSeek R1', link: 'https://platform.deepseek.com/' },
+  { provider: 'DeepSeek', env: 'DEEPSEEK_API_KEY', prefix: '', models: 'DeepSeek V4, DeepSeek R2', link: 'https://platform.deepseek.com/' },
   { provider: 'Cohere', env: 'COHERE_API_KEY', prefix: '', models: 'Command R, Command R Plus', link: 'https://dashboard.cohere.com/' },
+  { provider: 'Cerebras', env: 'CEREBRAS_API_KEY', prefix: '', models: 'Llama Cerebras, Qwen Cerebras', link: 'https://cloud.cerebras.ai/' },
+  { provider: 'Fireworks AI', env: 'FIREWORKS_API_KEY', prefix: 'fw_', models: 'Llama Fireworks, Mixtral Fireworks', link: 'https://app.fireworks.ai/' },
+  { provider: 'Together AI', env: 'TOGETHER_API_KEY', prefix: '', models: 'Llama Together, Qwen Together, DeepSeek Together', link: 'https://api.together.xyz/' },
+  { provider: 'Hugging Face', env: 'HF_API_KEY', prefix: 'hf_', models: 'Llama HF, Mistral HF, Qwen HF', link: 'https://huggingface.co/settings/tokens' },
+  { provider: 'Perplexity', env: 'PERPLEXITY_API_KEY', prefix: '', models: 'Sonar, Sonar Pro', link: 'https://www.perplexity.ai/settings/api' },
+  { provider: 'NVIDIA', env: 'NVIDIA_API_KEY', prefix: 'nvapi-', models: 'Llama NVIDIA, Mistral NVIDIA, Qwen NVIDIA', link: 'https://build.nvidia.com/' },
+  { provider: 'Cloudflare', env: 'CLOUDFLARE_API_KEY', prefix: '', models: 'Llama CF, Mistral CF, Qwen CF', link: 'https://ai.cloudflare.com/' },
+  { provider: 'Amazon Bedrock', env: 'AWS_ACCESS_KEY_ID', prefix: 'AKIA', models: 'Claude Bedrock, Llama Bedrock, Mistral Bedrock', link: 'https://console.aws.amazon.com/bedrock/' },
+  { provider: 'OpenRouter', env: 'OPENROUTER_API_KEY', prefix: '', models: '170+ models via OpenRouter', link: 'https://openrouter.ai/keys' },
 ]
 
 /* ──── MAIN ──── */
@@ -168,7 +177,7 @@ export default function InstallPage() {
           <div className="max-w-4xl mx-auto px-4 sm:px-6">
             <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Key className="w-6 h-6 text-apex-cyan" /> API Key Setup</h2>
             <p className="text-muted-foreground mb-6">APEX needs API keys for cloud models. Set them in <code className="text-apex-cyan">~/.apex/.env</code> (recommended), <code className="text-apex-cyan">./.env</code>, or <code className="text-apex-cyan">~/.env</code>.</p>
-            <CodeBlock code={`# ~/.apex/.env\nANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\nGROQ_API_KEY=gsk_...\nMISTRAL_API_KEY=...\nDEEPSEEK_API_KEY=...\nGEMINI_API_KEY=...\nCOHERE_API_KEY=...`} />
+            <CodeBlock code={`# ~/.apex/.env\nANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\nGROQ_API_KEY=gsk_...\nMISTRAL_API_KEY=...\nDEEPSEEK_API_KEY=...\nGEMINI_API_KEY=...\nCOHERE_API_KEY=...\nCEREBRAS_API_KEY=...\nFIREWORKS_API_KEY=fw_...\nTOGETHER_API_KEY=...\nHF_API_KEY=hf_...\nPERPLEXITY_API_KEY=...\nNVIDIA_API_KEY=nvapi-...\nOPENROUTER_API_KEY=...`} />
             <div className="mt-8 grid gap-4">
               {API_KEYS.map(k => (
                 <div key={k.provider} className="p-4 rounded-lg border border-border/50 bg-card/30">

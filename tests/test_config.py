@@ -55,9 +55,12 @@ class TestMODELS:
             "google/",
             "xai/",
             "amazon/",
+            "bedrock/",
+            "alibaba/",
             "qwen/",
             "cohere/",
             "meta/",
+            "llama/",
             "mistral/",
             "deepseek/",
             "openrouter/",
@@ -65,6 +68,14 @@ class TestMODELS:
             "groq/",
             "ollama/",
             "meta-llama/",
+            "cerebras/",
+            "fireworks/",
+            "together_ai/",
+            "huggingface/",
+            "perplexity/",
+            "nvidia/",
+            "cloudflare/",
+            "lm_studio/",
         ]
         for alias, model_id in MODELS.items():
             has_valid = any(model_id.startswith(p) for p in valid_providers)

@@ -17,14 +17,62 @@ class ModelPricing:
 
 
 MODEL_PRICING = {
-    "gpt-4o": ModelPricing(per_1k_input=0.005, per_1k_output=0.015),
+    # ── OpenAI ──
+    "gpt-4o": ModelPricing(per_1k_input=0.0025, per_1k_output=0.01),
     "gpt-4o-mini": ModelPricing(per_1k_input=0.00015, per_1k_output=0.0006),
-    "claude-4-sonnet": ModelPricing(per_1k_input=0.003, per_1k_output=0.015),
-    "claude-4-opus": ModelPricing(per_1k_input=0.015, per_1k_output=0.075),
+    "gpt-4.1": ModelPricing(per_1k_input=0.002, per_1k_output=0.008),
+    "gpt-4.1-mini": ModelPricing(per_1k_input=0.0004, per_1k_output=0.0016),
+    "gpt-4.1-nano": ModelPricing(per_1k_input=0.0001, per_1k_output=0.0004),
+    "gpt-5": ModelPricing(per_1k_input=0.00125, per_1k_output=0.01),
+    "gpt-5-mini": ModelPricing(per_1k_input=0.00025, per_1k_output=0.002),
+    "gpt-5-nano": ModelPricing(per_1k_input=0.00005, per_1k_output=0.0004),
+    "o3": ModelPricing(per_1k_input=0.002, per_1k_output=0.008),
+    "o3-mini": ModelPricing(per_1k_input=0.0011, per_1k_output=0.0044),
+    "o4-mini": ModelPricing(per_1k_input=0.0011, per_1k_output=0.0044),
+    # ── Anthropic ──
+    "claude-sonnet-4.6": ModelPricing(per_1k_input=0.003, per_1k_output=0.015),
+    "claude-opus-4.7": ModelPricing(per_1k_input=0.005, per_1k_output=0.025),
+    "claude-sonnet-4.5": ModelPricing(per_1k_input=0.003, per_1k_output=0.015),
+    "claude-opus-4.5": ModelPricing(per_1k_input=0.005, per_1k_output=0.025),
+    "claude-haiku-4.5": ModelPricing(per_1k_input=0.001, per_1k_output=0.005),
+    "claude-3.5-haiku": ModelPricing(per_1k_input=0.0008, per_1k_output=0.004),
+    "claude-3.5-sonnet": ModelPricing(per_1k_input=0.003, per_1k_output=0.015),
+    # ── Google ──
+    "gemini-2.5-pro": ModelPricing(per_1k_input=0.00125, per_1k_output=0.01),
+    "gemini-2.5-flash": ModelPricing(per_1k_input=0.0003, per_1k_output=0.0025),
+    "gemini-2.5-flash-lite": ModelPricing(per_1k_input=0.0001, per_1k_output=0.0004),
+    "gemini-2.0-flash": ModelPricing(per_1k_input=0.0001, per_1k_output=0.0004),
+    "gemini-3-pro": ModelPricing(per_1k_input=0.002, per_1k_output=0.012),
+    "gemini-3-flash": ModelPricing(per_1k_input=0.0005, per_1k_output=0.003),
     "gemini-1.5-flash": ModelPricing(per_1k_input=0.000075, per_1k_output=0.0003),
     "gemini-1.5-pro": ModelPricing(per_1k_input=0.00125, per_1k_output=0.005),
+    # ── xAI ──
+    "grok-4": ModelPricing(per_1k_input=0.003, per_1k_output=0.015),
+    "grok-4-fast": ModelPricing(per_1k_input=0.0002, per_1k_output=0.0005),
+    "grok-3": ModelPricing(per_1k_input=0.003, per_1k_output=0.015),
+    "grok-3-mini": ModelPricing(per_1k_input=0.0003, per_1k_output=0.0005),
+    # ── DeepSeek ──
     "deepseek-chat": ModelPricing(per_1k_input=0.00014, per_1k_output=0.00028),
-    "deepseek-r1": ModelPricing(per_1k_input=0.00014, per_1k_output=0.00028),
+    "deepseek-reasoner": ModelPricing(per_1k_input=0.00014, per_1k_output=0.00028),
+    "deepseek-v4-flash": ModelPricing(per_1k_input=0.00014, per_1k_output=0.00028),
+    "deepseek-v4-pro": ModelPricing(per_1k_input=0.00174, per_1k_output=0.00348),
+    # ── Mistral ──
+    "mistral-large-latest": ModelPricing(per_1k_input=0.0005, per_1k_output=0.0015),
+    "mistral-medium-latest": ModelPricing(per_1k_input=0.002, per_1k_output=0.0075),
+    "mistral-small-latest": ModelPricing(per_1k_input=0.00015, per_1k_output=0.0006),
+    "codestral": ModelPricing(per_1k_input=0.0003, per_1k_output=0.0009),
+    "devstral": ModelPricing(per_1k_input=0.0004, per_1k_output=0.002),
+    # ── Alibaba ──
+    "qwen3-coder-plus": ModelPricing(per_1k_input=0.001, per_1k_output=0.005),
+    "qwen-plus": ModelPricing(per_1k_input=0.0004, per_1k_output=0.0012),
+    "qwq-plus": ModelPricing(per_1k_input=0.0008, per_1k_output=0.0024),
+    # ── Cohere ──
+    "command-a": ModelPricing(per_1k_input=0.0025, per_1k_output=0.01),
+    "command-r": ModelPricing(per_1k_input=0.00015, per_1k_output=0.0006),
+    # ── Groq ──
+    "llama-groq-3.3-70b": ModelPricing(per_1k_input=0.00059, per_1k_output=0.00079),
+    # ── Ollama (free) ──
+    "ollama": ModelPricing(per_1k_input=0.0, per_1k_output=0.0),
 }
 
 

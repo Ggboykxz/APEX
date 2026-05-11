@@ -118,6 +118,113 @@ export function OllamaIcon({ size = 28 }: { size?: number }) {
   )
 }
 
+export function CerebrasIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 2L3 7v10l9 5 9-5V7l-9-5z" stroke="#7c3aed" strokeWidth="1.5" fill="#7c3aed" fillOpacity="0.15"/>
+      <path d="M12 6L7 8.5v7L12 18l5-2.5v-7L12 6z" stroke="#7c3aed" strokeWidth="1" fill="#7c3aed" fillOpacity="0.3"/>
+      <circle cx="12" cy="12" r="2" fill="#7c3aed"/>
+      <path d="M12 7v2M12 15v2M7 10l1.5 1M15.5 13l1.5 1M7 14l1.5-1M15.5 11l1.5-1" stroke="#7c3aed" strokeWidth="1" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function FireworksIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="3" fill="#ff6b6b"/>
+      <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="#ff6b6b" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M12 6l1-3M12 18l1 3M6 12l-3 1M18 12l3 1" stroke="#ff6b6b" strokeWidth="1" strokeLinecap="round" opacity="0.6"/>
+    </svg>
+  )
+}
+
+export function TogetherIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="9.5" cy="12" r="5.5" stroke="#4493f8" strokeWidth="1.5" fill="#4493f8" fillOpacity="0.2"/>
+      <circle cx="14.5" cy="12" r="5.5" stroke="#4493f8" strokeWidth="1.5" fill="#4493f8" fillOpacity="0.2"/>
+    </svg>
+  )
+}
+
+export function HuggingFaceIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" fill="#ffd21e" fillOpacity="0.2" stroke="#ffd21e" strokeWidth="1.5"/>
+      <circle cx="9" cy="10" r="1.5" fill="#ffd21e"/>
+      <circle cx="15" cy="10" r="1.5" fill="#ffd21e"/>
+      <path d="M8 14.5c0 0 1.5 2.5 4 2.5s4-2.5 4-2.5" stroke="#ffd21e" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+    </svg>
+  )
+}
+
+export function PerplexityIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="3" width="16" height="18" rx="2" stroke="#20b8cd" strokeWidth="1.5" fill="#20b8cd" fillOpacity="0.1"/>
+      <path d="M8 8h8M8 11h8M8 14h5" stroke="#20b8cd" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M7 3v-1M17 3v-1M7 21v1M17 21v1" stroke="#20b8cd" strokeWidth="1" strokeLinecap="round" opacity="0.5"/>
+    </svg>
+  )
+}
+
+export function NvidiaIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="6" width="18" height="12" rx="2" stroke="#76b900" strokeWidth="1.5" fill="#76b900" fillOpacity="0.1"/>
+      <path d="M8 10l4-2 4 2v4l-4 2-4-2v-4z" stroke="#76b900" strokeWidth="1" fill="#76b900" fillOpacity="0.3"/>
+      <path d="M12 8v8M8 10l4 2 4-2" stroke="#76b900" strokeWidth="1" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+export function CloudflareIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 18c-2.2 0-4-1.5-4-3.5 0-1.8 1.4-3.2 3.2-3.5.2-2.5 2.3-4.5 4.8-4.5 2.1 0 3.9 1.3 4.6 3.1.4-.1.7-.1 1.1-.1 2.5 0 4.3 1.8 4.3 4 0 2.2-1.8 4-4 4H6z" stroke="#f48120" strokeWidth="1.5" fill="#f48120" fillOpacity="0.15"/>
+    </svg>
+  )
+}
+
+export function MicrosoftIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="8.5" height="8.5" fill="#00a4ef"/>
+      <rect x="12.5" y="3" width="8.5" height="8.5" fill="#00a4ef" fillOpacity="0.75"/>
+      <rect x="3" y="12.5" width="8.5" height="8.5" fill="#00a4ef" fillOpacity="0.75"/>
+      <rect x="12.5" y="12.5" width="8.5" height="8.5" fill="#00a4ef" fillOpacity="0.5"/>
+    </svg>
+  )
+}
+
+export function AwsIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 16l7-10 7 10" stroke="#ff9900" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <path d="M8 14l4-6 4 6" stroke="#ff9900" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="#ff9900" fillOpacity="0.2"/>
+    </svg>
+  )
+}
+
+export function OpenRouterIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="3" fill="#6366f1"/>
+      <circle cx="12" cy="4" r="2" fill="#6366f1" fillOpacity="0.6"/>
+      <circle cx="19" cy="8" r="2" fill="#6366f1" fillOpacity="0.6"/>
+      <circle cx="19" cy="16" r="2" fill="#6366f1" fillOpacity="0.6"/>
+      <circle cx="5" cy="8" r="2" fill="#6366f1" fillOpacity="0.6"/>
+      <circle cx="5" cy="16" r="2" fill="#6366f1" fillOpacity="0.6"/>
+      <line x1="12" y1="9" x2="12" y2="6" stroke="#6366f1" strokeWidth="1" opacity="0.4"/>
+      <line x1="14.5" y1="10.5" x2="17.5" y2="8.5" stroke="#6366f1" strokeWidth="1" opacity="0.4"/>
+      <line x1="14.5" y1="13.5" x2="17.5" y2="15.5" stroke="#6366f1" strokeWidth="1" opacity="0.4"/>
+      <line x1="9.5" y1="10.5" x2="6.5" y2="8.5" stroke="#6366f1" strokeWidth="1" opacity="0.4"/>
+      <line x1="9.5" y1="13.5" x2="6.5" y2="15.5" stroke="#6366f1" strokeWidth="1" opacity="0.4"/>
+    </svg>
+  )
+}
+
 /* ──── Provider Icon Map ──── */
 export const PROVIDER_ICONS: Record<string, React.FC<{ size?: number }>> = {
   anthropic: AnthropicIcon,
@@ -130,6 +237,16 @@ export const PROVIDER_ICONS: Record<string, React.FC<{ size?: number }>> = {
   mistral: MistralIcon,
   groq: GroqIcon,
   cohere: CohereIcon,
+  cerebras: CerebrasIcon,
+  fireworks: FireworksIcon,
+  together: TogetherIcon,
+  huggingface: HuggingFaceIcon,
+  perplexity: PerplexityIcon,
+  nvidia: NvidiaIcon,
+  cloudflare: CloudflareIcon,
+  microsoft: MicrosoftIcon,
+  aws: AwsIcon,
+  openrouter: OpenRouterIcon,
   local: OllamaIcon,
 }
 
@@ -144,5 +261,15 @@ export const PROVIDER_LIST = [
   { name: 'Mistral', iconKey: 'mistral', color: '#f70000' },
   { name: 'Groq', iconKey: 'groq', color: '#f55036' },
   { name: 'Cohere', iconKey: 'cohere', color: '#39594d' },
+  { name: 'Cerebras', iconKey: 'cerebras', color: '#7c3aed' },
+  { name: 'Fireworks AI', iconKey: 'fireworks', color: '#ff6b6b' },
+  { name: 'Together AI', iconKey: 'together', color: '#4493f8' },
+  { name: 'Hugging Face', iconKey: 'huggingface', color: '#ffd21e' },
+  { name: 'Perplexity', iconKey: 'perplexity', color: '#20b8cd' },
+  { name: 'NVIDIA', iconKey: 'nvidia', color: '#76b900' },
+  { name: 'Cloudflare', iconKey: 'cloudflare', color: '#f48120' },
+  { name: 'Microsoft', iconKey: 'microsoft', color: '#00a4ef' },
+  { name: 'AWS', iconKey: 'aws', color: '#ff9900' },
+  { name: 'OpenRouter', iconKey: 'openrouter', color: '#6366f1' },
   { name: 'Local', iconKey: 'local', color: '#00ff88' },
 ]

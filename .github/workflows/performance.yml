@@ -1,0 +1,140 @@
+name: Performance
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apex/**
+      - tests/**
+      - pyproject.toml
+  schedule:
+    - cron: "0 6 * * 1" # Every Monday at 6:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Run benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" || pip install -e .
+          pip install pytest-benchmark
+
+      - name: Download previous benchmark results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: benchmark-results
+          path: .benchmarks
+
+      - name: Run benchmarks
+        run: |
+          pytest \
+            --benchmark-only \
+            --benchmark-autosave \
+            --benchmark-compare \
+            --benchmark-compare-fail=mean:20% \
+            --benchmark-sort=mean \
+            --benchmark-columns=mean,stddev,rounds,iterations \
+            --benchmark-histogram=.benchmarks/histograms \
+            || pytest \
+              --benchmark-only \
+              --benchmark-autosave \
+              --benchmark-sort=mean \
+              --benchmark-columns=mean,stddev,rounds,iterations \
+              --benchmark-histogram=.benchmarks/histograms
+
+      - name: Generate benchmark summary
+        if: always()
+        run: |
+          echo "## Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Find the latest benchmark file
+          LATEST_BENCH=$(find .benchmarks -name "*.json" -type f 2>/dev/null | sort | tail -1)
+
+          if [ -n "$LATEST_BENCH" ]; then
+            echo "**Benchmark file:** \`${LATEST_BENCH}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Extract machine info
+            python3 -c "
+          import json, sys
+          try:
+              with open('${LATEST_BENCH}') as f:
+                  data = json.load(f)
+              machine_info = data.get('machine_info', {})
+              print(f'**Python:** {machine_info.get(\"python_version\", \"N/A\")}')
+              print(f'**CPU:** {machine_info.get(\"cpu\", {}).get(\"model\", \"N/A\")}')
+              print(f'**OS:** {machine_info.get(\"system\", \"N/A\")}')
+              print()
+              print('### Benchmark Results')
+              print()
+              print('| Benchmark | Mean (s) | Stddev | Rounds |')
+              print('|-----------|----------|--------|--------|')
+              for bench in data.get('benchmarks', []):
+                  name = bench.get('name', 'N/A')
+                  stats = bench.get('stats', {})
+                  mean = stats.get('mean', 0)
+                  stddev = stats.get('stddev', 0)
+                  rounds = stats.get('rounds', 0)
+                  print(f'| {name} | {mean:.6f} | {stddev:.6f} | {rounds} |')
+          except Exception as e:
+              print(f'Error reading benchmark data: {e}')
+          " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No benchmark results found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            .benchmarks/
+          retention-days: 90
+          overwrite: true
+
+      - name: Commit benchmark results to gh-pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Find the latest benchmark JSON
+          LATEST_BENCH=$(find .benchmarks -name "*.json" -type f 2>/dev/null | sort | tail -1)
+
+          if [ -n "$LATEST_BENCH" ]; then
+            # Store benchmark data with timestamp
+            TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%S")
+            mkdir -p bench-history
+            cp "$LATEST_BENCH" "bench-history/bench-${TIMESTAMP}.json"
+
+            # Keep only the last 50 benchmark files
+            cd bench-history
+            ls -t bench-*.json | tail -n +51 | xargs -r rm --
+            cd ..
+
+            echo "Benchmark data saved: bench-history/bench-${TIMESTAMP}.json"
+          fi

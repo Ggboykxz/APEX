@@ -36,117 +36,229 @@ const PROVIDERS = [
   {
     name: 'Anthropic', iconKey: 'anthropic', color: '#d4a574',
     models: [
-      { alias: 'claude-sonnet', model: 'anthropic/claude-sonnet-4-20250514', desc: 'Best balance of speed and intelligence', use: 'General coding, debugging, refactoring' },
-      { alias: 'claude-opus', model: 'anthropic/claude-opus-4-20250514', desc: 'Most capable model for complex reasoning', use: 'Complex architecture, multi-file refactoring' },
-      { alias: 'claude-flash', model: 'anthropic/claude-3-5-haiku-20241022', desc: 'Fastest Claude model, cost-effective', use: 'Quick edits, simple queries, chat' },
+      { alias: 'claude-sonnet-4.6', model: 'anthropic/claude-sonnet-4-6', desc: 'Claude Sonnet 4.6 — 1M context, extended thinking', use: 'General coding, debugging, refactoring' },
+      { alias: 'claude-opus-4.7', model: 'anthropic/claude-opus-4-7', desc: 'Claude Opus 4.7 — 1M context, most capable', use: 'Complex architecture, multi-file refactoring' },
+      { alias: 'claude-sonnet-4.5', model: 'anthropic/claude-sonnet-4-5', desc: 'Claude Sonnet 4.5 — latest reasoning', use: 'Advanced coding, complex reasoning' },
+      { alias: 'claude-opus-4.5', model: 'anthropic/claude-opus-4-5', desc: 'Claude Opus 4.5 — premium reasoning', use: 'Complex tasks, deep analysis' },
+      { alias: 'claude-haiku-4.5', model: 'anthropic/claude-haiku-4-5', desc: 'Claude Haiku 4.5 — fast & affordable', use: 'Quick edits, simple queries, chat' },
       { alias: 'claude-3.7-sonnet', model: 'anthropic/claude-3-7-sonnet-20250219', desc: 'Claude 3.7 Sonnet — enhanced coding', use: 'Advanced coding, complex reasoning' },
+      { alias: 'claude-3.5-haiku', model: 'anthropic/claude-3-5-haiku-20241022', desc: 'Claude 3.5 Haiku — fastest Claude', use: 'Quick edits, simple queries, cost-effective' },
     ]
   },
   {
     name: 'OpenAI', iconKey: 'openai', color: '#10a37f',
     models: [
-      { alias: 'gpt-4o', model: 'openai/gpt-4o', desc: 'Flagship multimodal model', use: 'General coding, analysis, complex tasks' },
-      { alias: 'gpt-4o-mini', model: 'openai/gpt-4o-mini', desc: 'Fast and affordable', use: 'Quick edits, simple queries, cost-effective' },
-      { alias: 'gpt-4.5', model: 'openai/gpt-4.5-preview', desc: 'Latest GPT model with enhanced reasoning', use: 'Complex reasoning, creative coding' },
-      { alias: 'o1', model: 'openai/o1', desc: 'Reasoning model for complex problems', use: 'Complex algorithm design, math, logic' },
-      { alias: 'o3', model: 'openai/o3', desc: 'Advanced reasoning model', use: 'Complex reasoning, research tasks' },
-      { alias: 'o3-mini', model: 'openai/o3-mini', desc: 'Cost-effective reasoning', use: 'Structured problem-solving on a budget' },
-      { alias: 'o4-mini', model: 'openai/o4-mini', desc: 'Efficient reasoning model', use: 'Fast reasoning tasks, code analysis' },
+      { alias: 'gpt-5', model: 'openai/gpt-5', desc: 'GPT-5 — latest flagship model', use: 'General coding, analysis, complex tasks' },
+      { alias: 'gpt-5-mini', model: 'openai/gpt-5-mini', desc: 'GPT-5 Mini — fast and affordable', use: 'Quick edits, simple queries, cost-effective' },
+      { alias: 'gpt-5-nano', model: 'openai/gpt-5-nano', desc: 'GPT-5 Nano — ultra-affordable', use: 'Bulk processing, simple tasks' },
+      { alias: 'gpt-5-pro', model: 'openai/gpt-5-pro', desc: 'GPT-5 Pro — premium reasoning', use: 'Complex reasoning, creative coding' },
+      { alias: 'gpt-4o', model: 'openai/gpt-4o', desc: 'GPT-4o — multimodal flagship', use: 'General coding, analysis, complex tasks' },
+      { alias: 'gpt-4o-mini', model: 'openai/gpt-4o-mini', desc: 'GPT-4o Mini — fast and affordable', use: 'Quick edits, simple queries, cost-effective' },
+      { alias: 'gpt-4.1', model: 'openai/gpt-4.1', desc: 'GPT-4.1 — 1M context window', use: 'Long context coding, large codebases' },
+      { alias: 'gpt-4.1-mini', model: 'openai/gpt-4.1-mini', desc: 'GPT-4.1 Mini — 1M context, affordable', use: 'Long context, budget coding' },
+      { alias: 'o3', model: 'openai/o3', desc: 'o3 — advanced reasoning model', use: 'Complex reasoning, research tasks' },
+      { alias: 'o3-mini', model: 'openai/o3-mini', desc: 'o3 Mini — cost-effective reasoning', use: 'Structured problem-solving on a budget' },
+      { alias: 'o4-mini', model: 'openai/o4-mini', desc: 'o4 Mini — efficient reasoning', use: 'Fast reasoning tasks, code analysis' },
     ]
   },
   {
     name: 'Google', iconKey: 'google', color: '#4285f4',
     models: [
-      { alias: 'gemini-2.5-pro', model: 'google/gemini-2.5-pro-preview-05-06', desc: 'Most capable Gemini model', use: 'Complex coding, long context, analysis' },
-      { alias: 'gemini-flash', model: 'google/gemini-2.0-flash-001', desc: 'Fast and efficient Gemini', use: 'Quick tasks, real-time coding, chat' },
+      { alias: 'gemini-3-pro', model: 'google/gemini-3-pro-preview', desc: 'Gemini 3 Pro — most capable Gemini', use: 'Complex coding, long context, analysis' },
+      { alias: 'gemini-3-flash', model: 'google/gemini-3-flash-preview', desc: 'Gemini 3 Flash — fast & capable', use: 'Quick tasks, real-time coding, chat' },
+      { alias: 'gemini-2.5-pro', model: 'google/gemini-2.5-pro', desc: 'Gemini 2.5 Pro — 1M context, reasoning', use: 'Complex coding, long context, analysis' },
+      { alias: 'gemini-2.5-flash', model: 'google/gemini-2.5-flash', desc: 'Gemini 2.5 Flash — fast and efficient', use: 'Quick tasks, real-time coding, chat' },
+      { alias: 'gemini-2.5-flash-lite', model: 'google/gemini-2.5-flash-lite', desc: 'Gemini 2.5 Flash Lite — ultra-affordable', use: 'Budget coding, bulk processing' },
+      { alias: 'gemma-4-31b', model: 'google/gemma-4-31b-it', desc: 'Gemma 4 31B — open weights', use: 'Open-weight coding, research' },
     ]
   },
   {
     name: 'xAI', iconKey: 'xai', color: '#ff6b35',
     models: [
-      { alias: 'grok-3', model: 'xai/grok-3', desc: 'Latest Grok model', use: 'General coding with real-time knowledge' },
-      { alias: 'grok-3-mini', model: 'xai/grok-3-mini', desc: 'Cost-effective Grok', use: 'Quick queries, simple coding tasks' },
-    ]
-  },
-  {
-    name: 'Meta', iconKey: 'meta', color: '#0668E1',
-    models: [
-      { alias: 'llama4-maverick', model: 'meta_llama/llama-4-maverick', desc: 'Latest Llama with MoE architecture', use: 'Open-weight coding, research' },
-      { alias: 'llama4-scout', model: 'meta_llama/llama-4-scout', desc: 'Efficient Llama variant', use: 'Fast open-weight coding tasks' },
-      { alias: 'llama3.3-70b', model: 'meta_llama/llama-3.3-70b-instruct', desc: 'Llama 3.3 70B instruct', use: 'General coding with open weights' },
+      { alias: 'grok-4', model: 'xai/grok-4', desc: 'Grok 4 — latest Grok model', use: 'General coding with real-time knowledge' },
+      { alias: 'grok-4-fast', model: 'xai/grok-4-fast', desc: 'Grok 4 Fast — fast reasoning', use: 'Quick queries, fast coding tasks' },
+      { alias: 'grok-3', model: 'xai/grok-3', desc: 'Grok 3 — capable Grok model', use: 'General coding, analysis' },
+      { alias: 'grok-3-mini', model: 'xai/grok-3-mini', desc: 'Grok 3 Mini — cost-effective Grok', use: 'Quick queries, simple coding tasks' },
     ]
   },
   {
     name: 'DeepSeek', iconKey: 'deepseek', color: '#4d6bfe',
     models: [
-      { alias: 'deepseek', model: 'deepseek/deepseek-chat', desc: 'DeepSeek V3 general chat', use: 'Cost-effective coding, Chinese + English' },
-      { alias: 'deepseek-r1', model: 'deepseek/deepseek-reasoner', desc: 'DeepSeek R1 reasoning model', use: 'Complex reasoning, math, algorithm design' },
-      { alias: 'deepseek-coder', model: 'deepseek/deepseek-coder', desc: 'Specialized for code generation', use: 'Code generation, completion, review' },
-    ]
-  },
-  {
-    name: 'Alibaba', iconKey: 'alibaba', color: '#ff6a00',
-    models: [
-      { alias: 'qwen3-235b', model: 'alibaba/qwen3-235b-a22b', desc: 'Qwen 3 with 235B parameters', use: 'Complex reasoning, multilingual coding' },
-      { alias: 'qwen3-32b', model: 'alibaba/qwen3-32b', desc: 'Qwen 3 32B', use: 'Multilingual coding, reasoning' },
-      { alias: 'qwen2.5-coder', model: 'alibaba/qwen2.5-coder-32b-instruct', desc: 'Specialized for code', use: 'Code generation, debugging, review' },
+      { alias: 'deepseek-v4-pro', model: 'deepseek/deepseek-v4-pro', desc: 'DeepSeek V4 Pro — most capable', use: 'Complex reasoning, code generation' },
+      { alias: 'deepseek-v4-flash', model: 'deepseek/deepseek-v4-flash', desc: 'DeepSeek V4 Flash — fast & cheap', use: 'Cost-effective coding, fast responses' },
+      { alias: 'deepseek-chat', model: 'deepseek/deepseek-chat', desc: 'DeepSeek V3 general chat', use: 'Cost-effective coding, Chinese + English' },
+      { alias: 'deepseek-reasoner', model: 'deepseek/deepseek-reasoner', desc: 'DeepSeek R1 reasoning model', use: 'Complex reasoning, math, algorithm design' },
     ]
   },
   {
     name: 'Mistral', iconKey: 'mistral', color: '#f70000',
     models: [
-      { alias: 'mistral-large', model: 'mistral/mistral-large-latest', desc: 'Most capable Mistral model', use: 'Complex coding, enterprise tasks' },
-      { alias: 'codestral', model: 'mistral/codestral-latest', desc: 'Specialized for code generation', use: 'Code completion, generation, review' },
-      { alias: 'mistral-medium', model: 'mistral/mistral-medium-latest', desc: 'Medium-capability Mistral model', use: 'Balanced coding and reasoning' },
+      { alias: 'mistral-large', model: 'mistral/mistral-large-latest', desc: 'Mistral Large 3 — most capable', use: 'Complex coding, enterprise tasks' },
+      { alias: 'mistral-medium', model: 'mistral/mistral-medium-latest', desc: 'Mistral Medium — balanced', use: 'Balanced coding and reasoning' },
+      { alias: 'mistral-small', model: 'mistral/mistral-small-latest', desc: 'Mistral Small — fast & cheap', use: 'Quick edits, budget coding' },
+      { alias: 'codestral', model: 'mistral/codestral-latest', desc: 'Codestral — specialized for code', use: 'Code completion, generation, review' },
+      { alias: 'devstral', model: 'mistral/devstral-medium-latest', desc: 'Devstral 2 — developer-focused', use: 'Code generation, debugging, review' },
+      { alias: 'magistral-medium', model: 'mistral/magistral-medium-latest', desc: 'Magistral Medium — reasoning', use: 'Complex reasoning, research' },
     ]
   },
   {
-    name: 'Groq', iconKey: 'groq', color: '#f55036',
+    name: 'Alibaba', iconKey: 'alibaba', color: '#ff6a00',
     models: [
-      { alias: 'llama-groq', model: 'groq/llama-3.3-70b-versatile', desc: 'Ultra-fast Llama on Groq', use: 'Real-time coding, instant responses' },
-      { alias: 'mixtral-groq', model: 'groq/mixtral-8x7b-32768', desc: 'Fast Mixtral on Groq', use: 'Fast multi-task coding, long context' },
+      { alias: 'qwen3-max', model: 'alibaba/qwen3-max', desc: 'Qwen 3 Max — most capable Qwen', use: 'Complex reasoning, multilingual coding' },
+      { alias: 'qwen3-coder-plus', model: 'alibaba/qwen3-coder-plus', desc: 'Qwen 3 Coder Plus — 1M context', use: 'Code generation, debugging, review' },
+      { alias: 'qwen3.6-plus', model: 'alibaba/qwen3.6-plus', desc: 'Qwen 3.6 Plus — 1M context', use: 'Multilingual coding, long context' },
+      { alias: 'qwen3-235b', model: 'alibaba/qwen3-235b-a22b', desc: 'Qwen 3 235B — large MoE model', use: 'Complex reasoning, multilingual coding' },
+      { alias: 'qwq-plus', model: 'alibaba/qwq-plus', desc: 'QwQ Plus — reasoning specialist', use: 'Complex reasoning, math, algorithm design' },
+      { alias: 'qwen-plus', model: 'alibaba/qwen-plus', desc: 'Qwen Plus — 1M context, balanced', use: 'General coding, balanced cost/perf' },
+    ]
+  },
+  {
+    name: 'Meta', iconKey: 'meta', color: '#0668E1',
+    models: [
+      { alias: 'llama-4-maverick', model: 'llama/llama-4-maverick-17b-128e-instruct-fp8', desc: 'Llama 4 Maverick — MoE 128 experts', use: 'Open-weight coding, research' },
+      { alias: 'llama-4-scout', model: 'llama/llama-4-scout-17b-16e-instruct-fp8', desc: 'Llama 4 Scout — efficient MoE', use: 'Fast open-weight coding tasks' },
+      { alias: 'llama-3.3-70b', model: 'llama/llama-3.3-70b-instruct', desc: 'Llama 3.3 70B Instruct', use: 'General coding with open weights' },
     ]
   },
   {
     name: 'Cohere', iconKey: 'cohere', color: '#39594d',
     models: [
-      { alias: 'command-r', model: 'cohere/command-r', desc: 'Balanced performance model', use: 'RAG, tool use, general coding' },
-      { alias: 'command-r-plus', model: 'cohere/command-r-plus', desc: 'Most capable Cohere model', use: 'Complex reasoning, enterprise tasks' },
+      { alias: 'command-a', model: 'cohere/command-a-03-2025', desc: 'Command A — most capable Cohere', use: 'Complex reasoning, enterprise tasks' },
+      { alias: 'command-a-reasoning', model: 'cohere/command-a-reasoning-08-2025', desc: 'Command A Reasoning — step-by-step', use: 'Complex reasoning, analysis' },
+      { alias: 'command-r-plus', model: 'cohere/command-r-plus-08-2024', desc: 'Command R+ — RAG specialist', use: 'RAG, enterprise tasks' },
+      { alias: 'command-r', model: 'cohere/command-r-08-2024', desc: 'Command R — balanced model', use: 'RAG, tool use, general coding' },
     ]
   },
   {
-    name: 'Microsoft', iconKey: 'local', color: '#00a4ef',
+    name: 'Groq', iconKey: 'groq', color: '#f55036',
     models: [
-      { alias: 'phi-4', model: 'microsoft/phi-4', desc: 'Microsoft Phi-4 small model', use: 'Efficient coding, lightweight tasks' },
+      { alias: 'llama-groq-4-maverick', model: 'groq/meta-llama/llama-4-maverick-17b-128e-instruct', desc: 'Llama 4 Maverick on Groq — ultra-fast', use: 'Real-time coding, instant responses' },
+      { alias: 'llama-groq-4-scout', model: 'groq/meta-llama/llama-4-scout-17b-16e-instruct', desc: 'Llama 4 Scout on Groq — fast + vision', use: 'Fast coding with vision support' },
+      { alias: 'llama-groq-3.3-70b', model: 'groq/llama-3.3-70b-versatile', desc: 'Llama 3.3 70B on Groq', use: 'Fast general coding' },
+      { alias: 'deepseek-r1-groq', model: 'groq/deepseek-r1-distill-llama-70b', desc: 'DeepSeek R1 distilled on Groq', use: 'Fast reasoning, budget coding' },
+      { alias: 'qwq-groq-32b', model: 'groq/qwen-qwq-32b', desc: 'QwQ 32B on Groq — reasoning', use: 'Fast reasoning tasks' },
     ]
   },
   {
-    name: 'Local (Ollama / LM Studio / llama.cpp)', iconKey: 'local', color: '#00ff88',
+    name: 'Microsoft', iconKey: 'microsoft', color: '#00a4ef',
     models: [
-      { alias: 'ollama-llama3', model: 'ollama/llama3', desc: 'Llama 3 via Ollama (local)', use: 'Free, offline, private coding' },
-      { alias: 'ollama-llama3.1', model: 'ollama/llama3.1', desc: 'Llama 3.1 via Ollama', use: 'Free, offline with better reasoning' },
+      { alias: 'phi-4', model: 'microsoft/phi-4', desc: 'Phi-4 — small but powerful', use: 'Efficient coding, lightweight tasks' },
+      { alias: 'phi-4-reasoning', model: 'microsoft/phi-4-reasoning', desc: 'Phi-4 Reasoning — step-by-step', use: 'Reasoning tasks, analysis' },
+      { alias: 'phi-4-mini', model: 'microsoft/phi-4-mini-instruct', desc: 'Phi-4 Mini — ultra-lightweight', use: 'Budget coding, embedded scenarios' },
+      { alias: 'phi-4-multimodal', model: 'microsoft/phi-4-multimodal-instruct', desc: 'Phi-4 Multimodal — vision + text', use: 'Vision coding, document analysis' },
+    ]
+  },
+  {
+    name: 'Cerebras', iconKey: 'cerebras', color: '#7c3aed',
+    models: [
+      { alias: 'cerebras-qwen3-235b', model: 'cerebras/qwen-3-235b-a22b-instruct-2507', desc: 'Qwen 3 235B on Cerebras — ultra-fast', use: 'Fastest inference for large models' },
+      { alias: 'cerebras-gpt-oss-120b', model: 'cerebras/gpt-oss-120b', desc: 'GPT OSS 120B on Cerebras', use: 'Fast reasoning, large model tasks' },
+      { alias: 'cerebras-llama3.1-8b', model: 'cerebras/llama3.1-8b', desc: 'Llama 3.1 8B on Cerebras — instant', use: 'Ultra-fast lightweight coding' },
+    ]
+  },
+  {
+    name: 'Fireworks AI', iconKey: 'fireworks', color: '#ff6b6b',
+    models: [
+      { alias: 'fireworks-deepseek-v4-pro', model: 'fireworks/accounts/fireworks/models/deepseek-v4-pro', desc: 'DeepSeek V4 Pro on Fireworks', use: 'Complex reasoning, 1M context' },
+      { alias: 'fireworks-deepseek-v3.2', model: 'fireworks/accounts/fireworks/models/deepseek-v3p2', desc: 'DeepSeek V3.2 on Fireworks', use: 'Cost-effective coding on fast infra' },
+      { alias: 'fireworks-qwen3.6-plus', model: 'fireworks/accounts/fireworks/models/qwen3p6-plus', desc: 'Qwen 3.6 Plus on Fireworks', use: 'Multilingual coding, vision' },
+      { alias: 'fireworks-glm-5', model: 'fireworks/accounts/fireworks/models/glm-5', desc: 'GLM-5 on Fireworks', use: 'Bilingual coding, reasoning' },
+    ]
+  },
+  {
+    name: 'Together AI', iconKey: 'together', color: '#4493f8',
+    models: [
+      { alias: 'together-deepseek-v4-pro', model: 'together_ai/deepseek-ai/DeepSeek-V4-Pro', desc: 'DeepSeek V4 Pro on Together', use: 'Complex reasoning, 512K context' },
+      { alias: 'together-qwen3-coder', model: 'together_ai/Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8', desc: 'Qwen 3 Coder on Together', use: 'Code generation, large codebases' },
+      { alias: 'together-qwen3.5-397b', model: 'together_ai/Qwen/Qwen3.5-397B-A17B', desc: 'Qwen 3.5 397B on Together', use: 'Complex reasoning, vision coding' },
+      { alias: 'together-llama-3.3-70b', model: 'together_ai/meta-llama/Llama-3.3-70B-Instruct-Turbo', desc: 'Llama 3.3 70B Turbo on Together', use: 'Fast open-weight coding' },
+    ]
+  },
+  {
+    name: 'Hugging Face', iconKey: 'huggingface', color: '#ffd21e',
+    models: [
+      { alias: 'hf-deepseek-r1', model: 'huggingface/deepseek-ai/DeepSeek-R1-0528', desc: 'DeepSeek R1 on HF Inference', use: 'Reasoning tasks, research' },
+      { alias: 'hf-qwen3-coder', model: 'huggingface/Qwen/Qwen3-Coder-480B-A35B-Instruct', desc: 'Qwen 3 Coder on HF Inference', use: 'Code generation, large codebases' },
+      { alias: 'hf-glm-5.1', model: 'huggingface/zai-org/GLM-5.1', desc: 'GLM-5.1 on HF Inference', use: 'Bilingual coding, reasoning' },
+      { alias: 'hf-kimi-k2.6', model: 'huggingface/moonshotai/Kimi-K2.6', desc: 'Kimi K2.6 on HF Inference', use: 'Vision coding, reasoning' },
+    ]
+  },
+  {
+    name: 'Perplexity', iconKey: 'perplexity', color: '#20b8cd',
+    models: [
+      { alias: 'sonar-pro', model: 'perplexity/sonar-pro', desc: 'Sonar Pro — web-augmented, 200K context', use: 'Research, web-grounded coding' },
+      { alias: 'sonar-reasoning-pro', model: 'perplexity/sonar-reasoning-pro', desc: 'Sonar Reasoning Pro — web + reasoning', use: 'Research with step-by-step reasoning' },
+      { alias: 'sonar', model: 'perplexity/sonar', desc: 'Sonar — fast web search model', use: 'Quick web-grounded queries' },
+      { alias: 'sonar-deep-research', model: 'perplexity/sonar-deep-research', desc: 'Sonar Deep Research — thorough search', use: 'Deep research, comprehensive analysis' },
+    ]
+  },
+  {
+    name: 'NVIDIA', iconKey: 'nvidia', color: '#76b900',
+    models: [
+      { alias: 'nvidia-deepseek-r1', model: 'nvidia/deepseek-ai/deepseek-r1', desc: 'DeepSeek R1 on NVIDIA NIM', use: 'Reasoning on GPU-optimized infra' },
+      { alias: 'nvidia-llama-4-scout', model: 'nvidia/meta/llama-4-scout-17b-16e-instruct', desc: 'Llama 4 Scout on NVIDIA NIM', use: 'Fast open-weight with vision' },
+      { alias: 'nvidia-nemotron-super', model: 'nvidia/nvidia/nemotron-3-super-120b-a12b', desc: 'Nemotron 3 Super 120B', use: 'NVIDIA\'s flagship model, reasoning' },
+      { alias: 'nvidia-phi-4-mini', model: 'nvidia/microsoft/phi-4-mini-instruct', desc: 'Phi-4 Mini on NVIDIA NIM', use: 'Lightweight coding on fast infra' },
+    ]
+  },
+  {
+    name: 'Cloudflare Workers AI', iconKey: 'cloudflare', color: '#f48120',
+    models: [
+      { alias: 'cf-gpt-oss-120b', model: 'cloudflare/@cf/openai/gpt-oss-120b', desc: 'GPT OSS 120B on Cloudflare edge', use: 'Edge inference, serverless coding' },
+      { alias: 'cf-llama-4-scout', model: 'cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct', desc: 'Llama 4 Scout on Cloudflare', use: 'Edge coding with vision' },
+      { alias: 'cf-gemma-4-26b', model: 'cloudflare/@cf/google/gemma-4-26b-a4b-it', desc: 'Gemma 4 26B on Cloudflare', use: 'Open-weight edge inference' },
+      { alias: 'cf-glm-4.7-flash', model: 'cloudflare/@cf/zai-org/glm-4.7-flash', desc: 'GLM-4.7 Flash on Cloudflare', use: 'Fast edge reasoning' },
+    ]
+  },
+  {
+    name: 'Amazon Bedrock', iconKey: 'aws', color: '#ff9900',
+    models: [
+      { alias: 'nova-pro', model: 'bedrock/amazon.nova-pro-v1:0', desc: 'Amazon Nova Pro — capable multimodal', use: 'Enterprise coding, AWS integration' },
+      { alias: 'nova-lite', model: 'bedrock/amazon.nova-lite-v1:0', desc: 'Amazon Nova Lite — cost-effective', use: 'Budget coding, AWS native' },
+      { alias: 'nova-micro', model: 'bedrock/amazon.nova-micro-v1:0', desc: 'Amazon Nova Micro — ultra-cheap', use: 'Ultra-budget, simple tasks' },
+    ]
+  },
+  {
+    name: 'OpenRouter', iconKey: 'openrouter', color: '#6366f1',
+    models: [
+      { alias: 'or-gpt4o', model: 'openrouter/openai/gpt-4o', desc: 'GPT-4o via OpenRouter', use: 'Multi-model routing, cost optimization' },
+      { alias: 'or-claude', model: 'openrouter/anthropic/claude-sonnet-4', desc: 'Claude via OpenRouter', use: 'Claude without direct API key' },
+      { alias: 'or-deepseek', model: 'openrouter/deepseek/deepseek-chat', desc: 'DeepSeek via OpenRouter', use: 'Budget coding via router' },
+      { alias: 'free-router', model: 'openrouter/openrouter/free', desc: 'Free model router — no credit card', use: 'Free tier, zero cost coding' },
+    ]
+  },
+  {
+    name: 'Local (Ollama / LM Studio)', iconKey: 'local', color: '#00ff88',
+    models: [
+      { alias: 'ollama-llama3.3', model: 'ollama/llama3.3', desc: 'Llama 3.3 via Ollama (local)', use: 'Free, offline, private coding' },
+      { alias: 'ollama-deepseek-r1', model: 'ollama/deepseek-r1', desc: 'DeepSeek R1 via Ollama', use: 'Free, offline reasoning' },
+      { alias: 'ollama-qwen2.5-coder', model: 'ollama/qwen2.5-coder', desc: 'Qwen 2.5 Coder via Ollama', use: 'Free, offline code specialist' },
       { alias: 'ollama-codellama', model: 'ollama/codellama', desc: 'Code Llama via Ollama', use: 'Free, offline code generation' },
-      { alias: 'ollama-deepseek', model: 'ollama/deepseek-coder-v2', desc: 'DeepSeek Coder via Ollama', use: 'Free, offline code specialist' },
-      { alias: 'ollama-qwen2.5', model: 'ollama/qwen2.5-coder', desc: 'Qwen Coder via Ollama', use: 'Free, offline coding assistant' },
+      { alias: 'ollama-phi4', model: 'ollama/phi4', desc: 'Phi-4 via Ollama', use: 'Free, offline lightweight coding' },
+      { alias: 'ollama-gemma2', model: 'ollama/gemma2', desc: 'Gemma 2 via Ollama', use: 'Free, offline, Google open weights' },
       { alias: 'lm-studio', model: 'lm_studio/your-model', desc: 'Any model via LM Studio', use: 'Free, offline, any GGUF model' },
-      { alias: 'llama.cpp', model: 'llama.cpp/your-model', desc: 'Any model via llama.cpp server', use: 'Free, offline, maximum control' },
     ]
   },
 ]
 
 const COST_COMPARISON = [
+  { model: 'GPT-5', provider: 'openai', input: '$1.25', output: '$10.00', speed: 'Fast', best: 'General coding' },
+  { model: 'GPT-5 Mini', provider: 'openai', input: '$0.25', output: '$2.00', speed: 'Very Fast', best: 'Budget coding' },
+  { model: 'GPT-5 Nano', provider: 'openai', input: '$0.05', output: '$0.40', speed: 'Very Fast', best: 'Ultra-budget' },
   { model: 'GPT-4o', provider: 'openai', input: '$2.50', output: '$10.00', speed: 'Fast', best: 'General coding' },
-  { model: 'GPT-4o-mini', provider: 'openai', input: '$0.15', output: '$0.60', speed: 'Very Fast', best: 'Budget coding' },
-  { model: 'Claude 4 Sonnet', provider: 'anthropic', input: '$3.00', output: '$15.00', speed: 'Fast', best: 'Code quality' },
-  { model: 'Claude Opus 4', provider: 'anthropic', input: '$15.00', output: '$75.00', speed: 'Medium', best: 'Complex tasks' },
-  { model: 'Claude 3.5 Haiku', provider: 'anthropic', input: '$0.80', output: '$4.00', speed: 'Very Fast', best: 'Quick edits' },
+  { model: 'GPT-4o Mini', provider: 'openai', input: '$0.15', output: '$0.60', speed: 'Very Fast', best: 'Budget coding' },
+  { model: 'Claude Sonnet 4.6', provider: 'anthropic', input: '$3.00', output: '$15.00', speed: 'Fast', best: 'Code quality' },
+  { model: 'Claude Opus 4.7', provider: 'anthropic', input: '$5.00', output: '$25.00', speed: 'Medium', best: 'Complex tasks' },
+  { model: 'Claude Haiku 4.5', provider: 'anthropic', input: '$1.00', output: '$5.00', speed: 'Very Fast', best: 'Quick edits' },
   { model: 'Gemini 2.5 Pro', provider: 'google', input: '$1.25', output: '$10.00', speed: 'Fast', best: 'Long context' },
-  { model: 'DeepSeek V3', provider: 'deepseek', input: '$0.27', output: '$1.10', speed: 'Fast', best: 'Best value' },
-  { model: 'DeepSeek R1', provider: 'deepseek', input: '$0.55', output: '$2.19', speed: 'Medium', best: 'Reasoning' },
+  { model: 'Gemini 2.5 Flash', provider: 'google', input: '$0.30', output: '$2.50', speed: 'Very Fast', best: 'Fast coding' },
+  { model: 'DeepSeek V4 Flash', provider: 'deepseek', input: '$0.14', output: '$0.28', speed: 'Fast', best: 'Best value' },
+  { model: 'DeepSeek V4 Pro', provider: 'deepseek', input: '$1.74', output: '$3.48', speed: 'Medium', best: 'Reasoning' },
+  { model: 'Grok 4 Fast', provider: 'xai', input: '$0.20', output: '$0.50', speed: 'Very Fast', best: 'Fast reasoning' },
+  { model: 'Mistral Large 3', provider: 'mistral', input: '$0.50', output: '$1.50', speed: 'Fast', best: 'Balanced coding' },
+  { model: 'Qwen3 Coder Plus', provider: 'alibaba', input: '$1.00', output: '$5.00', speed: 'Fast', best: 'Code specialist' },
+  { model: 'Command A', provider: 'cohere', input: '$2.50', output: '$10.00', speed: 'Fast', best: 'Enterprise RAG' },
   { model: 'Ollama (Local)', provider: 'local', input: 'Free', output: 'Free', speed: 'Varies', best: 'Privacy/offline' },
-  { model: 'Claude 3.7 Sonnet', provider: 'anthropic', input: '$3.00', output: '$15.00', speed: 'Fast', best: 'Enhanced coding' },
-  { model: 'Mistral Medium', provider: 'mistral', input: '$0.60', output: '$1.80', speed: 'Fast', best: 'Balanced coding' },
-  { model: 'Phi-4', provider: 'local', input: 'Free', output: 'Free', speed: 'Fast', best: 'Lightweight coding' },
 ]
 
 export default function ModelsPage() {
@@ -161,7 +273,7 @@ export default function ModelsPage() {
           <div className="absolute inset-0 grid-pattern" />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 text-center">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />100+ Models</div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />170+ Models</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">Every <span className="animated-gradient-text">Model</span>, One CLI</h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Use any LLM from any provider. Switch models mid-session without losing context. All via litellm.</p>
               {/* Provider Logo Row */}
