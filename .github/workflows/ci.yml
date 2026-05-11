@@ -32,13 +32,13 @@ jobs:
           pip install -e ".[dev]" || pip install -e .
 
       - name: Ruff lint
-        run: ruff check apex/ tests/ --output-format=github || true
+        run: ruff check apex/ tests/ --output-format=github
 
       - name: Ruff format check
-        run: ruff format --check apex/ tests/ || true
+        run: ruff format --check apex/ tests/
 
       - name: Type check
-        run: mypy apex/ --ignore-missing-imports || true
+        run: mypy apex/ --ignore-missing-imports
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -62,9 +62,7 @@ jobs:
           pip install -e ".[dev]" || pip install -e .
 
       - name: Run tests
-        run: |
-          pytest --tb=short -q --junitxml=test-results.xml \
-            || echo "Some tests failed, but collection succeeded"
+        run: pytest --tb=short -q --junitxml=test-results.xml
 
       - name: Test summary
         if: always()

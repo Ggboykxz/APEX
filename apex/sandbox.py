@@ -22,6 +22,7 @@ class CodeSandbox:
         self.max_output = max_output
         self._temp_dir = Path(tempfile.gettempdir()) / "apex_sandbox"
         self._temp_dir.mkdir(exist_ok=True)
+        os.chmod(self._temp_dir, 0o700)
 
     def run_code(self, code: str, language: str = "python", args: list[str] | None = None) -> str:
         if language not in self.LANGUAGES:
@@ -33,6 +34,7 @@ class CodeSandbox:
 
         try:
             file_path.write_text(code)
+            os.chmod(file_path, 0o600)
 
             if language == "rust":
                 binary_path = self._temp_dir / f"{file_id}_binary"
