@@ -4,6 +4,7 @@ Uses real objects only (no mocks). The Agent class requires litellm but we
 only test methods that do NOT trigger network calls here.
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -134,6 +135,10 @@ class TestAgentProperties:
 class TestAgentSwitchModel:
     """Test Agent.switch_model()."""
 
+    @pytest.mark.skipif(
+        bool(os.environ.get("CI")),
+        reason="Requires API keys / running services not available in CI",
+    )
     def test_switch_to_valid_model(self, agent):
         for model_alias in ["gpt-4o", "gpt-4o-mini", "claude-3.5-sonnet", "deepseek-r1"]:
             result = agent.switch_model(model_alias)

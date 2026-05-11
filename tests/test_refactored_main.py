@@ -3,6 +3,10 @@
 from argparse import Namespace
 from pathlib import Path
 
+import os
+
+import pytest
+
 from apex.refactored_main import (
     create_parser,
     list_available_models,
@@ -62,6 +66,10 @@ class TestListAvailableModels:
 
 
 class TestValidateModel:
+    @pytest.mark.skipif(
+        bool(os.environ.get("CI")),
+        reason="Requires API keys / running services not available in CI",
+    )
     def test_validate_valid_model(self):
         result = validate_model("claude-4-sonnet")
         assert result is True
