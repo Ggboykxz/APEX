@@ -13,7 +13,7 @@ $MUTED = "`e[0;90m"
 $BOLD = "`e[1m"
 $NC = "`e[0m"
 
-$APEX_VERSION = "1.0.0"
+$APEX_VERSION = "1.1.0"
 $version = ""
 $uninstall = $false
 $defaultModel = ""
