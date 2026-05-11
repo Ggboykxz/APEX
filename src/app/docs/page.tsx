@@ -160,7 +160,7 @@ function DocConfiguration() {
       <DocsHeading id="settings">Settings</DocsHeading>
       <DocsTable headers={['Setting', 'Default', 'Description']} rows={[['model', 'claude-sonnet', 'Default model alias'], ['cwd', 'current directory', 'Working directory'], ['theme', 'monokai', 'Syntax highlighting theme'], ['max_tool_rounds', '20', 'Max tool calls per message'], ['auto_commit', 'false', 'Auto git commit after changes']]} />
       <DocsHeading id="cli-options">CLI Options</DocsHeading>
-      <CodeBlock code={`apex --model gpt-4o          # Use specific model\napex --cwd /path/to/project  # Set working directory\napex --stream                # Enable streaming\napex --auto-commit           # Auto commit changes\napex --list-models           # List available models`} />
+      <CodeBlock code={`apex tui                    # Launch TUI (subcommand)\napex --tui                  # Launch TUI (flag)\napex models                 # List available models\napex install-tui            # One-time TUI setup\napex --model gpt-4o          # Use specific model\napex --cwd /path/to/project  # Set working directory\napex --stream                # Enable streaming\napex --auto-commit           # Auto commit changes`} />
       <DocsHeading id="env-vars">Environment Variables</DocsHeading>
       <DocsTable headers={['Variable', 'Description']} rows={[['ANTHROPIC_API_KEY', 'Anthropic/Claude API key'], ['OPENAI_API_KEY', 'OpenAI API key'], ['GROQ_API_KEY', 'Groq API key'], ['MISTRAL_API_KEY', 'Mistral API key'], ['DEEPSEEK_API_KEY', 'DeepSeek API key'], ['GEMINI_API_KEY', 'Google Gemini API key'], ['COHERE_API_KEY', 'Cohere API key']]} />
     </div>

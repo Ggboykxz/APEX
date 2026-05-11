@@ -164,7 +164,7 @@ export default function InstallPage() {
                     <CodeBlock code={m.cmd} />
                     {m.id === 'docker' && <div className="mt-4 p-3 rounded-lg border border-apex-yellow/20 bg-apex-yellow/5 text-sm text-muted-foreground">💡 Mount your project directory: <code className="text-apex-cyan">docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex</code></div>}
                     {m.id === 'source' && <div className="mt-4 p-3 rounded-lg border border-apex-cyan/20 bg-apex-cyan/5 text-sm text-muted-foreground">💡 For dev dependencies: <code className="text-apex-cyan">pip install -e &quot;.[dev]&quot;</code></div>}
-                    <div className="mt-4"><CodeBlock code="apex --version" language="Verify" /></div>
+                    <div className="mt-4"><CodeBlock code="apex --version" language="Verify" /><CodeBlock code="apex tui" language="Launch TUI" /></div>
                   </motion.div>
                 ))}
               </div>

@@ -2,6 +2,36 @@
 
 All notable changes to APEX will be documented in this file.
 
+## [1.3.0] - 2026-05-11
+
+### CLI
+
+- **Subcommand Support**: `apex tui` now works as a natural subcommand, equivalent to `apex --tui`. Additional subcommands added: `apex ui`, `apex models`, `apex install-tui`
+- **Help Text Update**: `apex --help` now shows a "subcommands" section listing `tui`, `ui`, `models`, and `install-tui`
+- Backward compatibility maintained — `apex --tui`, `apex --ui`, `apex --list-models`, and `apex --install-tui` all continue to work as before
+
+### TUI
+
+- **Pip Install Fix**: TUI now works correctly after `pip install apex-ai`. Path resolution checks dev directory, site-packages, and `~/.apex/tui-frontend/`
+- **Auto Bun Install**: Bun runtime is automatically installed if not found on the system
+- **Auto Dependency Install**: TUI npm dependencies are installed on first run via `bun install`
+- **`apex --install-tui` Command**: One-time TUI setup that downloads the tui-frontend from GitHub to `~/.apex/` and installs Bun + npm dependencies
+- **`python -m apex` Support**: Added `apex/__main__.py` so `python -m apex` works as expected
+- **Install Script TUI Instructions**: `install.sh` now shows TUI setup instructions after installation
+
+### Website
+
+- **Official Provider Logos**: All 21 AI provider icons replaced with real official brand logos from Simple Icons (Anthropic, OpenAI, Google, Groq, Mistral, DeepSeek, xAI, Qwen, Cohere, AI21, Perplexity, Ollama, etc.)
+- **Website Content Fixes**: Fixed inconsistencies across all documentation and site pages
+
+### CI/CD
+
+- **Fixed CI Test Failures**: Resolved codegen and UI test failures (PR #23)
+- **Fixed 7 Failing CI Workflows**: TUI Build/Lint/TypeScript, Release Docker, Security Audit, CI Lint, CI Test, Coverage, Build check (PR #22)
+- **Ruff Formatting Fix**: Fixed ruff formatting in test files (PR #24)
+
+---
+
 ## [1.2.0] - 2026-05-11
 
 ### Security

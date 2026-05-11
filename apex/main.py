@@ -29,11 +29,27 @@ from rich.panel import Panel
 memory = Memory()
 
 
+# Subcommands that can be used as positional args (e.g. `apex tui`)
+_SUBCOMMANDS: dict[str, dict[str, bool]] = {
+    "tui": {"tui": True},
+    "ui": {"tui": True},
+    "models": {"list_models": True},
+    "install-tui": {"install_tui": True},
+}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="apex",
         description="APEX — The last coding agent you'll ever need",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "subcommands:\n"
+            "  tui             Launch APEX TUI (same as --tui)\n"
+            "  ui              Launch APEX TUI (same as --ui)\n"
+            "  models          List all available models (same as --list-models)\n"
+            "  install-tui     Install TUI dependencies (same as --install-tui)\n"
+        ),
     )
     parser.add_argument("prompt", nargs="?", help="One-shot prompt to execute")
     parser.add_argument("--model", "-m", dest="model", help="Model alias to use")
@@ -913,6 +929,13 @@ def _install_tui_command(ui: UI) -> None:
 
 def main() -> None:
     args = parse_args()
+
+    # Intercept positional subcommands: `apex tui`, `apex models`, etc.
+    if args.prompt and args.prompt.lower() in _SUBCOMMANDS:
+        for key, value in _SUBCOMMANDS[args.prompt.lower()].items():
+            setattr(args, key, value)
+        args.prompt = None
+
     config = Config()
     if args.model:
         if args.model not in MODELS:

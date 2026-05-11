@@ -57,7 +57,8 @@ APEX features a modern terminal UI built with [OpenTUI](https://github.com/anoma
 
 ```bash
 # Launch the TUI (starts backend HTTP server + Bun frontend automatically)
-apex --tui
+apex tui                    # Subcommand style (v1.3.0+)
+apex --tui                  # Flag style (same thing)
 ```
 
 ### Keybindings
@@ -207,7 +208,9 @@ Switch models anytime:
 apex --model gpt-4o        # Start with GPT-4o
 apex --model gemini-2      # Start with Gemini 2
 apex --model ollama-llama3 # Local, no API key needed
-apex --tui                 # Launch with Terminal UI
+apex tui                   # Launch Terminal UI (subcommand)
+apex models                # List available models
+apex install-tui           # One-time TUI setup
 ```
 
 ---

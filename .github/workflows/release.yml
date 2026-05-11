@@ -124,27 +124,17 @@ jobs:
           generate_release_notes: true
           files: dist/*
           body: |
-            ## APEX v1.1.0 — TUI & Agent Update
+            ## APEX v${{ steps.version.outputs.VERSION }} — CLI Subcommands & TUI Install Fix
 
             The universal AI coding agent. Every model. One terminal.
 
-            ### What's New in v1.1.0
-            - **HTTP SSE Backend** — TUI connects via Server-Sent Events instead of stdin/stdout IPC
-            - **Real-Time Token Streaming** — Live prompt/completion token counts
-            - **Per-Message Cost Tracking** — Model-specific pricing with cost per message
-            - **Agent Rename** — DevOps→Shell, Analyst→Planner, new Architect agent
-            - **8 New Models** — claude-3.7-sonnet, llama-3.3-70b, mistral-medium, phi-4, and more
-            - **Agent-Colored Theming** — Dynamic colors based on active agent
-            - **Context Percentage** — Live context window utilization monitoring
-            - **Model Validation** — 400 error for unknown models
-            - **Proprietary License** — Updated from MIT to Proprietary
-
-            ### 5 Built-in Agents
-            - **Coder** — Full tool access for development work
-            - **Architect** — Read-only architecture analysis and design decisions
-            - **Planner** — Read-only analysis and step-by-step planning
-            - **Reviewer** — Code review specialist (subagent)
-            - **Shell** — Infrastructure and deployment with confirmation for destructive ops
+            ### What's New in v1.3.0
+            - **`apex tui` subcommand** — Now you can type `apex tui` instead of `apex --tui`
+            - **`apex models` subcommand** — List all available models
+            - **`apex install-tui` subcommand** — One-time TUI setup
+            - **TUI works after pip install** — Auto-installs Bun + downloads tui-frontend
+            - **Official Provider Logos** — Real brand logos for all 21 AI providers
+            - **Website content fixes** — Corrected inconsistencies across docs and site
 
             ### Installation
 
@@ -177,7 +167,10 @@ jobs:
             ```bash
             export ANTHROPIC_API_KEY=sk-ant-...
             apex                          # Interactive mode
-            apex --tui                    # Terminal UI
+            apex tui                      # Terminal UI (subcommand)
+            apex --tui                    # Terminal UI (flag, same thing)
+            apex models                   # List available models
+            apex install-tui              # One-time TUI setup
             apex --model gpt-4o           # Start with GPT-4o
             apex --model ollama-llama3    # Local, no API key
             ```
