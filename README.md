@@ -23,7 +23,7 @@
 ---
 
 > APEX runs **any LLM** in your terminal as a coding agent — Anthropic, OpenAI,
-> Google, Groq, Mistral, DeepSeek, Ollama (local), and 100+ more via litellm.
+> Google, Groq, Mistral, DeepSeek, Ollama (local), and 170+ more via litellm.
 > Switch models mid-session. Track costs live. Never leave your terminal.
 
 ---
@@ -32,7 +32,7 @@
 
 | | APEX | OpenCode | Claude Code | Aider |
 |---|:---:|:---:|:---:|:---:|
-| Every model (100+) | ✅ | ⚠️ | ❌ | ⚠️ |
+| Every model (170+) | ✅ | ⚠️ | ❌ | ⚠️ |
 | Switch model mid-session | ✅ | ❌ | ❌ | ❌ |
 | Works offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
 | Beautiful TUI | ✅ | ✅ | ✅ | ❌ |
@@ -74,8 +74,8 @@ apex --tui
 | `Ctrl+Q` | Quit APEX |
 
 ### Features
-- **5 Agents**: Coder, Architect, Reviewer, DevOps, Analyst
-- **100+ Models**: OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, xAI, etc.
+- **5 Agents**: Coder, Architect, Planner, Reviewer, Shell
+- **170+ Models**: OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, xAI, etc.
 - **Live Metrics**: Token streaming (prompt/completion), per-message cost, total spent, context %
 - **Agent Theming**: Title bar, status bar, and borders change color per agent
 - **75+ Tools**: File, Code, Shell, Git, Web, Database, Docker, K8s, Cloud, Security

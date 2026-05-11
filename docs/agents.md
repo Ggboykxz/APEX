@@ -61,10 +61,10 @@ A code review specialist:
 apex /agent reviewer
 ```
 
-### DevOps Agent
+### Shell Agent
 
 ```
-Agent: devops
+Agent: shell
 Mode: primary
 Permissions: System operations (asks before system changes)
 ```
@@ -76,13 +76,13 @@ An agent specialized for infrastructure and deployment:
 - System administration tasks
 
 ```bash
-apex /agent devops
+apex /agent shell
 ```
 
-### Analyst Agent
+### Planner Agent
 
 ```
-Agent: analyst
+Agent: planner
 Mode: primary
 Permissions: Read-only with output generation
 ```
@@ -94,7 +94,7 @@ An agent for data analysis and reporting:
 - Produce documentation
 
 ```bash
-apex /agent analyst
+apex /agent planner
 ```
 
 ## Switching Agents
@@ -105,8 +105,8 @@ apex /agent analyst
 /agent coder      # Switch to coder
 /agent architect  # Switch to architect
 /agent reviewer   # Switch to reviewer
-/agent devops     # Switch to devops
-/agent analyst    # Switch to analyst
+/agent shell      # Switch to shell
+/agent planner    # Switch to planner
 /agents           # List all agents
 ```
 
@@ -150,10 +150,10 @@ apex /agent reviewer
 Review the authentication module for security issues
 ```
 
-### Infrastructure with DevOps Agent
+### Infrastructure with Shell Agent
 
 ```bash
-apex /agent devops
+apex /agent shell
 # Set up deployment
 Create a Docker Compose file for this project
 ```
@@ -163,7 +163,7 @@ Create a Docker Compose file for this project
 1. **Use Architect agent** for understanding code before making changes
 2. **Use Reviewer agent** for thorough code reviews
 3. **Use Coder agent** for active development and file modifications
-4. **Use DevOps agent** for infrastructure and deployment tasks
-5. **Use Analyst agent** for data analysis and documentation
+4. **Use Shell agent** for infrastructure and deployment tasks
+5. **Use Planner agent** for data analysis and documentation
 6. **Switch agents mid-session** as your needs change
 7. **Remember permissions** — Architect and Reviewer agents cannot modify files

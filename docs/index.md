@@ -7,8 +7,8 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 ## Features
 
 ### Core
-- **100+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more
-- **Multi-Agent System** — Coder, Architect, Reviewer, DevOps, Analyst with permission controls
+- **170+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more
+- **Multi-Agent System** — Coder, Architect, Reviewer, Shell, Planner with permission controls
 - **75+ Tools** — File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB
 - **Rich Terminal UI** — Syntax highlighting, markdown rendering, panels
 - **Session Persistence** — Save and load conversations
@@ -165,7 +165,7 @@ APEX is built by a Gabonese developer for the world. Every developer deserves a 
 | [Installation](installation.md) | Setup guide |
 | [Commands](commands.md) | Slash commands, @mentions, shortcuts |
 | [Configuration](configuration.md) | Config file options |
-| [Models](models.md) | 100+ supported models |
+| [Models](models.md) | 170+ supported models |
 | [Tools](tools.md) | 75+ built-in tools reference |
 | [Agents](agents.md) | Multi-agent system |
 | [Plugins](plugins.md) | Plugin system |
