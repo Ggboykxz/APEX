@@ -58,7 +58,7 @@ const VERSIONS = [
     ]
   },
   {
-    version: 'v1.1.0', name: 'TUI & Agent Update', status: 'released' as const, progress: 100, color: '#00ff88',
+    version: 'v1.2.0', name: 'TUI & Agent Update', status: 'released' as const, progress: 100, color: '#00ff88',
     desc: 'TUI overhaul with HTTP SSE backend, real-time token streaming, per-message cost tracking, agent-colored theming, and 8 new models added.',
     features: [
       { text: 'HTTP SSE Backend for TUI (replaces stdin/stdout IPC)', done: true },

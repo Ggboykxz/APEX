@@ -2,7 +2,12 @@
 
 All notable changes to APEX are documented in this file. The project follows [Semantic Versioning](https://semver.org/).
 
-## v1.1.0 (Current) — 2026-05-10
+## v1.2.0 (Current) — 2026-05-11
+
+- **Version bump**: 1.1.0 → 1.2.0
+- **Dockerfile fix**: Corrected Python site-packages path from `python3.12` to `python3.14` to match the `python:3.14-slim` base image
+
+## v1.1.0 — 2026-05-10
 
 ### TUI (OpenTUI React)
 

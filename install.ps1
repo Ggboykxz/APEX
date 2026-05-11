@@ -1,5 +1,5 @@
 # ============================================
-# APEX v1.0.0 Installer for Windows (PowerShell)
+# APEX v1.2.0 Installer for Windows (PowerShell)
 # https://github.com/Ggboykxz/APEX
 # ============================================
 
@@ -13,7 +13,7 @@ $MUTED = "`e[0;90m"
 $BOLD = "`e[1m"
 $NC = "`e[0m"
 
-$APEX_VERSION = "1.1.0"
+$APEX_VERSION = "1.2.0"
 $version = ""
 $uninstall = $false
 $defaultModel = ""

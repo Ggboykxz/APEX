@@ -582,7 +582,7 @@ result = limiter.check_rate_limit("user_123")
 
 ## Projet Status
 
-- **Version**: 1.1.0
+- **Version**: 1.2.0
 - **Tests**: 1148 passing
 - **License**: Proprietary — All rights reserved (voir [LICENSE](../LICENSE))
 
@@ -625,4 +625,4 @@ apex -p "prompt" -f json   # Mode CI/CD
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v1.1.0 — Inspired by OpenCode*
+*APEX v1.2.0 — Inspired by OpenCode*

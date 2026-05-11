@@ -1,5 +1,5 @@
 # ============================================
-# APEX v1.0.0 — Multi-stage Docker Image
+# APEX v1.2.0 — Multi-stage Docker Image
 # Universal AI coding agent. Every model. One terminal.
 # ============================================
 
@@ -44,7 +44,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Copy Python package from builder
-COPY --from=python-base /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=python-base /usr/local/lib/python3.14/site-packages /usr/local/lib/python3.14/site-packages
 COPY --from=python-base /usr/local/bin/apex /usr/local/bin/apex
 
 # Copy APEX source (needed for runtime imports)
