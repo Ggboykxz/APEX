@@ -1,5 +1,5 @@
 # ============================================
-# APEX v1.2.0 — Multi-stage Docker Image
+# APEX v1.3.0 — Multi-stage Docker Image
 # Universal AI coding agent. Every model. One terminal.
 # ============================================
 
