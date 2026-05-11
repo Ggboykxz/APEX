@@ -301,16 +301,12 @@ class UI:
 
     def print_tool_result(self, name: str, result: str) -> None:
         """Tool result - Better than OpenCode."""
-        cyan = self._c("cyan", "")
-        green = self._c("green", "")
-        red = self._c("red", "")
-        yellow = self._c("yellow", "")
 
         border_color = {
-            "ERROR:": red,
-            "SUCCESS:": green,
-            "WARNING:": yellow,
-        }.get(result.split(":")[0] if ":" in result else "", cyan)
+            "ERROR:": "red",
+            "SUCCESS:": "green",
+            "WARNING:": "yellow",
+        }.get(result.split(":")[0] if ":" in result else "", "cyan")
 
         icon = {
             "ERROR:": "✗",
@@ -411,19 +407,16 @@ class UI:
 
     def print_welcome_message(self) -> None:
         """Welcome message - Better than OpenCode."""
-        cyan = self._c("cyan", "")
-        gray = self._c("gray", "")
-        purple = self._c("purple", "")
 
-        welcome = f"""
-{gray}┌─────────────────────────────────────────────────────────────────────┐
-│  {cyan}Welcome to APEX{gray}                                                       │
-│  {gray}│                                                                     │
-│  {gray}│  {purple}Type a prompt and press Enter to start coding{gray}                   │
-│  {gray}│  {purple}Use /help to see all commands{gray}                                      │
-│  {gray}│  {purple}Press Tab to cycle through agents{gray}                                  │
-│  {gray}│  {purple}Press Ctrl+C to interrupt{gray}                                       │
-│  {gray}└─────────────────────────────────────────────────────────────────────┘[/]"""
+        welcome = """
+[cyan]┌─────────────────────────────────────────────────────────────────────┐[/]
+[cyan]│[/]  [cyan]Welcome to APEX[gray]                                                       │[/]
+[gray]│                                                                     │[/]
+[gray]│  [purple]Type a prompt and press Enter to start coding[gray]                   │[/]
+[gray]│  [purple]Use /help to see all commands[gray]                                      │[/]
+[gray]│  [purple]Press Tab to cycle through agents[gray]                                  │[/]
+[gray]│  [purple]Press Ctrl+C to interrupt[gray]                                       │[/]
+[gray]└─────────────────────────────────────────────────────────────────────┘[/]"""
 
         self.console.print(welcome)
 

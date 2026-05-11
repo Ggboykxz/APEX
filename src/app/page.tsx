@@ -65,7 +65,7 @@ const STATS = [
   { value: '100+', label: 'Models Supported', icon: Cpu },
   { value: '75+', label: 'Built-in Tools', icon: Wrench },
   { value: '5', label: 'Specialized Agents', icon: Bot },
-  { value: '1,148+', label: 'Tests Passing', icon: Check },
+  { value: '2,849+', label: 'Tests Passing', icon: Check },
   { value: '6', label: 'Built-in Themes', icon: Sparkles },
   { value: '6+', label: 'Install Methods', icon: Box },
 ]

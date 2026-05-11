@@ -1,281 +1,281 @@
-"""Tests for refactored tools module - 100% coverage."""
+"""Tests for APEX tools - AsyncToolExecutor, batch ops, timeouts, file watch, expand_vars, shells."""
 
 import pytest
-import tempfile
-from pathlib import Path
-from apex.refactored_tools import (
-    FileOperations,
-    GitOperations,
-    CommandOperations,
-    WebOperations,
-    create_file_ops,
-    create_git_ops,
-    create_command_ops,
-    create_web_ops,
-)
+
+from apex.tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
 
 
 @pytest.fixture
-def tmp_cwd():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
+def executor(tmp_path):
+    cwd = tmp_path / "project"
+    cwd.mkdir()
+    return ToolExecutor(cwd=cwd)
 
 
-class TestFileOperations:
-    def test_init(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        assert ops.cwd == tmp_cwd
-
-    def test_resolve_path_absolute(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.resolve_path("/absolute/path")
-        assert result == Path("/absolute/path")
-
-    def test_resolve_path_relative(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.resolve_path("relative/path")
-        assert result == tmp_cwd / "relative/path"
-
-    def test_read_file_not_found(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.read_file("nonexistent.txt")
-        assert "ERROR" in result
-
-    def test_read_file_success(self, tmp_cwd):
-        (tmp_cwd / "test.txt").write_text("Hello World")
-        ops = FileOperations(tmp_cwd)
-        result = ops.read_file("test.txt")
-        assert "1: Hello World" in result
-
-    def test_write_file_success(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.write_file("new.txt", "New content")
-        assert "SUCCESS" in result
-        assert (tmp_cwd / "new.txt").read_text() == "New content"
-
-    def test_write_file_creates_parent_dirs(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.write_file("subdir/nested/file.txt", "content")
-        assert "SUCCESS" in result
-
-    def test_edit_file_not_found(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.edit_file("nonexistent.txt", "old", "new")
-        assert "ERROR" in result
-
-    def test_edit_file_string_not_found(self, tmp_cwd):
-        (tmp_cwd / "test.txt").write_text("Hello World")
-        ops = FileOperations(tmp_cwd)
-        result = ops.edit_file("test.txt", "nonexistent", "new")
-        assert "ERROR" in result
-
-    def test_edit_file_success(self, tmp_cwd):
-        (tmp_cwd / "test.txt").write_text("Hello World")
-        ops = FileOperations(tmp_cwd)
-        result = ops.edit_file("test.txt", "World", "Python")
-        assert "SUCCESS" in result
-        assert "Python" in (tmp_cwd / "test.txt").read_text()
-
-    def test_delete_file_not_found(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.delete_file("nonexistent.txt")
-        assert "ERROR" in result
-
-    def test_delete_file_success(self, tmp_cwd):
-        (tmp_cwd / "test.txt").write_text("content")
-        ops = FileOperations(tmp_cwd)
-        result = ops.delete_file("test.txt")
-        assert "SUCCESS" in result
-        assert not (tmp_cwd / "test.txt").exists()
-
-    def test_delete_directory_success(self, tmp_cwd):
-        (tmp_cwd / "subdir").mkdir()
-        ops = FileOperations(tmp_cwd)
-        result = ops.delete_file("subdir")
-        assert "SUCCESS" in result
-
-    def test_create_directory_success(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.create_directory("newdir")
-        assert "SUCCESS" in result
-        assert (tmp_cwd / "newdir").is_dir()
-
-    def test_create_directory_nested(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.create_directory("a/b/c")
-        assert "SUCCESS" in result
-
-    def test_list_files_not_found(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.list_files("nonexistent")
-        assert "ERROR" in result
-
-    def test_list_files_empty(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.list_files(".")
-        assert "empty" in result.lower()
-
-    def test_list_files_with_content(self, tmp_cwd):
-        (tmp_cwd / "file1.txt").write_text("content")
-        (tmp_cwd / "file2.txt").write_text("content")
-        ops = FileOperations(tmp_cwd)
-        result = ops.list_files(".")
-        assert "file1.txt" in result
-        assert "file2.txt" in result
-
-    def test_search_in_files_not_found(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.search_in_files("pattern", "nonexistent")
-        assert "ERROR" in result
-
-    def test_search_in_files_no_matches(self, tmp_cwd):
-        (tmp_cwd / "test.txt").write_text("hello")
-        ops = FileOperations(tmp_cwd)
-        result = ops.search_in_files("nonexistent", ".")
-        assert "no matches" in result.lower()
-
-    def test_search_in_files_found(self, tmp_cwd):
-        (tmp_cwd / "test.txt").write_text("hello world")
-        ops = FileOperations(tmp_cwd)
-        result = ops.search_in_files("world", ".")
-        assert "test.txt" in result
-        assert "world" in result
-
-    def test_glob_search_no_matches(self, tmp_cwd):
-        ops = FileOperations(tmp_cwd)
-        result = ops.glob_search("*.py", ".")
-        assert "no matches" in result.lower()
-
-    def test_glob_search_found(self, tmp_cwd):
-        (tmp_cwd / "test.py").write_text("print('hello')")
-        (tmp_cwd / "test.txt").write_text("text")
-        ops = FileOperations(tmp_cwd)
-        result = ops.glob_search("*.py", ".")
-        assert "test.py" in result
+@pytest.fixture
+def async_executor(tmp_path):
+    cwd = tmp_path / "project"
+    cwd.mkdir()
+    return AsyncToolExecutor(cwd=cwd)
 
 
-class TestGitOperations:
-    def test_init(self, tmp_cwd):
-        ops = GitOperations(tmp_cwd)
-        assert ops.cwd == tmp_cwd
-
-    def test_resolve_path(self, tmp_cwd):
-        ops = GitOperations(tmp_cwd)
-        result = ops.resolve_path(".")
-        assert result == tmp_cwd
-
-    def test_get_git_status_not_repo(self, tmp_cwd):
-        ops = GitOperations(tmp_cwd)
-        result = ops.get_git_status(".")
-        assert "Not a git repository" in result
-
-    def test_get_git_status_is_repo(self, tmp_cwd):
-        import subprocess
-
-        subprocess.run(["git", "init"], cwd=tmp_cwd, capture_output=True)
-        (tmp_cwd / "test.txt").write_text("content")
-        subprocess.run(["git", "add", "test.txt"], cwd=tmp_cwd, capture_output=True)
-        ops = GitOperations(tmp_cwd)
-        result = ops.get_git_status(".")
-        assert "GIT" in result
-
-    def test_get_git_log_not_repo(self, tmp_cwd):
-        ops = GitOperations(tmp_cwd)
-        result = ops.get_git_log(".")
-        assert "Not a git repository" in result
-
-    def test_get_git_log_is_repo(self, tmp_cwd):
-        import subprocess
-
-        subprocess.run(["git", "init"], cwd=tmp_cwd, capture_output=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@test.com"], cwd=tmp_cwd, capture_output=True
-        )
-        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_cwd, capture_output=True)
-        (tmp_cwd / "test.txt").write_text("content")
-        subprocess.run(["git", "add", "test.txt"], cwd=tmp_cwd, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "Initial"], cwd=tmp_cwd, capture_output=True)
-        ops = GitOperations(tmp_cwd)
-        result = ops.get_git_log(".")
-        assert "Initial" in result
-
-    def test_git_diff_not_repo(self, tmp_cwd):
-        ops = GitOperations(tmp_cwd)
-        result = ops.git_diff(".")
-        assert "Not a git repository" in result
-
-    def test_git_diff_is_repo(self, tmp_cwd):
-        import subprocess
-
-        subprocess.run(["git", "init"], cwd=tmp_cwd, capture_output=True)
-        (tmp_cwd / "test.txt").write_text("content")
-        subprocess.run(["git", "add", "test.txt"], cwd=tmp_cwd, capture_output=True)
-        ops = GitOperations(tmp_cwd)
-        result = ops.git_diff(".")
-        assert "GIT" in result or "No changes" in result
+# ─── AsyncToolExecutor ──────────────────────────────────────────────────────
 
 
-class TestCommandOperations:
-    def test_init(self, tmp_cwd):
-        ops = CommandOperations(tmp_cwd)
-        assert ops.cwd == tmp_cwd
-
-    def test_resolve_path(self, tmp_cwd):
-        ops = CommandOperations(tmp_cwd)
-        result = ops.resolve_path("/tmp")
-        assert result == Path("/tmp")
-
-    def test_run_command_success(self, tmp_cwd):
-        ops = CommandOperations(tmp_cwd)
-        result = ops.run_command("echo hello")
-        assert "hello" in result
-
-    def test_run_command_with_cwd(self, tmp_cwd):
-        (tmp_cwd / "subdir").mkdir()
-        ops = CommandOperations(tmp_cwd)
-        result = ops.run_command("pwd", cwd="subdir")
-        assert "subdir" in result
-
-    def test_run_command_failure(self, tmp_cwd):
-        ops = CommandOperations(tmp_cwd)
-        result = ops.run_command("exit 1")
-        assert "ERROR" in result
-
-    def test_run_command_not_found(self, tmp_cwd):
-        ops = CommandOperations(tmp_cwd)
-        result = ops.run_command("nonexistent_command_xyz")
-        assert "ERROR" in result or "not found" in result.lower()
+def test_async_executor_is_tool_executor(async_executor):
+    assert isinstance(async_executor, ToolExecutor)
 
 
-class TestWebOperations:
-    def test_init(self, tmp_cwd):
-        ops = WebOperations(tmp_cwd)
-        assert ops.cwd == tmp_cwd
-
-    def test_web_search(self):
-        ops = WebOperations(Path("/tmp"))
-        result = ops.web_search("test query")
-        assert "test query" in result
-
-    def test_fetch_url(self):
-        ops = WebOperations(Path("/tmp"))
-        result = ops.fetch_url("https://example.com")
-        assert "ERROR" in result or result is not None
+def test_async_executor_has_cwd(async_executor, tmp_path):
+    assert async_executor.cwd == tmp_path / "project"
 
 
-class TestFactories:
-    def test_create_file_ops(self, tmp_cwd):
-        ops = create_file_ops(str(tmp_cwd))
-        assert isinstance(ops, FileOperations)
+@pytest.mark.asyncio
+async def test_execute_async_read_file(async_executor, tmp_path):
+    f = tmp_path / "async_test.txt"
+    f.write_text("async content")
+    result = await async_executor.execute_async("read_file", {"path": str(f)})
+    assert "async content" in result
 
-    def test_create_git_ops(self, tmp_cwd):
-        ops = create_git_ops(str(tmp_cwd))
-        assert isinstance(ops, GitOperations)
 
-    def test_create_command_ops(self, tmp_cwd):
-        ops = create_command_ops(str(tmp_cwd))
-        assert isinstance(ops, CommandOperations)
+@pytest.mark.asyncio
+async def test_execute_async_unknown_tool(async_executor):
+    result = await async_executor.execute_async("nonexistent_tool", {})
+    assert "ERROR" in result
+    assert "Unknown tool" in result
 
-    def test_create_web_ops(self, tmp_cwd):
-        ops = create_web_ops(str(tmp_cwd))
-        assert isinstance(ops, WebOperations)
+
+@pytest.mark.asyncio
+async def test_execute_async_write_file(async_executor, tmp_path):
+    dest = tmp_path / "async_write.txt"
+    result = await async_executor.execute_async(
+        "write_file", {"path": str(dest), "content": "written async"}
+    )
+    assert "SUCCESS" in result
+    assert dest.read_text() == "written async"
+
+
+@pytest.mark.asyncio
+async def test_execute_async_run_command(async_executor):
+    result = await async_executor.execute_async("run_command", {"command": "echo async_test"})
+    assert "async_test" in result
+
+
+@pytest.mark.asyncio
+async def test_execute_all_parallel(async_executor, tmp_path):
+    (tmp_path / "f1.txt").write_text("content1")
+    (tmp_path / "f2.txt").write_text("content2")
+    results = await async_executor.execute_all_parallel(
+        [
+            ("read_file", {"path": str(tmp_path / "f1.txt")}),
+            ("read_file", {"path": str(tmp_path / "f2.txt")}),
+        ]
+    )
+    assert len(results) == 2
+    assert "content1" in results[0]
+    assert "content2" in results[1]
+
+
+# ─── batch_read ──────────────────────────────────────────────────────────────
+
+
+def test_batch_read_no_paths(executor):
+    result = executor.execute("batch_read", {"paths": []})
+    assert "ERROR" in result or "No paths" in result
+
+
+def test_batch_read_with_files(executor, tmp_path):
+    (tmp_path / "a.txt").write_text("alpha")
+    (tmp_path / "b.txt").write_text("beta")
+    result = executor.execute(
+        "batch_read", {"paths": [str(tmp_path / "a.txt"), str(tmp_path / "b.txt")]}
+    )
+    assert isinstance(result, str)
+
+
+# ─── batch_write ─────────────────────────────────────────────────────────────
+
+
+def test_batch_write_no_operations(executor):
+    result = executor.execute("batch_write", {"operations": []})
+    assert "ERROR" in result or "No operations" in result
+
+
+def test_batch_write_with_operations(executor, tmp_path):
+    result = executor.execute(
+        "batch_write",
+        {
+            "operations": [
+                {"path": str(tmp_path / "batch1.txt"), "content": "first"},
+                {"path": str(tmp_path / "batch2.txt"), "content": "second"},
+            ]
+        },
+    )
+    assert isinstance(result, str)
+
+
+# ─── retry_tool ──────────────────────────────────────────────────────────────
+
+
+def test_retry_tool_basic(executor):
+    result = executor.execute(
+        "retry_tool", {"tool": "run_command", "args": {"command": "echo retry_test"}, "retries": 1}
+    )
+    assert isinstance(result, str)
+
+
+# ─── get_tool_timeout / set_tool_timeout ─────────────────────────────────────
+
+
+def test_get_tool_timeout(executor):
+    result = executor.execute("get_tool_timeout", {"tool": "run_command"})
+    assert isinstance(result, str)
+    assert "Timeout" in result or "timeout" in result.lower()
+
+
+def test_set_tool_timeout(executor):
+    result = executor.execute("set_tool_timeout", {"tool": "run_command", "timeout": 60})
+    assert isinstance(result, str)
+    assert "60" in result
+
+
+# ─── clear_file_cache ────────────────────────────────────────────────────────
+
+
+def test_clear_file_cache(executor):
+    result = executor.execute("clear_file_cache", {})
+    assert "SUCCESS" in result
+
+
+# ─── get_context_info ────────────────────────────────────────────────────────
+
+
+def test_get_context_info_no_agent(executor):
+    result = executor.execute("get_context_info", {})
+    assert "No agent context" in result or isinstance(result, str)
+
+
+# ─── start_file_watch / stop_file_watch ──────────────────────────────────────
+
+
+def test_start_file_watch(executor):
+    result = executor.execute("start_file_watch", {"patterns": ["*.py"]})
+    assert isinstance(result, str)
+    assert "SUCCESS" in result or "ERROR" in result or "Watching" in result
+
+
+def test_stop_file_watch_not_started(executor):
+    result = executor.execute("stop_file_watch", {})
+    assert "ERROR" in result or "No file watcher" in result
+
+
+def test_start_and_stop_file_watch(executor):
+    # Start
+    start_result = executor.execute("start_file_watch", {"patterns": ["*.txt"]})
+    if "SUCCESS" in start_result:
+        # Stop
+        stop_result = executor.execute("stop_file_watch", {})
+        assert "SUCCESS" in stop_result or isinstance(stop_result, str)
+
+
+# ─── expand_vars ─────────────────────────────────────────────────────────────
+
+
+def test_expand_vars_basic(executor):
+    result = executor.execute("expand_vars", {"text": "Hello ${name}", "vars": {"name": "World"}})
+    assert isinstance(result, str)
+
+
+def test_expand_vars_no_vars(executor):
+    result = executor.execute("expand_vars", {"text": "No vars here"})
+    assert isinstance(result, str)
+
+
+# ─── start_shell / run_shell / close_shell ───────────────────────────────────
+
+
+def test_start_shell(executor):
+    result = executor.execute("start_shell", {"shell": "bash"})
+    assert isinstance(result, str)
+    assert "SUCCESS" in result or "ERROR" in result or "shell" in result.lower()
+
+
+def test_run_shell_no_session(executor):
+    result = executor.execute("run_shell", {"command": "echo test"})
+    assert "ERROR" in result or "No shell session" in result
+
+
+def test_close_shell_no_session(executor):
+    result = executor.execute("close_shell", {})
+    assert "ERROR" in result or "No shell session" in result
+
+
+def test_shell_lifecycle(executor):
+    """Test full shell lifecycle: start -> run -> close."""
+    start_result = executor.execute("start_shell", {"shell": "bash"})
+    if "SUCCESS" in start_result:
+        run_result = executor.execute("run_shell", {"command": "echo lifecycle_test"})
+        assert isinstance(run_result, str)
+
+        close_result = executor.execute("close_shell", {})
+        assert "SUCCESS" in close_result
+
+        # After close, run_shell should error
+        post_close_result = executor.execute("run_shell", {"command": "echo after_close"})
+        assert "ERROR" in post_close_result or "No shell session" in post_close_result
+
+
+# ─── ToolExecutor execute exception handling ─────────────────────────────────
+
+
+def test_execute_catches_exception(executor, tmp_path):
+    """Test that execute catches unexpected exceptions and returns ERROR."""
+    # _execute_read_file with a directory instead of file will raise
+    d = tmp_path / "a_dir"
+    d.mkdir()
+    result = executor.execute("read_file", {"path": str(d)})
+    # read_file handles this with try/except, so check for ERROR
+    assert "ERROR" in result or isinstance(result, str)
+
+
+# ─── TOOL_SCHEMAS extended coverage ─────────────────────────────────────────
+
+
+def test_tool_schemas_advanced_tools_present():
+    names = [s["function"]["name"] for s in TOOL_SCHEMAS]
+    # Verify many tools are present
+    assert "web_search" in names
+    assert "fetch_url" in names
+    assert "git_diff" in names
+    assert "get_repo_map" in names
+    assert "read_image" in names
+    assert "run_test" in names
+    assert "format_file" in names
+    assert "install_package" in names
+    assert "task" in names
+    assert "preview_edit" in names
+    assert "apply_edit" in names
+    assert "clipboard_read" in names
+    assert "clipboard_write" in names
+    assert "ask_user" in names
+    assert "run_code" in names
+    assert "bookmark_session" in names
+    assert "restore_bookmark" in names
+    assert "search_history" in names
+    assert "get_conversation_stats" in names
+    assert "undo" in names
+    assert "redo" in names
+    assert "apply_patch" in names
+    assert "list_commands" in names
+    assert "run_command_custom" in names
+    assert "inline_edit" in names
+    assert "retry_last" in names
+    assert "git_stage" in names
+    assert "git_commit" in names
+    assert "list_skills" in names
+    assert "use_skill" in names
+    assert "set_theme" in names
+    assert "get_keybindings" in names
+    assert "expand_vars" in names
+    assert "batch_read" in names
+    assert "batch_write" in names

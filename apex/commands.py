@@ -23,7 +23,7 @@ class CommandManager:
     """Manages custom commands for APEX."""
 
     USER_COMMANDS_DIR = Path.home() / ".apex" / "commands"
-    PROJECT_COMMANDS_DIR = ".apex" / "commands"
+    PROJECT_COMMANDS_DIR = Path(".apex") / "commands"
 
     def __init__(self, cwd: Optional[Path] = None):
         self.cwd = cwd or Path.cwd()

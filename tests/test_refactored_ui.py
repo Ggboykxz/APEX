@@ -1,16 +1,17 @@
-"""Tests for refactored UI module."""
+"""Tests for refactored UI module — no mocks, real rich Console."""
 
-from unittest.mock import MagicMock
+from io import StringIO
 
-from apex.refactored_ui import UI, AGENT_COLORS, COLOR_MAP, create_ui
+from rich.console import Console
+
+from apex.refactored_ui import UI, AGENT_COLORS, COLOR_MAP, create_ui, CommandHelp
 
 
-class MockConsole:
-    def __init__(self):
-        self.output = []
-
-    def print(self, text):
-        self.output.append(text)
+class TestCommandHelp:
+    def test_init(self):
+        help_item = CommandHelp(command="/test", description="Test command")
+        assert help_item.command == "/test"
+        assert help_item.description == "Test command"
 
 
 class TestUI:
@@ -20,168 +21,164 @@ class TestUI:
         assert ui._color_map == COLOR_MAP
 
     def test_init_custom_console(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-        assert ui.console is mock_console
+        console = Console()
+        ui = UI(console=console)
+        assert ui.console is console
 
     def test_init_custom_color_map(self):
         custom_map = {"primary": "blue"}
         ui = UI(color_map=custom_map)
         assert ui._color_map == custom_map
 
-    def test_show_banner_build_agent(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
+    def test_init_custom_model_provider(self):
+        def provider():
+            return {"test": "test/model"}
 
+        ui = UI(model_provider=provider)
+        assert ui._model_provider is provider
+
+    def test_show_banner_build_agent(self, capsys):
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.show_banner("gpt-4", "/workspace", "build")
+        output = console.file.getvalue()
+        assert "APEX" in output or "build" in output
 
-        assert mock_console.print.called
-
-    def test_show_banner_plan_agent(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+    def test_show_banner_plan_agent(self, capsys):
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.show_banner("gpt-4", "/workspace", "plan")
+        output = console.file.getvalue()
+        assert "APEX" in output or "plan" in output
 
-        assert mock_console.print.called
-
-    def test_show_banner_unknown_agent(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+    def test_show_banner_unknown_agent(self, capsys):
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.show_banner("gpt-4", "/workspace", "unknown")
-
-        assert mock_console.print.called
+        output = console.file.getvalue()
+        assert "APEX" in output
 
     def test_show_help(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.show_help()
-
-        assert mock_console.print.called
+        output = console.file.getvalue()
+        assert "APEX Commands" in output or "/help" in output
 
     def test_show_models(self):
-        mock_console = MagicMock()
+        console = Console(file=StringIO(), force_terminal=True)
         ui = UI(
-            console=mock_console,
+            console=console,
             model_provider=lambda: {"gpt-4": "openai/gpt-4", "claude": "anthropic/claude"},
         )
-
         ui.show_models("gpt-4")
-
-        assert mock_console.print.called
+        output = console.file.getvalue()
+        assert "gpt-4" in output
 
     def test_print_user(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_user("Hello world")
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        assert "Hello world" in output
 
     def test_print_thinking(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         result = ui.print_thinking("Thinking...")
-
         assert result is not None
 
     def test_print_response_plain(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_response("Hello world")
-
-        mock_console.print.assert_called()
+        output = console.file.getvalue()
+        assert "Hello world" in output
 
     def test_print_response_with_code(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_response("```python\nprint('hello')\n```")
+        output = console.file.getvalue()
+        assert "print" in output
 
-        assert mock_console.print.call_count >= 1
+    def test_print_response_with_code_no_lang(self):
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
+        ui.print_response("```\ncode here\n```")
+        output = console.file.getvalue()
+        assert "code here" in output
 
     def test_print_tool_call(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_tool_call("read_file", {"path": "/test.py"})
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        assert "read_file" in output
 
     def test_print_tool_result_error(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_tool_result("read_file", "ERROR: File not found")
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        assert "File not found" in output
 
     def test_print_tool_result_success(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_tool_result("read_file", "SUCCESS: File read")
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        assert "File read" in output
 
     def test_print_tool_result_normal(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_tool_result("read_file", "file content here")
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        assert "file content here" in output
 
     def test_print_tool_result_truncate(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         long_result = "x" * 3000
         ui.print_tool_result("read_file", long_result)
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        # Rich renders [truncated] as a style tag, so we check for "..." indicator
+        assert "..." in output
 
     def test_print_error(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_error("Something went wrong")
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        assert "Something went wrong" in output
 
     def test_print_success(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_success("Operation completed")
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        assert "Operation completed" in output
 
     def test_print_info(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         ui.print_info("Some information")
-
-        mock_console.print.assert_called_once()
+        output = console.file.getvalue()
+        assert "Some information" in output
 
     def test_print_cost(self):
-        mock_console = MagicMock()
-        ui = UI(console=mock_console)
-
+        console = Console(file=StringIO(), force_terminal=True)
+        ui = UI(console=console)
         usage = {"input": 1000, "output": 500}
         ui.print_cost(usage)
-
-        assert mock_console.print.call_count == 2
+        output = console.file.getvalue()
+        assert "1,000" in output or "1000" in output
 
     def test_get_color(self):
         ui = UI()
-
         assert ui.get_color("primary") == "cyan"
+        assert ui.get_color("text") == "white"
         assert ui.get_color("unknown") == "white"
 
 
@@ -204,6 +201,11 @@ class TestFactoryFunctions:
         assert isinstance(ui, UI)
 
     def test_create_ui_with_custom_console(self):
-        mock_console = MagicMock()
-        ui = create_ui(console=mock_console)
-        assert ui.console is mock_console
+        console = Console()
+        ui = create_ui(console=console)
+        assert ui.console is console
+
+    def test_create_ui_with_custom_color_map(self):
+        custom_map = {"primary": "blue"}
+        ui = create_ui(color_map=custom_map)
+        assert ui._color_map == custom_map

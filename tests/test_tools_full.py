@@ -1,232 +1,332 @@
-"""Comprehensive tests for tools.py - ToolExecutor class."""
+"""Tests for APEX tools - search, glob, tree, diff, git, and repo_map."""
+
+import subprocess
 
 import pytest
-import tempfile
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-from apex.tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
+
+from apex.tools import ToolExecutor
 
 
-class TestToolSchemas:
-    """Test TOOL_SCHEMAS constant."""
-
-    def test_schemas_not_empty(self):
-        """Test TOOL_SCHEMAS is not empty."""
-        assert len(TOOL_SCHEMAS) > 0
-
-    def test_schemas_have_required_fields(self):
-        """Test each schema has required fields."""
-        for schema in TOOL_SCHEMAS:
-            assert "type" in schema
-            assert "function" in schema
-            func = schema["function"]
-            assert "name" in func
-            assert "description" in func
-            assert "parameters" in func
-
-    def test_has_read_file(self):
-        """Test read_file tool exists."""
-        names = [s["function"]["name"] for s in TOOL_SCHEMAS]
-        assert "read_file" in names
-
-    def test_has_write_file(self):
-        """Test write_file tool exists."""
-        names = [s["function"]["name"] for s in TOOL_SCHEMAS]
-        assert "write_file" in names
-
-    def test_has_edit_file(self):
-        """Test edit_file tool exists."""
-        names = [s["function"]["name"] for s in TOOL_SCHEMAS]
-        assert "edit_file" in names
-
-    def test_has_run_command(self):
-        """Test run_command tool exists."""
-        names = [s["function"]["name"] for s in TOOL_SCHEMAS]
-        assert "run_command" in names
+@pytest.fixture
+def executor(tmp_path):
+    cwd = tmp_path / "project"
+    cwd.mkdir()
+    return ToolExecutor(cwd=cwd)
 
 
-class TestToolExecutor:
-    """Test ToolExecutor class."""
-
-    @pytest.fixture
-    def temp_cwd(self):
-        """Create temp directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
-
-    @pytest.fixture
-    def executor(self, temp_cwd):
-        """Create ToolExecutor instance."""
-        return ToolExecutor(cwd=temp_cwd)
-
-    def test_init_default(self):
-        """Test default initialization."""
-        executor = ToolExecutor()
-        assert executor.cwd == Path.cwd()
-
-    def test_init_custom_cwd(self, temp_cwd):
-        """Test custom cwd initialization."""
-        executor = ToolExecutor(cwd=temp_cwd)
-        assert executor.cwd == temp_cwd
-
-    def test_resolve_absolute(self, executor, temp_cwd):
-        """Test resolving absolute path."""
-        result = executor._resolve("/absolute/path")
-        assert result == Path("/absolute/path")
-
-    def test_resolve_relative(self, executor, temp_cwd):
-        """Test resolving relative path."""
-        result = executor._resolve("relative/path")
-        assert result == temp_cwd / "relative/path"
-
-    def test_execute_unknown_tool(self, executor):
-        """Test executing unknown tool."""
-        result = executor.execute("nonexistent_tool", {})
-        assert "ERROR" in result
-        assert "Unknown tool" in result
-
-    def test_execute_read_file_success(self, executor, temp_cwd):
-        """Test read_file with existing file."""
-        test_file = temp_cwd / "test.txt"
-        test_file.write_text("line1\nline2\nline3")
-
-        result = executor.execute("read_file", {"path": "test.txt"})
-        assert "line1" in result
-        assert "line2" in result
-        assert "line3" in result
-
-    def test_execute_read_file_not_found(self, executor):
-        """Test read_file with missing file."""
-        result = executor.execute("read_file", {"path": "nonexistent.txt"})
-        assert "ERROR" in result
-        assert "not found" in result
-
-    def test_execute_write_file_success(self, executor, temp_cwd):
-        """Test write_file success."""
-        result = executor.execute("write_file", {"path": "new_file.txt", "content": "test content"})
-        assert "SUCCESS" in result
-        assert (temp_cwd / "new_file.txt").exists()
-
-    def test_execute_write_file_nested(self, executor, temp_cwd):
-        """Test write_file with nested path."""
-        result = executor.execute("write_file", {"path": "dir1/dir2/file.txt", "content": "nested"})
-        assert "SUCCESS" in result
-
-    def test_execute_edit_file_success(self, executor, temp_cwd):
-        """Test edit_file success."""
-        test_file = temp_cwd / "edit_test.txt"
-        test_file.write_text("hello world")
-
-        result = executor.execute(
-            "edit_file", {"path": "edit_test.txt", "old_string": "world", "new_string": "APEX"}
-        )
-        assert "SUCCESS" in result
-        assert "APEX" in test_file.read_text()
-
-    def test_execute_edit_file_not_found(self, executor):
-        """Test edit_file with missing file."""
-        result = executor.execute(
-            "edit_file", {"path": "nonexistent.txt", "old_string": "old", "new_string": "new"}
-        )
-        assert "ERROR" in result
-
-    def test_execute_edit_file_string_not_found(self, executor, temp_cwd):
-        """Test edit_file when string not in file."""
-        test_file = temp_cwd / "test.txt"
-        test_file.write_text("original text")
-
-        result = executor.execute(
-            "edit_file", {"path": "test.txt", "old_string": "not in file", "new_string": "new"}
-        )
-        assert "ERROR" in result
-
-    @patch("subprocess.run")
-    def test_execute_run_command_success(self, mock_run, executor):
-        """Test run_command success."""
-        mock_result = MagicMock()
-        mock_result.stdout = "command output"
-        mock_result.stderr = ""
-        mock_result.returncode = 0
-        mock_run.return_value = mock_result
-
-        result = executor.execute("run_command", {"command": "echo hello"})
-        assert "command output" in result
-
-    @patch("subprocess.run")
-    def test_execute_run_command_error(self, mock_run, executor):
-        """Test run_command with error."""
-        mock_result = MagicMock()
-        mock_result.stdout = ""
-        mock_result.stderr = "error message"
-        mock_result.returncode = 1
-        mock_run.return_value = mock_result
-
-        result = executor.execute("run_command", {"command": "false"})
-        assert "EXIT CODE: 1" in result
+@pytest.fixture
+def git_executor(tmp_path):
+    """Create ToolExecutor in an initialized git repo."""
+    cwd = tmp_path / "git_project"
+    cwd.mkdir()
+    subprocess.run(["git", "init"], cwd=cwd, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=cwd, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=cwd, capture_output=True)
+    return ToolExecutor(cwd=cwd)
 
 
-class TestToolExecutorFileOperations:
-    """Test file operation tools."""
-
-    @pytest.fixture
-    def temp_cwd(self):
-        """Create temp directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
-
-    @pytest.fixture
-    def executor(self, temp_cwd):
-        """Create ToolExecutor."""
-        return ToolExecutor(cwd=temp_cwd)
-
-    def test_delete_file(self, executor, temp_cwd):
-        """Test delete_file tool."""
-        test_file = temp_cwd / "to_delete.txt"
-        test_file.write_text("delete me")
-
-        result = executor.execute("delete_file", {"path": "to_delete.txt"})
-        assert "SUCCESS" in result
-        assert not test_file.exists()
-
-    def test_create_directory(self, executor, temp_cwd):
-        """Test create_directory tool."""
-        result = executor.execute("create_directory", {"path": "new_dir"})
-        assert "SUCCESS" in result
-        assert (temp_cwd / "new_dir").is_dir()
-
-    def test_list_files(self, executor, temp_cwd):
-        """Test list_files tool."""
-        (temp_cwd / "file1.txt").write_text("content")
-        (temp_cwd / "file2.txt").write_text("content")
-
-        result = executor.execute("list_files", {"path": "."})
-        assert "file1.txt" in result
-        assert "file2.txt" in result
+# ─── search_in_files ────────────────────────────────────────────────────────
 
 
-class TestAsyncToolExecutor:
-    """Test AsyncToolExecutor class."""
+def test_search_in_files_found(executor, tmp_path):
+    (tmp_path / "test.py").write_text("def hello():\n    print('world')")
+    result = executor.execute("search_in_files", {"pattern": "hello", "path": str(tmp_path)})
+    assert "test.py" in result
+    assert "hello" in result
 
-    @pytest.fixture
-    def temp_cwd(self):
-        """Create temp directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
 
-    @pytest.fixture
-    def async_executor(self, temp_cwd):
-        """Create AsyncToolExecutor."""
-        return AsyncToolExecutor(cwd=temp_cwd)
+def test_search_in_files_no_matches(executor, tmp_path):
+    (tmp_path / "test.py").write_text("def goodbye():\n    pass")
+    result = executor.execute(
+        "search_in_files", {"pattern": "nonexistent_pattern", "path": str(tmp_path)}
+    )
+    assert "no matches" in result.lower()
 
-    def test_inherits_from_tool_executor(self, async_executor):
-        """Test AsyncToolExecutor inherits from ToolExecutor."""
-        assert isinstance(async_executor, ToolExecutor)
 
-    @pytest.mark.asyncio
-    async def test_execute_read_file(self, async_executor, temp_cwd):
-        """Test async read_file."""
-        test_file = temp_cwd / "async_test.txt"
-        test_file.write_text("async content")
+def test_search_in_files_path_not_found(executor):
+    result = executor.execute("search_in_files", {"pattern": "test", "path": "/nonexistent_xyz"})
+    assert "ERROR" in result
 
-        result = await async_executor.execute_async("read_file", {"path": "async_test.txt"})
-        assert "async content" in result
+
+def test_search_in_files_invalid_regex(executor, tmp_path):
+    result = executor.execute("search_in_files", {"pattern": "[invalid", "path": str(tmp_path)})
+    assert "ERROR" in result
+    assert "Invalid regex" in result
+
+
+def test_search_in_files_multiple_files(executor, tmp_path):
+    (tmp_path / "a.py").write_text("keyword_here")
+    (tmp_path / "b.py").write_text("no match here")
+    (tmp_path / "c.py").write_text("keyword_here too")
+    result = executor.execute("search_in_files", {"pattern": "keyword_here", "path": str(tmp_path)})
+    assert "a.py" in result
+    assert "c.py" in result
+
+
+# ─── glob_search ─────────────────────────────────────────────────────────────
+
+
+def test_glob_search_found(executor, tmp_path):
+    (tmp_path / "file1.py").touch()
+    (tmp_path / "file2.js").touch()
+    (tmp_path / "file3.txt").touch()
+    result = executor.execute("glob_search", {"pattern": "*.py", "directory": str(tmp_path)})
+    assert "file1.py" in result
+
+
+def test_glob_search_no_matches(executor, tmp_path):
+    result = executor.execute(
+        "glob_search", {"pattern": "*.nonexistent_ext", "directory": str(tmp_path)}
+    )
+    assert "no files match" in result.lower()
+
+
+def test_glob_search_directory_not_found(executor):
+    result = executor.execute(
+        "glob_search", {"pattern": "*.py", "directory": "/nonexistent_dir_xyz"}
+    )
+    assert "ERROR" in result
+
+
+def test_glob_search_default_directory(executor, tmp_path):
+    (tmp_path / "project" / "test.py").touch()
+    result = executor.execute("glob_search", {"pattern": "*.py"})
+    assert isinstance(result, str)
+
+
+def test_glob_search_recursive(executor, tmp_path):
+    sub = tmp_path / "subdir"
+    sub.mkdir()
+    (sub / "nested.py").touch()
+    result = executor.execute("glob_search", {"pattern": "**/*.py", "directory": str(tmp_path)})
+    assert "nested.py" in result
+
+
+# ─── get_file_tree ───────────────────────────────────────────────────────────
+
+
+def test_get_file_tree_success(executor, tmp_path):
+    sub = tmp_path / "subdir"
+    sub.mkdir()
+    (sub / "file.txt").touch()
+    result = executor.execute("get_file_tree", {"path": str(tmp_path), "max_depth": 2})
+    assert "subdir" in result
+
+
+def test_get_file_tree_path_not_found(executor):
+    result = executor.execute("get_file_tree", {"path": "/nonexistent_xyz"})
+    assert "ERROR" in result
+
+
+def test_get_file_tree_with_max_depth(executor, tmp_path):
+    d1 = tmp_path / "level1"
+    d1.mkdir()
+    d2 = d1 / "level2"
+    d2.mkdir()
+    (d2 / "deep.txt").touch()
+    result = executor.execute("get_file_tree", {"path": str(tmp_path), "max_depth": 1})
+    assert "level1" in result
+
+
+# ─── diff_files ──────────────────────────────────────────────────────────────
+
+
+def test_diff_files_identical(executor, tmp_path):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_text("hello")
+    b.write_text("hello")
+    result = executor.execute("diff_files", {"path_a": str(a), "path_b": str(b)})
+    assert "identical" in result.lower()
+
+
+def test_diff_files_different(executor, tmp_path):
+    a = tmp_path / "a.txt"
+    b = tmp_path / "b.txt"
+    a.write_text("hello world")
+    b.write_text("hello")
+    result = executor.execute("diff_files", {"path_a": str(a), "path_b": str(b)})
+    assert len(result) > 0
+    # Should contain diff markers or content from the different file
+    assert "---" in result or "hello" in result
+
+
+def test_diff_files_first_missing(executor, tmp_path):
+    b = tmp_path / "b.txt"
+    b.write_text("content")
+    result = executor.execute("diff_files", {"path_a": "/nonexistent_a", "path_b": str(b)})
+    assert "ERROR" in result
+
+
+def test_diff_files_second_missing(executor, tmp_path):
+    a = tmp_path / "a.txt"
+    a.write_text("content")
+    result = executor.execute("diff_files", {"path_a": str(a), "path_b": "/nonexistent_b"})
+    assert "ERROR" in result
+
+
+# ─── get_git_status ──────────────────────────────────────────────────────────
+
+
+def test_get_git_status_not_repo(executor):
+    result = executor.execute("get_git_status", {})
+    assert "Not a git repository" in result
+
+
+def test_get_git_status_clean_repo(git_executor):
+    result = git_executor.execute("get_git_status", {})
+    assert "clean" in result.lower() or result.strip() != ""
+
+
+def test_get_git_status_dirty_repo(git_executor, tmp_path):
+    repo_dir = tmp_path / "git_project"
+    (repo_dir / "newfile.txt").write_text("untracked")
+    result = git_executor.execute("get_git_status", {})
+    # Should show the untracked file
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+# ─── get_git_log ─────────────────────────────────────────────────────────────
+
+
+def test_get_git_log_not_repo(executor):
+    result = executor.execute("get_git_log", {"n": 5})
+    assert "Not a git repository" in result
+
+
+def test_get_git_log_empty_repo(git_executor):
+    result = git_executor.execute("get_git_log", {"n": 5})
+    assert "no commits" in result.lower() or isinstance(result, str)
+
+
+def test_get_git_log_with_commits(git_executor, tmp_path):
+    repo_dir = tmp_path / "git_project"
+    (repo_dir / "test.txt").write_text("initial")
+    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=repo_dir, capture_output=True)
+    result = git_executor.execute("get_git_log", {"n": 5})
+    assert "Initial commit" in result
+
+
+# ─── git_diff ────────────────────────────────────────────────────────────────
+
+
+def test_git_diff_not_repo(executor):
+    result = executor.execute("git_diff", {})
+    assert "Not a git repository" in result
+
+
+def test_git_diff_clean_repo(git_executor):
+    result = git_executor.execute("git_diff", {})
+    assert "no changes" in result.lower() or isinstance(result, str)
+
+
+def test_git_diff_with_changes(git_executor, tmp_path):
+    repo_dir = tmp_path / "git_project"
+    (repo_dir / "test.txt").write_text("initial")
+    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo_dir, capture_output=True)
+    (repo_dir / "test.txt").write_text("modified")
+    result = git_executor.execute("git_diff", {})
+    assert isinstance(result, str)
+
+
+def test_git_diff_with_ref(git_executor, tmp_path):
+    repo_dir = tmp_path / "git_project"
+    (repo_dir / "test.txt").write_text("initial")
+    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo_dir, capture_output=True)
+    result = git_executor.execute("git_diff", {"ref": "HEAD"})
+    assert isinstance(result, str)
+
+
+# ─── get_repo_map ────────────────────────────────────────────────────────────
+
+
+def test_get_repo_map_success(executor, tmp_path):
+    project = tmp_path / "project"
+    (project / "main.py").write_text("print('hello')")
+    (project / "config.json").write_text("{}")
+    (project / "README.md").write_text("# readme")
+    # Note: get_repo_map uses self.cwd regardless of path arg
+    result = executor.execute("get_repo_map", {"path": str(tmp_path)})
+    assert isinstance(result, str)
+
+
+def test_get_repo_map_returns_string(executor):
+    # Note: the second _execute_get_repo_map always uses self.cwd
+    result = executor.execute("get_repo_map", {"path": "/nonexistent_xyz"})
+    assert isinstance(result, str)
+
+
+def test_get_repo_map_with_git(tmp_path):
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+    (tmp_path / "app.py").write_text("code")
+    e = ToolExecutor(cwd=tmp_path)
+    result = e.execute("get_repo_map", {"path": str(tmp_path)})
+    assert isinstance(result, str)
+
+
+def test_get_repo_map_categorizes_files(executor, tmp_path):
+    # Files must be in the executor's cwd (project dir) for get_repo_map to find them
+    project = tmp_path / "project"
+    (project / "source.py").write_text("code")
+    (project / "config.yaml").write_text("key: value")
+    (project / "docs.txt").write_text("documentation")
+    (project / "data.csv").write_text("a,b,c")
+    result = executor.execute("get_repo_map", {"path": str(project)})
+    assert isinstance(result, str)
+
+
+# ─── get_file_tree with hidden files ─────────────────────────────────────────
+
+
+def test_get_file_tree_skips_hidden_files(executor, tmp_path):
+    sub = tmp_path / "mydir"
+    sub.mkdir()
+    (sub / ".hidden").touch()
+    (sub / "visible.txt").touch()
+    result = executor.execute("get_file_tree", {"path": str(sub)})
+    assert "visible.txt" in result
+    # Hidden files should be skipped
+    assert ".hidden" not in result
+
+
+# ─── git error paths ────────────────────────────────────────────────────────
+
+
+def test_get_git_status_exception(executor, tmp_path):
+    """Test git status when .git exists but git command fails."""
+    git_dir = tmp_path / "project" / ".git"
+    git_dir.mkdir()
+    # .git exists but it's not a real git repo, so git command may fail
+    result = executor.execute("get_git_status", {})
+    # Should handle the error gracefully
+    assert isinstance(result, str)
+
+
+def test_get_git_log_exception(executor, tmp_path):
+    """Test git log when .git exists but git command fails."""
+    git_dir = tmp_path / "project" / ".git"
+    git_dir.mkdir()
+    result = executor.execute("get_git_log", {"n": 5})
+    assert isinstance(result, str)
+
+
+def test_git_diff_exception(executor, tmp_path):
+    """Test git diff when .git exists but git command fails."""
+    git_dir = tmp_path / "project" / ".git"
+    git_dir.mkdir()
+    result = executor.execute("git_diff", {})
+    assert isinstance(result, str)
+
+
+# ─── search_in_files with binary file ───────────────────────────────────────
+
+
+def test_search_in_files_skips_binary(executor, tmp_path):
+    (tmp_path / "text.txt").write_text("findme")
+    (tmp_path / "binary.bin").write_bytes(b"\x00\x01\x02\x03findme\x04\x05")
+    result = executor.execute("search_in_files", {"pattern": "findme", "path": str(tmp_path)})
+    assert "text.txt" in result

@@ -148,8 +148,8 @@ class KeyManager:
                     owner_id=row[2],
                     created_at=row[3],
                     is_active=bool(row[4]),
-                    settings=_safe_parse(row[5]) if row[5] else {},
-                    metadata=_safe_parse(row[6]) if row[6] else {},
+                    settings=_safe_parse(row[5], {}) if row[5] else {},
+                    metadata=_safe_parse(row[6], {}) if row[6] else {},
                 )
         return None
 
@@ -228,8 +228,8 @@ class KeyManager:
                 is_active=bool(row[8]),
                 rate_limit_per_minute=row[9],
                 rate_limit_per_hour=row[10],
-                permissions=_safe_parse(row[11]) if row[11] else [],
-                metadata=_safe_parse(row[12]) if row[12] else {},
+                permissions=_safe_parse(row[11], []) if row[11] else [],
+                metadata=_safe_parse(row[12], {}) if row[12] else {},
             )
         if not key_info.is_active:
             raise KeyDisabledError("API key is disabled")
@@ -271,8 +271,8 @@ class KeyManager:
                         is_active=bool(row[8]),
                         rate_limit_per_minute=row[9],
                         rate_limit_per_hour=row[10],
-                        permissions=_safe_parse(row[11]) if row[11] else [],
-                        metadata=_safe_parse(row[12]) if row[12] else {},
+                        permissions=_safe_parse(row[11], []) if row[11] else [],
+                        metadata=_safe_parse(row[12], {}) if row[12] else {},
                     )
                 )
         return keys
