@@ -109,6 +109,7 @@ class TestUI:
         output = console.file.getvalue()
         # Strip ANSI escape codes for robust text matching in CI
         import re
+
         clean = re.sub(r"\x1b\[[0-9;]*m", "", output)
         assert "code" in clean
 
