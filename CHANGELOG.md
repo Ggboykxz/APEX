@@ -2,6 +2,43 @@
 
 All notable changes to APEX will be documented in this file.
 
+## [1.4.0] - 2026-05-11
+
+### Breaking Change: TUI is now the default mode
+
+- **`apex` now launches TUI by default** — Running `apex` without arguments starts the Terminal UI instead of the CLI REPL
+- **`apex --cli` or `apex cli`** — New flag and subcommand to explicitly launch the CLI REPL mode
+- No more silent fallback to CLI when TUI fails — the system tries multiple runtimes first
+
+### Node.js / tsx Fallback for TUI (Windows Compatibility)
+
+- **Multi-runtime TUI launch**: When `bun` is not available or incompatible (common on Windows), APEX now tries multiple runtimes in cascade:
+  1. **bun** (preferred, native TSX support)
+  2. **tsx** via local `node_modules/.bin/tsx` (Node.js + TypeScript runtime)
+  3. **npx tsx** (auto-downloads tsx if not installed)
+  4. **node --experimental-strip-types** (Node 22+ native TypeScript support)
+- **`_try_run_tui_process()`**: Generic TUI launcher that works with any runtime command, replacing the old bun-only `_try_run_tui_with_bun()`
+- **`_ensure_tsx()` / `_install_tsx()`**: Helpers to detect and install tsx as a devDependency for Node.js TUI support
+- **tsx ^4.19.0** added as a devDependency in `tui-frontend/package.json`
+- **Node.js scripts** added: `dev:node` and `start:node` for running TUI with tsx
+- **`node_modules/.bin` added to PATH** when launching TUI, ensuring local binaries are found
+
+### Windows Compatibility Improvements
+
+- **Bun path discovery**: Now checks `%USERPROFILE%\.bun\bin\bun.exe`, `%USERPROFILE%\.bun\bin\bun`, and `%LOCALAPPDATA%\bun\bun.exe`
+- **Bun installation**: Windows now uses PowerShell (`irm bun.sh/install.ps1 | iex`) instead of curl+bash
+- **French Windows error detection**: Added "version de" pattern to detect incompatible bun errors in French-language Windows
+
+### Other Improvements
+
+- **Dependency check**: `_setup_tui_frontend()` now verifies `@opentui` exists in `node_modules` (not just that `node_modules/` directory exists)
+- **Increased npm install timeout**: 120s → 180s for slow connections
+- **Improved error messages**: When all TUI runtimes fail, shows actionable fix suggestions (install bun, install Node.js, use --cli)
+- **`apex install-tui`**: Now also installs tsx when bun is not available, and the success message says `apex` (not `apex --tui`)
+- **Version bumped to 1.4.0** across `__init__.py`, `pyproject.toml`, and `tui-frontend/package.json`
+
+---
+
 ## [1.3.1] - 2026-05-11
 
 ### Windows Compatibility
