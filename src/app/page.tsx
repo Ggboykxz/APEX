@@ -11,28 +11,7 @@ import {
   ChevronRight
 } from 'lucide-react'
 import { PROVIDER_ICONS, PROVIDER_LIST, AnthropicIcon } from '@/components/ProviderIcons'
-
-/* ──── TYPES ──── */
-interface GitHubRepoData {
-  stargazers_count: number
-  forks_count: number
-  open_issues_count: number
-  subscribers_count: number
-  contributors: number
-  latest_release: { tag_name: string; published_at: string } | null
-}
-interface GitHubIssue {
-  number: number; title: string; state: 'open' | 'closed'; created_at: string; user: { login: string }; labels: { name: string; color: string }[]
-}
-interface GitHubPullRequest {
-  number: number; title: string; state: 'open' | 'closed'; merged_at: string | null; created_at: string; user: { login: string }; labels: { name: string; color: string }[]
-}
-interface GitHubRelease {
-  tag_name: string; name: string; published_at: string; body: string
-}
-interface GitHubData {
-  repo: GitHubRepoData | null; issues: GitHubIssue[]; pullRequests: GitHubPullRequest[]; releases: GitHubRelease[]
-}
+import { fetchGitHubData, type GitHubData, type GitHubIssue, type GitHubPullRequest, type GitHubRelease } from '@/lib/github-api'
 
 /* ──── HELPERS ──── */
 function timeAgo(dateString: string): string {
@@ -65,7 +44,7 @@ const STATS = [
   { value: '170+', label: 'Models Supported', icon: Cpu },
   { value: '75+', label: 'Built-in Tools', icon: Wrench },
   { value: '5', label: 'Specialized Agents', icon: Bot },
-  { value: '2,849+', label: 'Tests Passing', icon: Check },
+  { value: '2,842+', label: 'Tests Passing', icon: Check },
   { value: '6', label: 'Built-in Themes', icon: Sparkles },
   { value: '6+', label: 'Install Methods', icon: Box },
 ]
@@ -186,9 +165,7 @@ export default function Home() {
     const fetchGithub = async () => {
       try {
         setGithubLoading(true)
-        const res = await fetch('/api/github')
-        if (!res.ok) throw new Error('Failed')
-        const data: GitHubData = await res.json()
+        const data = await fetchGitHubData()
         if (isMounted) { setGithubData(data); setApiStatus('online'); setGithubLoading(false) }
       } catch { if (isMounted) { setApiStatus('offline'); setGithubLoading(false) } }
     }

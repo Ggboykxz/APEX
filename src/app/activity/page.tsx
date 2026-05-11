@@ -10,11 +10,7 @@ import {
   ArrowRight, Check, Box
 } from 'lucide-react'
 
-interface GitHubRepoData { stargazers_count: number; forks_count: number; open_issues_count: number; subscribers_count: number; contributors: number; latest_release: { tag_name: string; published_at: string } | null }
-interface GitHubIssue { number: number; title: string; state: 'open' | 'closed'; created_at: string; user: { login: string }; labels: { name: string; color: string }[] }
-interface GitHubPullRequest { number: number; title: string; state: 'open' | 'closed'; merged_at: string | null; created_at: string; user: { login: string }; labels: { name: string; color: string }[] }
-interface GitHubRelease { tag_name: string; name: string; published_at: string; body: string }
-interface GitHubData { repo: GitHubRepoData | null; issues: GitHubIssue[]; pullRequests: GitHubPullRequest[]; releases: GitHubRelease[] }
+import { fetchGitHubData, type GitHubData, type GitHubIssue, type GitHubPullRequest, type GitHubRelease } from '@/lib/github-api'
 
 function timeAgo(d: string): string {
   const diff = Date.now() - new Date(d).getTime()
@@ -32,7 +28,7 @@ function NavBar() {
   const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'loading'>('loading')
 
   useEffect(() => {
-    fetch('/api/github').then(r => { if (r.ok) setApiStatus('online'); else throw new Error() }).catch(() => setApiStatus('offline'))
+    fetchGitHubData().then(d => { if (d.repo) setApiStatus('online'); else setApiStatus('offline') }).catch(() => setApiStatus('offline'))
   }, [])
 
   return (
@@ -101,7 +97,7 @@ export default function ActivityPage() {
 
   useEffect(() => {
     let m = true
-    const f = async () => { try { const r = await fetch('/api/github'); if (!r.ok) throw new Error(); const d: GitHubData = await r.json(); if (m) { setGithubData(d); setLoading(false) } } catch { if (m) setLoading(false) } }
+    const f = async () => { try { const d = await fetchGitHubData(); if (m) { setGithubData(d); setLoading(false) } } catch { if (m) setLoading(false) } }
     f(); const i = setInterval(f, 300000); return () => { m = false; clearInterval(i) }
   }, [])
 
