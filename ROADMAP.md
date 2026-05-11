@@ -17,7 +17,7 @@
 - Docker image (ghcr.io/ggboykxz/apex)
 - CI/CD pipeline (7 workflows)
 
-## ✅ v1.1.0 — Power (released May 10, 2026)
+## ✅ v1.2.0 — Power (released May 10, 2026)
 - Streaming responses via HTTP SSE (real-time token streaming)
 - Live cost tracking (per-message + session total)
 - Context percentage monitoring
