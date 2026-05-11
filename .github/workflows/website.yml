@@ -67,7 +67,6 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
           NEXTAUTH_SECRET: "build-time-dummy-secret"
           NEXTAUTH_URL: "http://localhost:3000"
-          NEXT_PUBLIC_GITHUB_TOKEN: ${{ secrets.NEXT_PUBLIC_GITHUB_TOKEN }}
           NEXT_PUBLIC_BASE_PATH: "/APEX"
 
       - name: Upload build artifact

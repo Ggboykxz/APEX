@@ -41,7 +41,6 @@ jobs:
         run: bun run build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-          NEXT_PUBLIC_GITHUB_TOKEN: ${{ secrets.NEXT_PUBLIC_GITHUB_TOKEN }}
           NEXT_PUBLIC_BASE_PATH: "/APEX"
 
       - name: Deploy to GitHub Pages
