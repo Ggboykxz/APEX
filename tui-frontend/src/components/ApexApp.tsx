@@ -388,11 +388,22 @@ export function ApexApp() {
       )}
       {leaderKeyActive && (
         <Box width="100%" justifyContent="center">
-          <Text backgroundColor={apexTheme.accent} color="#000000" bold> ⌨ Leader key pressed, waiting... </Text>
+          <Text backgroundColor={apexTheme.accent} color="#000000" bold> ⌨ Leader key active — press a shortcut key </Text>
         </Box>
       )}
-      <Box width="100%" justifyContent="center">
-        <Text backgroundColor={agent.color} color="#000000" bold> ▲ APEX — {agent.name} · {model?.name ?? "No Model"} │ {messages.length} msgs │ {contextPct.toFixed(1)}% ctx │ ${totalSpent.toFixed(4)} </Text>
+      <Box width="100%" justifyContent="space-between" backgroundColor={apexTheme.titleBg} paddingX={1}>
+        <Box>
+          <Text color={agent.color} bold>{agent.name}</Text>
+          <Text color={apexTheme.dimGray}> · </Text>
+          <Text color={apexTheme.fg}>{model?.name ?? "No Model"}</Text>
+        </Box>
+        <Box>
+          <Text color={apexTheme.dimGray}>{messages.length} msgs</Text>
+          <Text color={apexTheme.dimGray}> · </Text>
+          <Text color={contextPct > 80 ? apexTheme.warning : apexTheme.fg}>{contextPct.toFixed(1)}% ctx</Text>
+          <Text color={apexTheme.dimGray}> · </Text>
+          <Text color={apexTheme.green}>${totalSpent.toFixed(4)}</Text>
+        </Box>
       </Box>
 
       {showCP && (

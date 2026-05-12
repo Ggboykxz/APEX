@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useState } from "react"
 import { Box, Text } from "ink"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_AGENTS, type ChatMessage } from "../data/apex-data.js"
@@ -72,6 +72,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const visibleMessages = messages.slice(-20)
   const agentColor = getAgentColor(activeAgent)
+  const [panelState, setPanelState] = useState<"normal" | "leader" | "command-palette" | "file-search">("normal")
 
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -91,9 +92,11 @@ export function ChatPanel({
         {visibleMessages.map((msg) => (
           <Box key={msg.id} flexDirection="column" marginBottom={1}>
             {msg.role === "user" ? (
-              <Box>
-                <Text color={apexTheme.cyan} bold>› </Text>
-                <RichText text={msg.content} />
+              <Box flexDirection="column">
+                <Box>
+                  <Text color={apexTheme.cyan} bold>▌ </Text>
+                  <RichText text={msg.content} />
+                </Box>
               </Box>
             ) : (
               <Box flexDirection="column">
@@ -175,22 +178,22 @@ export function ChatPanel({
 
       {/* Help Hint Bar */}
       <Box>
-        {state === "normal" && (
+        {panelState === "normal" && (
           <Text color={apexTheme.dimGray}>
             {" "}Tab:agents  @:files  !:bash  Ctrl+P:palette  ?:help
           </Text>
         )}
-        {state === "leader" && (
+        {panelState === "leader" && (
           <Text color={apexTheme.yellow}>
             {" "}Leader: press key (n=new u=undo r=redo c=compact...)
           </Text>
         )}
-        {state === "command-palette" && (
+        {panelState === "command-palette" && (
           <Text color={apexTheme.purple}>
             {" "}Type to filter ↑↓ navigate Enter select Esc close
           </Text>
         )}
-        {state === "file-search" && (
+        {panelState === "file-search" && (
           <Text color={apexTheme.cyan}>
             {" "}↑↓ navigate Enter select Esc close
           </Text>

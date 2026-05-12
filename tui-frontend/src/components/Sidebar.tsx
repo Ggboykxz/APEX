@@ -9,22 +9,41 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeAgent }: SidebarProps) {
+  const primary = APEX_AGENTS.filter((a) => a.mode === "primary")
+  const subagents = APEX_AGENTS.filter((a) => a.mode === "subagent")
+
   return (
-    <Box flexDirection="column" width={20} borderStyle="single" borderColor={apexTheme.border} paddingX={1}>
+    <Box flexDirection="column" width={22} borderStyle="single" borderColor={apexTheme.border} paddingX={1}>
       <Box marginBottom={1}>
-        <Text color={apexTheme.cyan} bold>AGENTS</Text>
+        <Text color={apexTheme.cyan} bold>APEX</Text>
       </Box>
-      {APEX_AGENTS.map((a) => (
-        <Box key={a.id} marginBottom={0}>
+
+      <Text color={apexTheme.dimGray} bold>Agents</Text>
+      {primary.map((a) => (
+        <Box key={a.id}>
           <Text color={a.id === activeAgent ? a.color : apexTheme.gray}>
-            {a.id === activeAgent ? "● " : "  "}
-            {a.name}
+            {a.id === activeAgent ? "● " : "  "}{a.name}
           </Text>
         </Box>
       ))}
-      <Box marginTop={1} flexDirection="column">
+
+      <Box marginTop={1}>
+        <Text color={apexTheme.dimGray} bold>Subagents</Text>
+      </Box>
+      {subagents.map((a) => (
+        <Box key={a.id}>
+          <Text color={a.id === activeAgent ? a.color : apexTheme.gray}>
+            {a.id === activeAgent ? "● " : "  "}@{a.name}
+          </Text>
+        </Box>
+      ))}
+
+      <Box marginTop={1}>
         <Text color={apexTheme.dimGray}>──────────</Text>
-        <Text color={apexTheme.dimGray}>Tab to switch</Text>
+      </Box>
+      <Box flexDirection="column">
+        <Text color={apexTheme.dimGray}>Tab: cycle agents</Text>
+        <Text color={apexTheme.dimGray}>Ctrl+O: toggle</Text>
       </Box>
     </Box>
   )

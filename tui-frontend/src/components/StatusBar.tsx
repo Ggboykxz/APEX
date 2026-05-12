@@ -39,37 +39,37 @@ export function StatusBar({
   const dispCompletion = isStreaming ? liveCompletionTokens! : totalCompletionTokens
 
   return (
-    <Box justifyContent="space-between" backgroundColor={apexTheme.titleBg} paddingX={1}>
-      <Box>
-        <Text color={agent?.color ?? apexTheme.cyan} bold>
-          {agent?.name ?? "Build"}
-        </Text>
-        <Text color={apexTheme.dimGray}> │ </Text>
-        <Text color={apexTheme.fg}>{model?.name ?? activeModel}</Text>
-        <Text color={apexTheme.dimGray}> │ </Text>
-        <Text color={apexTheme.fg}>{messageCount} msgs</Text>
-      </Box>
-      <Box>
-        <Text color={apexTheme.dimGray}>In:</Text>
-        <Text color={isStreaming ? apexTheme.yellow : apexTheme.fg}> {dispPrompt.toLocaleString()}</Text>
-        <Text color={apexTheme.dimGray}> Out:</Text>
-        <Text color={isStreaming ? apexTheme.yellow : apexTheme.fg}> {dispCompletion.toLocaleString()}</Text>
-        <Text color={apexTheme.dimGray}> Total:</Text>
-        <Text color={apexTheme.fg}> {totalTokens.toLocaleString()}</Text>
-        <Text color={apexTheme.dimGray}> │ </Text>
-        <Text color={contextPct > 80 ? apexTheme.warning : apexTheme.fg}>
-          {isFinite(contextPct) ? `${contextPct.toFixed(1)}% ctx` : "—% ctx"}
-        </Text>
-        <Text color={apexTheme.dimGray}> │ </Text>
-        <Text color={apexTheme.green}>${totalSpent.toFixed(4)}</Text>
-        <Text color={apexTheme.dimGray}> │ </Text>
-        <Text color={apexTheme.dimGray}>{sessionDuration}</Text>
-        {thinkingMode && thinkingMode !== "show" && (
-          <>
-            <Text color={apexTheme.dimGray}> │ </Text>
-            <Text color={apexTheme.yellow}>[think:{thinkingMode}]</Text>
-          </>
-        )}
+    <Box backgroundColor={apexTheme.titleBg} paddingX={1}>
+      <Box justifyContent="space-between" width="100%">
+        <Box>
+          <Text color={agent?.color ?? apexTheme.cyan} bold>
+            {agent?.name ?? "Build"}
+          </Text>
+          <Text color={apexTheme.dimGray}> · </Text>
+          <Text color={apexTheme.fg}>{model?.name ?? activeModel}</Text>
+        </Box>
+        <Box>
+          <Text color={apexTheme.dimGray}>In: </Text>
+          <Text color={isStreaming ? apexTheme.yellow : apexTheme.fg}>{dispPrompt.toLocaleString()}</Text>
+          <Text color={apexTheme.dimGray}> Out: </Text>
+          <Text color={isStreaming ? apexTheme.yellow : apexTheme.fg}>{dispCompletion.toLocaleString()}</Text>
+          <Text color={apexTheme.dimGray}> Total: </Text>
+          <Text color={apexTheme.fg}>{totalTokens.toLocaleString()}</Text>
+          <Text color={apexTheme.dimGray}> · </Text>
+          <Text color={contextPct > 80 ? apexTheme.warning : apexTheme.fg}>
+            {isFinite(contextPct) ? `${contextPct.toFixed(1)}% ctx` : "—% ctx"}
+          </Text>
+          <Text color={apexTheme.dimGray}> · </Text>
+          <Text color={apexTheme.green}>${totalSpent.toFixed(4)}</Text>
+          <Text color={apexTheme.dimGray}> · </Text>
+          <Text color={apexTheme.dimGray}>{sessionDuration}</Text>
+          {thinkingMode && thinkingMode !== "show" && (
+            <>
+              <Text color={apexTheme.dimGray}> · </Text>
+              <Text color={apexTheme.yellow}>[think:{thinkingMode}]</Text>
+            </>
+          )}
+        </Box>
       </Box>
     </Box>
   )
