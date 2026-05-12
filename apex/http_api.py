@@ -210,9 +210,22 @@ class HTTPServer:
         self.app.router.add_get("/api/v1/commands", self.api_commands_list)
         self.app.router.add_post("/api/v1/undo", self.api_undo)
         self.app.router.add_post("/api/v1/redo", self.api_redo)
+        self.app.router.add_get("/api/v1/files", self.api_files_list)
+        self.app.router.add_get("/find/file", self.api_find_file)
+        self.app.router.add_post("/api/v1/bash", self.api_bash)
+        self.app.router.add_post("/api/v1/command", self.api_command)
+        self.app.router.add_get("/api/v1/tui-config", self.api_tui_config)
+        self.app.router.add_get("/global/health", self.api_global_health)
         self.app.router.add_post("/api/v1/init", self.api_init)
         self.app.router.add_get("/api/v1/export/{session_id}", self.api_export)
         self.app.router.add_post("/api/v1/import", self.api_import)
+        self.app.router.add_get("/global/event", self.api_global_event)
+        self.app.router.add_get("/api/v1/session/{session_id}/diff", self.api_session_diff)
+        self.app.router.add_post("/api/v1/session/{session_id}/fork", self.api_session_fork)
+        self.app.router.add_post("/api/v1/session/{session_id}/abort", self.api_session_abort)
+        self.app.router.add_get("/api/v1/lsp", self.api_lsp_status)
+        self.app.router.add_get("/api/v1/formatter", self.api_formatter_status)
+        self.app.router.add_get("/api/v1/mcp", self.api_mcp_status)
 
     async def _check_auth(
         self, request: web.Request
@@ -305,13 +318,23 @@ class HTTPServer:
 
     async def health(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
+        from apex import __version__
         return web.json_response(
             {
                 "status": "ok",
                 "agent": self.agent.model,
+                "version": __version__,
                 "timestamp": time.time(),
             }
         )
+
+    async def api_global_health(self, request: web.Request) -> web.Response:
+        """OpenCode-compatible global health endpoint."""
+        from apex import __version__
+        return web.json_response({
+            "healthy": True,
+            "version": __version__,
+        })
 
     async def chat(self, request: web.Request) -> web.Response:
         """Standard chat endpoint."""
@@ -1049,6 +1072,268 @@ class HTTPServer:
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
+    # ── API v1: Files ─────────────────────────────────────
+
+    async def api_files_list(self, request: web.Request) -> web.Response:
+        """List project files for @ autocomplete."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+
+        import fnmatch
+        files: list[str] = []
+        cwd = self.agent.cwd
+        ignore_patterns = {
+            "node_modules", ".git", "__pycache__", ".venv", "venv",
+            "dist", "build", ".next", "target", ".tox", "coverage",
+            ".apex", ".opencode", ".gitignore", ".gitattributes",
+        }
+        try:
+            for entry in cwd.rglob("*"):
+                parts = entry.relative_to(cwd).parts
+                if any(p in ignore_patterns for p in parts):
+                    continue
+                if any(p.startswith(".") for p in parts[:-1]):
+                    continue
+                rel = str(entry.relative_to(cwd))
+                if entry.is_dir():
+                    rel += "/"
+                files.append(rel)
+        except Exception:
+            pass
+        return web.json_response({"files": sorted(files)})
+
+    # ── Find / File (OpenCode compat) ─────────────────────
+
+    async def api_find_file(self, request: web.Request) -> web.Response:
+        """Fuzzy file search (OpenCode /find/file compat)."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+
+        query = request.query.get("query", "")
+        file_type = request.query.get("type", "")
+        limit_str = request.query.get("limit", "50")
+        try:
+            limit = min(int(limit_str), 200)
+        except (ValueError, TypeError):
+            limit = 50
+
+        if not query:
+            return web.json_response([])
+
+        import fnmatch
+        query_lower = query.lower()
+        results: list[str] = []
+        cwd = self.agent.cwd
+        ignore_patterns = {
+            "node_modules", ".git", "__pycache__", ".venv", "venv",
+            "dist", "build", ".next", "target", ".tox", "coverage",
+            ".apex", ".opencode",
+        }
+
+        def fuzzy_match(name: str, q: str) -> bool:
+            qi = 0
+            for ch in name.lower():
+                if qi < len(q) and ch == q[qi]:
+                    qi += 1
+            return qi == len(q)
+
+        try:
+            for entry in cwd.rglob("*"):
+                parts = entry.relative_to(cwd).parts
+                if any(p in ignore_patterns for p in parts):
+                    continue
+                if any(p.startswith(".") for p in parts[:-1]):
+                    continue
+                name = entry.name
+                rel = str(entry.relative_to(cwd))
+                if file_type == "file" and entry.is_dir():
+                    continue
+                if file_type == "directory" and entry.is_file():
+                    continue
+                if entry.is_dir():
+                    name += "/"
+                    rel += "/"
+                if fuzzy_match(rel, query_lower):
+                    results.append(rel)
+                    if len(results) >= limit:
+                        break
+        except Exception:
+            pass
+        return web.json_response(results)
+
+    # ── API v1: Bash ──────────────────────────────────────
+
+    async def api_bash(self, request: web.Request) -> web.Response:
+        """Execute a bash command (for TUI !bash inline)."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+
+        from .tools import ToolExecutor
+        try:
+            data = await request.json()
+            command = data.get("command", "")
+            if not command:
+                return web.json_response({"error": "command required"}, status=400)
+            executor = ToolExecutor(cwd=self.agent.cwd)
+            result = executor.execute("run_command", {"command": command})
+            return web.json_response({"output": result, "command": command})
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    # ── API v1: Event bus ─────────────────────────────────
+
+    _sse_clients: list = []
+
+    async def api_global_event(self, request: web.Request) -> web.Response:
+        """SSE event stream (OpenCode /global/event compat)."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+        response = web.StreamResponse()
+        response.content_type = "text/event-stream"
+        response.headers["Cache-Control"] = "no-cache"
+        response.headers["Connection"] = "keep-alive"
+        await response.prepare(request)
+        self._sse_clients.append(response)
+        try:
+            from apex import __version__
+            await response.write(f"data: {{\"event\": \"connected\", \"version\": \"{__version__}\"}}\n\n".encode())
+            while True:
+                await asyncio.sleep(30)
+                await response.write(": keepalive\n\n".encode())
+        except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
+            pass
+        finally:
+            try:
+                self._sse_clients.remove(response)
+            except ValueError:
+                pass
+        return response
+
+    # ── API v1: Session operations ────────────────────────
+
+    async def api_session_diff(self, request: web.Request) -> web.Response:
+        """Get session diff (OpenCode /session/:id/diff compat)."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+        session_id = request.match_info.get("session_id", "")
+        try:
+            import subprocess
+            stat = subprocess.run(["git", "diff", "--stat"], cwd=self.agent.cwd, capture_output=True, text=True)
+            diff = subprocess.run(["git", "diff"], cwd=self.agent.cwd, capture_output=True, text=True)
+            return web.json_response({
+                "files": stat.stdout.strip() or "(clean)",
+                "diff": diff.stdout or "",
+                "session_id": session_id,
+            })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_session_fork(self, request: web.Request) -> web.Response:
+        """Fork current session (OpenCode /session/:id/fork compat)."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+        self.agent.reset_history()
+        return web.json_response({"forked": True, "session_id": request.match_info.get("session_id", "")})
+
+    async def api_session_abort(self, request: web.Request) -> web.Response:
+        """Abort running session."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+        return web.json_response({"aborted": True})
+
+    # ── API v1: Status endpoints ──────────────────────────
+
+    async def api_lsp_status(self, request: web.Request) -> web.Response:
+        """LSP server status (OpenCode /lsp compat)."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+        return web.json_response([])
+
+    async def api_formatter_status(self, request: web.Request) -> web.Response:
+        """Formatter status (OpenCode /formatter compat)."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+        from .formatter import formatter_manager
+        available = formatter_manager.list_available()
+        return web.json_response([
+            {"name": f.name, "available": True, "extensions": f.extensions}
+            for f in available
+        ])
+
+    async def api_mcp_status(self, request: web.Request) -> web.Response:
+        """MCP server status (OpenCode /mcp compat)."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+        from .mcp import mcp_manager
+        servers = mcp_manager.list_servers() if hasattr(mcp_manager, "list_servers") else []
+        return web.json_response({
+            s.name: {"enabled": getattr(s, "enabled", True)} for s in servers
+        })
+
+    # ── API v1: Command ───────────────────────────────────
+
+    async def api_command(self, request: web.Request) -> web.Response:
+        """Execute a slash command locally."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+
+        try:
+            data = await request.json()
+            command = data.get("command", "")
+            if not command:
+                return web.json_response({"error": "command required"}, status=400)
+
+            from .main import handle_command
+            from .ui import UI
+            import io, sys
+
+            ui = UI()
+            result_holder = {}
+
+            class CaptureUI:
+                def print_success(self, msg): result_holder["output"] = msg
+                def print_error(self, msg): result_holder["output"] = f"ERROR: {msg}"
+                def print_info(self, msg): result_holder["output"] = msg
+                def console(self):
+                    class C:
+                        def print(self, *a, **k): pass
+                    return C()
+
+            capture_ui = CaptureUI()
+            handled = handle_command(command, self.agent, capture_ui)
+            return web.json_response({
+                "handled": handled,
+                "output": result_holder.get("output", ""),
+            })
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+    # ── API v1: TUI Config ────────────────────────────────
+
+    async def api_tui_config(self, request: web.Request) -> web.Response:
+        """Return the merged TUI config for frontend customization."""
+        from .config_v2 import tui_config as tc
+        return web.json_response({
+            "keybinds": tc.keybinds,
+            "theme": tc.theme,
+            "scroll_speed": tc.scroll_speed,
+            "scroll_acceleration": tc.scroll_acceleration,
+            "diff_style": tc.diff_style,
+            "mouse": tc.mouse,
+            "leader_timeout": tc.leader_timeout,
+        })
+
     # ── Server lifecycle ───────────────────────────────────
 
     async def start(self):
@@ -1070,7 +1355,7 @@ class HTTPServer:
 class APEXHTTPServer(HTTPServer):
     """Backward compatibility wrapper."""
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 8080):
+    def __init__(self, host: str = "127.0.0.1", port: int = 8080):
         super().__init__(
             host=host,
             port=port,

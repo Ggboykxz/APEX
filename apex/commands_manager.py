@@ -64,7 +64,7 @@ _BUILTIN_COMMANDS: dict[str, CommandConfig] = {
         name="docs",
         template="Generate documentation for the recent changes and the relevant parts of the codebase. Focus on APIs, public interfaces, and any new functionality.",
         description="Generate documentation",
-        agent="architect",
+        agent="plan",
     ),
 }
 

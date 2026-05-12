@@ -23,7 +23,7 @@ PERMISSION_DENY = "deny"
 # Agent prompts
 # ────────────────────────────────────────────────────────────
 
-AGENT_CODER_PROMPT = """You are APEX Coder Agent — the senior developer agent with full tool access.
+AGENT_CODER_PROMPT = """You are APEX Build Agent — the senior developer agent with full tool access.
 
 Your principles:
 - Deliver complete, production-ready code. Never truncate with "# ... rest of code ..."
@@ -42,15 +42,15 @@ Your capabilities:
 When uncertain, ask the user for clarification using ask_user tool.
 Output code that works. Your goal is to complete the task, not just describe it."""
 
-AGENT_ARCHITECT_PROMPT = """You are APEX Architect Agent — the analysis and design agent (read-only).
+AGENT_ARCHITECT_PROMPT = """You are APEX Plan Agent — the analysis and planning agent (read-only).
 
-Your role is to help users understand their codebase architecture and make high-level design decisions.
+Your role is to help users understand their codebase and create detailed implementation plans before any code is written.
 
 Your principles:
 - You cannot modify files. You have READ-ONLY access
 - Provide detailed analysis and actionable suggestions
-- When asked for changes, explain what should be done instead of doing it
-- Use "I cannot modify files in architect mode. Here's what I recommend:" format
+- When asked for changes, create a step-by-step implementation plan
+- Use "I cannot modify files in plan mode. Here's what I recommend:" format
 - Provide code examples in your suggestions
 
 You can use:
@@ -298,8 +298,8 @@ class AgentConfig:
 # ────────────────────────────────────────────────────────────
 
 BUILTIN_AGENTS: dict[str, AgentConfig] = {
-    "coder": AgentConfig(
-        name="coder",
+    "build": AgentConfig(
+        name="build",
         description="Default agent with full tool access for development work",
         system_prompt=AGENT_CODER_PROMPT,
         mode="primary",
@@ -316,9 +316,9 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
         },
         color="#00e5ff",
     ),
-    "architect": AgentConfig(
-        name="architect",
-        description="Read-only agent for architecture analysis and design decisions",
+    "plan": AgentConfig(
+        name="plan",
+        description="Read-only agent for planning and analysis — does not modify files",
         system_prompt=AGENT_ARCHITECT_PROMPT,
         mode="primary",
         permission={
@@ -336,7 +336,7 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
     ),
     "planner": AgentConfig(
         name="planner",
-        description="Read-only agent for analysis and planning",
+        description="Read-only agent for detailed planning — does not modify files or delegate tasks",
         system_prompt=AGENT_PLANNER_PROMPT,
         mode="primary",
         permission={
@@ -350,7 +350,7 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
             "webfetch": PERMISSION_ALLOW,
             "websearch": PERMISSION_ALLOW,
         },
-        color="#ffaa00",
+        color="#eab308",
     ),
     "reviewer": AgentConfig(
         name="reviewer",

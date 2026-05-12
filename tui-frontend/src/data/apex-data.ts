@@ -53,9 +53,9 @@ export interface KeybindInfo {
 }
 
 export const APEX_AGENTS: AgentInfo[] = [
-  { id: "coder", name: "Coder", description: "Full-access coding agent with all tools", color: "#00e5ff", mode: "primary", temperature: 0, maxSteps: 50 },
-  { id: "architect", name: "Architect", description: "Architecture & design (read-only)", color: "#a855f7", mode: "primary", temperature: 0.2, maxSteps: 30, hidden: false },
-  { id: "planner", name: "Planner", description: "Analysis & planning (read-only)", color: "#eab308", mode: "primary", temperature: 0.4, maxSteps: 20, hidden: false },
+  { id: "build", name: "Build", description: "Full-access development agent with all tools", color: "#00e5ff", mode: "primary", temperature: 0, maxSteps: 50 },
+  { id: "plan", name: "Plan", description: "Architecture & planning (read-only)", color: "#a855f7", mode: "primary", temperature: 0.2, maxSteps: 30, hidden: false },
+  { id: "planner", name: "Planner", description: "Detailed planning (read-only, no delegation)", color: "#eab308", mode: "primary", temperature: 0.4, maxSteps: 20, hidden: false },
   { id: "reviewer", name: "Reviewer", description: "Code review & audit specialist", color: "#22c55e", mode: "subagent", temperature: 0.1, maxSteps: 15, hidden: false },
   { id: "shell", name: "Shell", description: "Infrastructure, DevOps & shell scripting", color: "#f97316", mode: "primary", temperature: 0, maxSteps: 40 },
   { id: "general", name: "General", description: "General-purpose assistant for any task", color: "#3b82f6", mode: "subagent", temperature: 0.7, maxSteps: 10, hidden: false },

@@ -13,6 +13,9 @@ interface StatusBarProps {
   contextPct: number
   messageCount: number
   sessionDuration: string
+  livePromptTokens?: number
+  liveCompletionTokens?: number
+  thinkingMode?: "show" | "hide" | "off"
 }
 
 export function StatusBar({
@@ -25,15 +28,21 @@ export function StatusBar({
   contextPct,
   messageCount,
   sessionDuration,
+  livePromptTokens,
+  liveCompletionTokens,
+  thinkingMode,
 }: StatusBarProps) {
   const agent = APEX_AGENTS.find((a) => a.id === activeAgent)
   const model = APEX_MODELS.find((m) => m.id === activeModel)
+  const isStreaming = (livePromptTokens ?? 0) > 0 || (liveCompletionTokens ?? 0) > 0
+  const dispPrompt = isStreaming ? livePromptTokens! : totalPromptTokens
+  const dispCompletion = isStreaming ? liveCompletionTokens! : totalCompletionTokens
 
   return (
     <Box justifyContent="space-between" backgroundColor={apexTheme.titleBg} paddingX={1}>
       <Box>
         <Text color={agent?.color ?? apexTheme.cyan} bold>
-          {agent?.name ?? "Coder"}
+          {agent?.name ?? "Build"}
         </Text>
         <Text color={apexTheme.dimGray}> │ </Text>
         <Text color={apexTheme.fg}>{model?.name ?? activeModel}</Text>
@@ -42,19 +51,25 @@ export function StatusBar({
       </Box>
       <Box>
         <Text color={apexTheme.dimGray}>In:</Text>
-        <Text color={apexTheme.fg}> {totalPromptTokens.toLocaleString()}</Text>
+        <Text color={isStreaming ? apexTheme.yellow : apexTheme.fg}> {dispPrompt.toLocaleString()}</Text>
         <Text color={apexTheme.dimGray}> Out:</Text>
-        <Text color={apexTheme.fg}> {totalCompletionTokens.toLocaleString()}</Text>
+        <Text color={isStreaming ? apexTheme.yellow : apexTheme.fg}> {dispCompletion.toLocaleString()}</Text>
         <Text color={apexTheme.dimGray}> Total:</Text>
         <Text color={apexTheme.fg}> {totalTokens.toLocaleString()}</Text>
         <Text color={apexTheme.dimGray}> │ </Text>
         <Text color={contextPct > 80 ? apexTheme.warning : apexTheme.fg}>
-          {contextPct.toFixed(1)}% ctx
+          {isFinite(contextPct) ? `${contextPct.toFixed(1)}% ctx` : "—% ctx"}
         </Text>
         <Text color={apexTheme.dimGray}> │ </Text>
         <Text color={apexTheme.green}>${totalSpent.toFixed(4)}</Text>
         <Text color={apexTheme.dimGray}> │ </Text>
         <Text color={apexTheme.dimGray}>{sessionDuration}</Text>
+        {thinkingMode && thinkingMode !== "show" && (
+          <>
+            <Text color={apexTheme.dimGray}> │ </Text>
+            <Text color={apexTheme.yellow}>[think:{thinkingMode}]</Text>
+          </>
+        )}
       </Box>
     </Box>
   )

@@ -73,6 +73,8 @@ class SessionManager:
         self._sessions_dir.mkdir(parents=True, exist_ok=True)
 
     def save(self, agent: Agent, name: str = "default") -> Path:
+        if not name or ".." in name or "/" in name or "\\" in name:
+            raise ValueError(f"Invalid session name: {name}")
         safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{timestamp}_{safe_name}.json"

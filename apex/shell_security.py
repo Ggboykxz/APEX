@@ -95,7 +95,7 @@ class ShellSecurityAnalyzer:
 
     FILE_WRITE_PATTERNS = [
         r"\btee\b",
-        r">\s*[科教]?",
+        r">\s*[a-zA-Z]?",
         r"\bcat\b.*>",
         r"\bnano\b",
         r"\bvim?\b",

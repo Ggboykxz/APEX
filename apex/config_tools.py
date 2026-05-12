@@ -99,6 +99,59 @@ class CustomToolManager:
 
 
 custom_tool_manager = CustomToolManager()
+_tools_loaded = False
+
+
+def ensure_tools_loaded() -> None:
+    global _tools_loaded
+    if not _tools_loaded:
+        _tools_loaded = True
+        load_tools_from_dirs()
+
+
+def _find_tool_dirs() -> list[Path]:
+    cwd = Path.cwd()
+    home = Path.home()
+    dirs = [
+        home / ".config" / "opencode" / "tools",
+        cwd / ".opencode" / "tools",
+        home / ".config" / "apex" / "tools",
+        cwd / ".apex" / "tools",
+    ]
+    seen = set()
+    result = []
+    for d in dirs:
+        resolved = d.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            result.append(d)
+    return result
+
+
+def load_tools_from_dirs() -> None:
+    for tools_dir in _find_tool_dirs():
+        if not tools_dir.is_dir():
+            continue
+        for py_file in sorted(tools_dir.glob("*.py")):
+            name = py_file.stem
+            if custom_tool_manager.get(name):
+                continue
+            try:
+                import importlib.util
+                spec = importlib.util.spec_from_file_location(f"apex_custom_tool_{name}", py_file)
+                if spec is None or spec.loader is None:
+                    continue
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                if hasattr(mod, "TOOL_DEFINITION"):
+                    td = mod.TOOL_DEFINITION
+                    desc = td.get("description", f"Custom tool: {name}")
+                    params = td.get("parameters", {"type": "object", "properties": {}})
+                    handler = td.get("handler")
+                    if handler and callable(handler):
+                        custom_tool_manager.register(name, desc, params, handler)
+            except Exception:
+                logger.warning(f"Failed to load custom tool from {py_file}", exc_info=True)
 
 
 def load_custom_tools(config_path: Path) -> None:

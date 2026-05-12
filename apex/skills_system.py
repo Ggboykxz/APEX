@@ -18,7 +18,19 @@ class Skill:
 
 
 class SkillsManager:
-    """Manages skills and custom commands."""
+    """Manages skills and custom commands.
+
+    Loads skills from (later wins):
+      1. Built-in skills
+      2. ~/.claude/skills/<name>/SKILL.md  (Claude Code compat)
+      3. .claude/skills/<name>/SKILL.md     (Claude Code project)
+      4. ~/.config/opencode/skills/<name>/SKILL.md  (OpenCode compat)
+      5. .opencode/skills/<name>/SKILL.md           (OpenCode project)
+      6. ~/.config/apex/skills/<name>/SKILL.md
+      7. .apex/skills/<name>/SKILL.md
+      8. ~/.apex/skills/*.md (legacy flat format)
+      9. .apex/skills/*.md (legacy flat format)
+    """
 
     def __init__(self, skills_dir: Path | None = None):
         self.skills_dir = skills_dir or (Path.home() / ".apex" / "skills")
@@ -26,7 +38,7 @@ class SkillsManager:
         self._skills: dict[str, Skill] = {}
         self._custom_commands: dict[str, Callable] = {}
         self._load_builtin_skills()
-        self._load_custom_skills()
+        self._load_all_custom_skills()
 
     def _load_builtin_skills(self):
         """Load built-in skills."""
@@ -100,19 +112,103 @@ class SkillsManager:
             ),
         }
 
-    def _load_custom_skills(self):
-        """Load custom skills from Markdown files."""
-        for md_file in self.skills_dir.glob("*.md"):
-            skill = self._parse_skill_file(md_file)
-            if skill:
-                self._skills[skill.name] = skill
+    def _find_skill_dirs(self) -> list[Path]:
+        cwd = Path.cwd()
+        home = Path.home()
+        dirs = [
+            home / ".claude" / "skills",
+            cwd / ".claude" / "skills",
+            home / ".config" / "opencode" / "skills",
+            cwd / ".opencode" / "skills",
+            home / ".config" / "apex" / "skills",
+            cwd / ".apex" / "skills",
+            self.skills_dir,
+        ]
+        seen = set()
+        result = []
+        for d in dirs:
+            resolved = d.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                result.append(d)
+        return result
+
+    def _parse_yaml_frontmatter(self, text: str) -> tuple[dict, str]:
+        lines = text.split("\n")
+        if not lines or lines[0].strip() != "---":
+            return {}, text
+        end = -1
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                end = i
+                break
+        if end == -1:
+            return {}, text
+        frontmatter_lines = lines[1:end]
+        body = "\n".join(lines[end + 1:]).strip()
+        result = {}
+        for line in frontmatter_lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if ":" in stripped:
+                key, _, val = stripped.partition(":")
+                key = key.strip()
+                val = val.strip()
+                if val.lower() in ("true", "false"):
+                    val = val.lower() == "true"
+                elif val == "" or val == "null":
+                    val = None
+                result[key] = val
+        return result, body
+
+    def _load_all_custom_skills(self):
+        seen_names = set()
+        for skills_dir in self._find_skill_dirs():
+            if not skills_dir.is_dir():
+                continue
+            # OpenCode format: <name>/SKILL.md
+            for sub in sorted(skills_dir.iterdir()):
+                if sub.is_dir():
+                    skill_file = sub / "SKILL.md"
+                    if skill_file.is_file():
+                        skill = self._parse_skill_file_opencode(skill_file)
+                        if skill and skill.name not in seen_names:
+                            seen_names.add(skill.name)
+                            self._skills[skill.name] = skill
+            # Legacy flat format: *.md
+            for md_file in sorted(skills_dir.glob("*.md")):
+                skill = self._parse_skill_file(md_file)
+                if skill and skill.name not in seen_names:
+                    seen_names.add(skill.name)
+                    self._skills[skill.name] = skill
+
+    def _parse_skill_file_opencode(self, filepath: Path) -> Skill | None:
+        """Parse an OpenCode-style SKILL.md with YAML frontmatter."""
+        try:
+            content = filepath.read_text()
+            frontmatter, body = self._parse_yaml_frontmatter(content)
+            name = frontmatter.get("name", filepath.parent.stem)
+            description = frontmatter.get("description", "")
+            instructions = body or description
+            if not name or not description:
+                return None
+            return Skill(
+                name=str(name),
+                description=str(description),
+                instructions=instructions,
+                triggers=[],
+                parameters={},
+                examples=[],
+            )
+        except Exception:
+            return None
 
     def _parse_skill_file(self, filepath: Path) -> Skill | None:
-        """Parse a Markdown skill file."""
+        """Parse a legacy flat Markdown skill file."""
         try:
             content = filepath.read_text()
             lines = content.split("\n")
-
             name = filepath.stem
             description = ""
             instructions = ""
@@ -135,13 +231,11 @@ class SkillsManager:
                         continue
                     if "Example" in line:
                         continue
-
                 if in_instructions:
                     instructions += line + "\n"
                 elif not line.startswith("#") and line.strip():
                     if not description:
                         description = line.strip()
-
             return Skill(
                 name=name,
                 description=description or filepath.stem,
@@ -182,25 +276,20 @@ class SkillsManager:
         ]
 
     def create_skill_file(self, skill: Skill) -> Path:
-        """Create a Markdown file for a skill."""
-        filepath = self.skills_dir / f"{skill.name}.md"
+        """Create an OpenCode-compatible SKILL.md for a skill."""
+        skill_dir = self.skills_dir / skill.name
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        filepath = skill_dir / "SKILL.md"
 
-        content = f"""# {skill.name}
+        content = f"""---
+name: {skill.name}
+description: {skill.description}
+---
 
-## Description
-{skill.description}
-
-## Instructions
 {skill.instructions}
 """
-        if skill.triggers:
-            content += "\n## Triggers\n" + ", ".join(skill.triggers) + "\n"
-        if skill.examples:
-            content += "\n## Examples\n" + "\n".join(f"- {e}" for e in skill.examples) + "\n"
-
         filepath.write_text(content)
         self._skills[skill.name] = skill
-
         return filepath
 
     def delete_skill(self, name: str) -> bool:

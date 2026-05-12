@@ -56,7 +56,9 @@ _ENV_VAR_RE = re.compile(r"\{env:([^}]+)\}")
 _FILE_VAR_RE = re.compile(r"\{file:([^}]+)\}")
 
 
-def _substitute_vars(value: Any, seen: set | None = None) -> Any:
+def _substitute_vars(value: Any, seen: set | None = None, _depth: int = 0) -> Any:
+    if _depth > 10:
+        return value
     if seen is None:
         seen = set()
 
@@ -83,10 +85,10 @@ def _substitute_vars(value: Any, seen: set | None = None) -> Any:
         return value
 
     if isinstance(value, dict):
-        return {k: _substitute_vars(v, seen) for k, v in value.items()}
+        return {k: _substitute_vars(v, seen, _depth + 1) for k, v in value.items()}
 
     if isinstance(value, list):
-        return [_substitute_vars(v, seen) for v in value]
+        return [_substitute_vars(v, seen, _depth + 1) for v in value]
 
     return value
 
@@ -97,6 +99,7 @@ def _substitute_vars(value: Any, seen: set | None = None) -> Any:
 
 DEFAULTS: dict[str, Any] = {
     "model": "or-gpt4o-mini",
+    "small_model": None,
     "provider": {},
     "agent": {},
     "command": {},
@@ -116,9 +119,9 @@ DEFAULTS: dict[str, Any] = {
     "share": "manual",
     "shell": os.environ.get("SHELL", "/bin/bash"),
     "compaction": {
-        "auto": False,
-        "prune": False,
-        "reserved": 10,
+        "auto": True,
+        "prune": True,
+        "reserved": 10000,
     },
     "watcher": {
         "ignore": [
@@ -152,6 +155,32 @@ TUI_DEFAULTS: dict[str, Any] = {
 }
 
 # ────────────────────────────────────────────────────────────
+# OpenCode env var aliases
+# ────────────────────────────────────────────────────────────
+
+_OPENCODE_ENV_MAP: dict[str, str] = {
+    "OPENCODE_CONFIG": "APEX_CONFIG",
+    "OPENCODE_CONFIG_DIR": "APEX_CONFIG_DIR",
+    "OPENCODE_CONFIG_CONTENT": "APEX_CONFIG_CONTENT",
+    "OPENCODE_PERMISSION": "APEX_PERMISSION",
+    "OPENCODE_SERVER_PASSWORD": "APEX_SERVER_PASSWORD",
+    "OPENCODE_SERVER_USERNAME": "APEX_SERVER_USERNAME",
+    "OPENCODE_DISABLE_AUTOUPDATE": "APEX_DISABLE_AUTOUPDATE",
+    "OPENCODE_DISABLE_PRUNE": "APEX_DISABLE_PRUNE",
+    "OPENCODE_DISABLE_MOUSE": "APEX_DISABLE_MOUSE",
+    "OPENCODE_DISABLE_TERMINAL_TITLE": "APEX_DISABLE_TERMINAL_TITLE",
+}
+
+
+def _apply_opencode_env_aliases() -> None:
+    for opencode_var, apex_var in _OPENCODE_ENV_MAP.items():
+        if opencode_var in os.environ and apex_var not in os.environ:
+            os.environ[apex_var] = os.environ[opencode_var]
+
+
+_apply_opencode_env_aliases()
+
+# ────────────────────────────────────────────────────────────
 # Config path helpers
 # ────────────────────────────────────────────────────────────
 
@@ -173,7 +202,12 @@ def _find_global_config() -> Path | None:
 
 def _find_project_config(start: Path | None = None) -> Path | None:
     cwd = start or Path.cwd()
-    for candidate in (cwd / "apex.jsonc", cwd / "apex.json"):
+    for name in ("apex.jsonc", "apex.json"):
+        candidate = cwd / name
+        if candidate.is_file():
+            return candidate
+    for name in ("opencode.jsonc", "opencode.json"):
+        candidate = cwd / name
         if candidate.is_file():
             return candidate
     return None
@@ -217,10 +251,6 @@ class ApexConfig:
             try:
                 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
                 old_data = json.loads(OLD_CONFIG.read_text(encoding="utf-8"))
-                GLOBAL_JSON.write_text(
-                    json.dumps(old_data, indent=2, ensure_ascii=False),
-                    encoding="utf-8",
-                )
                 GLOBAL_JSONC.write_text(
                     json.dumps(old_data, indent=2, ensure_ascii=False),
                     encoding="utf-8",
@@ -321,6 +351,16 @@ class ApexConfig:
     @model.setter
     def model(self, value: str) -> None:
         self._data["model"] = value
+        self.save()
+
+    @property
+    def small_model(self) -> str | None:
+        val = self._data.get("small_model", DEFAULTS["small_model"])
+        return str(val) if val else None
+
+    @small_model.setter
+    def small_model(self, value: str | None) -> None:
+        self._data["small_model"] = value
         self.save()
 
     # ── Properties: provider ─────────────────────────────────

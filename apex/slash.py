@@ -180,41 +180,108 @@ class SlashCommandManager:
             return f"ERROR: {e}"
 
     def _cmd_agent(self, args: list[str], context: dict) -> str:
-        agent_name = args[0] if args else "coder"
-        return f"[SWITCH AGENT] {agent_name}"
+        agent_name = args[0] if args else "build"
+        agent = context.get("agent")
+        if agent and agent.switch_agent(agent_name):
+            return f"Switched to agent: {agent_name}"
+        return f"Unknown agent: {agent_name}"
 
     def _cmd_model(self, args: list[str], context: dict) -> str:
         model = args[0] if args else ""
-        return f"[SWITCH MODEL] {model}"
+        agent = context.get("agent")
+        if agent and agent.switch_model(model):
+            return f"Switched to model: {model}"
+        return f"Unknown model: {model}"
 
     def _cmd_cwd(self, args: list[str], context: dict) -> str:
         path = args[0] if args else "."
-        return f"[CHANGE DIR] {path}"
+        agent = context.get("agent")
+        if agent:
+            from pathlib import Path
+            try:
+                new_cwd = Path(path).expanduser().resolve()
+                if new_cwd.exists() and new_cwd.is_dir():
+                    agent.cwd = new_cwd
+                    return f"Changed directory to: {new_cwd}"
+            except Exception:
+                pass
+        return f"Cannot change directory to: {path}"
 
     def _cmd_clear(self, args: list[str], context: dict) -> str:
-        return "[CLEAR] Conversation history cleared"
+        agent = context.get("agent")
+        if agent:
+            agent.reset_history()
+        return "Conversation history cleared"
 
     def _cmd_save(self, args: list[str], context: dict) -> str:
         name = args[0] if args else "default"
+        agent = context.get("agent")
+        if agent:
+            from .session import SessionManager
+            SessionManager().save(agent, name)
+            return f"Session saved as '{name}'"
         return f"[SAVE] Session saved as '{name}'"
 
     def _cmd_load(self, args: list[str], context: dict) -> str:
         name = args[0] if args else ""
+        agent = context.get("agent")
+        if agent:
+            from .session import SessionManager
+            if SessionManager().load(name, agent):
+                return f"Session loaded: {name}"
+            return f"Session not found: {name}"
         return f"[LOAD] Loading session '{name}'..."
 
     def _cmd_share(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            from .share import share_manager
+            url = share_manager.share_session("default")
+            if url:
+                return f"Session shared: {url}"
+            return "Sharing is disabled"
         return "[SHARE] Generating share link..."
 
     def _cmd_undo(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            from .git_undo import GitUndoManager
+            gum = GitUndoManager(agent.cwd)
+            if gum.can_undo():
+                gum.undo()
+                return "Undone last change"
+            return "Nothing to undo"
         return "[UNDO] Undoing last change..."
 
     def _cmd_redo(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            from .git_undo import GitUndoManager
+            gum = GitUndoManager(agent.cwd)
+            if gum.can_redo():
+                gum.redo()
+                return "Redone last change"
+            return "Nothing to redo"
         return "[REDO] Redoing last change..."
 
     def _cmd_git(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            import subprocess
+            result = subprocess.run(
+                ["git", "status", "--short"],
+                cwd=agent.cwd, capture_output=True, text=True
+            )
+            if result.stdout.strip():
+                return f"Git status:\n{result.stdout}"
+            return "Git status: clean"
         return "[GIT] Git status:\nbranch: main\nstatus: clean"
 
     def _cmd_map(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            from .context import get_repo_map
+            return get_repo_map(agent.cwd)
         return "[MAP] Repository map:\nsrc/\ntests/\nconfig/"
 
     def _cmd_help(self, args: list[str], context: dict) -> str:
@@ -224,36 +291,99 @@ class SlashCommandManager:
         return "\n".join(lines)
 
     def _cmd_cost(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            usage = agent.usage
+            from .cost_local import cost_tracker
+            cost_info = cost_tracker.get_session_cost()
+            lines = ["Token usage:", f"  Input: {usage.get('prompt_tokens', 0)}",
+                     f"  Output: {usage.get('completion_tokens', 0)}",
+                     f"  Total tokens: {usage.get('total_tokens', 0)}"]
+            lines.append(f"  Cost: ${cost_info.get('total_cost', 0):.6f}")
+            return "\n".join(lines)
         return "[COST] Token usage:\nInput: 0\nOutput: 0\nTotal: $0.00"
 
     def _cmd_agents(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            from .agents import agent_manager
+            lines = []
+            for a in agent_manager.list_agents():
+                marker = "*" if a.name == agent.current_agent else " "
+                mode = f"[{a.mode}]"
+                lines.append(f"  {marker} {a.name} {mode} - {a.description}")
+            return "\n".join(lines)
         return "[AGENTS] Primary: build, plan\nSubagents: explore, general"
 
     def _cmd_subagents(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            from .agents import agent_manager
+            lines = []
+            for a in agent_manager.list_agents("subagent"):
+                lines.append(f"  {a.name} - {a.description}")
+            return "\n".join(lines)
         return "[SUBAGENTS] explore (read-only), general (full access)"
 
     def _cmd_models(self, args: list[str], context: dict) -> str:
-        return "[MODELS] Run /model <name> to switch"
+        from .config import MODELS
+        lines = ["Available models:"]
+        for alias in sorted(MODELS.keys())[:20]:
+            lines.append(f"  {alias}")
+        lines.append("  ... and more. Use /model <name> to switch")
+        return "\n".join(lines)
 
     def _cmd_init(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            from .project import ProjectInitializer
+            pi = ProjectInitializer(str(agent.cwd))
+            try:
+                path = pi.create_context_file()
+                return f"Project initialized: {path}"
+            except Exception as e:
+                return f"Initialization failed: {e}"
         return "[INIT] Initializing project..."
 
     def _cmd_analyze(self, args: list[str], context: dict) -> str:
+        agent = context.get("agent")
+        if agent:
+            from .project import ProjectInitializer
+            pi = ProjectInitializer(str(agent.cwd))
+            analysis = pi.analyze()
+            lines = [f"Language: {analysis.get('language', 'unknown')}",
+                     f"PM: {analysis.get('package_manager', 'unknown')}",
+                     f"Test: {analysis.get('test_framework', 'unknown')}",
+                     f"Deps: {len(analysis.get('dependencies', []))}"]
+            return "\n".join(lines)
         return "[ANALYZE] Analyzing project..."
 
     def _cmd_approve(self, args: list[str], context: dict) -> str:
-        return "[APPROVE] Plan approved"
+        return "Plan approved. Use the build agent to execute the plan."
 
     def _cmd_reject(self, args: list[str], context: dict) -> str:
         reason = " ".join(args) if args else "No reason"
-        return f"[REJECT] Plan rejected: {reason}"
+        return f"Plan rejected: {reason}"
 
     def _cmd_shell(self, args: list[str], context: dict) -> str:
         shell = args[0] if args else "bash"
+        agent = context.get("agent")
+        if agent:
+            from .sandbox import ShellSession
+            session = ShellSession(cwd=str(agent.cwd))
+            if session.start(shell=shell):
+                return f"{shell} shell session started"
         return f"[SHELL] Starting {shell}..."
 
     def _cmd_commands(self, args: list[str], context: dict) -> str:
-        return "[COMMANDS] Custom commands:\nNone defined"
+        from .commands_manager import commands_manager
+        cmds = commands_manager.list()
+        if cmds:
+            lines = ["Custom commands:"]
+            for c in cmds:
+                lines.append(f"  /{c.name} - {c.description}")
+            return "\n".join(lines)
+        return "No custom commands defined"
 
 
 _command_manager: SlashCommandManager | None = None

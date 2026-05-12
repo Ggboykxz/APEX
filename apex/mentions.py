@@ -21,8 +21,8 @@ class AgentMention:
 
 
 class MentionParser:
-    FILE_PATTERN = re.compile(r"@(\S+\.\S+)")
-    AGENT_PATTERN = re.compile(r"@(\w+)(?:\s|$)")
+    ALL_MENTIONS = re.compile(r"@(\S+?)(?:\s|$)")
+    AGENT_NAMES = {"build", "plan", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
 
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
@@ -30,16 +30,16 @@ class MentionParser:
     def parse(self, text: str) -> tuple[list[FileMention], list[AgentMention]]:
         file_mentions = []
         agent_mentions = []
+        seen_agents = set()
 
-        for match in self.FILE_PATTERN.finditer(text):
-            path = match.group(1)
-            file_mentions.append(FileMention(path, match.start(), match.end()))
-
-        agent_names = {"coder", "architect", "planner", "reviewer", "shell"}
-        for match in self.AGENT_PATTERN.finditer(text):
+        for match in self.ALL_MENTIONS.finditer(text):
             name = match.group(1).lower()
-            if name in agent_names:
+            if name in self.AGENT_NAMES and name not in seen_agents:
+                seen_agents.add(name)
                 agent_mentions.append(AgentMention(name, match.start(), match.end()))
+            else:
+                path = match.group(1)
+                file_mentions.append(FileMention(path, match.start(), match.end()))
 
         return file_mentions, agent_mentions
 

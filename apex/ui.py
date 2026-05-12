@@ -105,10 +105,8 @@ class UI:
         """Get themed color."""
         return self.theme.get(key, "white")
 
-    def show_banner(self, model: str, cwd: str, agent: str = "coder") -> None:
+    def show_banner(self, model: str, cwd: str, agent: str = "build") -> None:
         """Show clean, minimal banner inspired by OpenCode."""
-
-        # Get terminal width for centering
 
         # Clean centered logo
         logo_lines = [
@@ -120,25 +118,24 @@ class UI:
             "[bold white]APEX[/]",
         ]
 
-        # Print spacer
         self.console.print()
-
-        # Print centered logo
         for line in logo_lines:
             self.console.print(line, justify="center")
 
-        # Subtitle with model info
         agent_colors = {
-            "coder": "#00e5ff",
-            "architect": "#bd93f9",
+            "build": "#00e5ff",
+            "plan": "#bd93f9",
+            "planner": "#eab308",
             "reviewer": "#50fa7b",
             "shell": "#ff6b35",
-            "planner": "#ffaa00",
+            "general": "#3b82f6",
+            "explore": "#14b8a6",
+            "scout": "#ec4899",
         }
-        agent_colors.get(agent, "#00e5ff")
+        color = agent_colors.get(agent, "#00e5ff")
 
         self.console.print(
-            f"[dim]{agent}[/] [dim]•[/] [dim]{model}[/]",
+            f"[dim][{color}]{agent}[/][/] [dim]•[/] [dim]{model}[/]",
             justify="center",
         )
 

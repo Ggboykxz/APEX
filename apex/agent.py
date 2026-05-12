@@ -2,6 +2,7 @@
 
 import json
 import re
+import fnmatch
 import logging
 from pathlib import Path
 from typing import Any, AsyncGenerator
@@ -10,10 +11,11 @@ import litellm
 from litellm import BadRequestError, RateLimitError, AuthenticationError
 
 from .config import Config, MODELS
-from .tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
+from .tools import ToolExecutor, AsyncToolExecutor, get_all_tool_schemas
 from .ui import UI
 from .agents import agent_manager
 from .permission import permission_manager, get_tool_permission
+from .config_v2 import apex_config
 
 
 class Agent:
@@ -27,15 +29,75 @@ class Agent:
         self._usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         self._pending_permissions: dict[str, dict] = {}
 
-        self._current_agent = "coder"
+        self._current_agent = "build"
         self._set_agent_system_prompt()
         permission_manager.initialize()
 
+    def _load_rules(self) -> str:
+        parts = []
+        project_dir = self.cwd
+
+        # 1. Project AGENTS.md
+        for name in ("AGENTS.md", "CLAUDE.md"):
+            f = project_dir / name
+            if f.is_file():
+                content = f.read_text(encoding="utf-8", errors="replace").strip()
+                if content:
+                    parts.append(f"## {name} (project rules)\n{content}")
+                break
+
+        # 2. Global AGENTS.md (~/.config/apex/AGENTS.md)
+        global_rules = Path.home() / ".config" / "apex" / "AGENTS.md"
+        if not global_rules.is_file():
+            global_rules = Path.home() / ".claude" / "CLAUDE.md"
+        if global_rules.is_file():
+            content = global_rules.read_text(encoding="utf-8", errors="replace").strip()
+            if content:
+                parts.append(f"## {global_rules.name} (global rules)\n{content}")
+
+        # 3. Custom instructions from config (glob patterns + URLs)
+        for instr in apex_config.instructions:
+            # Remote URL
+            if instr.startswith(("http://", "https://")):
+                try:
+                    import urllib.request
+                    resp = urllib.request.urlopen(instr, timeout=5)
+                    content = resp.read().decode("utf-8", errors="replace").strip()
+                    if content:
+                        parts.append(f"## Instructions from {instr}\n{content}")
+                except Exception:
+                    pass
+                continue
+            # Local glob pattern
+            matches = []
+            p = Path(instr)
+            if p.is_absolute():
+                parent = p.parent
+                pattern = p.name
+                if parent.is_dir():
+                    matches = list(parent.glob(pattern))
+            else:
+                pattern = instr
+                matches = list(project_dir.glob(pattern))
+                if not matches:
+                    matches = list(Path.cwd().glob(pattern))
+            for m in matches:
+                if m.is_file():
+                    content = m.read_text(encoding="utf-8", errors="replace").strip()
+                    if content:
+                        parts.append(f"## Instructions from {m}\n{content}")
+
+        return "\n\n".join(parts) if parts else ""
+
     def _set_agent_system_prompt(self) -> None:
         agent_config = agent_manager.get(self._current_agent)
+        base_prompt = agent_config.system_prompt if agent_config else ""
+        rules = self._load_rules()
+        if rules:
+            base_prompt += f"\n\n---\n## Project Rules\n\n{rules}"
         self._system_message = {
             "role": "system",
-            "content": agent_config.system_prompt if agent_config else "",
+            "content": base_prompt,
         }
 
     @property
@@ -51,6 +113,7 @@ class Agent:
         self._executor.cwd = value
         self._async_executor.cwd = value
         self.config.cwd = value
+        self._set_agent_system_prompt()
 
     @property
     def usage(self) -> dict[str, int]:
@@ -94,24 +157,36 @@ class Agent:
     def auto_select_model(self, user_input: str) -> str:
         text = user_input.lower()
         if "explain" in text:
-            return "claude-4-sonnet"
+            return "claude-sonnet-4"
         if "debug" in text:
-            return "claude-4-opus"
+            return "claude-sonnet-4"
         if "refactor" in text or "create" in text:
             return "gpt-4o"
         if "reason" in text:
-            return "deepseek-r1"
+            return "deepseek-reasoner"
         if len(text) > 2000:
-            return "claude-4-sonnet"
+            return "claude-sonnet-4"
         return "gpt-4o-mini"
 
     def reset_history(self) -> None:
         self.history = []
         self._usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
-    def _check_tool_permission(self, tool_name: str) -> tuple[bool, str]:
+    def _check_tool_permission(self, tool_name: str, tool_args: dict | None = None) -> tuple[bool, str]:
         can_execute, reason = permission_manager.can_execute_tool(tool_name)
-        return can_execute, reason
+        if not can_execute:
+            return can_execute, reason
+        agent_cfg = agent_manager.get(self._current_agent)
+        if agent_cfg and tool_name in ("run_command", "bash"):
+            command = ""
+            if tool_args:
+                command = tool_args.get("command", "")
+            bash_perm = agent_cfg.check_bash_permission(command)
+            if bash_perm == "deny":
+                return False, f"Agent '{self._current_agent}' denies this bash command"
+            if bash_perm == "ask":
+                return False, f"Agent '{self._current_agent}' requires approval for this bash command"
+        return True, reason
 
     def _request_permission(self, tool_name: str, tool_args: dict, tc_id: str) -> str:
         """Request permission for a tool."""
@@ -205,7 +280,7 @@ class Agent:
         for round_num in range(max_rounds):
             try:
                 response = litellm.completion(
-                    model=model_str, messages=messages, tools=TOOL_SCHEMAS, timeout=120
+                    model=model_str, messages=messages, tools=get_all_tool_schemas(), timeout=120
                 )
                 self._update_usage(response.usage)
                 if not response.choices[0].message.tool_calls:
@@ -252,9 +327,31 @@ class Agent:
                         logging.getLogger(__name__).error(
                             f"Tool args is not a dict: {type(tool_args)}"
                         )
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "tool_calls": [
+                                    {
+                                        "id": tc.id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": tool_name,
+                                            "arguments": tc.function.arguments,
+                                        },
+                                    }
+                                ],
+                            }
+                        )
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tc.id,
+                                "content": f"ERROR: Tool arguments must be a dict, got {type(tool_args).__name__}",
+                            }
+                        )
                         continue
 
-                    allowed, message = self._check_tool_permission(tool_name)
+                    allowed, message = self._check_tool_permission(tool_name, tool_args)
                     if not allowed:
                         messages.append(
                             {
@@ -295,7 +392,7 @@ class Agent:
                         }
                     )
 
-                results = self._execute_tools_parallel(tool_calls_data)
+                results = self._execute_tools(tool_calls_data)
                 for tc_id, result in results:
                     messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
             except AuthenticationError as e:
@@ -321,7 +418,7 @@ class Agent:
         if subagent_name:
             original_agent = self._current_agent
             self._current_agent = subagent_name
-            self._set_agent_prompt()
+            self._set_agent_system_prompt()
 
             try:
                 async for chunk in self._chat_internal_streaming(actual_input, max_rounds):
@@ -333,13 +430,6 @@ class Agent:
             async for chunk in self._chat_internal_streaming(actual_input, max_rounds):
                 yield chunk
 
-    def _set_agent_prompt(self) -> None:
-        agent_config = agent_manager.get(self._current_agent)
-        self._system_message = {
-            "role": "system",
-            "content": agent_config.system_prompt if agent_config else "",
-        }
-
     async def _chat_internal_streaming(
         self, user_input: str, max_rounds: int | None = None
     ) -> AsyncGenerator[str, None]:
@@ -349,29 +439,56 @@ class Agent:
 
         for round_num in range(max_rounds):
             try:
-                response = litellm.completion(
-                    model=model_str, messages=messages, tools=TOOL_SCHEMAS, stream=True, timeout=120
+                response = await litellm.acompletion(
+                    model=model_str, messages=messages, tools=get_all_tool_schemas(), stream=True, timeout=120
                 )
 
                 full_content = ""
-                for chunk in response:
-                    if chunk.choices[0].delta.content:
-                        content = chunk.choices[0].delta.content
-                        full_content += content
-                        yield content
+                tool_call_deltas: dict[int, dict[str, Any]] = {}
+                usage_data = None
 
-                    if chunk.choices[0].delta.tool_calls:
-                        break
+                async for chunk in response:
+                    if chunk.usage:
+                        usage_data = chunk.usage
+                    delta = chunk.choices[0].delta if chunk.choices else None
+                    if delta is None:
+                        continue
 
-                self._update_usage(chunk.usage if hasattr(chunk, "usage") else None)
+                    if delta.content:
+                        full_content += delta.content
+                        yield delta.content
 
-                if not full_content and chunk.choices[0].delta.tool_calls:
+                    if delta.tool_calls:
+                        for tc_delta in delta.tool_calls:
+                            idx = tc_delta.index
+                            if idx not in tool_call_deltas:
+                                tool_call_deltas[idx] = {
+                                    "id": tc_delta.id or "",
+                                    "name": "",
+                                    "arguments": "",
+                                }
+                            if tc_delta.id:
+                                tool_call_deltas[idx]["id"] = tc_delta.id
+                            if tc_delta.function:
+                                if tc_delta.function.name:
+                                    tool_call_deltas[idx]["name"] = tc_delta.function.name
+                                if tc_delta.function.arguments:
+                                    tool_call_deltas[idx]["arguments"] += tc_delta.function.arguments
+
+                self._update_usage(usage_data)
+
+                if tool_call_deltas and not full_content:
                     tool_calls_data = []
-                    for tc in chunk.choices[0].delta.tool_calls:
-                        tool_args = tc.function.arguments
-                        if isinstance(tool_args, str):
+                    for idx in sorted(tool_call_deltas.keys()):
+                        tc_info = tool_call_deltas[idx]
+                        tc_id = tc_info["id"]
+                        tool_name = tc_info["name"]
+                        raw_args = tc_info["arguments"]
+
+                        tool_args: Any = raw_args
+                        if isinstance(raw_args, str):
                             try:
-                                tool_args = json.loads(tool_args)
+                                tool_args = json.loads(raw_args) if raw_args.strip() else {}
                             except json.JSONDecodeError as e:
                                 logging.getLogger(__name__).error(
                                     f"Invalid tool args JSON in streaming: {e}"
@@ -382,11 +499,11 @@ class Agent:
                                         "content": None,
                                         "tool_calls": [
                                             {
-                                                "id": tc.id,
+                                                "id": tc_id,
                                                 "type": "function",
                                                 "function": {
-                                                    "name": tc.function.name,
-                                                    "arguments": tc.function.arguments,
+                                                    "name": tool_name,
+                                                    "arguments": raw_args,
                                                 },
                                             }
                                         ],
@@ -395,7 +512,7 @@ class Agent:
                                 messages.append(
                                     {
                                         "role": "tool",
-                                        "tool_call_id": tc.id,
+                                        "tool_call_id": tc_id,
                                         "content": "ERROR: Invalid tool arguments format",
                                     }
                                 )
@@ -405,21 +522,17 @@ class Agent:
                             logging.getLogger(__name__).error(
                                 f"Tool args is not a dict: {type(tool_args)}"
                             )
-                            continue
-
-                        allowed, message = self._check_tool_permission(tc.function.name)
-                        if not allowed:
                             messages.append(
                                 {
                                     "role": "assistant",
                                     "content": None,
                                     "tool_calls": [
                                         {
-                                            "id": tc.id,
+                                            "id": tc_id,
                                             "type": "function",
                                             "function": {
-                                                "name": tc.function.name,
-                                                "arguments": tc.function.arguments,
+                                                "name": tool_name,
+                                                "arguments": raw_args,
                                             },
                                         }
                                     ],
@@ -428,41 +541,68 @@ class Agent:
                             messages.append(
                                 {
                                     "role": "tool",
-                                    "tool_call_id": tc.id,
+                                    "tool_call_id": tc_id,
+                                    "content": f"ERROR: Tool arguments must be a dict, got {type(tool_args).__name__}",
+                                }
+                            )
+                            continue
+
+                        allowed, message = self._check_tool_permission(tool_name, tool_args)
+                        if not allowed:
+                            messages.append(
+                                {
+                                    "role": "assistant",
+                                    "content": None,
+                                    "tool_calls": [
+                                        {
+                                            "id": tc_id,
+                                            "type": "function",
+                                            "function": {
+                                                "name": tool_name,
+                                                "arguments": raw_args,
+                                            },
+                                        }
+                                    ],
+                                }
+                            )
+                            messages.append(
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tc_id,
                                     "content": f"ERROR: {message}",
                                 }
                             )
                             continue
 
-                        tool_calls_data.append((tc.id, tc.function.name, tool_args))
+                        tool_calls_data.append((tc_id, tool_name, tool_args))
                         messages.append(
                             {
                                 "role": "assistant",
                                 "content": None,
                                 "tool_calls": [
                                     {
-                                        "id": tc.id,
+                                        "id": tc_id,
                                         "type": "function",
                                         "function": {
-                                            "name": tc.function.name,
-                                            "arguments": tc.function.arguments,
+                                            "name": tool_name,
+                                            "arguments": raw_args,
                                         },
                                     }
                                 ],
                             }
                         )
 
-                    results = self._execute_tools_parallel(tool_calls_data)
+                    results = await self._execute_tools_parallel_async(tool_calls_data)
                     for tc_id, result in results:
                         messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
 
-                    response = litellm.completion(
-                        model=model_str, messages=messages, tools=TOOL_SCHEMAS, timeout=120
+                    follow_up = await litellm.acompletion(
+                        model=model_str, messages=messages, tools=get_all_tool_schemas(), timeout=120
                     )
-                    self._update_usage(response.usage)
+                    self._update_usage(follow_up.usage)
 
-                    if not response.choices[0].message.tool_calls:
-                        assistant_text = response.choices[0].message.content or ""
+                    if not follow_up.choices[0].message.tool_calls:
+                        assistant_text = follow_up.choices[0].message.content or ""
                         self.history.append({"role": "user", "content": user_input})
                         self.history.append({"role": "assistant", "content": assistant_text})
                         yield assistant_text
@@ -487,7 +627,7 @@ class Agent:
 
         yield "ERROR: Max tool rounds reached."
 
-    def _execute_tools_parallel(
+    def _execute_tools(
         self, tool_calls_data: list[tuple[str, str, dict]]
     ) -> list[tuple[str, str]]:
         results = []

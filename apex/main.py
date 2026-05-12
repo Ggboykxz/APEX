@@ -87,7 +87,30 @@ def build_parser() -> argparse.ArgumentParser:
               details           Toggle tool execution details
               thinking          Toggle thinking blocks
               install-tui       Install TUI dependencies
+              github <cmd>      GitHub agent (install, run)
+              plugin [module]   Install/list plugins
+              debug config      Show resolved configuration
               help              Show this help
+
+            TUI slash commands:
+              /build            Switch to Build agent (full access)
+              /plan             Switch to Plan agent (read-only)
+              /connect          Configure a provider
+              /init             Initialize project (create AGENTS.md)
+              /compact          Compact session context
+              /undo             Undo last change
+              /redo             Redo undone change
+              /new              Clear conversation
+              /sessions         List/switch sessions
+              /share            Share current session
+              /unshare          Unshare a session
+              /export           Export session as JSON
+              /themes           List and switch themes
+              /thinking         Toggle thinking blocks
+              /details          Toggle tool execution details
+              /editor           Open external editor
+              /help             Show help
+              /exit             Exit APEX
         """),
     )
 
@@ -256,7 +279,7 @@ def handle_command(
             ui.print_success("Conversation history cleared")
             return True
 
-        case "/compact":
+        case "/compact" | "/summarize":
             before = len(agent.history) if hasattr(agent, "history") else 0
             agent.compact_context()
             after = len(agent.history) if hasattr(agent, "history") else 0
@@ -295,15 +318,23 @@ def handle_command(
                 ui.print_error(f"Session not found: {arg}")
             return True
 
-        case "/sessions":
+        case "/sessions" | "/resume" | "/continue":
             sm = SessionManager()
             sessions = sm.list_sessions()
             if not sessions:
                 ui.print_info("No saved sessions")
                 return True
+            if arg:
+                loaded = sm.load(arg, agent)
+                if loaded:
+                    ui.print_success(f"Session loaded: {arg}")
+                else:
+                    ui.print_error(f"Session not found: {arg}")
+                return True
             ui.console.print("[cyan]Saved sessions:[/cyan]")
             for s in sessions:
                 ui.console.print(f"  {s['name']} - {s['timestamp']} ({s['history_len']} messages)")
+            ui.print_info("Use /sessions <name> to load a session")
             return True
 
         case "/export":
@@ -405,16 +436,34 @@ def handle_command(
                 ui.print_error(f"Unknown agent: {arg}")
             return True
 
-        case "/coder":
-            agent.switch_agent("coder")
+        case "/build":
+            agent.switch_agent("build")
             config.set("agent_mode", "agent")
-            ui.print_success("Coder mode enabled — interactive with approval")
+            ui.print_success("Build mode enabled — full access")
+            return True
+
+        case "/plan":
+            agent.switch_agent("plan")
+            config.set("agent_mode", "plan")
+            ui.print_success("Plan mode enabled — read-only analysis")
+            return True
+
+        case "/planner":
+            agent.switch_agent("planner")
+            config.set("agent_mode", "plan")
+            ui.print_success("Planner mode enabled — read-only planning without delegation")
+            return True
+
+        case "/coder":
+            agent.switch_agent("build")
+            config.set("agent_mode", "agent")
+            ui.print_success("Build mode enabled — full access")
             return True
 
         case "/architect":
-            agent.switch_agent("architect")
+            agent.switch_agent("plan")
             config.set("agent_mode", "plan")
-            ui.print_success("Architect mode enabled — read-only")
+            ui.print_success("Plan mode enabled — read-only analysis")
             return True
 
         case "/restore":
@@ -657,7 +706,7 @@ def handle_command(
             ui.show_help()
             return True
 
-        case "/exit" | "/quit":
+        case "/exit" | "/quit" | "/q":
             ui.print_info("Goodbye!")
             sys.exit(0)
 
@@ -1579,7 +1628,10 @@ def _cmd_mcp(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_db(args: argparse.Namespace, ui: UI) -> None:
-    if args.db_subcommand == "path":
+    raw_args = getattr(args, "raw_args", sys.argv[1:])
+    sub = args.db_subcommand if hasattr(args, "db_subcommand") else ""
+
+    if sub == "path":
         db_paths = [
             Path.home() / ".apex" / "api_keys.db",
             Path.home() / ".apex" / "sessions",
@@ -1588,8 +1640,33 @@ def _cmd_db(args: argparse.Namespace, ui: UI) -> None:
         for p in db_paths:
             if p.exists():
                 print(p)
+    elif sub == "query":
+        query = " ".join(raw_args[1:]) if len(raw_args) > 1 else ""
+        if not query:
+            ui.print_error("Usage: apex db <path|sql_query>")
+            return
+        import sqlite3
+        db_path = Path.home() / ".apex" / "api_keys.db"
+        if not db_path.exists():
+            ui.print_info("No database found at " + str(db_path))
+            return
+        try:
+            conn = sqlite3.connect(str(db_path))
+            cursor = conn.execute(query)
+            rows = cursor.fetchall()
+            col_names = [d[0] for d in cursor.description] if cursor.description else []
+            if col_names:
+                ui.console.print(" | ".join(col_names))
+                ui.console.print("-" * 40)
+            for row in rows[:50]:
+                ui.console.print(" | ".join(str(c) for c in row))
+            if len(rows) > 50:
+                ui.console.print(f"... and {len(rows) - 50} more rows")
+            conn.close()
+        except sqlite3.Error as e:
+            ui.print_error(f"Database error: {e}")
     else:
-        ui.print_info("Usage: apex db path")
+        ui.print_info("Usage: apex db <path|sql_query>")
 
 
 def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
@@ -1741,6 +1818,75 @@ def _cmd_thinking(args: argparse.Namespace, ui: UI) -> None:
     ui.print_success(f"Thinking blocks: {state}")
 
 
+def _cmd_debug(args: argparse.Namespace, ui: UI) -> None:
+    """OpenCode-compatible debug command."""
+    from apex import __version__
+    raw_args = getattr(args, "raw_args", [])
+
+    if not raw_args or raw_args[0] == "config":
+        ui.console.print(f"[bold cyan]APEX v{__version__}[/]")
+        ui.console.print(f"[dim]Config file:[/] {Path.home() / '.config' / 'apex' / 'apex.jsonc'}")
+        ui.console.print(f"[dim]Data dir:[/]    {Path.home() / '.apex'}")
+        ui.console.print()
+        ui.console.print("[bold]Resolved config:[/]")
+        import json
+        from .config_v2 import apex_config
+        ui.console.print(json.dumps(apex_config.raw(), indent=2, default=str)[:2000])
+        return
+
+    ui.print_info(f"Debug: unknown subcommand '{raw_args[0]}'. Use 'apex debug config'.")
+
+
+def _cmd_github(args: argparse.Namespace, ui: UI) -> None:
+    """OpenCode-compatible github CLI command."""
+    raw_args = getattr(args, "raw_args", [])
+    sub = raw_args[0] if raw_args else ""
+
+    if sub == "install":
+        ui.print_info("Installing GitHub agent...")
+        ui.print_info("This sets up APEX as a GitHub Actions workflow.")
+        ui.print_info("See: https://github.com/Ggboykxz/APEX")
+        return
+
+    if sub == "run":
+        ui.print_info("Running GitHub agent...")
+        from .github_integration import gh_automation
+        issues = gh_automation.client.list_issues()
+        prs = gh_automation.client.list_prs()
+        ui.print_success(f"Found {len(issues)} issues and {len(prs)} PRs")
+        return
+
+    ui.print_info("Usage: apex github install|run")
+    ui.print_info("  install  - Install GitHub agent in repository")
+    ui.print_info("  run      - Run GitHub agent (typically in CI)")
+
+
+def _cmd_plugin(args: argparse.Namespace, ui: UI) -> None:
+    """OpenCode-compatible plugin CLI command."""
+    raw_args = getattr(args, "raw_args", [])
+    module = raw_args[0] if raw_args else ""
+
+    if not module:
+        from .plugins import plugin_manager
+        plugins = plugin_manager.list_plugins() if hasattr(plugin_manager, "list_plugins") else []
+        if plugins:
+            ui.console.print("[cyan]Installed plugins:[/cyan]")
+            for p in plugins:
+                name = getattr(p, "name", str(p))
+                ui.console.print(f"  - {name}")
+        else:
+            ui.print_info("No plugins installed. Use 'apex plugin <module>' to install one.")
+        return
+
+    from .plugins import plugin_manager, load_plugins_from_config
+    ui.print_info(f"Installing plugin: {module}")
+    try:
+        load_plugins_from_config()
+        ui.print_success(f"Plugin loaded: {module}")
+    except Exception as e:
+        ui.print_error(f"Failed to load plugin: {e}")
+
+
 # ── Backward compat aliases ─────────────────────────────────
 
 
@@ -1773,12 +1919,22 @@ def main() -> None:
     verb = raw_args[0].lower() if raw_args else ""
 
     # These subcommands use subparsers
+    def _sub_val(verb: str) -> str:
+        if len(raw_args) > 1:
+            a = raw_args[1]
+            if a == "ls":
+                return "list"
+            if not a.startswith("-"):
+                return a
+        defaults = {"auth": "login", "agent": "list", "session": "list", "mcp": "list"}
+        return defaults.get(verb, "")
+
     subcommand_map = {
-        "auth": ("auth_subcommand", raw_args[1] if len(raw_args) > 1 and not raw_args[1].startswith("-") else "login"),
-        "agent": ("agent_subcommand", raw_args[1] if len(raw_args) > 1 and not raw_args[1].startswith("-") else "list"),
-        "session": ("session_subcommand", raw_args[1] if len(raw_args) > 1 and not raw_args[1].startswith("-") else "list"),
-        "mcp": ("mcp_subcommand", raw_args[1] if len(raw_args) > 1 and not raw_args[1].startswith("-") else "list"),
-        "db": ("db_subcommand", raw_args[2] if len(raw_args) > 2 and raw_args[1] == "path" else ""),
+        "auth": ("auth_subcommand", _sub_val("auth")),
+        "agent": ("agent_subcommand", _sub_val("agent")),
+        "session": ("session_subcommand", _sub_val("session")),
+        "mcp": ("mcp_subcommand", _sub_val("mcp")),
+        "db": ("db_subcommand", "path" if len(raw_args) > 1 and raw_args[1] == "path" else "query"),
     }
 
     if verb in subcommand_map:
@@ -1804,7 +1960,8 @@ def main() -> None:
 
     # Direct-verb subcommands (routed to _dispatch_verb)
     known_verbs = {"serve", "web", "connect", "init", "compact", "details", "thinking",
-                   "stats", "export", "import", "upgrade", "uninstall", "pr", "attach"}
+                   "stats", "export", "import", "upgrade", "uninstall", "pr", "attach", "debug",
+                   "github", "plugin"}
     if verb in known_verbs:
         parsed = argparse.Namespace()
         parsed.prompt = None
@@ -1850,7 +2007,23 @@ def main() -> None:
     _dispatch(parsed)
 
 
+def _setup_file_logging() -> None:
+    """Log to file like OpenCode does at ~/.local/share/opencode/log/."""
+    log_dir = Path.home() / ".local" / "share" / "apex" / "log"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    from datetime import datetime
+    log_file = log_dir / f"{datetime.now().strftime('%Y-%m-%dT%H%M%S')}.log"
+    handler = logging.FileHandler(log_file, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    logging.getLogger().addHandler(handler)
+    # Keep only last 10 log files
+    logs = sorted(log_dir.glob("*.log"))
+    for old in logs[:-10]:
+        old.unlink(missing_ok=True)
+
+
 def _dispatch(parsed: argparse.Namespace) -> None:
+    _setup_file_logging()
     from apex.config import Config
     config = Config()
 
@@ -1961,6 +2134,12 @@ def _dispatch_verb(verb: str, parsed: argparse.Namespace) -> None:
             _cmd_details(parsed, ui)
         case "thinking":
             _cmd_thinking(parsed, ui)
+        case "debug":
+            _cmd_debug(parsed, ui)
+        case "github":
+            _cmd_github(parsed, ui)
+        case "plugin":
+            _cmd_plugin(parsed, ui)
         case _:
             if parsed.prompt:
                 _dispatch(parsed)

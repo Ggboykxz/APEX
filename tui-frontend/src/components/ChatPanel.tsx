@@ -9,11 +9,7 @@ interface ChatPanelProps {
   activeAgent: string
   activeModel: string
   isGenerating: boolean
-  state?: "normal" | "leader" | "command-palette" | "file-search"
-  leaderKey?: string
   showThinking?: boolean
-  fileSearchResults?: string[]
-  fileSearchIndex?: number
 }
 
 function getAgentColor(agentId?: string): string {
@@ -72,11 +68,7 @@ export function ChatPanel({
   activeAgent,
   activeModel,
   isGenerating,
-  state = "normal",
-  leaderKey,
   showThinking = true,
-  fileSearchResults = [],
-  fileSearchIndex = 0,
 }: ChatPanelProps) {
   const visibleMessages = messages.slice(-20)
   const agentColor = getAgentColor(activeAgent)
@@ -87,7 +79,7 @@ export function ChatPanel({
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
         {visibleMessages.length === 0 && !isGenerating && (
           <Box flexDirection="column" paddingY={1}>
-            <Text color={apexTheme.green} bold>▲ APEX v1.4.0</Text>
+            <Text color={apexTheme.green} bold>▲ APEX v1.5.0</Text>
             <Text color={apexTheme.gray}>Type a message or use /commands</Text>
             <Text color={apexTheme.dimGray}>Tab — Switch agents</Text>
             <Text color={apexTheme.dimGray}>Ctrl+P — Command palette</Text>
@@ -173,43 +165,11 @@ export function ChatPanel({
 
       {/* Input Area */}
       <Box flexDirection="column">
-        {/* File search dropdown */}
-        {state === "file-search" && fileSearchResults.length > 0 && (
-          <Box flexDirection="column" borderStyle="single" borderColor={apexTheme.border} marginX={1}>
-            {fileSearchResults.map((r, i) => (
-              <Box key={i}>
-                <Text color={i === fileSearchIndex ? apexTheme.cyan : apexTheme.fg}>
-                  {i === fileSearchIndex ? "▸ " : "  "}{r}
-                </Text>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {/* Leader key indicator */}
-        {state === "leader" && (
-          <Box marginX={1} marginBottom={1}>
-            <Text color={apexTheme.yellow}>
-              Leader: {leaderKey ? `"${leaderKey}" waiting...` : "waiting..."}
-            </Text>
-          </Box>
-        )}
-
         {/* Input box */}
         <Box borderStyle="single" borderColor={agentColor} paddingX={1}>
-          {state === "command-palette" ? (
-            <>
-              <Text color={apexTheme.purple} bold>Cmd: </Text>
-              <Text color={apexTheme.fg}>{inputValue}</Text>
-              <Text color={apexTheme.gray}>▎</Text>
-            </>
-          ) : (
-            <>
-              <Text color={apexTheme.cyan} bold>› </Text>
-              <Text color={apexTheme.fg}>{inputValue}</Text>
-              <Text color={apexTheme.gray}>▎</Text>
-            </>
-          )}
+          <Text color={apexTheme.cyan} bold>› </Text>
+          <Text color={apexTheme.fg}>{inputValue}</Text>
+          <Text color={apexTheme.gray}>▎</Text>
         </Box>
       </Box>
 

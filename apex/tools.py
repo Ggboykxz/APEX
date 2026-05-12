@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import re
-import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -470,18 +469,6 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
-            "name": "search_history",
-            "description": "Search the conversation history for a query.",
-            "parameters": {
-                "type": "object",
-                "properties": {"query": {"type": "string", "description": "Search query"}},
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "get_conversation_stats",
             "description": "Get statistics about the current conversation.",
             "parameters": {"type": "object", "properties": {}},
@@ -641,19 +628,6 @@ TOOL_SCHEMAS = [
                 "type": "object",
                 "properties": {"reason": {"type": "string", "description": "Reason for rejection"}},
                 "required": ["reason"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_repo_map",
-            "description": "Get a comprehensive map of the repository structure.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "depth": {"type": "integer", "description": "Depth of directory traversal"}
-                },
             },
         },
     },
@@ -1413,6 +1387,8 @@ TOOL_SCHEMAS = [
 class ToolExecutor:
     def __init__(self, cwd: Path | None = None):
         self.cwd = cwd or Path.cwd()
+        self._doom_counter: dict[str, int] = {}
+        self._doom_last: tuple[str, str] | None = None
 
     def _resolve(self, path: str) -> Path:
         p = Path(path)
@@ -1423,7 +1399,21 @@ class ToolExecutor:
     def execute(self, tool_name: str, args: dict[str, Any]) -> str:
         method = getattr(self, f"_execute_{tool_name}", None)
         if not method:
+            from .config_tools import custom_tool_manager, ensure_tools_loaded
+            ensure_tools_loaded()
+            result = custom_tool_manager.execute(tool_name, args)
+            if not result.startswith("ERROR: Unknown custom tool"):
+                return result
             return f"ERROR: Unknown tool '{tool_name}'"
+        key = f"{tool_name}:{json.dumps(args, sort_keys=True)}"
+        if self._doom_last is not None and key == self._doom_last[0]:
+            self._doom_counter[key] = self._doom_counter.get(key, 0) + 1
+        else:
+            self._doom_counter.clear()
+        self._doom_last = (key, tool_name)
+        if self._doom_counter.get(key, 0) >= 3:
+            self._doom_counter.clear()
+            return f"ERROR: Doom loop detected — '{tool_name}' called 3+ times with identical arguments. Stopping to prevent infinite loop."
         try:
             return method(args)
         except Exception as e:
@@ -1433,6 +1423,9 @@ class ToolExecutor:
         path = self._resolve(args["path"])
         if not path.exists():
             return f"ERROR: File not found: {path}"
+        name = path.name.lower()
+        if name in (".env",) or (name.startswith(".env.") and not name.endswith(".example")):
+            return f"ERROR: Reading .env files is blocked by default (contains secrets). Use --force or rename the file."
         try:
             lines = path.read_text().splitlines()
             max_line_num = len(str(len(lines)))
@@ -1486,9 +1479,8 @@ class ToolExecutor:
             return f"WARNING: This command requires confirmation. Category: {analysis.category.value}, Warnings: {'; '.join(analysis.warnings)}"
 
         try:
-            args = shlex.split(command)
             result = subprocess.run(
-                args, shell=False, cwd=self.cwd, capture_output=True, text=True, timeout=300
+                command, shell=True, cwd=self.cwd, capture_output=True, text=True, timeout=300
             )
             output = []
             if result.stdout:
@@ -1727,77 +1719,13 @@ class ToolExecutor:
         except Exception as e:
             return f"ERROR: Fetch failed: {e}"
 
-    def _execute_get_repo_map(self, args: dict[str, Any]) -> str:
-        path = self._resolve(args.get("path", "."))
-        if not path.exists():
-            return f"ERROR: Path does not exist: {path}"
-
-        def categorize_files(dir_path: Path) -> dict[str, list[str]]:
-            categories = {"source": [], "config": [], "docs": [], "data": [], "other": []}
-            try:
-                for entry in dir_path.iterdir():
-                    if entry.name.startswith(".") or entry.name in (
-                        "node_modules",
-                        "__pycache__",
-                        "venv",
-                        ".git",
-                        "target",
-                    ):
-                        continue
-                    ext = entry.suffix.lower()
-                    if ext in (
-                        ".py",
-                        ".js",
-                        ".ts",
-                        ".jsx",
-                        ".tsx",
-                        ".go",
-                        ".rs",
-                        ".java",
-                        ".cpp",
-                        ".c",
-                        ".h",
-                    ):
-                        categories["source"].append(entry.name)
-                    elif ext in (".json", ".yaml", ".yml", ".toml", ".ini", ".cfg"):
-                        categories["config"].append(entry.name)
-                    elif ext in (".md", ".txt", ".rst"):
-                        categories["docs"].append(entry.name)
-                    elif ext in (".db", ".sqlite", ".csv", ".jsonl"):
-                        categories["data"].append(entry.name)
-                    elif entry.is_dir():
-                        categories["source"].append(f"{entry.name}/")
-                    else:
-                        categories["other"].append(entry.name)
-            except PermissionError:
-                pass
-            return categories
-
-        lines = [f"Repository: {path.name}", "=" * 50]
-        cats = categorize_files(path)
-
-        for cat_name, files in cats.items():
-            if files:
-                lines.append(f"\n[{cat_name.upper()}]")
-                for f in sorted(files)[:15]:
-                    lines.append(f"  • {f}")
-
-        git_dir = path / ".git"
-        if git_dir.exists():
-            try:
-                head = (git_dir / "HEAD").read_text().strip()
-                if head.startswith("ref: "):
-                    head = head[5:]
-                lines.append(f"\n[GIT] Branch: {head}")
-            except Exception:
-                pass
-
-        return "\n".join(lines)
-
     def _execute_read_image(self, args: dict[str, Any]) -> str:
         path = self._resolve(args["path"])
         if not path.exists():
             return f"ERROR: Image not found: {path}"
+        image_extensions = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg"}
+        if path.suffix.lower() not in image_extensions:
+            return f"ERROR: Not a supported image format: {path.suffix}. Supported: {', '.join(sorted(image_extensions))}"
         try:
             with open(path, "rb") as f:
                 data = base64.b64encode(f.read()).decode("utf-8")
@@ -1841,41 +1769,11 @@ class ToolExecutor:
         if not path.exists():
             return f"ERROR: File not found: {path}"
 
-        ext = path.suffix.lower()
-        commands = {
-            ".py": ["black", "-"],
-            ".js": ["prettier", "--write", str(path)],
-            ".ts": ["prettier", "--write", str(path)],
-            ".jsx": ["prettier", "--write", str(path)],
-            ".tsx": ["prettier", "--write", str(path)],
-            ".rs": ["rustfmt", str(path)],
-            ".go": ["gofmt", "-w", str(path)],
-        }
-
-        if ext not in commands:
-            return f"ERROR: No formatter available for {ext}"
-
-        try:
-            if ext == ".py":
-                result = subprocess.run(
-                    ["black", "-"],
-                    cwd=self.cwd,
-                    input=path.read_text(),
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0:
-                    return f"SUCCESS: Formatted {path}"
-                return f"ERROR: {result.stderr}"
-            else:
-                result = subprocess.run(commands[ext], cwd=self.cwd, capture_output=True, text=True)
-                if result.returncode == 0:
-                    return f"SUCCESS: Formatted {path}"
-                return f"ERROR: {result.stderr}"
-        except FileNotFoundError:
-            return "ERROR: Formatter not found. Install it first."
-        except Exception as e:
-            return f"ERROR: Formatting failed: {e}"
+        from .formatter import formatter_manager
+        success = formatter_manager.format_file(str(path))
+        if success:
+            return f"SUCCESS: Formatted {path}"
+        return f"ERROR: No formatter available for {path.suffix}"
 
     def _execute_install_package(self, args: dict[str, Any]) -> str:
         manager = args["manager"]
@@ -2051,25 +1949,6 @@ class ToolExecutor:
             return f"ERROR: Bookmark '{name}' not found"
         return f"[RESTORED from bookmark '{name}']\nMessages: {len(restored)}"
 
-    def _execute_search_history(self, args: dict[str, Any]) -> str:
-        query = args["query"]
-        conv_manager = getattr(self, "_conv_manager", None)
-        if conv_manager is None:
-            return "ERROR: No conversation history"
-
-        results = conv_manager.search(query)
-        if not results:
-            return f"No results found for: {query}"
-
-        output = [f"Found {len(results)} matching messages:"]
-        for r in results[:10]:
-            msg = r["message"]
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")[:100]
-            output.append(f"  [{role}] #{r['index']}: {content}...")
-
-        return "\n".join(output)
-
     def _execute_get_conversation_stats(self, args: dict[str, Any]) -> str:
         conv_manager = getattr(self, "_conv_manager", None)
         if conv_manager is None:
@@ -2094,7 +1973,7 @@ class ToolExecutor:
         action = undo_manager.redo()
         if action is None:
             return "Nothing to redo"
-        return "REDONE: {action.get('type', 'action')}\n{action.get('details', {})}"
+        return f"REDONE: {action.get('type', 'action')}\n{action.get('details', {})}"
 
     def _execute_undo_info(self, args: dict[str, Any]) -> str:
         undo_manager = getattr(self, "_undo_manager", None)
@@ -2632,6 +2511,18 @@ Ctrl+R     - Search history
         hook = args["hook"]
         command = args["command"]
 
+        valid_hooks = {
+            "applypatch-msg", "pre-applypatch", "post-applypatch",
+            "pre-commit", "pre-merge-commit", "prepare-commit-msg",
+            "commit-msg", "post-commit", "pre-rebase",
+            "post-checkout", "post-merge", "pre-push",
+            "pre-receive", "update", "post-receive", "post-update",
+            "push-to-checkout", "pre-auto-gc", "post-rewrite",
+            "sendemail-validate", "fsmonitor-watchman",
+        }
+        if hook not in valid_hooks:
+            return f"ERROR: Invalid git hook name: {hook}. Valid hooks: {', '.join(sorted(valid_hooks))}"
+
         git_dir = self.cwd / ".git"
         if not git_dir.exists():
             return "ERROR: Not a git repository"
@@ -2999,3 +2890,9 @@ class AsyncToolExecutor(ToolExecutor):
     async def execute_all_parallel(self, tool_calls: list[tuple[str, dict[str, Any]]]) -> list[str]:
         tasks = [self.execute_async(name, args) for name, args in tool_calls]
         return await asyncio.gather(*tasks)
+
+
+def get_all_tool_schemas() -> list[dict]:
+    from .config_tools import custom_tool_manager, ensure_tools_loaded
+    ensure_tools_loaded()
+    return TOOL_SCHEMAS + custom_tool_manager.get_schemas()

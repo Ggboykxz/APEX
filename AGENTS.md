@@ -173,9 +173,9 @@ APEX has **11 specialized agents** in three categories:
 
 | Agent | Color | Mode | Tools | Description |
 |-------|-------|------|-------|-------------|
-| **Coder** | Cyan `#00e5ff` | primary | ALL | Full-access development agent |
-| **Architect** | Purple `#a855f7` | primary | Read-only | Architecture & design analysis |
-| **Planner** | Yellow `#eab308` | primary | Read-only | Planning & strategy |
+| **Build** | Cyan `#00e5ff` | primary | ALL | Full-access development agent |
+| **Plan** | Purple `#a855f7` | primary | Read-only | Architecture & planning analysis |
+| **Shell** | Orange `#f97316` | primary | ASK for edits | Infrastructure, DevOps, CI/CD |
 | **Shell** | Orange `#f97316` | primary | ASK for edits | Infrastructure, DevOps, CI/CD |
 
 ### Subagents (@mention to invoke)

@@ -19,22 +19,35 @@ class FormatterConfig:
     extensions: list[str]
     environment: dict[str, str] = field(default_factory=dict)
     disabled: bool = False
+    requirements: list[str] | None = None  # e.g. ["package.json:prettier"]
 
 
 BUILTIN_FORMATTERS: list[FormatterConfig] = [
     FormatterConfig(
         name="ruff",
         command=["ruff", "format", "$FILE"],
-        extensions=[".py"],
+        extensions=[".py", ".pyi"],
     ),
     FormatterConfig(
         name="prettier",
         command=["npx", "prettier", "--write", "$FILE"],
-        extensions=[".js", ".ts", ".jsx", ".tsx", ".json", ".yaml", ".md"],
+        extensions=[".js", ".ts", ".jsx", ".tsx", ".json", ".yaml", ".md", ".html", ".css"],
+        requirements=["package.json:prettier"],
+    ),
+    FormatterConfig(
+        name="biome",
+        command=["npx", "@biomejs/biome", "format", "--write", "$FILE"],
+        extensions=[".js", ".jsx", ".ts", ".tsx", ".json", ".css", ".html", ".md"],
+        requirements=["biome.json", "biome.jsonc"],
     ),
     FormatterConfig(
         name="rustfmt",
         command=["rustfmt", "$FILE"],
+        extensions=[".rs"],
+    ),
+    FormatterConfig(
+        name="cargofmt",
+        command=["cargo", "fmt", "--", "$FILE"],
         extensions=[".rs"],
     ),
     FormatterConfig(
@@ -50,12 +63,12 @@ BUILTIN_FORMATTERS: list[FormatterConfig] = [
     FormatterConfig(
         name="clang-format",
         command=["clang-format", "-i", "$FILE"],
-        extensions=[".c", ".h", ".cpp"],
+        extensions=[".c", ".h", ".cpp", ".hpp", ".ino"],
     ),
     FormatterConfig(
         name="rubocop",
         command=["rubocop", "-a", "$FILE"],
-        extensions=[".rb"],
+        extensions=[".rb", ".rake", ".gemspec", ".ru"],
     ),
     FormatterConfig(
         name="scalafmt",
@@ -65,7 +78,7 @@ BUILTIN_FORMATTERS: list[FormatterConfig] = [
     FormatterConfig(
         name="ktlint",
         command=["ktlint", "$FILE"],
-        extensions=[".kt"],
+        extensions=[".kt", ".kts"],
     ),
     FormatterConfig(
         name="swift-format",
@@ -75,7 +88,42 @@ BUILTIN_FORMATTERS: list[FormatterConfig] = [
     FormatterConfig(
         name="zig-fmt",
         command=["zig", "fmt", "$FILE"],
-        extensions=[".zig"],
+        extensions=[".zig", ".zon"],
+    ),
+    FormatterConfig(
+        name="dart",
+        command=["dart", "format", "$FILE"],
+        extensions=[".dart"],
+    ),
+    FormatterConfig(
+        name="shfmt",
+        command=["shfmt", "-w", "$FILE"],
+        extensions=[".sh", ".bash"],
+    ),
+    FormatterConfig(
+        name="terraform",
+        command=["terraform", "fmt", "$FILE"],
+        extensions=[".tf", ".tfvars"],
+    ),
+    FormatterConfig(
+        name="mix",
+        command=["mix", "format", "$FILE"],
+        extensions=[".ex", ".exs", ".eex", ".heex"],
+    ),
+    FormatterConfig(
+        name="nixfmt",
+        command=["nixfmt", "$FILE"],
+        extensions=[".nix"],
+    ),
+    FormatterConfig(
+        name="standardrb",
+        command=["standardrb", "--fix", "$FILE"],
+        extensions=[".rb", ".rake", ".gemspec", ".ru"],
+    ),
+    FormatterConfig(
+        name="uv",
+        command=["uv", "tool", "run", "ruff", "format", "$FILE"],
+        extensions=[".py", ".pyi"],
     ),
 ]
 
@@ -141,9 +189,28 @@ class FormatterManager:
         self._loaded = True
         self.discover_available()
 
+    @staticmethod
+    def _check_requirement(req: str) -> bool:
+        if ":" in req:
+            file_part, dep = req.split(":", 1)
+            p = Path(file_part)
+            if not p.is_file():
+                return False
+            try:
+                return dep in p.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                return False
+        p = Path(req)
+        if p.is_file():
+            return True
+        return shutil.which(req.split()[0]) is not None
+
     def discover_available(self) -> None:
         self._available = {}
         for fmt in self._formatters:
+            if fmt.requirements and not all(self._check_requirement(r) for r in fmt.requirements):
+                self._available[fmt.name] = False
+                continue
             binary = fmt.command[0].split()[0]
             if binary == "npx":
                 self._available[fmt.name] = shutil.which("node") is not None

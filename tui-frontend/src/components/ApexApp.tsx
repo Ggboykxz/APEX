@@ -8,7 +8,7 @@ import { APEX_AGENTS, APEX_MODELS, type ChatMessage } from "../data/apex-data.js
 
 const HTTP_PORT = parseInt(process.env.APEX_HTTP_PORT ?? "8080", 10)
 const API_BASE = `http://127.0.0.1:${HTTP_PORT}`
-const LEADER_TIMEOUT = 1500
+const DEFAULT_LEADER_TIMEOUT = 2000
 const MAX_VISIBLE = 20
 
 const COMMANDS = [
@@ -21,6 +21,7 @@ const COMMANDS = [
   { id: "/init", desc: "Initialize" }, { id: "/connect", desc: "Connect remote" },
   { id: "/thinking", desc: "Toggle thinking" }, { id: "/details", desc: "Details" },
   { id: "/agent", desc: "Switch agent" },
+  { id: "/exit", desc: "Exit APEX" },
 ]
 
 const LEADER_CMDS: Record<string, { action: string; cmd?: string }> = {
@@ -30,7 +31,7 @@ const LEADER_CMDS: Record<string, { action: string; cmd?: string }> = {
   s: { action: "overlay", cmd: "status" }, e: { action: "cmd", cmd: "/editor" },
   x: { action: "cmd", cmd: "/export" }, b: { action: "sidebar" },
   a: { action: "overlay", cmd: "agent" }, l: { action: "overlay", cmd: "session" },
-  q: { action: "quit" },
+  y: { action: "cmd", cmd: "/copy" }, q: { action: "quit" },
 }
 
 function parseSSE(data: string) {
@@ -55,11 +56,14 @@ function fuzzyMatch(text: string, query: string) {
 function getKeybind(key: string) {
   try { return (globalThis as any).__TUI_CONFIG__?.keybinds?.[key] } catch { return undefined }
 }
+function getTuiConfig(key: string, def: any = undefined) {
+  try { return (globalThis as any).__TUI_CONFIG__?.[key] ?? def } catch { return def }
+}
 
 export function ApexApp() {
   const { exit } = useApp()
-  const [activeAgent, setActiveAgent] = useState("coder")
-  const [activeModel, setActiveModel] = useState("claude-4-sonnet")
+  const [activeAgent, setActiveAgent] = useState("build")
+  const [activeModel, setActiveModel] = useState("claude-sonnet-4")
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputValue, setInputValue] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
@@ -72,6 +76,7 @@ export function ApexApp() {
   const [livePromptTokens, setLivePromptTokens] = useState(0)
   const [liveCompletionTokens, setLiveCompletionTokens] = useState(0)
   const [isReconnecting, setIsReconnecting] = useState(false)
+  const [leaderTimeout, setLeaderTimeout] = useState(DEFAULT_LEADER_TIMEOUT)
 
   const [leaderKeyActive, setLeaderKeyActive] = useState(false)
   const leaderTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -99,11 +104,13 @@ export function ApexApp() {
   const [slIdx, setSlIdx] = useState(0)
   const [scrollOffset, setScrollOffset] = useState(0)
   const [retryCount, setRetryCount] = useState(0)
+  const [inputHistory, setInputHistory] = useState<string[]>([])
+  const [historyIdx, setHistoryIdx] = useState(-1)
 
   const agent = APEX_AGENTS.find((a) => a.id === activeAgent) ?? APEX_AGENTS[0]!
   const model = APEX_MODELS.find((m) => m.id === activeModel)
   const totalTokens = totalPromptTokens + totalCompletionTokens
-  const contextPct = model?.contextWindow && totalTokens > 0 ? Math.min(100, (totalTokens / model.contextWindow) * 100) : 0
+  const contextPct = model?.contextWindow && totalTokens > 0 ? Math.min(100, (totalTokens / model.contextWindow) * 100) : (model?.contextWindow ? 0 : 0)
   const sessionDuration = (() => { const e = Math.floor((Date.now() - sessionStart) / 1000); return `${Math.floor(e / 60)}:${(e % 60).toString().padStart(2, "0")}` })()
 
   const scrollEndIdx = messages.length - scrollOffset
@@ -114,9 +121,50 @@ export function ApexApp() {
   const anyOverlay = showCP || showFF || showHelp || showMS || showTS || showAS || showSO || showSL
 
   useEffect(() => { if (connectionError) { const t = setTimeout(() => { setConnectionError(null); setIsReconnecting(false) }, 5000); return () => clearTimeout(t) } }, [connectionError])
+  useEffect(() => {
+    fetch(`${API_BASE}/api/v1/tui-config`).then(r => r.json()).then(cfg => {
+      try {
+        (globalThis as any).__TUI_CONFIG__ = cfg
+        if (cfg.leader_timeout) setLeaderTimeout(cfg.leader_timeout)
+      } catch {}
+    }).catch(() => {})
+  }, [])
   useEffect(() => { if (!isGenerating && !anyOverlay) setScrollOffset(0) }, [isGenerating, messages.length])
 
+  const handleSlashCommand = useCallback((cmd: string, arg: string) => {
+    switch (cmd) {
+      case "/new": case "/clear": setMessages([]); setInputValue(""); setTotalPromptTokens(0); setTotalCompletionTokens(0); setTotalSpent(0); setScrollOffset(0); return true
+      case "/help": setShowHelp(true); return true
+      case "/models": setShowMS(true); setMsSearch(""); setMsIdx(0); return true
+      case "/themes": fetchThemes(); setShowTS(true); setTsIdx(0); return true
+      case "/agent": { const idx = APEX_AGENTS.findIndex((a) => a.id === (arg || "build")); if (idx >= 0) { setActiveAgent(APEX_AGENTS[idx].id); } else setShowAS(true); return true }
+      case "/thinking": setThinkingMode((m) => m === "show" ? "hide" : m === "hide" ? "off" : "show"); return true
+      case "/details": return true
+      case "/copy": {
+        const last = messages.filter((m) => m.role === "assistant").pop()
+        if (last?.content) {
+          try { (navigator as any).clipboard?.writeText?.(last.content) } catch {}
+          setConnectionError("Copied last response")
+        }
+        return true
+      }
+      case "/exit": case "/quit": case "/q": exit(); return true
+      case "/sessions": fetchSessions(); setShowSL(true); setSlIdx(0); return true
+      case "/undo": fetch(`${API_BASE}/api/v1/undo`, { method: "POST" }).then(r => r.json()).then(d => { setConnectionError(d.error ? null : null) }).catch(() => {}); return true
+      case "/redo": fetch(`${API_BASE}/api/v1/redo`, { method: "POST" }).then(r => r.json()).then(d => {}).catch(() => {}); return true
+      case "/compact": fetch(`${API_BASE}/api/v1/compact`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(() => {}).catch(() => {}); return true
+      case "/share": case "/unshare": case "/export": case "/editor": case "/init": case "/connect": return false
+      default: return false
+    }
+  }, [fetchThemes, fetchSessions, exit])
+
   const sendMessage = useCallback(async (userMessage: string) => {
+    if (userMessage.startsWith("/")) {
+      const parts = userMessage.split(/\s+/)
+      const cmd = parts[0].toLowerCase()
+      const arg = parts.slice(1).join(" ")
+      if (handleSlashCommand(cmd, arg)) { return }
+    }
     setIsGenerating(true); setConnectionError(null); setIsReconnecting(false)
     setLivePromptTokens(0); setLiveCompletionTokens(0)
     const userMsg: ChatMessage = { id: `msg-${Date.now()}-u`, role: "user", content: userMessage, timestamp: Date.now() }
@@ -271,7 +319,7 @@ export function ApexApp() {
       else if (input && !key.ctrl && !key.meta) { setFfQuery((q) => q + input); setFfIdx(0) }
       return
     }
-    if (key.ctrl && input === "x") { setLeaderKeyActive(true); leaderTimer.current = setTimeout(() => setLeaderKeyActive(false), LEADER_TIMEOUT); return }
+    if (key.ctrl && input === "x") { setLeaderKeyActive(true); leaderTimer.current = setTimeout(() => setLeaderKeyActive(false), leaderTimeout); return }
     if (key.ctrl && input === "p") { setShowCP(true); setCpSearch(""); setCpIdx(0); return }
     if (key.ctrl && input === "k") { setShowMS(true); setMsSearch(""); setMsIdx(APEX_MODELS.findIndex((m) => m.id === activeModel)); return }
     if (key.ctrl && input === "t") { setThinkingMode((m) => m === "show" ? "hide" : m === "hide" ? "off" : "show"); return }
@@ -279,16 +327,40 @@ export function ApexApp() {
     if (key.ctrl && input === "q") { exit(); return }
     if (key.ctrl && input === "o") { setSidebarVisible((v) => !v); return }
     if (key.ctrl && input === "l") { setMessages([]); setInputValue(""); setTotalPromptTokens(0); setTotalCompletionTokens(0); setTotalSpent(0); setScrollOffset(0); return }
+    if (key.ctrl && input === "a") { setInputValue((v) => v); return }
+    if (key.ctrl && input === "e") { setInputValue((v) => v); return }
+    if (key.ctrl && input === "u") { setInputValue(""); return }
+    if (key.ctrl && input === "k") { setInputValue(""); return }
+    if (key.ctrl && input === "w") { setInputValue((v) => v.replace(/\s*\S+\s*$/, "")); return }
+    if (key.ctrl && input === "d") { const nv = inputValue.slice(1); setInputValue(nv); const at = nv.lastIndexOf("@"); if (at >= 0) { setShowFF(true); setFfQuery(nv.slice(at + 1)); setFfIdx(0); fetchFiles() } return }
     if (input === "r" && !key.ctrl && !key.meta && isReconnecting) { retryConnection?.(); return }
-    if (key.tab && !showFF) { const i = APEX_AGENTS.findIndex((a) => a.id === activeAgent); setActiveAgent(APEX_AGENTS[(i + 1) % APEX_AGENTS.length]!.id); return }
-    if (key.return && inputValue.trim() && !isGenerating) { const m = inputValue.trim(); setInputValue(""); if (m.startsWith("!")) sendBash(m.slice(1).trim()); else sendMessage(m); return }
+    if (key.tab && !key.shift && !showFF) { const i = APEX_AGENTS.findIndex((a) => a.id === activeAgent); setActiveAgent(APEX_AGENTS[(i + 1) % APEX_AGENTS.length]!.id); return }
+    if (key.shift && key.tab && !showFF) { const i = APEX_AGENTS.findIndex((a) => a.id === activeAgent); setActiveAgent(APEX_AGENTS[(i - 1 + APEX_AGENTS.length) % APEX_AGENTS.length]!.id); return }
+    if (key.return && !key.shift && inputValue.trim() && !isGenerating) { const m = inputValue.trim(); setInputValue(""); setInputHistory((h) => [m, ...h].slice(0, 50)); setHistoryIdx(-1); if (m.startsWith("!")) sendBash(m.slice(1).trim()); else sendMessage(m); return }
+    if (key.return && key.shift) { setInputValue((v) => v + "\n"); return }
+    if (key.upArrow && inputHistory.length > 0) {
+      const next = Math.min(historyIdx + 1, inputHistory.length - 1)
+      setHistoryIdx(next); setInputValue(inputHistory[next] ?? ""); return
+    }
+    if (key.downArrow && historyIdx >= 0) {
+      const next = historyIdx - 1
+      if (next < 0) { setHistoryIdx(-1); setInputValue(""); return }
+      setHistoryIdx(next); setInputValue(inputHistory[next] ?? ""); return
+    }
+    if (key.ctrl && input === "g") { setScrollOffset(Math.max(0, messages.length - 1)); return }
+    if (key.home) { setScrollOffset(Math.max(0, messages.length - 1)); return }
+    if (key.end) { setScrollOffset(0); return }
     if (key.pageUp) { setScrollOffset((o) => Math.min(o + MAX_VISIBLE, Math.max(0, messages.length - 1))); return }
     if (key.pageDown) { setScrollOffset((o) => Math.max(0, o - MAX_VISIBLE)); return }
     if (key.backspace || key.delete) {
-      const nv = inputValue.slice(0, -1); setInputValue(nv)
-      const at = nv.lastIndexOf("@")
-      if (at >= 0) { setShowFF(true); setFfQuery(nv.slice(at + 1)); setFfIdx(0); fetchFiles() } else { setShowFF(false); setFfQuery("") }
-      return
+      const at = inputValue.lastIndexOf("@")
+      if (at >= 0 && inputValue.slice(at).startsWith("@")) {
+        const nv = inputValue.slice(0, -1); setInputValue(nv)
+        const newAt = nv.lastIndexOf("@")
+        if (newAt >= 0) { setShowFF(true); setFfQuery(nv.slice(newAt + 1)); setFfIdx(0); fetchFiles() } else { setShowFF(false); setFfQuery("") }
+        return
+      }
+      setInputValue((v) => v.slice(0, -1)); return
     }
     if (input && !key.ctrl && !key.meta) {
       const nv = inputValue + input; setInputValue(nv)
@@ -310,8 +382,8 @@ export function ApexApp() {
     <Box flexDirection="column" flexGrow={1}>
       {connectionError && (
         <Box width="100%" justifyContent="space-between">
-          <Text backgroundColor={apexTheme.error} color="#000000" bold> ⚠ {connectionError} </Text>
-          {isReconnecting && <Text backgroundColor={apexTheme.warning} color="#000000" bold> ⟳ Retry {retryCount} — press R to retry </Text>}
+          <Text backgroundColor={apexTheme.error} color="#000000" bold> [!] {connectionError} </Text>
+          {isReconnecting && <Text backgroundColor={apexTheme.warning} color="#000000" bold> [~] Retry {retryCount} — press R to retry </Text>}
         </Box>
       )}
       {leaderKeyActive && (
@@ -409,7 +481,8 @@ export function ApexApp() {
           <Text color={apexTheme.gray}>Duration: </Text><Text color={apexTheme.fg}>{sessionDuration}</Text>
           <Text color={apexTheme.gray}>Thinking: </Text><Text color={apexTheme.fg}>{thinkingMode}</Text>
           <Text color={apexTheme.gray}>Context:  </Text><Text color={contextPct > 80 ? apexTheme.warning : apexTheme.fg}>{contextPct.toFixed(1)}%</Text>
-          <Text color={apexTheme.gray}>  Press Escape to close</Text>
+          <Text color={apexTheme.gray} bold>  Git Changes</Text>
+          <Text color={apexTheme.dimGray}>(Fetched on open)</Text>
         </Box>
       )}
       {showSL && (
@@ -443,14 +516,14 @@ export function ApexApp() {
             {filteredFiles.length === 0 && <Text color={apexTheme.gray}>No files</Text>}
             {filteredFiles.slice(0, 8).map((f, i) => (
               <Text key={f} color={i === ffIdx % filteredFiles.length ? apexTheme.cyan : f.endsWith("/") ? apexTheme.yellow : apexTheme.fg} bold={i === ffIdx % filteredFiles.length}>
-                {i === ffIdx % filteredFiles.length ? "▸ " : "  "}{f.endsWith("/") ? "📁 " : "📄 "}{f}
+                {i === ffIdx % filteredFiles.length ? "▸ " : "  "}{f.endsWith("/") ? "[DIR] " : "[FILE] "}{f}
               </Text>
             ))}
           </Box>
         </Box>
       )}
 
-      <StatusBar activeAgent={activeAgent} activeModel={activeModel} totalTokens={totalTokens} totalPromptTokens={totalPromptTokens} totalCompletionTokens={totalCompletionTokens} totalSpent={totalSpent} contextPct={contextPct} messageCount={messages.length} sessionDuration={sessionDuration} />
+      <StatusBar activeAgent={activeAgent} activeModel={activeModel} totalTokens={totalTokens} totalPromptTokens={totalPromptTokens} totalCompletionTokens={totalCompletionTokens} totalSpent={totalSpent} contextPct={contextPct} messageCount={messages.length} sessionDuration={sessionDuration} livePromptTokens={livePromptTokens} liveCompletionTokens={liveCompletionTokens} thinkingMode={thinkingMode} />
     </Box>
   )
 }

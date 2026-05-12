@@ -94,16 +94,19 @@ class PermissionManager:
         self, tool_name: str, workspace_id: Optional[str] = None, user_id: Optional[str] = None
     ) -> tuple[bool, str]:
         self.initialize()
+        result: tuple[bool, str] | None = None
         for rule in self._rules:
             if rule.is_expired():
                 continue
             if self._match_pattern(tool_name, rule.pattern):
                 if rule.action == PermissionAction.ALLOW:
-                    return True, rule.reason or "Allowed by rule"
+                    result = (True, rule.reason or "Allowed by rule")
                 elif rule.action == PermissionAction.DENY:
-                    return False, rule.reason or "Denied by rule"
+                    result = (False, rule.reason or "Denied by rule")
                 else:
-                    return False, f"Requires permission: {rule.reason or tool_name}"
+                    result = (False, f"Requires permission: {rule.reason or tool_name}")
+        if result is not None:
+            return result
         return False, f"No rule matched '{tool_name}', defaulting to ask"
 
     def request_permission(
