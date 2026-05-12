@@ -112,7 +112,10 @@ class SessionManager:
                 return False
             filepath = max(matching, key=lambda p: p.stat().st_mtime)
         else:
-            filepath = self._sessions_dir / latest_link.readlink()
+            resolved = (self._sessions_dir / latest_link.readlink()).resolve()
+            if not str(resolved).startswith(str(self._sessions_dir.resolve())):
+                return False
+            filepath = resolved
 
         try:
             with open(filepath) as f:

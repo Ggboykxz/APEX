@@ -746,7 +746,7 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
         event.app.current_buffer.text = ""
 
     style = Style.from_dict({"prompt": "cyan bold", "continuation": "cyan"})
-    session = PromptSession(
+    prompt_session = PromptSession(
         history=FileHistory(str(history_file)),
         key_bindings=bindings,
         style=style,
@@ -758,11 +758,11 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
 
     while True:
         try:
-            user_input = session.prompt()
+            user_input = prompt_session.prompt()
             if not user_input.strip():
                 continue
             if user_input.startswith("/"):
-                if handle_command(user_input, agent, ui, session, use_stream):
+                if handle_command(user_input, agent, ui, apex_config, prompt_session, use_stream):
                     continue
             ui.print_user(user_input)
             with ui.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
@@ -1900,7 +1900,10 @@ def main() -> None:
     parser = build_parser()
 
     # Handle --help first to show full epilog
-    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ("--help", "-h")):
+    if len(sys.argv) == 1:
+        # Default: launch TUI
+        sys.argv.append("tui")
+    if len(sys.argv) == 2 and sys.argv[1] in ("--help", "-h"):
         parser.print_help()
         sys.exit(0)
 

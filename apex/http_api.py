@@ -835,6 +835,13 @@ class HTTPServer:
 
     # ── API v1: Auth ───────────────────────────────────────
 
+    _VALID_PROVIDERS = {
+        "ANTHROPIC", "OPENAI", "GEMINI", "DEEPSEEK", "MISTRAL", "COHERE",
+        "GROQ", "XAI", "TOGETHER", "FIREWORKS", "CEREBRAS", "PERPLEXITY",
+        "HF", "GITHUB", "NVIDIA", "CLOUDFLARE", "DASHSCOPE", "LLAMA",
+        "OPENROUTER", "HUGGINGFACE", "BEDROCK", "AZURE",
+    }
+
     async def api_auth_login(self, request: web.Request) -> web.Response:
         """Add/update provider API key."""
         auth_error, _ = await self._check_auth(request)
@@ -849,6 +856,9 @@ class HTTPServer:
             if not provider or not api_key_value:
                 return web.json_response({"error": "provider and api_key required"}, status=400)
 
+            if provider not in self._VALID_PROVIDERS:
+                return web.json_response({"error": f"Unknown provider: {provider}"}, status=400)
+
             env_var = f"{provider}_API_KEY"
             if provider == "HF":
                 env_var = "HF_TOKEN"
@@ -856,7 +866,6 @@ class HTTPServer:
                 env_var = "GITHUB_TOKEN"
 
             os.environ[env_var] = api_key_value
-            os.environ[env_var.lower()] = api_key_value
 
             return web.json_response({
                 "configured": True,

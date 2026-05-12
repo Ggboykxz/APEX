@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from . import __version__
+
 SENSITIVE_PATTERNS: list[re.Pattern] = [
     re.compile(r"(?i)(api[_-]?key|apikey|token|secret|password|passwd|credential|auth[_-]?token)"),
     re.compile(r"(?i)(openai|anthropic|gemini|deepseek|mistral|cohere|groq)[_-]?api[_-]?key"),
@@ -175,7 +177,7 @@ class ShareManager:
         export = {
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "session_id": session_id,
-            "apex_version": "1.3.0",
+            "apex_version": __version__,
             "data": safe,
         }
         return export

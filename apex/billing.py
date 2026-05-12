@@ -219,6 +219,9 @@ class BillingManager:
         use_cache: bool = False,
         cache_tokens: int = 0,
     ) -> float:
+        input_tokens = max(input_tokens, 0)
+        output_tokens = max(output_tokens, 0)
+        cache_tokens = max(cache_tokens, 0)
         model_key = model.lower().replace("-", "_").replace(" ", "_")
         cost_config = MODEL_COSTS.get(model_key, MODEL_COSTS.get("claude_sonnet"))
         input_cost = (input_tokens / 1000) * cost_config.input_cost_per_1k

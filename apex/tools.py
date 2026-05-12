@@ -1424,8 +1424,21 @@ class ToolExecutor:
         if not path.exists():
             return f"ERROR: File not found: {path}"
         name = path.name.lower()
-        if name in (".env",) or (name.startswith(".env.") and not name.endswith(".example")):
-            return f"ERROR: Reading .env files is blocked by default (contains secrets). Use --force or rename the file."
+        blocked = {
+            ".env", ".env.local", ".env.production", ".env.development",
+            "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
+            "credentials.json", "credentials.yaml", "credentials.yml",
+            "service-account.json", "service-account.key",
+            ".netrc", ".pgp", ".gpg", ".asc", ".key", ".p12", ".pfx",
+            "config.json", "config.yaml", "config.yml",
+            ".dockerconfigjson", "dockercfg",
+            "kubeconfig", "kubeconfig.yaml",
+            ".npmrc", ".yarnrc", ".gemrc",
+            "authorized_keys", "known_hosts",
+            ".htpasswd", ".pgpass",
+        }
+        if name in blocked or (name.startswith(".env.") and not name.endswith(".example")):
+            return f"ERROR: Reading {name} is blocked by default (contains secrets)."
         try:
             lines = path.read_text().splitlines()
             max_line_num = len(str(len(lines)))
@@ -1626,7 +1639,7 @@ class ToolExecutor:
 
             diff = list(
                 difflib.unified_diff(
-                    lines_b, lines_a, fromfile=str(path_b), tofile=str(path_a), lineterm=""
+                    lines_a, lines_b, fromfile=str(path_a), tofile=str(path_b), lineterm=""
                 )
             )
             return "\n".join(diff) if diff else "[files are identical]"
@@ -2448,10 +2461,11 @@ class ToolExecutor:
             return "No functions found to generate tests for."
 
         if framework == "pytest":
-            lines = ['"""Tests for {}"""'.format(path.replace(".py", ""))]
+            module_path = path.replace(os.sep, ".").rsplit(".py", 1)[0]
+            lines = ['"""Tests for {}"""'.format(module_path)]
             lines.append("")
             lines.append("import pytest")
-            lines.append(f"from {path.replace('.py', '')} import *")
+            lines.append(f"from {module_path} import *")
             lines.append("")
             for f in funcs[:5]:
                 lines.append(f"def test_{f['name']}():")
@@ -2531,6 +2545,9 @@ Ctrl+R     - Search history
         hooks_dir.mkdir(exist_ok=True)
 
         hook_path = hooks_dir / hook
+        analysis = shell_analyzer.analyze(command)
+        if not analysis.safe:
+            return f"ERROR: Command rejected by security analyzer: {analysis.category}"
         hook_path.write_text(f"""#!/bin/sh
 {command}
 """)
@@ -2543,6 +2560,8 @@ Ctrl+R     - Search history
         paths = args.get("paths", [])
         if not paths:
             return "ERROR: No paths provided"
+        if len(paths) > 50:
+            return "ERROR: Too many files in batch (max 50)"
 
         results = BatchOperation.batch_read(paths, str(self.cwd))
 
@@ -2655,6 +2674,8 @@ Ctrl+R     - Search history
         from .extras import get_env_manager
 
         key = args["key"]
+        if key.endswith(("_API_KEY", "_TOKEN", "_SECRET", "_PASSWORD")):
+            return "ERROR: Reading secret environment variables is blocked"
         em = get_env_manager(str(self.cwd))
         value = em.get(key)
         return f"{key}={value}" if value else f"ERROR: {key} not found"
@@ -2675,7 +2696,10 @@ Ctrl+R     - Search history
         env = em.list()
         lines = ["Environment Variables:", "=" * 40]
         for k, v in sorted(env.items())[:50]:
-            lines.append(f"{k}={v[:50]}")
+            if k.endswith(("_API_KEY", "_TOKEN", "_SECRET", "_PASSWORD")):
+                lines.append(f"{k}=***REDACTED***")
+            else:
+                lines.append(f"{k}={v[:50]}")
         return "\n".join(lines)
 
     def _execute_submit_task(self, args: dict[str, Any]) -> str:

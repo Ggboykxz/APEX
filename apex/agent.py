@@ -60,8 +60,11 @@ class Agent:
             # Remote URL
             if instr.startswith(("http://", "https://")):
                 try:
+                    import ssl
                     import urllib.request
-                    resp = urllib.request.urlopen(instr, timeout=5)
+                    ctx = ssl.create_default_context()
+                    req = urllib.request.Request(instr, headers={"User-Agent": "APEX/1.0"})
+                    resp = urllib.request.urlopen(req, timeout=5, context=ctx)
                     content = resp.read().decode("utf-8", errors="replace").strip()
                     if content:
                         parts.append(f"## Instructions from {instr}\n{content}")

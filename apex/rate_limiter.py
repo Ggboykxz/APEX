@@ -53,7 +53,10 @@ class MemoryStorage(StorageBackend):
     def get_counts(self, key: str) -> dict[str, int]:
         now = time.time()
         counts = {}
-        for window, (count, timestamp) in self._counts[key].items():
+        windows = self._counts.get(key)
+        if windows is None:
+            return {"minute": 0, "hour": 0, "day": 0}
+        for window, (count, timestamp) in windows.items():
             window_duration = {"minute": 60, "hour": 3600, "day": 86400}[window]
             if now - timestamp > window_duration:
                 counts[window] = 0
@@ -72,15 +75,16 @@ class MemoryStorage(StorageBackend):
 
     def cleanup_expired(self) -> None:
         now = time.time()
-        expired_keys = []
-        for key, windows in self._counts.items():
+        for key, windows in list(self._counts.items()):
+            expired_windows = []
             for window, (count, timestamp) in windows.items():
                 window_duration = {"minute": 60, "hour": 3600, "day": 86400}[window]
                 if now - timestamp > window_duration:
-                    expired_keys.append(key)
-                    break
-        for key in expired_keys:
-            del self._counts[key]
+                    expired_windows.append(window)
+            for w in expired_windows:
+                del self._counts[key][w]
+            if not self._counts[key]:
+                del self._counts[key]
 
 
 class SQLiteStorage(StorageBackend):

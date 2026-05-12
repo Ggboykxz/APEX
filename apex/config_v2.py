@@ -56,6 +56,31 @@ _ENV_VAR_RE = re.compile(r"\{env:([^}]+)\}")
 _FILE_VAR_RE = re.compile(r"\{file:([^}]+)\}")
 
 
+_ALLOWED_FILE_DIRS: list[Path] = []
+
+
+def _init_allowed_dirs(project_dir: Path | None = None) -> None:
+    dirs = []
+    if project_dir:
+        dirs.append(project_dir.resolve())
+    dirs.append(Path.home() / ".config" / "apex")
+    dirs.append(Path.home() / ".apex")
+    _ALLOWED_FILE_DIRS.clear()
+    _ALLOWED_FILE_DIRS.extend(dirs)
+
+
+def _is_path_allowed(p: Path) -> bool:
+    resolved = p.resolve()
+    for d in _ALLOWED_FILE_DIRS:
+        try:
+            d_resolved = d.resolve()
+            if d_resolved in resolved.parents or resolved == d_resolved:
+                return True
+        except (OSError, RuntimeError):
+            continue
+    return False
+
+
 def _substitute_vars(value: Any, seen: set | None = None, _depth: int = 0) -> Any:
     if _depth > 10:
         return value
@@ -76,7 +101,7 @@ def _substitute_vars(value: Any, seen: set | None = None, _depth: int = 0) -> An
             if p in seen:
                 return ""
             seen.add(p)
-            if p.is_file():
+            if p.is_file() and _is_path_allowed(p):
                 return p.read_text(encoding="utf-8", errors="replace")
             return ""
 
@@ -239,6 +264,7 @@ class ApexConfig:
         self._data: dict[str, Any] = {}
         self._project_dir: Path | None = Path(project_dir).resolve() if project_dir else None
         self._migrated = False
+        _init_allowed_dirs(self._project_dir)
         self._auto_migrate()
         self._load_all()
 
