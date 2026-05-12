@@ -221,48 +221,6 @@ export const PROVIDER_ICONS: Record<string, React.FC<{ size?: number }>> = {
   aws: AwsIcon,
   openrouter: OpenRouterIcon,
   local: OllamaIcon,
-}
-
-export function FreeIcon({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="10" stroke="#00e5ff" strokeWidth="1.5" fill="rgba(0,229,255,0.1)" />
-      <path d="M7 12l3 3 7-7" stroke="#00e5ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-export function ProIcon({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="10" stroke="#a855f7" strokeWidth="1.5" fill="rgba(168,85,247,0.1)" />
-      <path d="M12 7v10M7 12h10" stroke="#a855f7" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-export const PROVIDER_ICONS: Record<string, React.FC<{ size?: number }>> = {
-  anthropic: AnthropicIcon,
-  openai: OpenAIIcon,
-  google: GoogleIcon,
-  xai: XAIIcon,
-  meta: MetaIcon,
-  deepseek: DeepSeekIcon,
-  alibaba: AlibabaIcon,
-  mistral: MistralIcon,
-  groq: GroqIcon,
-  cohere: CohereIcon,
-  cerebras: CerebrasIcon,
-  fireworks: FireworksIcon,
-  together: TogetherIcon,
-  huggingface: HuggingFaceIcon,
-  perplexity: PerplexityIcon,
-  nvidia: NvidiaIcon,
-  cloudflare: CloudflareIcon,
-  microsoft: MicrosoftIcon,
-  aws: AwsIcon,
-  openrouter: OpenRouterIcon,
-  local: OllamaIcon,
   free: FreeIcon,
   pro: ProIcon,
 }

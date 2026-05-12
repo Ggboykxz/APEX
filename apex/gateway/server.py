@@ -2,7 +2,6 @@
 
 import json
 import logging
-from pathlib import Path
 
 from aiohttp import web
 
@@ -45,8 +44,12 @@ class GatewayServer:
     async def handle_register(self, request: web.Request) -> web.Response:
         if not self.config.register_enabled:
             return web.json_response({"error": "Registration disabled"}, status=403)
+        if request.content_length and request.content_length > 4096:
+            return web.json_response({"error": "Payload too large"}, status=413)
         try:
             data = await request.json()
+        except json.JSONDecodeError:
+            return web.json_response({"error": "Invalid JSON"}, status=400)
         except Exception:
             data = {}
         tier = data.get("tier", self.config.default_tier)

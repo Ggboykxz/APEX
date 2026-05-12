@@ -1889,9 +1889,14 @@ def _cmd_gateway(parsed: argparse.Namespace, ui: UI) -> None:
     sub = args[0].lower() if args else "help"
 
     if sub == "start":
+        import os
         import asyncio
         from .gateway import GatewayServer
         from .gateway.config import GatewayConfig
+        if not os.environ.get("APEX_GATEWAY_KEY") and not os.environ.get("OPENROUTER_API_KEY"):
+            ui.print_error("APEX_GATEWAY_KEY or OPENROUTER_API_KEY must be set in .env")
+            ui.print_info("Get a free key at https://openrouter.ai/keys")
+            sys.exit(1)
         try:
             cfg = GatewayConfig.from_env()
             server = GatewayServer(cfg)

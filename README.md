@@ -175,6 +175,9 @@ apex                          # Launch TUI (default)
 apex run <prompt>             # Non-interactive mode
 apex serve                    # Start headless HTTP API server
 apex web                      # Server + web interface
+apex gateway start            # Start APEX Gateway (proxy + auth + rate limits)
+apex gateway key <tier>       # Generate a gateway API key
+apex gateway status           # Show gateway keys and usage
 apex auth login               # Interactive provider login
 apex auth list                # List configured providers
 apex auth logout              # Remove provider config
@@ -402,7 +405,59 @@ pip install -e ".[dev]"
 
 ---
 
+## ⚡ APEX Gateway (Zero-Config Free Models)
+
+APEX Gateway is a built-in proxy server that gives you access to free + paid models **without configuring API keys**.
+
+```bash
+# 1. Get your free OpenRouter API key
+#    → https://openrouter.ai/keys (no credit card needed)
+
+# 2. Add it to .env
+echo "OPENROUTER_API_KEY=sk-or-v1-..." >> .env
+
+# 3. Start the gateway
+apex gateway start
+# → Gateway running on http://127.0.0.1:9090
+
+# 4. Generate user keys
+apex gateway key free "alice"      # Free tier: 50 req/day
+apex gateway key pro "bob"         # Pro tier: 500 req/day
+```
+
+### Tiers
+
+| Tier | Req/day | Tokens/day | Req/min | Models |
+|------|---------|------------|---------|--------|
+| **Free** | 50 | 500K | 10 | Qwen3 Coder, Nemotron Super, DeepSeek R1, Gemma 4, Ring 2.6 1T... |
+| **Pro** | 500 | 5M | 60 | GLM-5.1, Kimi K2.6, MiniMax M2.7, DeepSeek V4 Pro... |
+| **Unlimited** | ∞ | ∞ | 300 | All models |
+
+### API
+
+```bash
+# Register a new user
+curl -X POST http://127.0.0.1:9090/v1/register \
+  -H "Content-Type: application/json" \
+  -d '{"tier": "free", "label": "new-user"}'
+
+# Chat via gateway
+curl -X POST http://127.0.0.1:9090/v1/chat/completions \
+  -H "Authorization: Bearer apex_..." \
+  -H "Content-Type: application/json" \
+  -d '{"model": "free-or-qwen3-coder", "messages": [{"role": "user", "content": "Hello"}]}'
+
+# Check usage
+curl -H "Authorization: Bearer apex_..." http://127.0.0.1:9090/v1/status
+```
+
+---
+
 ## 🤖 Supported Models (170+)
+
+### Bring Your Own Key (BYOK)
+
+Use your own API keys from any provider:
 
 <details>
 <summary>Anthropic (Claude)</summary>
