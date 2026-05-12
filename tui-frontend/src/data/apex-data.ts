@@ -123,6 +123,27 @@ export const APEX_MODELS: ModelInfo[] = [
   { id: "ollama-deepseek", name: "DeepSeek (Local)", provider: "Ollama", contextWindow: 32768, inputCostPer1K: 0, outputCostPer1K: 0 },
   { id: "ollama-gemma3", name: "Gemma 3 (Local)", provider: "Ollama", contextWindow: 8192, inputCostPer1K: 0, outputCostPer1K: 0 },
 
+  // ── APEX Free (OpenRouter free coding models — 100% free, no API key needed) ──
+  { id: "free-or-router", name: "Free Router (auto)", provider: "APEX Free", contextWindow: 200000, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-qwen3-235b", name: "Qwen3 235B", provider: "APEX Free", contextWindow: 262144, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-qwen3-coder", name: "Qwen3 Coder 480B", provider: "APEX Free", contextWindow: 262144, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-qwen3-next-80b", name: "Qwen3 Next 80B", provider: "APEX Free", contextWindow: 262144, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-nemotron-super", name: "Nemotron 3 Super 120B", provider: "APEX Free", contextWindow: 262144, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-nemotron-nano", name: "Nemotron 3 Nano 30B", provider: "APEX Free", contextWindow: 262144, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-gemma-4-26b", name: "Gemma 4 26B", provider: "APEX Free", contextWindow: 262144, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-gemma-4-31b", name: "Gemma 4 31B", provider: "APEX Free", contextWindow: 262144, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-ring-2.6", name: "Ring 2.6 1T", provider: "APEX Free", contextWindow: 262144, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-deepseek-v3.2", name: "DeepSeek Chat V3.2", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-deepseek-r1", name: "DeepSeek R1", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-llama-3.3-70b", name: "Llama 3.3 70B", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-minimax-m2.5", name: "MiniMax M2.5", provider: "APEX Free", contextWindow: 197000, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-glm-4.6", name: "GLM 4.6", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-poolside-laguna-m", name: "Laguna M1 (code)", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-poolside-laguna-xs", name: "Laguna XS2 (code)", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-gpt-oss-120b", name: "GPT-OSS 120B", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-gpt-oss-20b", name: "GPT-OSS 20B", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "free-or-liquid-thinking", name: "LFM 1.2B Thinking", provider: "APEX Free", contextWindow: 32768, inputCostPer1K: 0, outputCostPer1K: 0 },
+
   // ── APEX Free (free + pay-as-you-go, powered by OpenCode Zen) ──
   { id: "free-minimax-m2.5", name: "MiniMax M2.5", provider: "APEX Free", contextWindow: 1048576, inputCostPer1K: 0, outputCostPer1K: 0 },
   { id: "free-qwen3.6-plus", name: "Qwen3.6 Plus", provider: "APEX Free", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
