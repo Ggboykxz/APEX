@@ -1,6 +1,6 @@
 <div align="center">
 
-# ◆ APEX
+# ◆ APEX v1.5.0
 
 **The universal AI coding agent. Every model. One terminal.**
 
@@ -14,6 +14,7 @@
 
 [**Install**](#-installation) ·
 [**Docs**](https://apex-ai.dev/docs) ·
+[**CLI**](#-cli-commands) ·
 [**Security**](#-security) ·
 [**Models**](#-supported-models) ·
 [**Sponsor**](#-sponsors)
@@ -33,127 +34,344 @@
 | | APEX | OpenCode | Claude Code | Aider |
 |---|:---:|:---:|:---:|:---:|
 | Every model (170+) | ✅ | ⚠️ | ❌ | ⚠️ |
+| 11 specialized agents | ✅ | ✅ | ❌ | ❌ |
+| Primary + Subagent system | ✅ | ✅ | ❌ | ❌ |
+| Hierarchical JSON config | ✅ | ✅ | ❌ | ❌ |
+| 12 themes (dark/light) | ✅ | ✅ | ❌ | ❌ |
+| Session sharing (URL) | ✅ | ✅ | ❌ | ❌ |
+| Auto-formatting | ✅ | ✅ | ❌ | ❌ |
+| Custom commands (.md) | ✅ | ✅ | ❌ | ❌ |
 | Switch model mid-session | ✅ | ❌ | ❌ | ❌ |
 | Works offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
-| Beautiful TUI | ✅ | ✅ | ✅ | ❌ |
-| File tree + tool log | ✅ | ❌ | ❌ | ❌ |
-| Command palette (⌘K) | ✅ | ❌ | ❌ | ❌ |
+| Leader key shortcuts | ✅ | ✅ | ❌ | ❌ |
+| Command palette (Ctrl+P) | ✅ | ✅ | ❌ | ❌ |
+| @file references / !bash | ✅ | ✅ | ❌ | ❌ |
+| Beautiful Ink TUI | ✅ | ✅ | ✅ | ❌ |
 | Live token cost tracker | ✅ | ❌ | ❌ | ✅ |
-| Session persistence | ✅ | ❌ | ✅ | ❌ |
-| **Shell security** | ✅ | ❌ | ❌ | ❌ |
-| **OpenTUI + React TUI** | ✅ | ❌ | ❌ | ❌ |
-| **6 themes** (dracula, nord, etc.) | ✅ | ❌ | ❌ | ❌ |
-| **Permission system** | ✅ | ❌ | ❌ | ❌ |
-| **Rate limiting** | ✅ | ❌ | ❌ | ❌ |
-| **API key management** | ✅ | ❌ | ❌ | ❌ |
+| Shell security analysis | ✅ | ❌ | ❌ | ❌ |
+| File watcher with ignores | ✅ | ✅ | ❌ | ❌ |
 | `pip install` | ✅ | ❌ | ❌ | ✅ |
 | Built in Africa 🇬🇦 | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
-## 🎨 TUI
-
-APEX features a modern terminal UI built with [OpenTUI](https://github.com/anomalyco/opentui) + React. The TUI connects to the APEX backend via HTTP SSE for real-time token streaming, live cost tracking, and context percentage monitoring.
+## 🚀 Quick Start
 
 ```bash
-# Launch the TUI (starts backend HTTP server + Bun frontend automatically)
-apex tui                    # Subcommand style (v1.3.0+)
-apex --tui                  # Flag style (same thing)
+# 1. Set your API key
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# 2. Launch APEX (TUI auto-starts)
+apex
+
+# 3. Ask anything
+> fix the authentication bug in auth.py
+> add TypeScript types to all functions
+> write tests for the payment module
+```
+
+### Switch models / agents anytime:
+
+```bash
+apex --model gpt-4o            # Start with GPT-4o
+apex --model ollama-llama3      # Local, no API key needed
+apex --agent architect          # Start in read-only architect mode
+apex --continue                 # Resume last session
+apex --session mysession        # Load a specific session
+```
+
+---
+
+## 🎨 TUI — Terminal User Interface
+
+APEX features a modern terminal UI built with [Ink](https://github.com/vadimdemedes/ink) (React for terminals). The TUI connects to the APEX backend via HTTP SSE for real-time token streaming, live cost tracking, and context percentage monitoring.
+
+```bash
+apex              # Launch TUI (default)
+apex --model gpt-4o            # Start with GPT-4o
 ```
 
 ### Keybindings
 
 | Key | Action |
 |-----|--------|
-| `Tab` | Switch agent |
+| `Tab` / `Shift+Tab` | Cycle agents |
+| `Ctrl+P` | Command palette |
 | `Ctrl+K` | Model selector |
-| `Ctrl+L` | Clear messages + reset metrics |
-| `Ctrl+O` | Toggle sidebar |
-| `Ctrl+T` | Toggle tools panel |
+| `Ctrl+X` | Leader key (prefix) |
+| `Ctrl+X N` | New session |
+| `Ctrl+X U` | Undo |
+| `Ctrl+X R` | Redo |
+| `Ctrl+X C` | Compact context |
+| `Ctrl+X M` | List models |
+| `Ctrl+X T` | Theme selector |
+| `Ctrl+X S` | Status overview |
+| `Ctrl+X A` | Agent list |
+| `Ctrl+X L` | Sessions list |
+| `Ctrl+X B` | Toggle sidebar |
+| `Ctrl+X E` | Open editor |
+| `Ctrl+X X` | Export session |
+| `Ctrl+X Q` | Quit |
+| `@` | File references (fuzzy search) |
+| `!` | Bash commands inline |
 | `?` | Help panel |
+| `Ctrl+O` | Toggle sidebar |
+| `Ctrl+L` | Clear messages |
+| `Ctrl+T` | Cycle reasoning variants |
 | `Escape` | Close overlay |
-| `Ctrl+Q` | Quit APEX |
+| `Ctrl+Q` | Quit |
 
 ### Features
-- **5 Agents**: Coder, Architect, Planner, Reviewer, Shell
+- **11 Agents**: 4 primary (Tab) + 4 subagents (@mention) + 3 system
 - **170+ Models**: OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, xAI, etc.
-- **Live Metrics**: Token streaming (prompt/completion), per-message cost, total spent, context %
-- **Agent Theming**: Title bar, status bar, and borders change color per agent
-- **75+ Tools**: File, Code, Shell, Git, Web, Database, Docker, K8s, Cloud, Security
+- **Live Metrics**: Token streaming, per-message cost, total spent, context %
+- **12 Themes**: apex, nord, catppuccin, tokyonight, gruvbox, matrix, etc.
+- **Agent Theming**: Title bar and status bar change color per agent
+- **75+ Tools**: File, Code, Shell, Git, Web, Database, Docker, K8s, Security
 - **MCP/LSP**: Server status monitoring
-- **HTTP Backend**: Local SSE server on port 8080, error banners with auto-dismiss
+- **Leader Keys**: Ctrl+X + mnemonic for all actions
+- **Command Palette**: Ctrl+P with fuzzy search
+- **@ References**: Fuzzy file search with `@filename`
+- **! Bash**: Run shell commands inline with `!command`
+- **HTTP Backend**: Local SSE server on port 8080
+
+---
+
+## 🎮 Agents
+
+APEX has **11 specialized agents** organized by type:
+
+### Primary Agents (Tab to cycle)
+| Agent | Color | Description |
+|-------|-------|-------------|
+| **Coder** | Cyan | Full-access development agent with all tools |
+| **Architect** | Purple | Architecture analysis & design (read-only) |
+| **Planner** | Yellow | Planning & strategy (read-only) |
+| **Shell** | Orange | Infrastructure, DevOps, CI/CD |
+
+### Subagents (@mention to invoke)
+| Agent | Description |
+|-------|-------------|
+| **@reviewer** | Code review & audit specialist |
+| **@general** | General-purpose multi-task assistant |
+| **@explore** | Fast read-only codebase exploration |
+| **@scout** | External docs & dependency research |
+
+### System Agents (automatic, hidden)
+| Agent | Role |
+|-------|------|
+| **@compaction** | Context window compression |
+| **@title** | Session title generation |
+| **@summary** | Session summary generation |
+
+Custom agents via Markdown files in `.apex/agents/*.md` or `~/.config/apex/agents/*.md`.
+
+---
+
+## 📋 CLI Commands
+
+```bash
+apex                          # Launch TUI (default)
+apex run <prompt>             # Non-interactive mode
+apex serve                    # Start headless HTTP API server
+apex web                      # Server + web interface
+apex auth login               # Interactive provider login
+apex auth list                # List configured providers
+apex auth logout              # Remove provider config
+apex agent create             # Interactive agent wizard
+apex agent list               # List all agents
+apex session list             # List sessions
+apex session delete <id>      # Delete a session
+apex stats                    # Token usage & cost stats
+apex export <id>              # Export session as JSON
+apex import <file|url>        # Import session
+apex upgrade                  # Upgrade APEX
+apex uninstall                # Remove APEX
+apex mcp add                  # Add MCP server
+apex mcp list                 # List MCP servers
+apex mcp auth <name>          # Authenticate MCP server
+apex db path                  # Show database path
+apex pr <number>              # Fetch & checkout PR
+apex attach <url>             # Attach to remote backend
+apex connect                  # Interactive provider config
+apex init                     # Initialize project
+apex compact                  # Compact context
+apex details                  # Toggle tool output
+apex thinking                 # Toggle reasoning blocks
+apex models [provider]        # List models
+apex --model <name>           # Set model
+apex --agent <name>           # Set agent
+apex --continue               # Resume last session
+```
+
+---
+
+## 🔧 Configuration
+
+APEX uses hierarchical JSON/JSONC config (like OpenCode):
+
+```bash
+# Global config
+~/.config/apex/apex.json       # Main config
+~/.config/apex/tui.json        # TUI-specific config
+
+# Project config (overrides global)
+./apex.json
+./apex.jsonc
+
+# Env vars (inline override)
+APEX_CONFIG=./custom.json
+APEX_CONFIG_CONTENT='{"model": "gpt-4o"}'
+```
+
+### apex.json schema
+
+```json
+{
+  "$schema": "https://apex-ai.dev/config.json",
+  "model": "claude-sonnet-4-5",
+  "theme": "nord",
+  "agent": {
+    "code-reviewer": {
+      "description": "Reviews code for best practices",
+      "mode": "subagent",
+      "permission": { "edit": "deny" }
+    }
+  },
+  "command": {
+    "test": {
+      "template": "Run tests with coverage",
+      "description": "Run tests"
+    }
+  },
+  "permission": { "edit": "ask", "bash": "ask" },
+  "formatter": true,
+  "lsp": true,
+  "share": "manual",
+  "snapshot": true,
+  "server": { "port": 8080, "hostname": "127.0.0.1" },
+  "watcher": {
+    "ignore": ["**/node_modules/**", "**/.git/**"]
+  }
+}
+```
+
+### Variables in config
+
+```json
+{
+  "model": "{env:APEX_MODEL}",
+  "provider": {
+    "anthropic": { "apiKey": "{file:~/.secrets/anthropic-key}" }
+  }
+}
+```
+
+---
+
+## 🛠️ What APEX Can Do
+
+- **Read & edit files** — understands your whole codebase
+- **Run commands** — tests, builds, installs, git
+- **Search code** — grep-style across your project
+- **11 agents** — specialized for different tasks
+- **Subagents** — invoke via @mention for parallel tasks
+- **Custom commands** — define via `.apex/commands/*.md`
+- **Auto-formatting** — ruff, prettier, gofmt, rustfmt, etc.
+- **File watching** — configurable ignore patterns
+- **Session sharing** — public URLs for collaboration
+- **Fix bugs** — diagnoses, patches, and verifies
+- **Write features** — complete implementations
+- **Refactor code** — preserves your style
+- **Write tests** — pytest, jest, go test, and more
+- **Explain code** — line by line if needed
+
+---
+
+## 🎭 Themes
+
+12 built-in themes with dark/light mode support:
+
+```
+apex          ayu           catppuccin    catppuccin-macchiato
+everforest    gruvbox       kanagawa      matrix
+nord          one-dark      system        tokyonight
+```
+
+```bash
+# Via TUI
+Ctrl+X T         # Theme selector
+
+# Via config
+echo '{"theme": "nord"}' > ~/.config/apex/tui.json
+```
+
+Custom themes in `~/.config/apex/themes/*.json` or `.apex/themes/*.json`.
+
+---
+
+## 🔗 Session Sharing
+
+Share conversations with your team:
+
+```bash
+/share          # Create shareable URL → https://apex-ai.dev/s/abc123
+/unshare        # Remove shared session
+```
+
+Modes: `manual` (default) | `auto` | `disabled` (set in config)
+
+---
+
+## 🎨 Formatters
+
+Auto-formatting support for 11 languages:
+
+```
+Python:     ruff
+JS/TS/JSON: prettier
+Rust:       rustfmt
+Go:         gofmt
+Java:       google-java-format
+C/C++:      clang-format
+Ruby:       rubocop
+Scala:      scalafmt
+Kotlin:     ktlint
+Swift:      swift-format
+Zig:        zig fmt
+```
+
+```bash
+# Enable all formatters
+echo '{"formatter": true}' > apex.json
+
+# Per-formatter config
+echo '{"formatter": {"prettier": {"disabled": true}}}' > apex.json
+```
 
 ---
 
 ## 🔒 Security
 
-APEX includes comprehensive security features to protect your system:
+APEX includes comprehensive security features:
 
 ### Shell Command Analysis
-
-APEX analyzes shell commands before execution and blocks dangerous patterns:
-
-```python
-from apex.shell_security import shell_analyzer
-
-analysis = shell_analyzer.analyze("rm -rf /tmp/test")
-# safe: False, category: DANGEROUS, warnings: [...]
-```
-
-**Blocked patterns:**
-- `rm -rf /` — System-wide deletion
-- `curl | sh` — Download and execute
-- Fork bombs, direct disk writes
+Blocks dangerous patterns: `rm -rf /`, `curl | sh`, fork bombs, disk writes.
 
 ### Permission System
-
-Ruleset-based permission control for tool execution:
-
-```python
-from apex.permission import permission_manager, PermissionAction
-
-# Add custom rules
-permission_manager.add_rule("run_command", PermissionAction.ASK)
-
-# Check permission
-can_execute, reason = permission_manager.can_execute_tool("run_command")
-```
+Fine-grained ALLOW/DENY/ASK per tool with glob pattern support.
 
 ### Rate Limiting & API Keys
-
-Database-backed rate limiting with workspace-based API keys:
-
-```python
-from apex.rate_limiter import create_rate_limiter
-from apex.api_key import create_key_manager
-
-limiter = create_rate_limiter(use_sqlite=True)
-manager = create_key_manager()
-
-# Create API key
-workspace = manager.create_workspace("my-project", "user_123")
-api_key, info = manager.create_key(workspace.workspace_id, "prod")
-```
+Database-backed rate limiting with workspace-based API keys.
 
 ### HTTP API Security
-
-```python
-from apex.http_api import HTTPServer
-
-server = HTTPServer(
-    host="127.0.0.1",
-    port=8080,
-    require_auth=True,  # API key required
-)
-```
-
-See [SECURITY.md](SECURITY.md) for full documentation.
+Bearer token auth on all endpoints, configurable via config.
 
 ---
 
 ## ⚡ Installation
 
-### One-line install (recommended)
+### One-line install
 
 **macOS / Linux:**
 ```bash
@@ -182,70 +400,45 @@ cd APEX
 pip install -e ".[dev]"
 ```
 
-### GitHub Codespaces
-
-APEX is pre-configured in `.devcontainer.json` — just open the repo in Codespaces!
-
 ---
 
-## 🚀 Quick Start
-
-```bash
-# 1. Set your API key
-export ANTHROPIC_API_KEY=sk-ant-...
-
-# 2. Launch APEX
-apex
-
-# 3. Ask anything
-> fix the authentication bug in auth.py
-> add TypeScript types to all functions
-> write tests for the payment module
-```
-
-Switch models anytime:
-```bash
-apex --model gpt-4o        # Start with GPT-4o
-apex --model gemini-2      # Start with Gemini 2
-apex --model ollama-llama3 # Local, no API key needed
-apex tui                   # Launch Terminal UI (subcommand)
-apex models                # List available models
-apex install-tui           # One-time TUI setup
-```
-
----
-
-## 🤖 Supported Models
+## 🤖 Supported Models (170+)
 
 <details>
 <summary>Anthropic (Claude)</summary>
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-apex --model claude-sonnet   # Recommended
-apex --model claude-opus     # Most powerful
-apex --model claude-haiku    # Fastest
+apex --model claude-sonnet-4-5   # Recommended
+apex --model claude-opus-4-5     # Most powerful
+apex --model claude-haiku-4-5    # Fastest
+apex --model claude-sonnet-4-6   # Latest
+apex --model claude-opus-4-7     # Most advanced
 ```
 </details>
 
 <details>
-<summary>OpenAI</summary>
+<summary>OpenAI (GPT / o-series)</summary>
 
 ```bash
 export OPENAI_API_KEY=sk-...
 apex --model gpt-4o
-apex --model o1
-apex --model o3-mini
+apex --model gpt-4o-mini
+apex --model gpt-5
+apex --model o3
+apex --model o4-mini
 ```
 </details>
 
 <details>
-<summary>Google Gemini</summary>
+<summary>Google (Gemini / Gemma)</summary>
 
 ```bash
 export GEMINI_API_KEY=...
-apex --model gemini-2
-apex --model gemini-flash
+apex --model gemini-2.5-pro
+apex --model gemini-2.5-flash
+apex --model gemini-3-flash
+apex --model gemma-4-31b
 ```
 </details>
 
@@ -254,8 +447,9 @@ apex --model gemini-flash
 
 ```bash
 export GROQ_API_KEY=gsk_...
-apex --model llama-groq
-apex --model mixtral-groq
+apex --model llama-groq-4-maverick
+apex --model mixtral-groq-8x7b
+apex --model qwq-groq-32b
 ```
 </details>
 
@@ -263,9 +457,10 @@ apex --model mixtral-groq
 <summary>🔒 Ollama (100% local, no API key)</summary>
 
 ```bash
-# Install Ollama first: https://ollama.com
 ollama pull llama3
-apex --model ollama-llama3   # No API key needed!
+apex --model ollama-llama3
+apex --model ollama-deepseek-r1
+apex --model ollama-qwen2.5-coder
 ```
 </details>
 
@@ -275,71 +470,29 @@ apex --model ollama-llama3   # No API key needed!
 ```bash
 export DEEPSEEK_API_KEY=...
 apex --model deepseek-chat
-apex --model deepseek-coder
+apex --model deepseek-reasoner
+apex --model deepseek-v4-flash
+apex --model deepseek-v4-pro
 ```
 </details>
 
 <details>
-<summary>Meta Llama</summary>
+<summary>More providers</summary>
 
-```bash
-apex --model llama-3
-apex --model llama-3.1
-```
+- **xAI**: grok-3, grok-4, grok-4-fast
+- **Mistral**: codestral, pixtral, ministral, mixtral
+- **Meta**: llama-4-maverick, llama-4-scout
+- **Qwen**: qwen3-235b, qwen3-coder, qwq-plus
+- **Cohere**: command-a, command-a-reasoning
+- **Cerebras**: ultra-fast inference
+- **Fireworks AI**: deepseek, qwen, kimi
+- **Together AI**: deepseek, llama, qwen
+- **Hugging Face**: open models
+- **Perplexity**: sonar models
+- **NVIDIA NIM**: enterprise models
+- **Cloudflare Workers AI**: edge inference
+- **OpenRouter**: 200+ models via single API
 </details>
-
-<details>
-<summary>Mistral & Mixtral</summary>
-
-```bash
-export MISTRAL_API_KEY=...
-apex --model mistral
-apex --model mixtral
-```
-</details>
-
-<details>
-<summary>Qwen</summary>
-
-```bash
-apex --model qwen2
-apex --model qwen2.5
-```
-</details>
-
----
-
-## 🛠️ What APEX Can Do
-
-- **Read & edit files** — understands your whole codebase
-- **Run commands** — tests, builds, installs, git
-- **Search code** — grep-style across your project
-- **Fix bugs** — diagnoses, patches, and verifies
-- **Write features** — complete implementations
-- **Refactor code** — preserves your style
-- **Write tests** — pytest, jest, go test, and more
-- **Explain code** — line by line if needed
-
----
-
-## 🎨 Configuration
-
-```bash
-# ~/.apex/config.json
-{
-  "model": "claude-sonnet",
-  "theme": "apex-dark",
-  "auto_commit": false,
-  "max_tool_rounds": 20
-}
-```
-
-```bash
-# .env (project or ~/.apex/.env)
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GROQ_API_KEY=gsk_...
-```
 
 ---
 
@@ -369,8 +522,9 @@ git clone https://github.com/Ggboykxz/APEX
 cd APEX
 pip install -e ".[dev]"
 pytest
-bun run tui:dev    # Launch TUI in dev mode
 ```
+
+Customize with commands in `.apex/commands/*.md`, agents in `.apex/agents/*.md`, and themes in `.apex/themes/*.json`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -380,7 +534,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 **Proprietary** — All rights reserved by Ggboykxz.
 
-See [LICENSE](LICENSE) for full terms. This software is **not open source** — plagiarism, repackaging, or claiming APEX code as your own is prohibited and may constitute copyright infringement.
+See [LICENSE](LICENSE) for full terms.
 
 ---
 

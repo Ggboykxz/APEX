@@ -1,18 +1,30 @@
-# APEX — Agent for Programming EXecution
+# APEX v1.5.0 — Agent for Programming EXecution
 
 *Built in Gabon 🇬🇦 for the world.*
 
-APEX is a production-grade, terminal-native AI coding agent that works with **any LLM** via a unified interface powered by litellm.
+APEX is a production-grade, terminal-native AI coding agent that works with **any LLM** via a unified interface powered by litellm. Now featuring the full OpenCode user experience.
 
 ## Features
 
 ### Core
 - **170+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more
-- **Multi-Agent System** — Coder, Architect, Reviewer, Shell, Planner with permission controls
+- **11 Specialized Agents** — 4 primary + 4 subagents + 3 system agents
 - **75+ Tools** — File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB
-- **Rich Terminal UI** — Syntax highlighting, markdown rendering, panels
-- **Session Persistence** — Save and load conversations
+- **Rich Terminal UI** — Ink + React with syntax highlighting, markdown rendering
+- **Session Persistence** — Save, load, and share conversations
 - **Token Cost Tracking** — Monitor usage and estimated costs
+
+### OpenCode-like UX
+- **Hierarchical JSON/JSONC Config** — Global → project → inline, with `{env:}` and `{file:}` variables
+- **20+ CLI Subcommands** — serve, web, auth, agent create, session, stats, and more
+- **Leader Keys** — Ctrl+X + mnemonic for all actions
+- **Command Palette** — Ctrl+P with fuzzy search across 17+ commands
+- **@ File References** — Fuzzy file search with `@filename`
+- **! Bash Inline** — Run shell commands inline
+- **12 Themes** — dark/light mode, custom themes
+- **Session Sharing** — Public URLs for collaboration
+- **11 Auto-Formatters** — ruff, prettier, gofmt, rustfmt, etc.
+- **File Watcher** — Configurable ignore patterns
 
 ### Security
 - **Shell Command Analysis** — Dangerous commands blocked automatically
@@ -20,175 +32,52 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 - **Rate Limiting** — Per-key limits with SQLite persistence
 - **API Key Management** — Workspace-based keys with expiration
 - **Billing System** — Cost tracking and quota management
+- **Share Sanitization** — API keys stripped from shared sessions
 
 ### TUI
-- **OpenTUI + React TUI** — Modern terminal UI with agent-colored theming, live metrics, and HTTP SSE backend
+- **Ink + React TUI** — Modern terminal UI with agent-colored theming, live metrics, and HTTP SSE backend
+- **Leader Key System** — Ctrl+X prefix for all actions
+- **Command Palette** — Ctrl+P fuzzy search
+- **@ File References** — Fuzzy file search
+- **! Bash Inline** — Shell command execution
+- **Model Selector** — Ctrl+K overlay
+- **Theme Selector** — Ctrl+X+T
 
 ```bash
-apex tui        # Launch TUI (subcommand, v1.3.0+)
-apex --tui      # Same thing (flag style)
-apex install-tui  # One-time TUI setup (after pip install)
-```
-
-## Why APEX?
-
-| Feature | APEX | OpenCode | Claude Code | Aider |
-|---------|:----:|:--------:|:-----------:|:-----:|
-| All models via one CLI | ✅ | ⚠️ | ❌ | ⚠️ |
-| Shell security analysis | ✅ | ❌ | ❌ | ❌ |
-| Permission system | ✅ | ❌ | ❌ | ❌ |
-| API key management | ✅ | ❌ | ❌ | ❌ |
-| Rate limiting | ✅ | ❌ | ❌ | ❌ |
-| Billing & cost tracking | ✅ | ❌ | ❌ | ⚠️ |
-| OpenTUI-like TUI | ✅ | ❌ | ❌ | ❌ |
-| 6 built-in themes | ✅ | ❌ | ❌ | ❌ |
-| Offline (Ollama) | ✅ | ❌ | ❌ | ✅ |
-| Rich syntax UI | ✅ | ✅ | ✅ | ❌ |
-| Session persistence | ✅ | ❌ | ✅ | ❌ |
-| Model switch mid-session | ✅ | ❌ | ❌ | ⚠️ |
-
-## Installation
-
-```bash
-pip install apex-ai
+apex                  # Launch TUI (default)
+apex --model gpt-4o   # Specific model
+apex --agent plan     # Read-only mode
+apex serve            # HTTP API server
+apex run "fix bugs"   # One-shot mode
 ```
 
 ## Quick Start
 
 ```bash
-# Interactive REPL
+# 1. Install
+pip install apex-ai
+
+# 2. Set your API key
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# 3. Launch APEX
 apex
 
-# Launch TUI
-apex tui
+# 4. Start coding
+> fix the authentication bug in auth.py
+> add TypeScript types to all functions
+> write tests for the payment module
 
-# One-shot prompt
-apex "write a hello world program"
-
-# Specific model
-apex --model gpt-4o "explain this code"
-
-# List available models
-apex models
-
-# CI/CD mode
-apex -p "check for security issues" -f json
+# 5. Share your session
+/share
 ```
-
-## Security Quick Start
-
-APEX includes comprehensive security features:
-
-```bash
-# Run with restrictive permissions
-apex --permission-mode strict
-
-# Run with API authentication
-export APEX_API_KEY=your_key
-apex --http-api --require-auth
-```
-
-### Shell Security
-
-APEX analyzes shell commands before execution:
-
-```python
-from apex.shell_security import shell_analyzer
-
-analysis = shell_analyzer.analyze("rm -rf /tmp/test")
-print(analysis.safe)  # False
-print(analysis.category)  # CommandCategory.DANGEROUS
-```
-
-**Blocked commands:**
-- `rm -rf /` — System deletion
-- `curl | sh` — Download and execute
-- Fork bombs, direct disk writes
-
-### Permission System
-
-```python
-from apex.permission import permission_manager, PermissionAction
-
-# Default: allow safe tools, ask for dangerous ones
-permission_manager.add_rule("run_command", PermissionAction.ASK)
-
-# Check before execution
-can_execute, reason = permission_manager.can_execute_tool("run_command")
-```
-
-### Rate Limiting
-
-```python
-from apex.rate_limiter import create_rate_limiter
-
-limiter = create_rate_limiter(use_sqlite=True)
-result = limiter.check_rate_limit("user_123")
-```
-
-### API Keys
-
-```python
-from apex.api_key import create_key_manager
-
-manager = create_key_manager()
-workspace = manager.create_workspace("my-project", "user_123")
-api_key, info = manager.create_key(workspace.workspace_id, "prod-key")
-```
-
-## Development
-
-```bash
-# Clone and setup
-git clone https://github.com/Ggboykxz/APEX.git
-cd APEX
-pip install -e .
-
-# Run tests
-pytest
-
-# Run with coverage
-pytest --cov=apex --cov-report=term-missing
-
-# Lint check
-ruff check apex/
-```
-
-## Philosophy
-
-APEX is built by a Gabonese developer for the world. Every developer deserves a world-class coding agent — regardless of which model they can afford.
-
-- **Complete code, no truncation** — Never use `...rest of file...`
-- **Production-ready** — Full error handling, tests, type hints
-- **Language-agnostic** — Python, JavaScript, Rust, Go, etc.
-- **Senior developer mindset** — Opinionated, but effective
-- **Security-first** — Multiple layers of protection
 
 ## Documentation
 
-| Guide | Description |
-|-------|-------------|
-| [Quick Start](quickstart.md) | Get running in 5 minutes |
-| [Installation](installation.md) | Setup guide |
-| [Commands](commands.md) | Slash commands, @mentions, shortcuts |
-| [Configuration](configuration.md) | Config file options |
-| [Models](models.md) | 170+ supported models |
-| [Tools](tools.md) | 75+ built-in tools reference |
-| [Agents](agents.md) | Multi-agent system |
-| [Plugins](plugins.md) | Plugin system |
-| [Advanced](advanced.md) | MCP, custom tools, workspace |
-| [API Reference](api.md) | Python API |
-| [Examples](examples.md) | Complete config examples |
-| [Troubleshooting](troubleshooting.md) | Common issues |
-
-## Contributing
-
-| File | Description |
-|------|-------------|
-| [CONTRIBUTING.md](../CONTRIBUTING.md) | Contribution guidelines |
-| [CHANGELOG.md](../CHANGELOG.md) | Version history |
-| [SECURITY.md](../SECURITY.md) | Security policy |
-
----
-
-*Made with ❤️ in Gabon 🇬🇦*
+- [Installation](installation.md)
+- [Configuration](configuration.md)
+- [Agents](agents.md)
+- [Commands](commands.md)
+- [Tools](tools.md)
+- [API Reference](api.md)
+- [Troubleshooting](troubleshooting.md)

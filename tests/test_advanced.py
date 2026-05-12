@@ -305,6 +305,31 @@ class TestFileOperationCache:
         assert cache.get("c") == "3"
 
 
+class TestBatchOperationErrorLines:
+    """Hit lines 65-66 (batch_read exception) and 86-87 (batch_write exception)."""
+
+    def test_batch_read_exception(self, tmp_path):
+        """batch_read with a file that triggers exception on read."""
+        f = tmp_path / "secret.txt"
+        f.write_text("data")
+        f.chmod(0o200)  # remove read permission
+        results = BatchOperation.batch_read(["secret.txt"], str(tmp_path))
+        if "secret.txt" in results:
+            assert "ERROR" in str(results["secret.txt"])
+        f.chmod(0o644)  # restore
+
+    def test_batch_write_exception(self, tmp_path):
+        """batch_write where write fails (parent is a file, not dir)."""
+        # Create a file at the path that would be the parent directory
+        parent = tmp_path / "not_a_dir"
+        parent.write_text("i am a file, not a directory")
+        results = BatchOperation.batch_write(
+            [{"path": "not_a_dir/sub/file.txt", "content": "data"}],
+            str(tmp_path),
+        )
+        assert len(results["failed"]) >= 1
+
+
 class TestGlobalFunctions:
     def test_get_retry_handler(self):
         import apex.advanced as adv

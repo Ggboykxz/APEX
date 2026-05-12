@@ -1,102 +1,119 @@
-# APEX — Agent for Programming EXecution
+# APEX — Agent for Programming EXecution v1.5.0
 
 *Built in Gabon 🇬🇦 for the world.*
 
-> **APEX** est un agent de coding IA inspiré d'OpenCode, terminal-first, open-source. Il orchestre 100+ modèles LLM via litellm, exécute des outils avec un système de permissions granulaire, et protège chaque modification par des snapshots réversibles.
+> **APEX** is an AI coding agent inspired by OpenCode, terminal-first. It orchestrates 170+ LLM models via litellm, executes tools with a granular permission system, protects each modification with reversible snapshots, and now delivers the full OpenCode user experience.
 
 ---
 
-## Table des matières
+## Table of Contents
 
-1. [Vue d'ensemble](#1-vue-densemble)
+1. [Overview](#1-overview)
 2. [Architecture](#2-architecture)
-3. [Agents (Build & Plan)](#3-agents-build--plan)
-4. [Boucle de chat](#4-boucle-de-chat)
-5. [Event Bus](#5-event-bus)
-6. [Mémoire structurée (Parts)](#6-mémoire-structurée-parts)
-7. [Registre d'outils](#7-registre-doutils-tools)
-8. [Système de permissions](#8-système-de-permissions)
-9. [Snapshots & Undo/Redo](#9-snapshots--undoredo)
-10. [Providers IA](#10-providers-ia)
-11. [Intégration LSP](#11-intégration-lsp)
-12. [Support MCP](#12-support-mcp)
-13. [Sessions](#13-sessions)
-14. [Mode CI/CD](#14-mode-cicd)
-15. [Commandes personnalisées](#15-commandes-personnalisées)
-16. [Sécurité](#16-sécurité)
+3. [UI Modes](#3-ui-modes)
+4. [Agents](#4-agents)
+5. [CLI Commands](#5-cli-commands)
+6. [Chat Loop](#6-chat-loop)
+7. [Event Bus](#7-event-bus)
+8. [Structured Memory (Parts)](#8-structured-memory-parts)
+9. [Tool Registry](#9-tool-registry)
+10. [Permission System](#10-permission-system)
+11. [Snapshots & Undo/Redo](#11-snapshots--undoredo)
+12. [Providers](#12-providers)
+13. [LSP Integration](#13-lsp-integration)
+14. [MCP Support](#14-mcp-support)
+15. [Sessions & Sharing](#15-sessions--sharing)
+16. [CI/CD Mode](#16-cicd-mode)
+17. [Custom Commands](#17-custom-commands)
+18. [Theme System](#18-theme-system)
+19. [Formatters](#19-formatters)
+20. [File Watcher](#20-file-watcher)
+21. [Configuration](#21-configuration)
+22. [Security](#22-security)
 
 ---
 
-## 1. Vue d'ensemble
+## 1. Overview
 
-APEX est un **agent autonome** capable de :
+APEX is an **autonomous agent** capable of:
 
-- Analyser l'intégralité d'une codebase
-- Lire, créer et modifier des fichiers avec précision
-- Exécuter des commandes shell et interpréter les résultats
-- Lancer des tests, lire les erreurs, itérer automatiquement
-- Demander confirmation avant toute action destructive
-- Gérer plusieurs sessions en parallèle sur le même projet
+- Analyzing an entire codebase
+- Reading, creating, and modifying files with precision
+- Executing shell commands and interpreting results
+- Running tests, reading errors, iterating automatically
+- Requesting confirmation before destructive actions
+- Managing multiple sessions in parallel
+- Sharing sessions via public URLs
+- Formatting code automatically
+- Watching files for changes
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                      APEX                            │
-│                                                      │
-│   Frontend (TUI / REPL / API)                       │
-│          ↕  HTTP / WebSocket / stdin                 │
-│   Backend (Python)                                   │
-│   ├── Agent Loop (chat, tools, permissions)          │
-│   ├── Session Manager (SQLite/Memory)                │
-│   ├── Event Bus (typed events)                       │
-│   ├── Provider Abstraction (100+ LLM providers)      │
-│   ├── Tool Registry (read, write, edit, bash...)     │
-│   ├── LSP Client (language intelligence)             │
-│   ├── MCP Client (protocoles externes)               │
-│   └── Snapshot System (undo/redo Git-powered)        │
-└──────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                        APEX v1.5.0                       │
+│                                                          │
+│   Frontend (TUI / REPL / API / Web)                     │
+│          ↕  HTTP / SSE / stdin                           │
+│   Backend (Python)                                       │
+│   ├── Agent Loop (chat, tools, permissions)              │
+│   ├── 11 Specialized Agents                             │
+│   ├── Session Manager (SQLite/Memory)                    │
+│   ├── Event Bus (typed events)                           │
+│   ├── Provider Abstraction (170+ LLM providers)          │
+│   ├── Tool Registry (read, write, edit, bash...)         │
+│   ├── LSP Client (language intelligence)                 │
+│   ├── MCP Client (external protocols)                    │
+│   ├── Snapshot System (undo/redo Git-powered)            │
+│   ├── Theme System (12 themes, dark/light)               │
+│   ├── Formatter System (11 auto-formatters)              │
+│   ├── File Watcher (configurable ignore patterns)        │
+│   └── Share System (public URLs with sanitization)       │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 2. Architecture
 
-### Composants principaux
+### Core Components
 
-| Composant | Description |
+| Component | Description |
 |-----------|-------------|
-| `main.py` | CLI entry point, argument parsing, TUI launcher |
+| `main.py` | CLI entry point, 20+ subcommands, TUI launcher |
 | `agent.py` | Agent core, chat loop, LLM interaction |
 | `tools.py` | 75+ built-in tools |
 | `session.py` | Session management, persistence |
-| `permission.py` | Permission system |
+| `permission.py` | Permission system (ALLOW/DENY/ASK) |
 | `shell_security.py` | Shell command analysis |
 | `rate_limiter.py` | Rate limiting |
 | `api_key.py` | API key management |
 | `billing.py` | Cost tracking |
-| `http_api.py` | HTTP API server + TUI server (`start_tui_server`, `stop_tui_server`) |
+| `http_api.py` | 56 HTTP API endpoints |
+| `config_v2.py` | Hierarchical JSON/JSONC config system |
+| `theme_manager.py` | 12 themes, dark/light, custom themes |
+| `share.py` | Session sharing with public URLs |
+| `formatter.py` | 11 auto-formatters |
+| `watcher.py` | Configurable file watcher |
+| `commands_manager.py` | Custom commands via markdown |
 
-### TUI Architecture (OpenTUI + React)
+### TUI Architecture (Ink + React)
 
 ```
 tui-frontend/src/
-├── App.tsx                # Root — HTTP SSE, state management
+├── App.tsx                # Root — render ApexApp
 ├── components/
-│   ├── ApexApp.tsx        # Main layout — titlebar, chat, statusbar
-│   ├── ChatPanel.tsx      # Message thread with streaming tokens
-│   ├── StatusBar.tsx      # In/Out/Total tokens, ctx%, $spent
-│   ├── ModelSelector.tsx  # Ctrl+K overlay — 100+ models
-│   ├── HelpPanel.tsx      # ? overlay — keybindings
-│   ├── Sidebar.tsx        # Session history
-│   └── ToolPanel.tsx     # Active tool executions
+│   ├── ApexApp.tsx        # Main layout — titlebar, chat, leader keys, palettes
+│   ├── ChatPanel.tsx      # Message thread with streaming, @refs, !bash
+│   ├── StatusBar.tsx      # In/Out/Total tokens, ctx%, $spent, agent
+│   ├── Sidebar.tsx        # Agent list, session info
 ├── data/
-│   └── apex-data.ts      # Models pricing matrix (32+ models)
+│   └── apex-data.ts      # 35+ models, 8 agents, keybinds
 └── theme/
-    └── themes.ts          # Agent-colored themes per agent
+    └── apex.ts            # Base theme colors
 ```
 
-**Flux HTTP SSE:**
+**HTTP SSE Flow:**
 ```
-TUI (Bun/React) --POST /chat/stream--> HTTP Server (main.py -> http_api.py)
+TUI (Ink/React) --POST /chat/stream--> HTTP Server (main.py -> http_api.py)
                                                      |
                                                      v
                                               agent.chat_streaming()
@@ -106,136 +123,271 @@ TUI (Bun/React) --POST /chat/stream--> HTTP Server (main.py -> http_api.py)
                                     SSE: data:{"usage": {prompt_tokens, completion_tokens}}
 ```
 
-### Keymap Layers
-
-| Layer | Description |
-|-------|-------------|
-| `global` | General commands (q, ?, :, t, n, p) |
-| `input` | Input field bindings |
-| `command` | Command palette |
-| `navigation` | hjkl navigation |
-
 ---
 
-## 3. Agents (Build & Plan)
+## 3. UI Modes
 
-APEX supporte deux modes d'agent basculeables :
-
-### Agent `build` (défaut)
-- **Accès complet à tous les outils** : lire, écrire, éditer, shell
-- Agent principal pour le développement
-- Modifie réellement les fichiers
-
-### Agent `plan` (lecture seule)
-- **Analyse et propose** sans toucher aucun fichier
-- Parfait pour explorer une codebase
-- Aucun side effect — safe à utiliser
-
-### Switch entre modes
+### TUI (Terminal User Interface) — Default
 
 ```bash
-# Via commande
-/agent build   # Mode build (défaut)
-/agent plan    # Mode plan (lecture seule)
-
-# Dans le TUI
-Tab  → Bascule entre agents (Coder, Architect, Planner, Reviewer, Shell)
+apex              # Launch TUI
+apex tui          # Explicit TUI
+apex --tui        # Flag style
 ```
 
-**Cinq agents intégrés :**
+Full Ink + React terminal UI with:
+- Real-time token streaming
+- Live cost tracking
+- Context percentage monitoring
+- Agent switching via Tab
+- Command palette (Ctrl+P)
+- Leader keys (Ctrl+X)
+- @ file references
+- ! bash inline
+- Model selector (Ctrl+K)
+- Theme selector (Ctrl+X+T)
+- Session sharing
+- Help overlay (?)
 
-| Agent | Description | Couleur |
-|-------|-------------|---------|
-| `Coder` | Développement, écriture de code | Cyan |
-| `Architect` | Design système, architecture | Violet |
-| `Planner` | Planification, stratégie | Jaune |
-| `Reviewer` | Code review, audit | Vert |
-| `Shell` | DevOps, scripts, CI/CD | Orange |
+### CLI REPL
 
-Chaque agent applique sa couleur à la titlebar, status bar et bordures du TUI.
+```bash
+apex              # Launch TUI (default)
+```
+
+### One-shot / CI/CD
+
+```bash
+apex -p "Fix the auth bug"          # Quick prompt
+apex -p "Generate tests" -f json    # JSON output
+apex -p "Review code" -q            # Quiet mode
+```
 
 ---
 
-## 4. Boucle de chat
+## 4. Agents
 
-La fonction centrale `chat()` orchestre toute l'autonomie d'APEX :
+APEX has **11 specialized agents** in three categories:
+
+### Primary Agents (Tab to cycle)
+
+| Agent | Color | Mode | Tools | Description |
+|-------|-------|------|-------|-------------|
+| **Coder** | Cyan `#00e5ff` | primary | ALL | Full-access development agent |
+| **Architect** | Purple `#a855f7` | primary | Read-only | Architecture & design analysis |
+| **Planner** | Yellow `#eab308` | primary | Read-only | Planning & strategy |
+| **Shell** | Orange `#f97316` | primary | ASK for edits | Infrastructure, DevOps, CI/CD |
+
+### Subagents (@mention to invoke)
+
+| Agent | Color | Mode | Tools | Description |
+|-------|-------|------|-------|-------------|
+| **@reviewer** | Green `#22c55e` | subagent | Read-only | Code review & audit |
+| **@general** | Blue `#3b82f6` | subagent | ALL | Multi-task assistant |
+| **@explore** | Teal `#14b8a6` | subagent | Read-only | Codebase exploration |
+| **@scout** | Pink `#ec4899` | subagent | Read-only | External docs research |
+
+### System Agents (automatic, hidden)
+
+| Agent | Role |
+|-------|------|
+| **@compaction** | Context window compression |
+| **@title** | Session title generation |
+| **@summary** | Session summary generation |
+
+### Custom Agents
+
+Define agents via markdown files in `.apex/agents/*.md` or `~/.config/apex/agents/*.md`:
+
+```markdown
+---
+description: Reviews code for quality and best practices
+mode: subagent
+model: anthropic/claude-sonnet-4-5
+temperature: 0.1
+permission:
+  edit: deny
+  bash: deny
+---
+You are a code review agent. Focus on security, performance, and maintainability.
+```
+
+Or via JSON config:
+
+```json
+{
+  "agent": {
+    "code-reviewer": {
+      "description": "Reviews code",
+      "mode": "subagent",
+      "permission": { "edit": "deny" }
+    }
+  }
+}
+```
+
+---
+
+## 5. CLI Commands
+
+### Core
+
+| Command | Description |
+|---------|-------------|
+| `apex` | Launch TUI (default) |
+| `apex tui` | Launch TUI |
+| `apex` | Launch TUI (default) |
+| `apex run <prompt>` | Non-interactive mode |
+| `apex serve` | Headless HTTP API server |
+| `apex web` | Server + web interface |
+| `apex models [provider]` | List models |
+
+### Authentication
+
+| Command | Description |
+|---------|-------------|
+| `apex auth login` | Interactive provider login |
+| `apex auth list` | List configured providers |
+| `apex auth logout` | Remove provider config |
+| `apex connect` | Interactive provider configuration |
+
+### Agent Management
+
+| Command | Description |
+|---------|-------------|
+| `apex agent create` | Interactive agent creation wizard |
+| `apex agent list` | List all agents |
+
+### Session Management
+
+| Command | Description |
+|---------|-------------|
+| `apex session list` | List sessions |
+| `apex session delete <id>` | Delete session |
+| `apex export <id>` | Export session as JSON |
+| `apex import <file|url>` | Import session |
+| `apex compact` | Compact current session |
+
+### System
+
+| Command | Description |
+|---------|-------------|
+| `apex upgrade` | Upgrade APEX |
+| `apex uninstall` | Remove APEX |
+| `apex stats` | Token & cost statistics |
+| `apex db path` | Database path |
+| `apex init` | Initialize project (AGENTS.md) |
+
+### Integrations
+
+| Command | Description |
+|---------|-------------|
+| `apex mcp add` | Add MCP server |
+| `apex mcp list` | List MCP servers |
+| `apex mcp auth` | Authenticate MCP server |
+| `apex pr <number>` | Fetch & checkout PR |
+| `apex attach <url>` | Attach to remote backend |
+
+### Toggles
+
+| Command | Description |
+|---------|-------------|
+| `apex details` | Toggle tool execution details |
+| `apex thinking` | Toggle reasoning blocks |
+
+### Global Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--model` | `-m` | Model alias |
+| `--cwd` | `-C` | Working directory |
+| `--version` | `-v` | Version |
+| `--agent` | | Agent to use |
+| `--continue` | | Resume last session |
+| `--session` | `-s` | Session ID |
+| `--fork` | | Fork session |
+| `--format` | `-f` | Output format (text/json) |
+| `--quiet` | `-q` | Quiet mode |
+| `--port` | | Server port |
+| `--print-logs` | | Print logs |
+| `--log-level` | | Log level |
+| `--pure` | | No tools mode |
+
+---
+
+## 6. Chat Loop
+
+The central `chat()` function orchestrates APEX's autonomy:
 
 ```
 1. PROCESS INPUT
-   └── Convertit le message + fichiers joints en parts structurées
+   └── Convert message + attached files into structured parts
 
 2. CONTEXT MANAGEMENT
-   └── Vérifie si on approche la limite de tokens
-       → Si oui : résumé automatique via un modèle léger
+   └── Check if approaching token limit
+       → If yes: auto-compact via lightweight model
 
 3. AI CALL
-   └── Envoie le contexte + tools disponibles au modèle IA
-       → Stream la réponse token par token
+   └── Send context + available tools to the LLM
+       → Stream response token by token
 
 4. TOOL EXECUTION
-   └── Si l'IA appelle un outil :
-       a. Vérifie les permissions
-       b. Crée un snapshot (sauvegarde avant modification)
-       c. Exécute l'outil
-       d. Retourne le résultat à l'IA
-       e. L'IA continue (boucle jusqu'à terminaison)
+   └── If AI calls a tool:
+       a. Check permissions (agent-specific)
+       b. Create snapshot (backup before modification)
+       c. Execute tool
+       d. Return result to AI
+       e. AI continues (loop until termination)
 
 5. STATE UPDATE
-   └── Persiste tout en base
-       → Publie des events sur le bus pour les frontends
+   └── Persist everything to database
+       → Publish events on the bus for frontends
 ```
 
 ---
 
-## 5. Event Bus
+## 7. Event Bus
 
-APEX est bâti sur un **bus d'événements fortement typé** :
+APEX is built on a **strongly typed event bus**:
 
 ```python
 from apex.tui.contexts.event_context import EventBus
 
 bus = EventBus()
 
-# S'abonner
+# Subscribe
 bus.on("session_updated", handler_function)
 bus.on("file_changed", on_file_change)
-bus.on("permission_requested", on_permission_request)
 
-# Émettre
+# Emit
 bus.emit("session_updated", session_data)
 bus.emit("file_changed", file_path="src/main.py")
-
-# Une seule fois
-bus.once("tool_executed", handler)
-
-# Désinscrire
-bus.off("file_changed", handler)
 ```
 
-### Événements typés
+### Typed Events
 
 | Event | Description |
 |-------|-------------|
-| `session_updated` | Session modifiée |
-| `session_created` | Nouvelle session |
-| `session_deleted` | Session supprimée |
-| `file_changed` | Fichier modifié |
-| `message_added` | Nouveau message |
-| `tool_executed` | Outil exécuté |
-| `tool_error` | Erreur d'outil |
-| `permission_requested` | Permission demandée |
-| `permission_granted` | Permission accordée |
-| `permission_denied` | Permission refusée |
-| `theme_changed` | Thème changé |
-| `route_changed` | Route changée |
-| `tui_ready` | TUI démarrée |
-| `tui_exit` | TUI fermée |
+| `session_updated` | Session modified |
+| `session_created` | New session |
+| `session_deleted` | Session deleted |
+| `file_changed` | File modified |
+| `message_added` | New message |
+| `tool_executed` | Tool executed |
+| `tool_error` | Tool error |
+| `permission_requested` | Permission requested |
+| `permission_granted` | Permission granted |
+| `permission_denied` | Permission denied |
+| `theme_changed` | Theme changed |
+| `route_changed` | Route changed |
+| `tui_ready` | TUI started |
+| `tui_exit` | TUI closed |
 
 ---
 
-## 6. Mémoire structurée (Parts)
+## 8. Structured Memory (Parts)
 
-Messages avec parts typées :
+Messages with typed parts:
 
 ```python
 @dataclass
@@ -252,327 +404,554 @@ class Message:
     cost_usd: Optional[float]
 ```
 
-### Types de parts
+### Part Types
 
 | Part | Description |
 |------|-------------|
-| `text` | Texte du message |
-| `file` | Fichier référencé (chemin + contenu) |
-| `tool_call` | Appel d'outil (nom + paramètres) |
-| `tool_result` | Résultat de l'outil |
-| `image` | Image uploadée |
-| `snapshot` | Référence au snapshot avant modification |
+| `text` | Message text |
+| `file` | Referenced file (path + content) |
+| `tool_call` | Tool invocation (name + params) |
+| `tool_result` | Tool result |
+| `image` | Uploaded image |
+| `snapshot` | Snapshot reference before modification |
 
 ---
 
-## 7. Registre d'outils (Tools)
+## 9. Tool Registry
 
-### Outils natifs (75+)
+### Native Tools (75+)
 
-| Outil | Description | Sécurité |
-|-------|-------------|----------|
-| `read_file` | Lit un fichier | Détection binaire, limite taille |
-| `write_file` | Crée/écrase un fichier | Permission + snapshot |
-| `edit_file` | Modification chirurgicale | Permission + snapshot |
-| `bash` | Exécute commande shell | Parsing sécurité, sandbox |
-| `grep` | Recherche dans codebase | Lecture seule |
-| `glob` | Liste fichiers par pattern | Lecture seule |
-| `read_directory` | Liste répertoire | Lecture seule |
-| `search` | Recherche web | Lecture seule |
-| `mcp_*` | Outils MCP | Via MCP client |
+| Tool | Description | Security |
+|------|-------------|----------|
+| `read_file` | Read a file | Binary detection, size limit |
+| `write_file` | Create/overwrite a file | Permission + snapshot |
+| `edit_file` | Surgical modification | Permission + snapshot |
+| `bash` | Execute shell command | Security parsing, sandbox |
+| `grep` | Search codebase | Read-only |
+| `glob` | List files by pattern | Read-only |
+| `read_directory` | List directory | Read-only |
+| `search` | Web search | Read-only |
+| `format_file` | Auto-format code | Via formatter system |
+| `mcp_*` | MCP tools | Via MCP client |
 
-### Appels d'outils
+### Tool Call Flow
 
 ```
-IA → "Je vais modifier src/auth.ts"
+AI → "I'll modify src/auth.ts"
   ↓
-Tool Registry → vérifie permission
-  ↓ (si autorisé)
-Snapshot → crée snapshot Git
+Tool Registry → check agent permission
+  ↓ (if allowed)
+Snapshot → create Git snapshot
   ↓
-Tool Execute → modifie le fichier
+Tool Execute → modify file
+  ↓
+Formatter → auto-format if enabled
   ↓
 LSP Client → diagnostics
   ↓
 Bus.publish(FileChanged)
   ↓
-Résultat → IA (avec diagnostics)
+Result → AI (with diagnostics)
   ↓
-IA continue ou termine
+AI continues or terminates
 ```
 
 ---
 
-## 8. Système de permissions
+## 10. Permission System
 
 ### Actions
 
 | Action | Description |
 |--------|-------------|
-| `ALLOW` | Autorisé sans confirmation |
-| `DENY` | Refusé |
-| `ASK` | Confirmation demandée |
+| `ALLOW` | Auto-approved without confirmation |
+| `DENY` | Refused |
+| `ASK` | Confirmation requested |
 
-### Configuration
+### Per-Agent Configuration
+
+```python
+from apex.agents import agent_manager
+
+# Check if agent can execute a tool
+can_execute, reason = agent_manager.can_execute_tool(
+    "architect", "write_file"
+)
+# (False, "Tool 'write_file' is denied for agent 'architect'")
+```
+
+### Global Rules
 
 ```python
 from apex.permission import permission_manager, PermissionAction
 
-# Règle par pattern
 permission_manager.add_rule(
-    "read_file",
+    "write_file",
     PermissionAction.ASK,
     pattern="/src/**"
 )
-
-# Vérifier
-can_execute, reason = permission_manager.can_execute_tool(
-    "write_file",
-    path="/src/components/Button.tsx"
-)
 ```
 
-### Mémoire des permissions
+### Bash Command Patterns
 
-```python
-# Autoriser toujours pour ce pattern
-permission_manager.set_default(
-    "write_file",
-    PermissionAction.ALLOW,
-    pattern="/src/components/**"
-)
+Glob patterns for fine-grained bash control:
 
-# Résultats mémorisés
-# write sur /src/components/* → auto-approved
+```json
+{
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "git status *": "allow",
+      "grep *": "allow"
+    }
+  }
+}
 ```
 
 ---
 
-## 9. Snapshots & Undo/Redo
+## 11. Snapshots & Undo/Redo
 
-Avant chaque action destructive :
+Before each destructive action:
 
 ```python
 from apex.snapshot import SnapshotManager
 
 snapshot_mgr = SnapshotManager(cwd="/project")
 
-# Créer snapshot
+# Create snapshot
 snapshot_id = await snapshot_mgr.track()
 
-# Modifier les fichiers...
-# IA exécute edit_file, write_file, etc.
-
-# Obtenir le diff
+# Get diff
 patches = await snapshot_mgr.patch(snapshot_id)
 
-# Restaurer si besoin
+# Restore if needed
 await snapshot_mgr.restore(snapshot_id)
 ```
 
-### Commandes
+### Commands
 
 ```bash
-/undo   # Annule la dernière action IA
-/redo   # Réapplique une action annulée
+/undo           # Undo last action
+/redo           # Redo undone action
+Ctrl+X + U      # Undo (TUI)
+Ctrl+X + R      # Redo (TUI)
 ```
 
 ---
 
-## 10. Providers IA
+## 12. Providers
 
-### Supportés (100+)
+### Supported (170+)
 
-| Provider | Modèles |
-|----------|---------|
-| Anthropic | claude-sonnet, claude-opus, claude-haiku |
-| OpenAI | gpt-4o, o1, o3, o4-mini |
-| Google | gemini-2, gemini-flash |
-| Groq | llama-groq, mixtral-groq |
-| DeepSeek | deepseek-chat, deepseek-coder |
-| Ollama | llama3, codellama, mistral (local) |
-| Et 100+ autres via litellm |
+| Provider | Models |
+|----------|--------|
+| Anthropic | claude-sonnet-4-5, claude-opus-4-5, claude-haiku-4-5 |
+| OpenAI | gpt-4o, gpt-4o-mini, gpt-5, o1, o3, o4-mini |
+| Google | gemini-2.5-pro, gemini-2.5-flash, gemini-3-flash |
+| Groq | llama-groq-4, mixtral-groq, qwq-groq |
+| DeepSeek | deepseek-chat, deepseek-reasoner, deepseek-v4 |
+| xAI | grok-3, grok-4 |
+| Mistral | codestral, pixtral, ministral, mixtral |
+| Meta | llama-4-maverick, llama-4-scout |
+| Qwen | qwen3-235b, qwen3-coder, qwq-plus |
+| Cohere | command-a, command-a-reasoning |
+| Ollama | llama3, codellama, deepseek-r1 (local) |
+| OpenRouter | 200+ models via single API |
+| And 100+ more via litellm |
 
 ### Configuration
 
-```python
+```bash
 # Environment variables
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GROQ_API_KEY=gsk_...
+export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=sk-...
+export GROQ_API_KEY=gsk_...
 
 # CLI
-apex --model claude-sonnet
+apex --model claude-sonnet-4-5
 apex --model gpt-4o
-apex --model ollama-llama3  # Local, sans API key
+apex --model ollama-llama3  # Local, no API key
+
+# Interactive
+apex connect                 # Provider configuration wizard
+apex auth login              # Interactive login
 ```
 
 ---
 
-## 11. Intégration LSP
+## 13. LSP Integration
 
-LSP = Language Server Protocol pour l'intelligence syntaxique :
+LSP = Language Server Protocol for syntactic intelligence:
 
 ```python
 from apex.lsp import LSPClient
 
 lsp = LSPClient(cwd="/project")
 
-# Diagnostics après modification
+# Diagnostics after modification
 diagnostics = await lsp.get_diagnostics("src/main.ts")
 # [{error: "Type 'string' not assignable to 'number'", line: 42}]
 
-# Références
+# References
 refs = await lsp.find_references("src/utils.ts", symbol="helper")
 ```
 
-**Impact** : après modification, APEX récupère les erreurs TypeScript/Lint et peut les corriger dans la même itération.
+**Impact**: After modification, APEX retrieves TypeScript/Lint errors and can fix them in the same iteration.
 
 ---
 
-## 12. Support MCP
+## 14. MCP Support
 
-MCP = Model Context Protocol pour outils externes :
+MCP = Model Context Protocol for external tools:
 
 ```python
-# Configuration MCP
+# MCP Configuration
 mcp_config = {
     "servers": [
         {
             "name": "github",
-            "command": "npx @modelcontextprotocol/server-github",
-            "env": {"GITHUB_TOKEN": "ghp_xxx"}
+            "command": "npx @modelcontextprotocol/server-github"
         }
     ]
 }
 ```
 
-Outils MCP disponibles comme outils natifs.
+MCP tools available as native tools via `apex mcp add/list/auth`.
 
 ---
 
-## 13. Sessions
+## 15. Sessions & Sharing
 
-### Persistance
+### Persistence
 
 ```python
 from apex.session import SessionManager
 
 manager = SessionManager()
 
-# Créer session
-session = manager.create_session(
-    project_path="/path/to/project",
-    model="claude-sonnet"
-)
+# Create session
+session = manager.create_session(project_path="/path/to/project")
 
-# Sauvegarder
+# Save / Load / List
 manager.save_session(session)
-
-# Charger
 loaded = manager.load_session(session_id)
-
-# Lister
 sessions = manager.list_sessions()
 ```
 
 ### Multi-session
 
 ```python
-# Plusieurs sessions actives
 s1 = manager.create_session(project="/proj", name="feature-auth")
 s2 = manager.create_session(project="/proj", name="refactor-payment")
-s3 = manager.create_session(project="/proj", name="tests-e2e")
 
 # Switch
 manager.switch_session(s2.id)
 ```
 
-### Partage
+### Sharing
 
 ```bash
-/share   # Génère un lien de partage
+/share          # Create shareable URL → https://apex-ai.dev/s/abc123
+/unshare        # Remove shared session
+```
+
+**3 modes**: `manual` (default), `auto`, `disabled` (configurable in `apex.json`)
+
+**Export/Import**:
+```bash
+apex export <session_id>       # Export as JSON
+apex import <file.json>        # Import from file
+apex import https://apex-ai.dev/s/abc123  # Import from URL
 ```
 
 ---
 
-## 14. Mode CI/CD
+## 16. CI/CD Mode
 
 ```bash
-# Prompt unique, sortie JSON
+# Single prompt, JSON output
 apex -p "Check this diff for security issues" -f json
 
-# Mode non-interactif
-apex -p "Analyze this PR" --no-tui
+# Non-interactive
+apex run "Analyze this PR"
 
-# Avec modèle spécifique
+# With specific model/agent
 apex -p "Generate changelog" --model gpt-4o -f json
+apex run "Review this code" --agent reviewer
 ```
 
 ### Flags
 
 | Flag | Description |
 |------|-------------|
-| `-p "prompt"` | Prompt direct sans TUI |
-| `-f json` | Sortie JSON structurée |
+| `-p "prompt"` | Direct prompt without TUI |
+| `-f json` | Structured JSON output |
 | `-q` | Quiet mode |
-| `--model` | Modèle à utiliser |
-| `--no-tui` | Pas d'interface TUI |
+| `--model` | Model to use |
+| `--agent` | Agent to use |
+| `--continue` | Continue last session |
 
 ---
 
-## 15. Commandes personnalisées
+## 17. Custom Commands
 
 ### Structure
 
 ```
-~/.apex/commands/           # Commandes globales (user:)
-<project>/.apex/commands/    # Commandes projet (project:)
+~/.config/apex/commands/       # Global commands
+.apex/commands/                # Project commands
 ```
 
-### Exemple
+### Command Format (Markdown)
 
 ```markdown
-<!-- ~/.apex/commands/review.md -->
-# Code Review Standard
-
-Analyse le code et vérifie :
-1. Respect des conventions (voir AGENTS.md)
-2. Gestion des erreurs complète
-3. Pas de console.log oubliés
-4. Types explicites (pas de any)
-5. Tests présents si logique complexe
-
-Rapport : ✅ OK / ⚠️ Warning / ❌ Critique
+---
+description: Run tests with coverage
+agent: build
+model: anthropic/claude-sonnet-4-5
+---
+Run the full test suite with coverage report and show any failures.
+Focus on the failing tests and suggest fixes.
 ```
 
-### Utilisation
+### Template Variables
+
+- `$ARGUMENTS` — All arguments joined
+- `$1`, `$2`, `$3` — Positional arguments
+- `!command` — Inline shell execution
+- `@file` — Include file content
+
+### Built-in Commands
+
+| Command | Description |
+|---------|-------------|
+| `/test` | Run tests with coverage |
+| `/review` | Review current changes |
+| `/commit` | Commit with AI message |
+| `/docs` | Generate documentation |
+
+All built-in commands can be overridden with custom markdown files.
+
+---
+
+## 18. Theme System
+
+### Built-in Themes (12)
+
+| Theme | Description |
+|-------|-------------|
+| `apex` | Default dark cyan theme |
+| `nord` | Based on Nord palette |
+| `catppuccin` | Catppuccin Mocha |
+| `catppuccin-macchiato` | Catppuccin Macchiato |
+| `tokyonight` | TokyoNight theme |
+| `gruvbox` | Gruvbox dark |
+| `everforest` | Everforest |
+| `kanagawa` | Kanagawa |
+| `ayu` | Ayu dark |
+| `one-dark` | Atom One Dark |
+| `matrix` | Hacker green-on-black |
+| `system` | Adapts to terminal colors |
+
+### Custom Themes
+
+Create JSON files in `~/.config/apex/themes/` or `.apex/themes/`:
+
+```json
+{
+  "theme": {
+    "primary": { "dark": "#88C0D0", "light": "#5E81AC" },
+    "text": { "dark": "#D8DEE9", "light": "#2E3440" },
+    "background": { "dark": "#2E3440", "light": "#ECEFF4" }
+  }
+}
+```
+
+### Theme Colors
+
+Each theme defines: primary, secondary, accent, error, warning, success, info, text, textMuted, background, backgroundPanel, backgroundElement, border, borderActive, diff colors, markdown colors, and syntax highlighting colors (comment, keyword, function, string, number, type).
+
+### Switching
 
 ```bash
-/user:review
-/project:deploy-check
+# TUI
+Ctrl+X + T   # Theme selector
+
+# Config
+echo '{"theme": "nord"}' > ~/.config/apex/tui.json
 ```
 
 ---
 
-## 16. Sécurité
+## 19. Formatters
 
-| Fonction | Description |
-|----------|-------------|
-| Shell Security | Détecte commandes dangereuses (rm -rf, curl|sh) |
-| Permission System | ALLOW/DENY/ASK par pattern |
-| Rate Limiting | Limites par clé API |
-| API Key Management | Clés avec expiration |
-| Billing | Suivi des coûts |
+### Built-in Formatters (11)
+
+| Language | Formatter | Command |
+|----------|-----------|---------|
+| Python | ruff | `ruff format $FILE` |
+| JavaScript/TypeScript | prettier | `npx prettier --write $FILE` |
+| JSON/YAML/Markdown | prettier | `npx prettier --write $FILE` |
+| Rust | rustfmt | `rustfmt $FILE` |
+| Go | gofmt | `gofmt -w $FILE` |
+| Java | google-java-format | if available |
+| C/C++ | clang-format | if available |
+| Ruby | rubocop | `rubocop -a $FILE` |
+| Scala | scalafmt | if available |
+| Kotlin | ktlint | if available |
+| Swift | swift-format | if available |
+| Zig | zig fmt | `zig fmt $FILE` |
 
 ### Configuration
+
+```json
+{
+  "formatter": true    // Enable all
+}
+```
+
+```json
+{
+  "formatter": {
+    "prettier": { "disabled": true },
+    "custom-fmt": {
+      "command": ["my-formatter", "--write", "$FILE"],
+      "extensions": [".xyz"]
+    }
+  }
+}
+```
+
+---
+
+## 20. File Watcher
+
+Background file watching with configurable ignore patterns:
+
+### Default Ignore Patterns
+
+```
+**/node_modules/**
+**/.git/**
+**/__pycache__/**
+**/.venv/**
+**/venv/**
+**/dist/**
+**/build/**
+**/.next/**
+**/target/**
+```
+
+### Configuration
+
+```json
+{
+  "watcher": {
+    "ignore": ["**/node_modules/**", "**/.git/**", "custom_dir/**"]
+  }
+}
+```
+
+The watcher respects `.gitignore`, uses polling with 1s interval and 300ms debounce.
+
+---
+
+## 21. Configuration
+
+### Hierarchical Config
+
+```
+Precedence (later overrides earlier):
+  1. ~/.config/apex/apex.json(c)    Global config
+  2. $APEX_CONFIG                    Custom path
+  3. ./apex.json(c)                  Project config
+  4. $APEX_CONFIG_CONTENT            Inline JSON
+```
+
+### TUI Config (separate)
+
+`~/.config/apex/tui.json`:
+
+```json
+{
+  "theme": "nord",
+  "keybinds": { "leader": "ctrl+x", "command_list": "ctrl+p" },
+  "scroll_speed": 3,
+  "scroll_acceleration": { "enabled": false },
+  "diff_style": "auto",
+  "mouse": true,
+  "leader_timeout": 2000
+}
+```
+
+### Full apex.json Schema
+
+```json
+{
+  "$schema": "https://apex-ai.dev/config.json",
+  "model": "anthropic/claude-sonnet-4-5",
+  "provider": { "anthropic": { "timeout": 600000 } },
+  "agent": {},
+  "command": {},
+  "server": { "port": 8080, "hostname": "127.0.0.1" },
+  "permission": {},
+  "tools": {},
+  "lsp": false,
+  "mcp": {},
+  "plugin": [],
+  "formatter": false,
+  "snapshot": true,
+  "autoupdate": true,
+  "share": "manual",
+  "shell": "/bin/bash",
+  "compaction": { "auto": false, "prune": false, "reserved": 10 },
+  "watcher": { "ignore": ["**/node_modules/**", "**/.git/**"] },
+  "theme": "apex",
+  "keybinds": {},
+  "instructions": [],
+  "disabled_providers": [],
+  "enabled_providers": [],
+  "default_agent": "build"
+}
+```
+
+### Variables
+
+```json
+{
+  "model": "{env:APEX_MODEL}",
+  "provider": {
+    "anthropic": { "apiKey": "{file:~/.secrets/anthropic-key}" }
+  }
+}
+```
+
+---
+
+## 22. Security
+
+| Feature | Description |
+|---------|-------------|
+| Shell Security | Detects dangerous commands (rm -rf, curl|sh) |
+| Permission System | ALLOW/DENY/ASK per tool, per agent |
+| Rate Limiting | Per-key limits (minute/hour/day) |
+| API Key Management | Keys with expiration |
+| Billing | Cost tracking per session |
+| Share Sanitization | API keys stripped from shared data |
+
+### Shell Security
 
 ```python
 from apex.shell_security import shell_analyzer
 
 analysis = shell_analyzer.analyze("rm -rf /tmp/test")
 # safe: False, category: DANGEROUS
+```
 
+### Rate Limiting
+
+```python
 from apex.rate_limiter import create_rate_limiter
 limiter = create_rate_limiter(use_sqlite=True)
 result = limiter.check_rate_limit("user_123")
@@ -580,11 +959,11 @@ result = limiter.check_rate_limit("user_123")
 
 ---
 
-## Projet Status
+## Project Status
 
-- **Version**: 1.3.0
-- **Tests**: 2842 passing
-- **License**: Proprietary — All rights reserved (voir [LICENSE](../LICENSE))
+- **Version**: 1.5.0
+- **Tests**: 2094 passing
+- **License**: Proprietary — All rights reserved (see [LICENSE](LICENSE))
 
 ## Installation
 
@@ -594,38 +973,43 @@ pipx install apex-ai
 git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e .
 ```
 
-## Lancement
+## Launch
 
 ```bash
-apex                        # REPL interactif
+apex                        # TUI (default)
 apex "prompt"              # One-shot
-apex tui                    # OpenTUI + React TUI (sous-commande, v1.3.0+)
-apex --tui                  # Même chose (flag, équivalent)
-apex models                 # Lister les modèles disponibles
-apex install-tui            # Installer les dépendances TUI
-apex --model gpt-4o        # Modèle spécifique
-apex -p "prompt" -f json   # Mode CI/CD
+apex                        # Launch TUI (default)
+apex --model gpt-4o        # Specific model
+apex --agent architect     # Read-only mode
+apex -p "prompt" -f json   # CI/CD mode
 ```
 
 ### TUI — Live Metrics
 
-| Métrique | Emplacement | Description |
-|----------|-------------|-------------|
-| `msgs: 12 · 2.3% ctx · $0.05` | Title bar | Compteur msg, ctx%, coût total |
-| `In: 1234 Out: 567 Total: 1801 · 2.3% ctx · $0.05` | Status bar | Tokens live + ctx% + $total |
-| `+42/+128 · $0.0023` | Chat message | Tokens prompt/completion + coût |
+| Metric | Location | Description |
+|--------|----------|-------------|
+| `msgs: 12 · 2.3% ctx · $0.05` | Title bar | Message count, ctx%, total cost |
+| `In: 1234 Out: 567 Total: 1801 · 2.3% ctx · $0.05` | Status bar | Live tokens + ctx% + $total |
+| `+42/+128 · $0.0023` | Chat message | Per-message tokens + cost |
 
-### Shortcuts TUI
+### TUI Shortcuts
 
-| Raccourci | Action |
-|-----------|--------|
+| Shortcut | Action |
+|----------|--------|
+| `Tab` | Cycle primary agents |
+| `Ctrl+P` | Command palette |
 | `Ctrl+K` | Model selector |
-| `Ctrl+L` | Clear messages + reset metrics |
-| `Ctrl+O` | Toggle sidebar |
-| `Ctrl+T` | Toggle tools panel |
+| `Ctrl+X` | Leader key (prefix) |
 | `?` | Help panel |
+| `@` | File references |
+| `!` | Bash commands |
+| `Ctrl+L` | Clear messages |
+| `Ctrl+O` | Toggle sidebar |
+| `Ctrl+Q` | Quit |
+| `Ctrl+T` | Cycle reasoning |
+| `Escape` | Close overlay |
 
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v1.3.0 — Inspired by OpenCode*
+*APEX v1.5.0 — Inspired by OpenCode, built for everyone*

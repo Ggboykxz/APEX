@@ -198,6 +198,67 @@ class TestCommandRegistry:
         assert result[0]["name"] == "test"
 
 
+class TestSkillsManagerEdgeCases:
+    """Hit uncovered lines in skills_system.py."""
+
+    def test_parse_skill_file_description_line(self, tmp_path):
+        """Hit line 128 — continue for ## Description."""
+        skills_dir = tmp_path / "skills2"
+        skills_dir.mkdir()
+        f = skills_dir / "desc_skill.md"
+        f.write_text("# Desc Skill\n\n## Description\nA test\n## Instructions\nDo it\n")
+        mgr = SkillsManager(skills_dir=skills_dir)
+        skill = mgr.get_skill("Desc Skill") or mgr.get_skill("desc_skill")
+        assert skill is not None
+
+    def test_parse_skill_file_trigger_example_headers(self, tmp_path):
+        """Hit lines 133-137 — handle Trigger and Example headers."""
+        skills_dir = tmp_path / "skills3"
+        skills_dir.mkdir()
+        f = skills_dir / "trig_skill.md"
+        f.write_text(
+            "# Trig Skill\n\n"
+            "## Description\nA test\n"
+            "## Trigger\nmy_trigger\n"
+            "## Example\nsome example\n"
+            "## Instructions\nDo stuff\n"
+        )
+        mgr = SkillsManager(skills_dir=skills_dir)
+        skill = mgr.get_skill("Trig Skill") or mgr.get_skill("trig_skill")
+        assert skill is not None
+
+    def test_parse_skill_file_exception(self, tmp_path, monkeypatch):
+        """Hit lines 153-154 — return None on exception."""
+        skills_dir = tmp_path / "skills_bad"
+        skills_dir.mkdir()
+        mgr = SkillsManager(skills_dir=skills_dir)
+        f = tmp_path / "bad.md"
+        f.write_text("test")
+        # Make it unreadable
+        f.chmod(0o000)
+        result = mgr._parse_skill_file(f)
+        assert result is None
+        f.chmod(0o644)
+
+    def test_find_skill_by_name_exact(self, tmp_path):
+        """Hit line 169 — return skill when name matches (not trigger)."""
+        skills_dir = tmp_path / "skills_name"
+        skills_dir.mkdir()
+        # Create a skill with no triggers
+        f = skills_dir / "unique_name.md"
+        f.write_text("# unique_name\nA custom skill\n## Instructions\nDo stuff\n")
+        mgr = SkillsManager(skills_dir=skills_dir)
+        # Look for it by name — "unique_name" is not in any trigger list
+        skill = mgr.find_skill("unique_name")
+        assert skill is not None
+        assert skill.name == "unique_name"
+
+    def test_find_skill_no_match_returns_none(self):
+        """Barely related: when nothing matches, returns None."""
+        mgr = SkillsManager()
+        assert mgr.find_skill("zzzz_nonexistent_zzzz") is None
+
+
 class TestGlobalInstances:
     def test_skills_manager(self):
         assert isinstance(skills_manager, SkillsManager)

@@ -1,185 +1,211 @@
 # Commands
 
-APEX provides multiple ways to interact: **CLI subcommands**, **slash commands**, **keyboard shortcuts**, and **@mentions**.
+APEX provides multiple ways to interact: **CLI subcommands**, **slash commands** (TUI), **keyboard shortcuts**, and **@mentions**.
 
-## CLI Subcommands (v1.3.0+)
+## CLI Subcommands
 
-APEX supports convenient subcommands as positional arguments:
+| Subcommand | Description |
+|---|---|
+| `apex` | Launch TUI (default) |
+| `apex tui` / `apex --tui` | Launch TUI |
+| `apex` | Launch TUI (default) |
+| `apex run <prompt>` | Non-interactive mode |
+| `apex serve` | Start headless HTTP API server |
+| `apex web` | Server + web interface |
+| `apex models [provider]` | List models (`--refresh`, `--verbose`) |
+| `apex auth login` | Interactive provider login |
+| `apex auth list` | List configured providers |
+| `apex auth logout [provider]` | Remove provider config |
+| `apex connect` | Interactive provider configuration |
+| `apex agent create` | Interactive agent creation wizard |
+| `apex agent list` | List all agents |
+| `apex session list` | List sessions (`-n`, `--format table\|json`) |
+| `apex session delete <id>` | Delete a session |
+| `apex stats` | Token usage & cost stats (`--days`, `--tools`, `--models`) |
+| `apex export <id>` | Export session as JSON (`--sanitize`) |
+| `apex import <file\|url>` | Import session |
+| `apex upgrade [target]` | Upgrade APEX |
+| `apex uninstall` | Remove APEX (`--keep-config`, `--keep-data`, `--dry-run`, `--force`) |
+| `apex mcp add` | Add MCP server (interactive) |
+| `apex mcp list` | List MCP servers |
+| `apex mcp auth <name>` | Authenticate MCP server |
+| `apex db path` | Show database path |
+| `apex pr <number>` | Fetch & checkout a PR, then run APEX |
+| `apex attach <url>` | Attach TUI to remote backend |
+| `apex init` | Initialize project (create AGENTS.md) |
+| `apex compact` | Compact current session |
+| `apex details` | Toggle tool execution details |
+| `apex thinking` | Toggle reasoning blocks display |
+| `apex install-tui` | Install TUI dependencies |
 
-| Subcommand | Equivalent Flag | Description |
-|---|---|---|
-| `apex tui` | `apex --tui` | Launch the Terminal User Interface |
-| `apex ui` | `apex --ui` | Same as `apex tui` |
-| `apex models` | `apex --list-models` | List all available LLM models |
-| `apex install-tui` | `apex --install-tui` | Install TUI dependencies (Bun + tui-frontend) |
+### Global Flags
 
-## Slash Commands
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--model` | `-m` | Model alias to use |
+| `--cwd` | `-C` | Working directory |
+| `--version` | `-v` | Print version |
+| `--agent` | | Agent to use |
+| `--continue` | | Resume last session |
+| `--session` | `-s` | Session ID to load |
+| `--fork` | | Fork session |
+| `--format` | `-f` | Output format (text/json) |
+| `--quiet` | `-q` | Quiet mode |
+| `--port` | | Server port |
+| `--hostname` | | Server hostname |
+| `--print-logs` | | Print logs |
+| `--log-level` | | Log level |
+| `--pure` | | No tools mode |
+| `--file` | | Read prompt from file |
 
-### Agent Commands
-
-| Command | Description |
-|---------|-------------|
-| `/agent [name]` | Switch to a different agent (coder/architect/planner/reviewer/shell) |
-| `/agents` | List all available agents |
-| `/subagents` | List all subagents |
-| `/coder` | Switch to Coder mode (full tool access) |
-| `/architect` | Switch to Architect mode (read-only) |
-
-### Model Commands
-
-| Command | Description |
-|---------|-------------|
-| `/model <alias>` | Switch to a different model |
-| `/models` | List all available models |
-| `/reasoning` | Cycle reasoning effort (off → high → max) |
-
-### Navigation Commands
-
-| Command | Description |
-|---------|-------------|
-| `/cwd <path>` | Change current working directory |
-| `/map` | Show repository map |
-| `/stats` | Show language statistics |
+## Slash Commands (TUI)
 
 ### Session Commands
 
 | Command | Description |
 |---------|-------------|
-| `/save [name]` | Save current session |
-| `/load <name]` | Load a previous session |
+| `/init` | Create/update AGENTS.md |
+| `/new` or `/clear` | New session |
+| `/save <name>` | Save session |
+| `/load <name>` | Load session |
 | `/sessions` | List saved sessions |
-| `/clear` | Clear conversation history |
+| `/compact` | Compact context |
+| `/share` | Share session (creates URL) |
+| `/unshare` | Unshare session |
+
+### Agent Commands
+
+| Command | Description |
+|---------|-------------|
+| `/agent` | Show/list agents |
+| `/coder` | Switch to Coder |
+| `/architect` | Switch to Architect |
+| `/agents` | List all agents |
+| `/subagents` | List subagents (@mention) |
+
+### Model Commands
+
+| Command | Description |
+|---------|-------------|
+| `/model <name>` | Switch model |
+| `/models` | List available models |
+
+### Navigation
+
+| Command | Description |
+|---------|-------------|
+| `/undo` | Undo last action |
+| `/redo` | Redo undone action |
 | `/history` | Show conversation history |
+| `/cwd [path]` | Show/change directory |
 
-### Git Commands
-
-| Command | Description |
-|---------|-------------|
-| `/git` | Show git status |
-| `/undo` | Undo last AI action (Git-powered) |
-| `/redo` | Redo previously undone action |
-| `/restore [snapshot]` | Restore a workspace snapshot |
-| `/revert [n]` | Revert n turns |
-
-### Analysis Commands
+### System Commands
 
 | Command | Description |
 |---------|-------------|
-| `/map` | Show repository map |
-| `/stats` | Show language statistics |
-
-### Memory Commands
-
-Store persistent facts across sessions:
-
-```bash
-# Add a fact
-/memory add "Project uses FastAPI" python,fastapi
-/memory add "Database is PostgreSQL" database,postgres
-
-# Search memory
-/memory search python
-/memory search database
-
-# View all facts
-/memory
-
-# Clear memory
-/memory clear
-```
+| `/connect` | Add a provider |
+| `/themes` | List/switch themes |
+| `/thinking` | Toggle reasoning blocks |
+| `/editor` | Open external editor |
+| `/export` | Export to markdown |
+| `/details` | Toggle tool output details |
+| `/help` | Show help |
+| `/exit` or `/quit` | Exit APEX |
 
 ### Utility Commands
 
 | Command | Description |
 |---------|-------------|
-| `/help` | Show help message |
-| `/exit` | Exit APEX |
-| `/skills` | List available skills |
-| `/github [cmd]` | GitHub integration (issues, prs) |
-| `/local [enable/disable]` | Toggle local execution |
+| `/cost` | Session cost breakdown |
+| `/memory` | Memory management |
+| `/map` | Repository map |
+| `/stats` | Language statistics |
+| `/git` | Git status |
+| `/skills` | Available skills |
+| `/tasks` | Task queue |
+| `/local` | Local execution settings |
+| `/restore` | List/restore snapshots |
+| `/revert` | Revert turns |
 
-## @Mentions
+## Keyboard Shortcuts (TUI)
 
-### File Mentions
+### Leader Key System (Ctrl+X)
 
-Reference files for context:
+Press `Ctrl+X`, then within `leader_timeout` (default 2s), press:
 
-```
-@README.md          # Read and include file content
-@src/main.py        # Include specific file
-@*.json             # Include all JSON files
-```
-
-### Agent Mentions
-
-Invoke subagents for specific tasks:
-
-```
-@reviewer "Review this code for bugs"
-@shell "Deploy to staging"
-```
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
+| Sequence | Action |
 |----------|--------|
-| `Tab` | Cycle through agents |
-| `Ctrl+K` | Model selector overlay |
-| `Ctrl+L` | Clear messages + reset metrics |
+| `Ctrl+X N` | New session |
+| `Ctrl+X U` | Undo |
+| `Ctrl+X R` | Redo |
+| `Ctrl+X C` | Compact context |
+| `Ctrl+X M` | List models |
+| `Ctrl+X T` | Theme selector |
+| `Ctrl+X S` | Status overview |
+| `Ctrl+X E` | Open editor |
+| `Ctrl+X X` | Export session |
+| `Ctrl+X B` | Toggle sidebar |
+| `Ctrl+X A` | Agent list |
+| `Ctrl+X L` | Sessions list |
+| `Ctrl+X Q` | Quit |
+
+### Direct Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Cycle primary agents |
+| `Shift+Tab` | Cycle agents (reverse) |
+| `Ctrl+P` | Command palette |
+| `Ctrl+K` | Model selector |
+| `Ctrl+L` | Clear messages |
 | `Ctrl+O` | Toggle sidebar |
-| `Ctrl+T` | Toggle tools panel |
-| `Ctrl+C` | Cancel current operation |
-| `?` | Help panel |
+| `Ctrl+T` | Cycle reasoning variants |
+| `Ctrl+Q` | Quit |
 | `Escape` | Close overlay |
+| `?` | Help panel |
+| `@` | File references (fuzzy search) |
+| `!` | Bash commands inline |
+| `PageUp` / `PageDown` | Scroll messages |
 
-## Examples
+## @mentions
 
-### Switching Models
+Subagents can be invoked via `@mention` in your messages:
 
-```bash
-apex> /model gpt-4o
-apex> /model claude-sonnet-4
-apex> /model deepseek-chat
 ```
-
-### Working with Sessions
-
-```bash
-apex> /save my-project
-apex> /load my-project
-```
-
-### Project Analysis
-
-```bash
-apex> /map
-apex> /stats
-apex> /git
-```
-
-### Using @Mentions
-
-```bash
-apex> @src/auth.py explain how authentication works
-apex> @reviewer "Review the payment module"
+@reviewer review the changes in auth.ts
+@general search for all API endpoints
+@explore find all TypeScript type definitions
+@scout check the React documentation
 ```
 
 ## Custom Commands
 
-Create custom commands in `.apex/commands/` or `~/.apex/commands/`:
+Define custom commands via markdown files:
 
 ```markdown
-# .apex/commands/test.md
-## Description: Run tests
-
-## Prompt
-Run the test suite for this project. Use appropriate test framework.
-Report the results including:
-- Total tests run
-- Passed/Failed counts
-- Any errors or warnings
+---
+description: Run tests with coverage
+agent: build
+---
+Run the full test suite with coverage report and show any failures.
+Focus on the failing tests and suggest fixes.
 ```
 
----
+Place in `~/.config/apex/commands/` (global) or `.apex/commands/` (project).
+Filename becomes command name: `test.md` → `/test`.
 
-*Use `/help` in APEX to see the most current command list.*
+### Template Variables
+
+- `$ARGUMENTS` — All arguments joined
+- `$1`, `$2`, `$3` — Positional arguments
+- `!command` — Inline shell execution (output injected)
+- `@file` — Include file content
+
+### Built-in Defaults (overridable)
+
+| Command | Description |
+|---------|-------------|
+| `/test` | Run tests with coverage |
+| `/review` | Review current changes |
+| `/commit` | Commit with AI message |
+| `/docs` | Generate documentation |

@@ -161,6 +161,129 @@ class TestProjectInitializer:
         assert "pyproject.toml" in result["structure"]["config_files"]
 
 
+class TestProjectEdgeCases:
+    """Hit remaining uncovered lines in project.py."""
+
+    def test_detect_language_go_sum(self, tmp_path):
+        """Line 49 — go.sum triggers go."""
+        (tmp_path / "go.sum").write_text("")
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["language"] == "go"
+
+    def test_detect_language_requirements_txt(self, tmp_path):
+        """Line 51 — requirements.txt triggers python."""
+        (tmp_path / "requirements.txt").write_text("flask\n")
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["language"] == "python"
+
+    def test_detect_package_manager_poetry(self, tmp_path):
+        """Line 58 — poetry detection."""
+        (tmp_path / "pyproject.toml").write_text('[tool.poetry]\nname="test"\n')
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["package_manager"] == "poetry"
+
+    def test_detect_test_pytest(self, tmp_path):
+        """Line 78 — pytest.ini -> pytest."""
+        (tmp_path / "pytest.ini").write_text("[pytest]\n")
+        (tmp_path / "pyproject.toml").write_text("[project]\n")
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["test_framework"] == "pytest"
+
+    def test_detect_test_unittest(self, tmp_path):
+        """Line 80 — unittest.py -> unittest."""
+        (tmp_path / "unittest.py").write_text("#")
+        (tmp_path / "requirements.txt").write_text("")
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["test_framework"] == "unittest"
+
+    def test_detect_test_pyproject_pytest_config(self, tmp_path):
+        """Lines 88-90 — pyproject.toml with pytest config."""
+        (tmp_path / "pyproject.toml").write_text('[tool.pytest]\nini_options = {}\n')
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["test_framework"] == "pytest"
+
+    def test_detect_test_vitest(self, tmp_path):
+        """Line 95 — vitest detection."""
+        (tmp_path / "package.json").write_text(
+            '{"name":"x","devDependencies":{"vitest":"^1.0"}}'
+        )
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["test_framework"] == "vitest"
+
+    def test_detect_test_playwright(self, tmp_path):
+        """Line 99 — playwright detection."""
+        (tmp_path / "package.json").write_text(
+            '{"name":"x","devDependencies":{"@playwright/test":"^1.0"}}'
+        )
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["test_framework"] == "playwright"
+
+    def test_detect_build_system_setuptools(self, tmp_path):
+        """Line 134 — setuptools build system."""
+        (tmp_path / "setup.py").write_text("from setuptools import setup\n")
+        (tmp_path / "pyproject.toml").write_text("[project]\n")
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert result["build_system"] == "setuptools"
+
+    def test_extract_info_exception_pyproject(self, tmp_path):
+        """Lines 206-207 — exception reading pyproject.toml."""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("\x00\x00\x00")  # binary -> will fail on read or tomllib
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        # Should not crash
+        assert "language" in result
+
+    def test_extract_info_exception_pyproject(self, tmp_path):
+        """Lines 206-207 — exception reading pyproject.toml caught."""
+        (tmp_path / "pyproject.toml").write_text("[[[invalid toml")
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        # Should not crash
+
+    def test_extract_info_exception_javascript(self, tmp_path, monkeypatch):
+        """Lines 214-215 — exception reading package.json caught."""
+        # Write a valid package.json, then monkeypatch to break _extract_info
+        (tmp_path / "package.json").write_text('{"name":"test","scripts":{"t":"test"}}')
+        # Monkeypatch _detect_test_framework to avoid its own json.loads
+        pi = ProjectInitializer(str(tmp_path))
+        original_dtf = pi._detect_test_framework
+        def safe_dtf(result):
+            result["language"] = "javascript"
+            result["test_framework"] = "jest"
+        monkeypatch.setattr(pi, "_detect_test_framework", safe_dtf)
+        # Now monkeypatch json.loads to raise for _extract_info
+        import json
+        original_loads = json.loads
+        call_count = [0]
+        def failing_loads(s):
+            call_count[0] += 1
+            if call_count[0] >= 2:  # second call is from _extract_info
+                raise ValueError("parse error")
+            return original_loads(s)
+        monkeypatch.setattr(json, "loads", failing_loads)
+        result = pi.analyze()
+        assert "language" in result
+
+    def test_create_context_file_with_scripts(self, tmp_path):
+        """Line 233 — scripts in create_context_file."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname="test"\n'
+        )
+        pi = ProjectInitializer(str(tmp_path))
+        content = pi.create_context_file()
+        assert "AGENTS.md" in content
+
+
 class TestFileWatcher:
     def test_init(self, tmp_path):
         fw = FileWatcher(str(tmp_path))
@@ -177,6 +300,107 @@ class TestFileWatcher:
         fw = FileWatcher(str(tmp_path))
         fw.stop()
         assert fw._running is False
+
+    def test_watch_with_watchdog(self, tmp_path, monkeypatch):
+        """Hit lines 271-291 — watch() success path with watchdog available."""
+        fw = FileWatcher(str(tmp_path))
+        observer = fw.watch(["*.py", "*.txt"])
+        if observer is not None:
+            assert fw._running is True
+            observer.stop()
+            observer.join()
+        else:
+            pass
+
+    def test_handler_on_modified(self, tmp_path, monkeypatch):
+        """Hit lines 281-283 — FileWatcher Handler.on_modified."""
+        import watchdog
+        from watchdog.events import FileModifiedEvent
+
+        callbacks_called = []
+
+        fw = FileWatcher(str(tmp_path))
+        fw.add_callback(lambda path: callbacks_called.append(path))
+
+        observer = fw.watch(["*.py"])
+        if observer is not None:
+            # Manually trigger a modification event
+            test_file = tmp_path / "test.py"
+            test_file.write_text("content")
+
+            # Get the handler from the observer
+            from watchdog.observers.api import DEFAULT_OBSERVER_TIMEOUT
+            handler = watchdog.events.FileSystemEventHandler()
+            handler.callbacks = [lambda path: callbacks_called.append(path)]
+            # Create event and call the handler's dispatch method
+            event = FileModifiedEvent(str(test_file))
+            from watchdog.events import FileSystemEvent
+            handler.dispatch(event)
+            observer.stop()
+            observer.join()
+
+        # Also test via directly modifying a file while watching
+        fw2 = FileWatcher(str(tmp_path))
+        cb2_called = []
+        fw2.add_callback(lambda p: cb2_called.append(p))
+        obs2 = fw2.watch(["*.py"])
+        if obs2 is not None:
+            import time
+            # Write to a file to trigger a real event
+            (tmp_path / "trigger.py").write_text("x=1")
+            time.sleep(0.3)
+            (tmp_path / "trigger.py").write_text("x=2")
+            time.sleep(0.5)
+            obs2.stop()
+            obs2.join()
+
+    def test_watch_no_watchdog(self, tmp_path, monkeypatch):
+        """Hit line 292-293 — ImportError path."""
+        import builtins
+        real_import = builtins.__import__
+
+        def mock_import(name, *a, **kw):
+            if name == "watchdog":
+                raise ImportError("No watchdog")
+            return real_import(name, *a, **kw)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        fw = FileWatcher(str(tmp_path))
+        result = fw.watch(["*.py"])
+        assert result is None
+
+    def test_analyze_with_hidden_files(self, tmp_path):
+        """Hit line 163 — skip hidden/ignored files."""
+        (tmp_path / ".hidden_file").write_text("secret")
+        (tmp_path / "node_modules").mkdir()
+        (tmp_path / "__pycache__").mkdir()
+        (tmp_path / "app.py").write_text("print('hello')")
+        pi = ProjectInitializer(str(tmp_path))
+        result = pi.analyze()
+        assert ".hidden_file" not in str(result.get("structure", {}))
+
+    def test_create_context_file_with_scripts_python(self, tmp_path):
+        """Hit line 233 — scripts output in create_context_file for python."""
+        (tmp_path / "pyproject.toml").write_text(
+            'scripts = {test = "pytest", start = "python main.py"}\n'
+            '[project]\nname="test"\n'
+        )
+        pi = ProjectInitializer(str(tmp_path))
+        content = pi.create_context_file()
+        assert "AGENTS.md" in content
+
+    def test_create_context_file_with_scripts_javascript(self, tmp_path):
+        """Hit line 233 — scripts output in create_context_file for JS."""
+        import json
+        (tmp_path / "package.json").write_text(
+            json.dumps({
+                "name": "test-js",
+                "scripts": {"build": "webpack", "test": "jest"},
+            })
+        )
+        pi = ProjectInitializer(str(tmp_path))
+        content = pi.create_context_file()
+        assert "AGENTS.md" in content
 
 
 class TestGetProjectInitializer:

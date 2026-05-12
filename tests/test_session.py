@@ -318,3 +318,59 @@ class TestSessionManagerSessionDataIntegrity:
         with open(target) as f:
             data = json.load(f)
         assert data["cwd"] == "/tmp/test_dir"
+
+
+class TestSessionEdgeCases:
+    """Hit uncovered lines in session.py."""
+
+    def test_save_path_safety_check(self, session_mgr, agent):
+        """Path check at line 80-84 — save works with normal name."""
+        agent.history = [{"role": "user", "content": "test"}]
+        filepath = session_mgr.save(agent, "safe_name")
+        assert filepath.exists()
+
+    def test_load_no_symlink_fallback(self, session_mgr, agent):
+        """Hit line 111 — fallback to glob when symlink doesn't exist."""
+        agent.history = [{"role": "user", "content": "test"}]
+        session_mgr.save(agent, "fallback_test")
+        # Remove symlink
+        symlink = session_mgr._sessions_dir / "latest_fallback_test.json"
+        if symlink.exists():
+            symlink.unlink()
+        # Load should still find the session via glob
+        result = session_mgr.load("fallback_test", agent)
+        assert result is True
+
+    def test_load_corrupt_json(self, session_mgr, agent):
+        """Hit lines 123-125 — exception during load returns False."""
+        session_mgr.save(agent, "corrupt_load")
+        symlink = session_mgr._sessions_dir / "latest_corrupt_load.json"
+        symlink.write_text("{invalid json}")
+        result = session_mgr.load("corrupt_load", agent)
+        assert result is False
+
+    def test_list_sessions_corrupt_entry(self, session_mgr, agent):
+        """Hit lines 143-144 — skip corrupt session files."""
+        # Create a corrupt JSON file
+        corrupt = session_mgr._sessions_dir / "corrupt_session.json"
+        corrupt.write_text("{not json}")
+        sessions = session_mgr.list_sessions()
+        assert all(s["name"] != "corrupt" for s in sessions)
+
+    def test_load_shared_exception_file_exists(self, session_mgr, agent):
+        """Hit lines 196-198 — exception processing shared session."""
+        share_dir = session_mgr._sessions_dir / "shared"
+        share_dir.mkdir(parents=True, exist_ok=True)
+        # Create a shared file with bad data that will decode OK but then fail
+        import json, base64
+        bad_data = base64.b64encode(b"not valid json").decode()
+        (share_dir / "bad_share.json").write_text(
+            json.dumps({"data": bad_data, "nonce": "x", "id": "bad_share"})
+        )
+        result = session_mgr.load_shared("bad_share", agent)
+        assert result is False
+
+    def test_load_shared_exception_not_found(self, session_mgr, agent):
+        """load_shared returns False when file doesn't exist."""
+        result = session_mgr.load_shared("nonexistent", agent)
+        assert result is False

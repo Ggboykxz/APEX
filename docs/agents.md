@@ -1,169 +1,165 @@
 # Agents
 
-APEX includes a powerful multi-agent system. Each agent is specialized for a different type of task, with distinct permission levels that control what tools they can use.
+APEX includes **11 specialized agents** organized by type. Each agent has distinct permission levels, a dedicated system prompt, and a unique color in the TUI.
 
-## Primary Agents
+## Agent Types
 
-Primary agents handle your main conversation. Switch between them using `Tab` key or `/agent` command.
+### Primary Agents
+Handle your main conversation. Switch between them using `Tab` key or `/agent` command.
 
-### Coder Agent (Default)
+| Agent | Color | Mode | Permissions |
+|-------|-------|------|-------------|
+| **Coder** | Cyan `#00e5ff` | primary | All tools allowed |
+| **Architect** | Purple `#a855f7` | primary | Read-only (edit denied) |
+| **Planner** | Yellow `#eab308` | primary | Read-only (edit denied) |
+| **Shell** | Orange `#f97316` | primary | Ask before edits |
 
-```
+### Subagents
+Invoke via `@mention` in your messages for specialized tasks.
+
+| Agent | Mode | Description |
+|-------|------|-------------|
+| **@reviewer** | subagent | Code review & audit specialist (read-only) |
+| **@general** | subagent | General-purpose multi-task assistant (full access) |
+| **@explore** | subagent | Fast read-only codebase exploration |
+| **@scout** | subagent | External docs & dependency research |
+
+### System Agents (Hidden)
+Run automatically — not user-selectable.
+
+| Agent | Role |
+|-------|------|
+| **@compaction** | Context window compression when approaching token limits |
+| **@title** | Session title generation |
+| **@summary** | Session summary generation |
+
+## Default Agent (Coder)
+
+```bash
 Agent: coder
 Mode: primary
-Permissions: All tools allowed (asks before destructive actions)
+Permissions: All tools allowed
+Temperature: 0.0
+Max steps: 50
 ```
 
-The default agent with full tool access for development work:
+Full-access agent for development:
 - Write, edit, delete files
 - Run commands and tests
 - Search and analyze code
 - Install packages, format code
+- Invoke subagents via Task tool
 
+## Agent Switching
+
+### TUI
 ```bash
-apex /agent coder
-# or press Tab
+Tab              # Cycle forward through primary agents
+Shift+Tab        # Cycle backward
+Ctrl+X A         # Agent list overlay
+@reviewer        # Invoke subagent by name
 ```
 
-### Architect Agent
-
-```
-Agent: architect
-Mode: primary
-Permissions: Read-only (denies edit, bash)
-```
-
-A restricted agent for planning and analysis:
-- Analyze code structure
-- Suggest improvements
-- Create implementation plans
-- Cannot modify files or run commands
-
+### CLI
 ```bash
-apex /agent architect
+apex --agent architect       # Start with architect
+apex --agent plan            # Start with planner
 ```
 
-### Reviewer Agent
-
-```
-Agent: reviewer
-Mode: primary
-Permissions: Read-only, never modifies files
-```
-
-A code review specialist:
-- Review code for bugs and security issues
-- Suggest improvements and best practices
-- Analyze code quality and patterns
-- Cannot modify any files
-
+### Slash Commands
 ```bash
-apex /agent reviewer
+/agent             # Show current agent + list all agents
+/agent coder       # Switch to coder
+/agent architect   # Switch to architect
+/agents            # Table of all agents
+/subagents         # List subagents (@mention)
+/coder             # Quick switch to coder
+/architect         # Quick switch to architect
 ```
 
-### Shell Agent
+## Custom Agents
 
-```
-Agent: shell
-Mode: primary
-Permissions: System operations (asks before system changes)
-```
+Define custom agents via markdown files in `~/.config/apex/agents/` or `.apex/agents/`:
 
-An agent specialized for infrastructure and deployment:
-- Manage Docker containers and images
-- Configure CI/CD pipelines
-- Handle cloud deployments
-- System administration tasks
-
-```bash
-apex /agent shell
-```
-
-### Planner Agent
-
-```
-Agent: planner
-Mode: primary
-Permissions: Read-only with output generation
+```markdown
+---
+description: Reviews code for quality and best practices
+mode: subagent
+model: anthropic/claude-sonnet-4-5
+temperature: 0.1
+permission:
+  edit: deny
+  bash:
+    "*": ask
+    "git diff *": allow
+    "grep *": allow
+  webfetch: deny
+---
+You are a code review agent. Focus on security, performance, and maintainability.
 ```
 
-An agent for data analysis and reporting:
-- Analyze data files and logs
-- Generate reports and summaries
-- Extract insights from codebases
-- Produce documentation
+Or via JSON config:
 
-```bash
-apex /agent planner
+```json
+{
+  "agent": {
+    "code-reviewer": {
+      "description": "Reviews code for best practices",
+      "mode": "subagent",
+      "permission": { "edit": "deny" }
+    }
+  }
+}
 ```
 
-## Switching Agents
+### Agent Config Options
 
-### Using Commands
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `description` | string | — | **Required.** What the agent does |
+| `mode` | string | `"primary"` | `"primary"`, `"subagent"`, or `"all"` |
+| `model` | string | global model | Override model for this agent |
+| `temperature` | float | 0.0 | Response randomness (0.0-1.0) |
+| `top_p` | float | — | Alternative to temperature |
+| `steps` | int | — | Max tool iterations before forced text |
+| `permission` | dict | — | Tool permissions (see below) |
+| `color` | string | — | Hex color or theme color name |
+| `hidden` | bool | false | Hide from UI |
+| `disabled` | bool | false | Disable the agent |
 
-```bash
-/agent coder      # Switch to coder
-/agent architect  # Switch to architect
-/agent reviewer   # Switch to reviewer
-/agent shell      # Switch to shell
-/agent planner    # Switch to planner
-/agents           # List all agents
+### Permissions
+
+Each permission key can be set to `"allow"`, `"ask"`, or `"deny"`:
+
+```json
+{
+  "permission": {
+    "read": "allow",
+    "edit": "deny",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "bash": "allow",
+    "task": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "lsp": "allow",
+    "skill": "allow"
+  }
+}
 ```
 
-### Using Tab Key
+Bash commands support glob patterns:
 
-Press `Tab` in the REPL to cycle through agents.
-
-## Agent Permissions
-
-Each agent has configurable permissions:
-
-| Permission | Tools Controlled |
-|-------------|------------------|
-| `read` | read_file, list_files, search_in_files, glob_search |
-| `edit` | write_file, edit_file, delete_file |
-| `bash` | run_command |
-| `websearch` | web_search, fetch_url |
-| `task` | task (subagent invocation) |
-
-Permission values:
-- `allow` — Always permit
-- `ask` — Prompt for confirmation
-- `deny` — Block completely
-
-## Example Workflows
-
-### Code Review with Architect Agent
-
-```bash
-apex /agent architect
-# Now ask questions about code without making changes
-What does this function do?
-How can we improve the error handling?
+```json
+{
+  "permission": {
+    "bash": {
+      "*": "ask",
+      "git status *": "allow",
+      "grep *": "allow",
+      "npm test *": "allow"
+    }
+  }
+}
 ```
-
-### Code Review with Reviewer Agent
-
-```bash
-apex /agent reviewer
-# Get a thorough code review
-Review the authentication module for security issues
-```
-
-### Infrastructure with Shell Agent
-
-```bash
-apex /agent shell
-# Set up deployment
-Create a Docker Compose file for this project
-```
-
-## Best Practices
-
-1. **Use Architect agent** for understanding code before making changes
-2. **Use Reviewer agent** for thorough code reviews
-3. **Use Coder agent** for active development and file modifications
-4. **Use Shell agent** for infrastructure and deployment tasks
-5. **Use Planner agent** for data analysis and documentation
-6. **Switch agents mid-session** as your needs change
-7. **Remember permissions** — Architect and Reviewer agents cannot modify files

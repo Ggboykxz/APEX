@@ -132,6 +132,24 @@ class TestStorageBackend:
         assert backend.get_counts("test")["minute"] == 0
 
 
+class TestStorageBackendAbstractLines:
+    """Hit lines 36, 40, 44 — the pass statements in abstract methods."""
+
+    def test_get_counts_pass(self):
+        class Sub(StorageBackend):
+            def get_counts(self, key):
+                super().get_counts(key)
+                return {}
+            def increment(self, key, window):
+                super().increment(key, window)
+            def cleanup_expired(self):
+                super().cleanup_expired()
+        s = Sub()
+        assert s.get_counts("x") == {}
+        s.increment("x", "m")
+        s.cleanup_expired()
+
+
 # ---------------------------------------------------------------------------
 # MemoryStorage
 # ---------------------------------------------------------------------------

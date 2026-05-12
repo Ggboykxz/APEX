@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import {
   Terminal, Github, Menu, X, Copy, Check, ArrowRight,
   Bot, Code2, Eye, Search, Layers, Zap, Shield, Cpu,
-  Wrench, BookOpen, Activity, GitBranch, Users, Hash
+  Wrench, BookOpen, Activity, GitBranch, Users, Hash, Sparkles, MessageSquare
 } from 'lucide-react'
 
 function NavBar() {
@@ -65,12 +65,36 @@ const AGENTS = [
     workflow: 'Invoke Reviewer as a subagent when you need code review: "Review the changes in src/api/", "Check auth.py for security issues", "Review PR #42 for best practices".',
   },
   {
-    name: 'Shell', mode: 'Primary', color: '#ff6b35', icon: Layers,
+    name: 'Shell', mode: 'Primary', color: '#f97316', icon: Layers,
     access: 'Full (infrastructure focused)', default: false,
     desc: 'Handles DevOps and infrastructure tasks — CI/CD, Docker, Kubernetes, cloud deployments, and environment configuration. Explains what each command does before running.',
     capabilities: ['Configure CI/CD pipelines', 'Manage Docker containers and images', 'Deploy to cloud platforms', 'Set up monitoring and logging', 'Configure environment variables', 'Handle infrastructure as code'],
     switch: '/agent shell',
     workflow: 'Use Shell for infrastructure tasks: "Set up a GitHub Actions pipeline", "Configure Docker for this project", "Deploy to AWS", "Add monitoring to the staging environment".',
+  },
+  {
+    name: 'General', mode: 'Subagent', color: '#3b82f6', icon: MessageSquare,
+    access: 'Full (multi-task)', default: false,
+    desc: 'General-purpose subagent for researching complex questions and executing multi-step tasks. Use this to run multiple units of work in parallel.',
+    capabilities: ['Full tool access for any task', 'Research and analysis', 'Execute multi-step workflows', 'Parallel task execution', 'File operations when needed', 'Web research and documentation'],
+    switch: '@general "research this topic"',
+    workflow: 'Invoke General as a subagent for complex research or multi-step tasks that should run in a separate context: "@general research the best React state management libraries", "@general analyze the performance of this API endpoint".',
+  },
+  {
+    name: 'Explore', mode: 'Subagent', color: '#14b8a6', icon: Search,
+    access: 'Read-only (exploration)', default: false,
+    desc: 'Fast, read-only agent for exploring codebases. Cannot modify files. Perfect for quickly finding files by patterns or searching code for keywords.',
+    capabilities: ['Quickly find files by patterns', 'Search code for keywords', 'Answer questions about the codebase', 'Read file contents', 'List directory structures'],
+    switch: '@explore "find all API routes"',
+    workflow: 'Use Explore when you need quick answers about the codebase: "@explore what files import the database module?", "@explore find all TypeScript interfaces in src/types/".',
+  },
+  {
+    name: 'Scout', mode: 'Subagent', color: '#ec4899', icon: Sparkles,
+    access: 'Read-only (research)', default: false,
+    desc: 'External documentation and dependency research agent. Clones repositories to managed cache, inspects library source, and cross-references local code against upstream implementations.',
+    capabilities: ['Research external documentation', 'Clone and inspect dependency repos', 'Cross-reference with upstream code', 'Web search and fetch', 'Compare local vs library implementations'],
+    switch: '@scout "check the React docs"',
+    workflow: 'Use Scout for external research: "@scout what is the latest React 19 API for server components?", "@scout check how lodash implements deepClone".',
   },
 ]
 
@@ -95,7 +119,7 @@ export default function AgentsPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Multi-Agent System</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4"><span className="animated-gradient-text">5 Specialized</span> Agents</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">5 built-in agents with granular permission controls. Coder, Architect, Planner, Reviewer, and Shell — each optimized for their domain.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">11 specialized agents: 4 primary (Tab to cycle), 4 subagents (@mention to invoke), and 3 system agents. Custom agents via markdown files.</p>
             </motion.div>
           </div>
         </section>
@@ -192,7 +216,7 @@ export default function AgentsPage() {
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">Tab Key</h3>
                 <CodeBlock language="text" code="Press Tab to cycle\nthrough primary agents" />
-                <p className="text-sm text-muted-foreground mt-2">Tab to cycle between Coder, Architect, Planner, Reviewer, and Shell.</p>
+                <p className="text-sm text-muted-foreground mt-2">Tab to cycle between primary agents. @mention subagents for specialized tasks.</p>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">@Mention</h3>
@@ -221,7 +245,7 @@ export default function AgentsPage() {
                 { title: 'Plan Before Coding', desc: 'Use the Planner agent first for complex features. It analyzes your codebase and creates a step-by-step plan before any code is written.' },
                 { title: 'Leverage Subagents', desc: 'Use @reviewer for code reviews and @planner for planning insights. This keeps your main conversation focused.' },
                 { title: 'Configure Permissions', desc: 'Customize the permission matrix for your security needs. Use "ask" mode for sensitive operations and "deny" for destructive ones.' },
-                { title: 'Switch Contextually', desc: 'Switch to Planner for analysis, Coder for implementation, and Shell for infrastructure. Each agent is optimized for its domain.' },
+                { title: 'Switch Contextually', desc: 'Switch to Planner for analysis, Coder for implementation, and Shell for infrastructure. Use @mention for subagents like @reviewer, @general, @explore, @scout.' },
               ].map(bp => (
                 <div key={bp.title} className="p-4 rounded-lg border border-border/50 bg-card/30">
                   <h4 className="font-bold font-mono text-apex-cyan mb-1">{bp.title}</h4>

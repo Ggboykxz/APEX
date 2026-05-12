@@ -1,6 +1,6 @@
 """APEX - The last coding agent you'll ever need."""
 
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 __author__ = "APEX Team"
 
 # Core config — always available (no heavy deps)
@@ -89,6 +89,21 @@ def __getattr__(name):
         "APIClientGenerator": (".codegen", "APIClientGenerator"),
         "DocumentationGenerator": (".codegen", "DocumentationGenerator"),
         "PerformanceProfiler": (".codegen", "PerformanceProfiler"),
+        "apex_config": (".config_v2", "apex_config"),
+        "tui_config": (".config_v2", "tui_config"),
+        "ApexConfig": (".config_v2", "ApexConfig"),
+        "TuiConfig": (".config_v2", "TuiConfig"),
+        "theme_manager": (".theme_manager", "theme_manager"),
+        "ThemeManager": (".theme_manager", "ThemeManager"),
+        "share_manager": (".share", "share_manager"),
+        "ShareManager": (".share", "ShareManager"),
+        "formatter_manager": (".formatter", "formatter_manager"),
+        "FormatterManager": (".formatter", "FormatterManager"),
+        "FileWatcher": (".watcher", "FileWatcher"),
+        "watcher": (".watcher", "watcher"),
+        "commands_manager": (".commands_manager", "commands_manager"),
+        "CustomCommandManager": (".commands_manager", "CustomCommandManager"),
+        "CommandConfig": (".commands_manager", "CommandConfig"),
     }
     if name in _lazy_modules:
         import importlib
@@ -183,4 +198,19 @@ __all__ = [
     "APIClientGenerator",
     "DocumentationGenerator",
     "PerformanceProfiler",
+    "apex_config",
+    "tui_config",
+    "ApexConfig",
+    "TuiConfig",
+    "theme_manager",
+    "ThemeManager",
+    "share_manager",
+    "ShareManager",
+    "formatter_manager",
+    "FormatterManager",
+    "watcher",
+    "FileWatcher",
+    "commands_manager",
+    "CustomCommandManager",
+    "CommandConfig",
 ]

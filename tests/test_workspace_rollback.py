@@ -176,3 +176,88 @@ class TestTurnTracker:
         t2 = TurnTracker(cwd=git_repo)
         assert len(t2.turns) == 1
         assert t2.turns[0]["data"]["query"] == "persist_test"
+
+
+class TestWorkspaceRollbackEdgeCases:
+    """Hit uncovered lines in workspace_rollback.py."""
+
+    @pytest.fixture
+    def git_repo(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            _git_init(repo)
+            _git_commit(repo, "initial")
+            yield repo
+
+    @pytest.fixture
+    def rollback(self, git_repo):
+        return WorkspaceRollback(cwd=git_repo)
+
+    def test_run_git_file_not_found(self, tmp_path, monkeypatch):
+        """Lines 26-27 — FileNotFoundError in _run_git."""
+        import subprocess
+        def broken_run(*a, **kw):
+            raise FileNotFoundError("git not found")
+        monkeypatch.setattr(subprocess, "run", broken_run)
+        rb = WorkspaceRollback(cwd=tmp_path)
+        code, out, err = rb._run_git("status")
+        assert code == -1
+        assert "git not found" in err
+
+    def test_create_snapshot_with_changed_files(self, git_repo):
+        """Lines 54-63 — saving changed files in snapshot."""
+        rb = WorkspaceRollback(cwd=git_repo)
+        # Create and commit an initial file, then modify it
+        import subprocess
+        (git_repo / "tracked.txt").write_text("original")
+        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "add tracked.txt"], cwd=git_repo, capture_output=True)
+        # Now modify the tracked file
+        (git_repo / "tracked.txt").write_text("modified")
+        name = rb.create_snapshot("with_changes")
+        snap_dir = rb.snapshots_dir / name
+        changed_file = snap_dir / "changed_files.txt"
+        assert changed_file.exists()
+
+    def test_restore_snapshot_with_files(self, git_repo):
+        """Lines 81-86 — restoring files from snapshot."""
+        rb = WorkspaceRollback(cwd=git_repo)
+        import subprocess
+        (git_repo / "tracked_restore.txt").write_text("original")
+        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "add file"], cwd=git_repo, capture_output=True)
+        # Modify the file (don't stage) so git diff picks it up
+        (git_repo / "tracked_restore.txt").write_text("modified")
+        snap_name = rb.create_snapshot("before_restore")
+        # Now restore
+        result = rb.restore_snapshot(snap_name)
+        assert result is True
+
+    def test_list_snapshots_no_dir(self, tmp_path):
+        """Line 95 — snapshots_dir doesn't exist."""
+        rb = WorkspaceRollback(cwd=tmp_path)
+        snapshots = rb.list_snapshots()
+        assert snapshots == []
+
+    def test_list_snapshots_skip_non_dirs(self, rollback, git_repo):
+        """Line 99 — skip non-directory entries."""
+        snap_dir = rollback.snapshots_dir
+        snap_dir.mkdir(parents=True, exist_ok=True)
+        (snap_dir / "not_a_dir.txt").write_text("skip me")
+        rollback.list_snapshots()
+
+    def test_list_snapshots_no_metadata(self, rollback, git_repo):
+        """Line 106 — snapshot without metadata."""
+        snap_dir = rollback.snapshots_dir
+        snap_name = "snapshot_test_no_meta"
+        (snap_dir / snap_name).mkdir(parents=True, exist_ok=True)
+        snapshots = rollback.list_snapshots()
+        matching = [s for s in snapshots if s["name"] == snap_name]
+        assert len(matching) == 1
+        assert matching[0]["created_at"] == "unknown"
+
+    def test_rollback_turn_with_target_zero(self, rollback):
+        """Line 137 — target_idx clamped to 0."""
+        rollback.create_snapshot("only_one")
+        result = rollback.rollback_turn(2)
+        assert result is True

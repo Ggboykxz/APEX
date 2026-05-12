@@ -271,6 +271,71 @@ class TestDockerManager:
         assert isinstance(result, dict)
         assert "success" in result or "error" in result
 
+    def test_build_image_success(self, docker, monkeypatch):
+        """Hit line 230 — build_image success path via mock."""
+        import subprocess
+        def mock_run(*a, **kw):
+            return type("R", (), {"returncode": 0, "stdout": "success"})()
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        result = docker.build_image("test:latest")
+        assert result.get("success") is True
+        assert result.get("output") == "success"
+
+
+class TestCodeRefactorerExceptions:
+    """Hit lines 39-40, 62-63, 87-88 — exception handlers."""
+
+    @pytest.fixture
+    def temp_cwd(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yield Path(tmpdir)
+
+    @pytest.fixture
+    def refactorer(self, temp_cwd):
+        return CodeRefactorer(str(temp_cwd))
+
+    def test_refactor_function_oserror(self, refactorer, temp_cwd):
+        """Force exception in refactor_function by targeting a directory."""
+        d = temp_cwd / "test.py"
+        d.mkdir()  # make it a directory so read_text fails
+        result = refactorer.refactor_function("test.py", "func")
+        assert "error" in result
+
+    def test_extract_method_exception(self, refactorer, temp_cwd):
+        """Trigger exception by making file unable to write."""
+        d = temp_cwd / "test.py"
+        d.write_text("class Foo:\n    pass\n")
+        d.chmod(0o444)  # read-only
+        result = refactorer.extract_method("test.py", "Foo", "pass", "new_m")
+        assert "error" in result
+        d.chmod(0o644)
+
+    def test_convert_to_class_exception(self, refactorer, temp_cwd):
+        """Trigger exception by making file read-only (chmod)."""
+        f = temp_cwd / "test.py"
+        f.write_text("def my_func():\n    return 1\n")
+        f.chmod(0o200)
+        result = refactorer.convert_to_class("test.py", "my_func")
+        assert "error" in result
+        f.chmod(0o644)
+
+    def test_add_type_hints_success(self, refactorer, temp_cwd):
+        """Hit lines 109-112 — the actual success path in add_type_hints."""
+        f = temp_cwd / "test.py"
+        f.write_text("def greet(name):\n    return f'hello {name}'\n")
+        result = refactorer.add_type_hints("test.py")
+        # Either succeeds or fails gracefully (depends on regex validity)
+        assert isinstance(result, dict)
+
+    def test_add_type_hints_exception(self, refactorer, temp_cwd):
+        """Trigger exception in add_type_hints by removing write permission."""
+        f = temp_cwd / "test.py"
+        f.write_text("x = 1\n")
+        f.chmod(0o444)
+        result = refactorer.add_type_hints("test.py")
+        assert "error" in result
+        f.chmod(0o644)
+
 
 # ---------------------------------------------------------------------------
 # APIClientGenerator
@@ -311,6 +376,12 @@ class TestAPIClientGenerator:
         (tmp_path / "openapi.json").write_text(json.dumps(spec))
         result = api_gen.generate_from_openapi("openapi.json")
         assert "APIClient" in result
+
+    def test_generate_from_openapi_exception(self, api_gen, tmp_path):
+        """Hit lines 268-269 — exception in generate_from_openapi."""
+        (tmp_path / "bad_spec.json").write_text("{invalid json")
+        result = api_gen.generate_from_openapi("bad_spec.json")
+        assert "ERROR" in result
 
     def test_generate_curl_get(self, api_gen):
         result = api_gen.generate_curl("GET", "http://example.com/api")

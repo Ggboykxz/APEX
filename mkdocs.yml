@@ -1,6 +1,6 @@
-site_name: APEX Documentation
+site_name: APEX v1.5.0 Documentation
 site_url: https://apex-ai.dev/docs
-site_description: Universal AI coding agent — every model, one terminal
+site_description: Universal AI coding agent — every model, one terminal. OpenCode-compatible UX.
 site_author: Ggboykxz
 repo_url: https://github.com/Ggboykxz/APEX
 repo_name: Ggboykxz/APEX
@@ -70,15 +70,23 @@ nav:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
       - Configuration: getting-started/configuration.md
+  - Agents:
+      - Overview: agents.md
+  - Commands:
+      - CLI & Shortcuts: commands.md
   - Guides:
       - Models: guides/models.md
       - Using Tools: guides/tools.md
       - TUI Interface: guides/tui.md
+      - Custom Commands: guides/custom-commands.md
+      - Custom Agents: guides/custom-agents.md
+      - Themes: guides/themes.md
       - Tips & Tricks: guides/tips.md
   - Reference:
       - CLI: reference/cli.md
       - Config File: reference/config.md
       - API: reference/api.md
+      - HTTP Endpoints: reference/http-api.md
   - Contributing: contributing.md
   - Changelog: changelog.md
 

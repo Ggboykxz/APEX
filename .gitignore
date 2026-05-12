@@ -83,21 +83,8 @@ prompt
 # Mini services
 /mini-services/
 
-# DB
-db/
-prisma/
-
-# Examples
-/examples/
-
-# Worklog
-worklog.md
-
-# Z scripts
-/.zscripts/
-
-# Caddy
-Caddyfile
 apex-repo/
-apex_agent.egg-info/
 site/
+
+# Build artifacts (should not be tracked)
+apex_agent.egg-info/

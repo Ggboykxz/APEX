@@ -1,4 +1,27 @@
-"""Multi-agent system for APEX - Primary and subagent support with permissions."""
+"""Multi-agent system for APEX — Primary and subagent support with full permissions and markdown agent loading."""
+
+from __future__ import annotations
+
+import fnmatch
+import logging
+from pathlib import Path
+from typing import Any
+
+from .config_v2 import apex_config
+
+logger = logging.getLogger(__name__)
+
+# ────────────────────────────────────────────────────────────
+# Permission constants
+# ────────────────────────────────────────────────────────────
+
+PERMISSION_ALLOW = "allow"
+PERMISSION_ASK = "ask"
+PERMISSION_DENY = "deny"
+
+# ────────────────────────────────────────────────────────────
+# Agent prompts
+# ────────────────────────────────────────────────────────────
 
 AGENT_CODER_PROMPT = """You are APEX Coder Agent — the senior developer agent with full tool access.
 
@@ -18,7 +41,6 @@ Your capabilities:
 
 When uncertain, ask the user for clarification using ask_user tool.
 Output code that works. Your goal is to complete the task, not just describe it."""
-
 
 AGENT_ARCHITECT_PROMPT = """You are APEX Architect Agent — the analysis and design agent (read-only).
 
@@ -44,7 +66,6 @@ You cannot use:
 
 Be thorough in your analysis. Explain WHY you suggest something, not just WHAT."""
 
-
 AGENT_PLANNER_PROMPT = """You are APEX Planner Agent — the analysis and planning agent (read-only).
 
 Your role is to help users understand their codebase and create detailed implementation plans before any code is written.
@@ -69,7 +90,6 @@ You cannot use:
 
 Be thorough in your analysis. Explain WHY you suggest something, not just WHAT."""
 
-
 AGENT_REVIEWER_PROMPT = """You are APEX Reviewer Agent — a code review specialist with read-only access.
 
 Your role is to review code and provide detailed feedback:
@@ -90,7 +110,6 @@ You CANNOT modify any files or run commands.
 
 Be thorough and specific in your reviews. Reference specific line numbers and code sections.
 Provide actionable suggestions with code examples for each issue found."""
-
 
 AGENT_SHELL_PROMPT = """You are APEX Shell Agent — infrastructure and deployment specialist.
 
@@ -118,10 +137,96 @@ You have full tool access with confirmation for destructive operations:
 
 When uncertain about system changes, always ask the user first."""
 
+AGENT_GENERAL_PROMPT = """You are APEX General Agent — a versatile research and multi-step task agent with full tool access.
 
-PERMISSION_ALLOW = "allow"
-PERMISSION_ASK = "ask"
-PERMISSION_DENY = "deny"
+Your role is to handle general-purpose tasks:
+- Research topics using web_search and fetch_url
+- Perform multi-step analysis and synthesis
+- Read and summarize documentation, articles, or code
+- Answer questions that require tool use to resolve
+- Execute complex workflows spanning multiple tools
+
+You have FULL tool access including:
+- read_file, write_file, edit_file, delete_file
+- run_command, web_search, fetch_url
+- search_in_files, glob_search, get_file_tree
+- get_git_status, get_git_log, git_diff
+- task (subagent invocation)
+
+Be thorough and self-contained. If you need more information, use your tools to find it.
+Always verify your conclusions before presenting them to the user."""
+
+AGENT_EXPLORE_PROMPT = """You are APEX Explore Agent — a fast, read-only codebase exploration specialist.
+
+Your role is to quickly navigate and understand codebases:
+- Map project structure and architecture
+- Find relevant files and code patterns
+- Understand data flow and dependencies
+- Identify entry points, APIs, and key modules
+
+You have READ-ONLY access to:
+- read_file, list_files, search_in_files, glob_search, get_file_tree
+- get_git_status, get_git_log, git_diff, get_repo_map, get_language_stats
+
+You CANNOT modify files or run commands.
+
+Be fast and efficient. Prioritize breadth-first exploration followed by deep dives on relevant areas.
+Summarize findings concisely with file paths and brief descriptions."""
+
+AGENT_SCOUT_PROMPT = """You are APEX Scout Agent — an external documentation and dependency research specialist.
+
+Your role is to research external resources:
+- Fetch and analyze documentation from URLs
+- Research package dependencies and their APIs
+- Look up language/framework best practices
+- Clone repositories to managed cache for analysis
+- Compare library versions, features, and compatibility
+
+You have access to:
+- web_search, fetch_url for external research
+- read_file, search_in_files, glob_search (local codebase)
+- run_command (limited to git clone in managed cache, pip info, npm view, etc.)
+- get_git_status, get_git_log, git_diff (local)
+
+You CANNOT modify project files directly.
+You CAN clone repos to ~/.cache/apex/scout/ for analysis.
+Always cite your sources with URLs when presenting findings."""
+
+AGENT_COMPACTION_PROMPT = """You are the APEX Compaction Agent — a hidden system agent for context window compaction.
+
+Your role:
+- Summarize conversation history to free up context window space
+- Preserve critical decisions, file paths, and technical details
+- Maintain task continuity by condensing rather than truncating
+- Identify and retain all actionable items and unresolved questions
+
+You work automatically when the context window approaches its limit.
+Your output replaces older conversation turns while preserving essential information."""
+
+AGENT_TITLE_PROMPT = """You are the APEX Title Agent — a hidden system agent for session title generation.
+
+Your role:
+- Generate concise, descriptive titles for chat sessions
+- Titles should be 3-8 words capturing the session's primary goal
+- Use technical terminology appropriate to the task
+- Never use generic titles like "Chat Session" or "Conversation"
+
+Output only the title text, no explanation."""
+
+AGENT_SUMMARY_PROMPT = """You are the APEX Summary Agent — a hidden system agent for session summaries.
+
+Your role:
+- Generate comprehensive session summaries for history and sharing
+- Capture: goals, key decisions, files modified, commands run, outcomes
+- Structure summaries for easy scanning by both humans and LLMs
+- Include technical details like file paths, branch names, and error messages
+- Omit conversational filler and non-essential exchanges
+
+Output a well-structured summary suitable for saving to the session log."""
+
+# ────────────────────────────────────────────────────────────
+# AgentConfig
+# ────────────────────────────────────────────────────────────
 
 
 class AgentConfig:
@@ -133,7 +238,10 @@ class AgentConfig:
         mode: str = "primary",
         model: str | None = None,
         temperature: float = 0.0,
+        top_p: float | None = None,
         max_steps: int | None = None,
+        hidden: bool = False,
+        disabled: bool = False,
         permission: dict[str, str] | None = None,
         color: str = "cyan",
     ):
@@ -143,10 +251,51 @@ class AgentConfig:
         self.mode = mode
         self.model = model
         self.temperature = temperature
+        self.top_p = top_p
         self.max_steps = max_steps
+        self.hidden = hidden
+        self.disabled = disabled
         self.permission = permission or {}
         self.color = color
 
+    @property
+    def is_hidden(self) -> bool:
+        return self.hidden
+
+    @property
+    def is_primary(self) -> bool:
+        return self.mode in ("primary", "all")
+
+    @property
+    def is_subagent(self) -> bool:
+        return self.mode in ("subagent", "all")
+
+    def check_bash_permission(self, command: str) -> str:
+        """Check if a specific bash command is allowed, supporting glob patterns in permission keys."""
+        best_match = PERMISSION_DENY
+        for key, value in self.permission.items():
+            if not key.startswith("bash:") and key != "bash":
+                continue
+            pattern = key
+            if pattern == "bash":
+                if fnmatch.fnmatch(command, "*"):
+                    best_match = value
+                continue
+            cmd_pattern = key.split(":", 1)[1] if ":" in key else "*"
+            if fnmatch.fnmatch(command, cmd_pattern):
+                best_match = value
+        wildcard = self.permission.get("*")
+        if wildcard and best_match == PERMISSION_DENY:
+            return wildcard
+        return best_match
+
+    def __repr__(self) -> str:
+        return f"AgentConfig(name={self.name!r}, mode={self.mode!r}, hidden={self.hidden})"
+
+
+# ────────────────────────────────────────────────────────────
+# Built-in agents
+# ────────────────────────────────────────────────────────────
 
 BUILTIN_AGENTS: dict[str, AgentConfig] = {
     "coder": AgentConfig(
@@ -239,7 +388,107 @@ BUILTIN_AGENTS: dict[str, AgentConfig] = {
         },
         color="#ff6b35",
     ),
+    "general": AgentConfig(
+        name="general",
+        description="General-purpose research and multi-step task agent with full tool access",
+        system_prompt=AGENT_GENERAL_PROMPT,
+        mode="subagent",
+        permission={
+            "read": PERMISSION_ALLOW,
+            "edit": PERMISSION_ALLOW,
+            "glob": PERMISSION_ALLOW,
+            "grep": PERMISSION_ALLOW,
+            "list": PERMISSION_ALLOW,
+            "bash": PERMISSION_ALLOW,
+            "task": PERMISSION_ALLOW,
+            "webfetch": PERMISSION_ALLOW,
+            "websearch": PERMISSION_ALLOW,
+        },
+        color="#89b4fa",
+    ),
+    "explore": AgentConfig(
+        name="explore",
+        description="Fast read-only codebase exploration agent",
+        system_prompt=AGENT_EXPLORE_PROMPT,
+        mode="subagent",
+        permission={
+            "read": PERMISSION_ALLOW,
+            "edit": PERMISSION_DENY,
+            "glob": PERMISSION_ALLOW,
+            "grep": PERMISSION_ALLOW,
+            "list": PERMISSION_ALLOW,
+            "bash": PERMISSION_DENY,
+            "task": PERMISSION_DENY,
+            "webfetch": PERMISSION_DENY,
+            "websearch": PERMISSION_DENY,
+        },
+        color="#f9e2af",
+    ),
+    "scout": AgentConfig(
+        name="scout",
+        description="External documentation and dependency research agent",
+        system_prompt=AGENT_SCOUT_PROMPT,
+        mode="subagent",
+        permission={
+            "read": PERMISSION_ALLOW,
+            "edit": PERMISSION_DENY,
+            "glob": PERMISSION_ALLOW,
+            "grep": PERMISSION_ALLOW,
+            "list": PERMISSION_ALLOW,
+            "bash": PERMISSION_ASK,
+            "bash:git clone *": PERMISSION_ALLOW,
+            "bash:pip *": PERMISSION_ALLOW,
+            "bash:npm *": PERMISSION_ALLOW,
+            "task": PERMISSION_DENY,
+            "webfetch": PERMISSION_ALLOW,
+            "websearch": PERMISSION_ALLOW,
+        },
+        color="#a6e3a1",
+    ),
+    "compaction": AgentConfig(
+        name="compaction",
+        description="Hidden system agent for context window compaction",
+        system_prompt=AGENT_COMPACTION_PROMPT,
+        mode="subagent",
+        hidden=True,
+        permission={
+            "read": PERMISSION_ALLOW,
+            "edit": PERMISSION_DENY,
+            "bash": PERMISSION_DENY,
+        },
+        color="#6c7086",
+    ),
+    "title": AgentConfig(
+        name="title",
+        description="Hidden system agent for session title generation",
+        system_prompt=AGENT_TITLE_PROMPT,
+        mode="subagent",
+        hidden=True,
+        permission={
+            "read": PERMISSION_DENY,
+            "edit": PERMISSION_DENY,
+            "bash": PERMISSION_DENY,
+        },
+        color="#6c7086",
+    ),
+    "summary": AgentConfig(
+        name="summary",
+        description="Hidden system agent for session summaries",
+        system_prompt=AGENT_SUMMARY_PROMPT,
+        mode="subagent",
+        hidden=True,
+        permission={
+            "read": PERMISSION_ALLOW,
+            "edit": PERMISSION_DENY,
+            "bash": PERMISSION_DENY,
+        },
+        color="#6c7086",
+    ),
 }
+
+# ────────────────────────────────────────────────────────────
+# AgentManager
+# ────────────────────────────────────────────────────────────
 
 
 class AgentManager:
@@ -247,22 +496,207 @@ class AgentManager:
         self.agents = BUILTIN_AGENTS.copy()
         self._custom_agents: dict[str, AgentConfig] = {}
 
+    # ── Registration ────────────────────────────────────────
+
     def register(self, config: AgentConfig) -> None:
         self.agents[config.name] = config
 
     def get(self, name: str) -> AgentConfig | None:
         return self.agents.get(name)
 
+    def get_by_mention(self, name: str) -> AgentConfig | None:
+        """Find agent by @mention name. Strips leading @ if present."""
+        clean = name.lstrip("@")
+        return self.agents.get(clean)
+
+    # ── Listing ─────────────────────────────────────────────
+
     def list_agents(self, mode: str | None = None) -> list[AgentConfig]:
         if mode:
             return [a for a in self.agents.values() if a.mode == mode or a.mode == "all"]
         return list(self.agents.values())
+
+    def list_primary(self) -> list[AgentConfig]:
+        return [a for a in self.agents.values() if a.mode in ("primary", "all")]
+
+    def list_visible(self) -> list[AgentConfig]:
+        return [a for a in self.agents.values() if not a.hidden]
+
+    def list_subagents(self) -> list[AgentConfig]:
+        return [a for a in self.agents.values() if a.mode in ("subagent", "all")]
+
+    # ── Loading custom agents ───────────────────────────────
+
+    def load_markdown_agents(self) -> None:
+        """Load agents from ~/.config/apex/agents/*.md and .apex/agents/*.md.
+
+        Markdown format with YAML frontmatter:
+        ---
+        description: Reviews code for quality
+        mode: subagent
+        model: anthropic/claude-sonnet-4-5
+        temperature: 0.1
+        permission:
+          edit: deny
+          bash: deny
+        ---
+        You are in code review mode...
+        """
+        search_dirs = [
+            Path.home() / ".config" / "apex" / "agents",
+            Path.cwd() / ".apex" / "agents",
+        ]
+        for agents_dir in search_dirs:
+            if not agents_dir.is_dir():
+                continue
+            for md_file in sorted(agents_dir.glob("*.md")):
+                try:
+                    config = self._parse_markdown_agent(md_file)
+                    if config:
+                        self.register(config)
+                        logger.info("Loaded markdown agent: %s from %s", config.name, md_file)
+                except Exception as exc:
+                    logger.warning("Failed to load agent from %s: %s", md_file, exc)
+
+    def _parse_markdown_agent(self, path: Path) -> AgentConfig | None:
+        text = path.read_text(encoding="utf-8")
+        if not text.startswith("---"):
+            return None
+
+        parts = text.split("---", 2)
+        if len(parts) < 3:
+            return None
+
+        import yaml
+
+        raw_frontmatter = parts[1].strip()
+        body = parts[2].strip()
+
+        frontmatter: dict[str, Any] = yaml.safe_load(raw_frontmatter) or {}
+        name = path.stem
+
+        description = frontmatter.get("description", f"Custom agent: {name}")
+        mode = str(frontmatter.get("mode", "subagent"))
+        model = frontmatter.get("model")
+        temperature = float(frontmatter.get("temperature", 0.0))
+        top_p = frontmatter.get("top_p")
+        if top_p is not None:
+            top_p = float(top_p)
+        max_steps = frontmatter.get("max_steps")
+        if max_steps is not None:
+            max_steps = int(max_steps)
+        hidden = bool(frontmatter.get("hidden", False))
+        disabled = bool(frontmatter.get("disabled", False))
+        color = str(frontmatter.get("color", "cyan"))
+        raw_permission = frontmatter.get("permission", {})
+
+        permission: dict[str, str] = {}
+        for key, val in raw_permission.items():
+            permission[key] = str(val)
+
+        return AgentConfig(
+            name=name,
+            description=description,
+            system_prompt=body,
+            mode=mode,
+            model=model,
+            temperature=temperature,
+            top_p=top_p,
+            max_steps=max_steps,
+            hidden=hidden,
+            disabled=disabled,
+            permission=permission,
+            color=color,
+        )
+
+    def load_json_agents(self) -> None:
+        """Load agents from config's ``agent`` section (apex.json(c) agent key).
+
+        Each key under ``agent`` is an agent name, value is a dict of AgentConfig fields.
+        """
+        config_agents = apex_config.agent
+        for name, cfg in config_agents.items():
+            if not isinstance(cfg, dict):
+                continue
+            name = str(cfg.get("name", name))
+            description = str(cfg.get("description", f"Custom agent: {name}"))
+            system_prompt = str(cfg.get("system_prompt", cfg.get("prompt", "")))
+            mode = str(cfg.get("mode", "subagent"))
+            model = cfg.get("model")
+            temperature = float(cfg.get("temperature", 0.0))
+            top_p = cfg.get("top_p")
+            if top_p is not None:
+                top_p = float(top_p)
+            max_steps = cfg.get("max_steps")
+            if max_steps is not None:
+                max_steps = int(max_steps)
+            hidden = bool(cfg.get("hidden", False))
+            disabled = bool(cfg.get("disabled", False))
+            color = str(cfg.get("color", "cyan"))
+            raw_permission = cfg.get("permission", {})
+
+            permission: dict[str, str] = {}
+            for key, val in raw_permission.items():
+                permission[key] = str(val)
+
+            config = AgentConfig(
+                name=name,
+                description=description,
+                system_prompt=system_prompt,
+                mode=mode,
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                max_steps=max_steps,
+                hidden=hidden,
+                disabled=disabled,
+                permission=permission,
+                color=color,
+            )
+            self.register(config)
+            logger.info("Loaded JSON config agent: %s", name)
+
+    def load_all_custom(self) -> None:
+        """Convenience: load from both markdown and JSON sources."""
+        self.load_markdown_agents()
+        self.load_json_agents()
+
+    # ── Permission checks ───────────────────────────────────
 
     def check_permission(self, agent_name: str, tool_category: str) -> str:
         agent = self.get(agent_name)
         if not agent:
             return PERMISSION_DENY
         return agent.permission.get(tool_category, PERMISSION_DENY)
+
+    def check_bash_permission(self, agent_name: str, command: str) -> str:
+        """Check if a specific bash command is allowed for the given agent.
+
+        Uses glob pattern matching on permission keys prefixed with ``bash:``
+        (e.g. ``bash:git clone *``) and falls back to the ``bash`` key.
+        Supports ``"*"`` wildcard fallback.
+        """
+        agent = self.get(agent_name)
+        if not agent:
+            return PERMISSION_DENY
+
+        permission = agent.permission
+
+        # Try specific bash:<pattern> keys
+        best_match = PERMISSION_DENY
+        for key, value in permission.items():
+            if key.startswith("bash:") or key == "bash":
+                pattern = key.split(":", 1)[1] if ":" in key else "*"
+                if fnmatch.fnmatch(command, pattern):
+                    best_match = value
+                elif pattern == "*":
+                    best_match = value
+
+        # Fallback to wildcard "*"
+        wildcard = permission.get("*")
+        if wildcard and best_match == PERMISSION_DENY:
+            return wildcard
+        return best_match
 
     def can_execute_tool(self, agent_name: str, tool_name: str) -> tuple[bool, str]:
         tool_category = self._get_tool_category(tool_name)

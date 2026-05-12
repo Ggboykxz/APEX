@@ -346,3 +346,33 @@ class TestGlobalInstances:
     def test_zen_integration_global(self):
         assert zen_integration is not None
         assert isinstance(zen_integration, ZenIntegration)
+
+
+class TestLocalExecutionManagerCoverage:
+    """Hit lines 209 and 218 — check_provider_available success and get_available_providers."""
+
+    def test_check_provider_available_success(self, monkeypatch):
+        """Mock urlopen to return status 200 to hit line 209."""
+        import urllib.request
+        class FakeResponse:
+            status = 200
+            def read(self): return b""
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+
+        def mock_urlopen(req, timeout=2):
+            return FakeResponse()
+
+        monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
+        manager = LocalExecutionManager()
+        assert manager.check_provider_available("ollama") is True
+
+    def test_get_available_providers(self, monkeypatch):
+        """Mock check_provider_available to return True, hitting line 218."""
+        manager = LocalExecutionManager()
+        monkeypatch.setattr(manager, "check_provider_available", lambda p: True)
+        available = manager.get_available_providers()
+        assert isinstance(available, dict)
+        assert len(available) > 0
+        for name in manager.LOCAL_PROVIDERS:
+            assert name in available

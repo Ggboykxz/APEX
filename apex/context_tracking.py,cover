@@ -1,0 +1,171 @@
+> """Context tracking and compaction for 1M token context support."""
+  
+! from typing import Any
+! from datetime import datetime
+  
+  
+! class ContextManager:
+!     """Manage large context with compaction and prefix caching."""
+  
+!     def __init__(self, max_tokens: int = 1000000, compaction_threshold: float = 0.9):
+!         self.max_tokens = max_tokens
+!         self.compaction_threshold = compaction_threshold
+!         self._messages: list[dict[str, Any]] = []
+!         self._token_count = 0
+!         self._cache_hits = 0
+!         self._cache_misses = 0
+!         self._compaction_history: list[dict] = []
+  
+!     def estimate_tokens(self, text: str) -> int:
+!         """Estimate token count (rough approximation)."""
+!         return len(text) // 4
+  
+!     def add_message(self, role: str, content: str) -> int:
+!         """Add a message and return token count."""
+!         tokens = self.estimate_tokens(content)
+!         self._messages.append({"role": role, "content": content})
+!         self._token_count += tokens
+!         return tokens
+  
+!     def get_messages(self) -> list[dict[str, Any]]:
+!         """Get all messages."""
+!         return self._messages.copy()
+  
+!     @property
+!     def token_count(self) -> int:
+!         """Current token count."""
+!         return self._token_count
+  
+!     @property
+!     def utilization(self) -> float:
+!         """Context utilization as percentage."""
+!         return self._token_count / self.max_tokens
+  
+!     def should_compact(self) -> bool:
+!         """Check if compaction is needed."""
+!         return self.utilization >= self.compaction_threshold
+  
+!     def compact(self, strategy: str = "summarize") -> int:
+!         """Compact messages to reduce token count."""
+!         if not self._messages:
+!             return 0
+  
+!         original_count = self._token_count
+  
+!         if strategy == "summarize":
+!             self._compact_summarize()
+!         elif strategy == "prune":
+!             self._compact_prune()
+!         elif strategy == "merge":
+!             self._compact_merge()
+  
+!         self._compaction_history.append(
+!             {
+!                 "timestamp": datetime.now().isoformat(),
+!                 "strategy": strategy,
+!                 "before_tokens": original_count,
+!                 "after_tokens": self._token_count,
+!                 "messages_removed": len(self._messages),
+!             }
+!         )
+  
+!         return original_count - self._token_count
+  
+!     def _compact_summarize(self):
+!         """Summarize old messages into a single context message."""
+!         if len(self._messages) < 4:
+!             return
+  
+!         system_messages = [m for m in self._messages if m["role"] == "system"]
+!         recent = self._messages[-6:]
+!         old = self._messages[:-6]
+  
+!         summary = self._create_summary(old)
+  
+!         self._messages = (
+!             system_messages
+!             + [{"role": "system", "content": f"[Previous conversation summary: {summary}]"}]
+!             + recent
+!         )
+  
+!         self._recalc_tokens()
+  
+!     def _compact_prune(self):
+!         """Prune oldest messages."""
+!         keep_count = len(self._messages) // 2
+!         system_messages = [m for m in self._messages if m["role"] == "system"]
+!         others = [m for m in self._messages if m["role"] != "system"]
+  
+!         self._messages = system_messages + others[-keep_count:]
+!         self._recalc_tokens()
+  
+!     def _compact_merge(self):
+!         """Merge consecutive similar messages."""
+!         if len(self._messages) < 3:
+!             return
+  
+!         merged = []
+!         current = None
+  
+!         for msg in self._messages:
+!             if msg["role"] == current["role"] if current else False:
+!                 current["content"] += f"\n{msg['content']}"
+!             else:
+!                 if current:
+!                     merged.append(current)
+!                 current = msg.copy()
+  
+!         if current:
+!             merged.append(current)
+  
+!         self._messages = merged
+!         self._recalc_tokens()
+  
+!     def _create_summary(self, messages: list[dict]) -> str:
+!         """Create a summary of messages."""
+!         if not messages:
+!             return "No previous messages"
+  
+!         summary_parts = []
+!         for msg in messages:
+!             role = msg.get("role", "unknown")
+!             content = msg.get("content", "")[:100]
+!             if content:
+!                 summary_parts.append(f"{role}: {content}...")
+  
+!         return "; ".join(summary_parts[:5])
+  
+!     def _recalc_tokens(self):
+!         """Recalculate total token count."""
+!         self._token_count = sum(self.estimate_tokens(m.get("content", "")) for m in self._messages)
+  
+!     def record_cache_hit(self):
+!         """Record a cache hit."""
+!         self._cache_hits += 1
+  
+!     def record_cache_miss(self):
+!         """Record a cache miss."""
+!         self._cache_misses += 1
+  
+!     @property
+!     def cache_stats(self) -> dict:
+!         """Get cache statistics."""
+!         total = self._cache_hits + self._cache_misses
+!         hit_rate = self._cache_hits / total if total > 0 else 0
+  
+!         return {
+!             "cache_hits": self._cache_hits,
+!             "cache_misses": self._cache_misses,
+!             "hit_rate": hit_rate,
+!             "total_requests": total,
+!         }
+  
+!     @property
+!     def compaction_stats(self) -> list[dict]:
+!         """Get compaction history."""
+!         return self._compaction_history.copy()
+  
+!     def reset(self):
+!         """Reset context."""
+!         self._messages.clear()
+!         self._token_count = 0

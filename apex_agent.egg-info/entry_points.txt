@@ -1,2 +1,0 @@
-[console_scripts]
-apex = apex.main:main

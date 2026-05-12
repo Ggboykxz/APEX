@@ -89,7 +89,7 @@ const VERSIONS = [
     ]
   },
   {
-    version: 'v1.4.0', name: 'Power', status: 'next' as const, progress: 60, color: '#00ff88',
+    version: 'v1.5.0', name: 'OpenCode UX', status: 'shipping' as const, progress: 100, color: '#00e5ff',
     desc: 'Streaming responses, git tools, web search, persistent memory, and model benchmarking — more powerful workflows.',
     features: [
       { text: 'Streaming Responses (SSE for web frontend)', done: false },

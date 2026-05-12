@@ -31,22 +31,22 @@ const INSTALL_COMMANDS: Record<string, { label: string; cmd: string }> = {
 
 const FEATURES = [
   { icon: Cpu, title: '170+ Models', description: 'Use any LLM from any provider. GPT-5, Claude Sonnet 4.6, Gemini 3, Grok 4, DeepSeek V4, Qwen 3.6, and 150+ more models via litellm.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
-  { icon: Bot, title: '5 Specialized Agents', description: 'Coder, Architect, Planner, Reviewer, and Shell agents with per-tool permission systems.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
+  { icon: Bot, title: '11 Specialized Agents', description: '4 Primary agents (Coder, Architect, Planner, Shell), 4 Subagents (@reviewer, @general, @explore, @scout), and 3 system agents. Full primary + subagent system with @mention support.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
   { icon: Wrench, title: '75+ Tools', description: 'File ops, search, git, web, LSP, code generation, sandboxed execution, clipboard, skills, and more — all built in and ready.', color: 'text-apex-yellow', glow: 'group-hover:shadow-[0_0_30px_rgba(255,170,0,0.15)]' },
   { icon: Shield, title: 'Security System', description: 'Shell command analysis, permission rulesets (ALLOW/DENY/ASK), rate limiting, API key management, billing system, and path traversal protection.', color: 'text-apex-red', glow: 'group-hover:shadow-[0_0_30px_rgba(255,68,68,0.15)]' },
   { icon: Zap, title: 'Switch Models Live', description: 'Switch between any model mid-session without restarting. Compare outputs, optimize costs, and never lose context.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
-  { icon: Terminal, title: '3 TUI Modes + 6 Themes', description: 'Rich CLI, full Textual TUI with sidebar, or the new OpenTUI frontend with routes, command palette, and 6 built-in themes (opencode, dracula, nord, tokyonight, gruvbox, github).', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
+  { icon: Terminal, title: 'Ink TUI + 12 Themes + Leader Keys', description: 'Rich Ink + React TUI with command palette (Ctrl+P), leader keys (Ctrl+X), @ file references, ! bash inline, 12 built-in themes (apex, nord, catppuccin, tokyonight, gruvbox, matrix, etc.) with dark/light mode.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
   { icon: Layers, title: 'Snapshots & Undo/Redo', description: 'Git-based snapshot system creates automatic backups before every destructive action. Undo/redo with full diff computation. Never lose work again.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
-  { icon: Command, title: 'Custom Commands + Event Bus', description: 'Create user: and project: commands with template variables. 25+ typed events on the Event Bus for real-time UI updates. Session sharing via apex:// links.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
+  { icon: Command, title: 'Custom Commands + Session Sharing + Formatters', description: 'Create custom commands via .md files with $ARGUMENTS, !shell, @file. Share sessions via public URLs. 11 auto-formatters (ruff, prettier, gofmt, rustfmt, etc.). File watcher with gitignore-aware patterns.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
 ]
 
 const STATS = [
   { value: '170+', label: 'Models Supported', icon: Cpu },
   { value: '75+', label: 'Built-in Tools', icon: Wrench },
-  { value: '5', label: 'Specialized Agents', icon: Bot },
-  { value: '2,842+', label: 'Tests Passing', icon: Check },
-  { value: '6', label: 'Built-in Themes', icon: Sparkles },
-  { value: '6+', label: 'Install Methods', icon: Box },
+  { value: '11', label: 'Specialized Agents', icon: Bot },
+  { value: '2,094+', label: 'Tests Passing', icon: Check },
+  { value: '12', label: 'Built-in Themes', icon: Sparkles },
+  { value: '11', label: 'Auto-Formatters', icon: FileCode },
 ]
 
 const PAGE_LINKS = [

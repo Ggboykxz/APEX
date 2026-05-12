@@ -2,12 +2,120 @@
 
 All notable changes to APEX will be documented in this file.
 
+## [1.5.0] - 2026-05-12
+
+### OpenCode-like UX — Full parity with OpenCode experience
+
+APEX v1.5.0 brings the complete OpenCode user experience to APEX: hierarchical JSON config, 20+ CLI subcommands, leader keys, command palette, @ file references, !bash inline, 12 themes, session sharing, auto-formatters, file watcher, subagent system, custom commands via markdown, and 56 HTTP API endpoints.
+
+### New Config System
+
+- **Hierarchical JSON/JSONC config** — `~/.config/apex/apex.json` (global) → `$APEX_CONFIG` (custom) → `./apex.json` (project) → `$APEX_CONFIG_CONTENT` (inline), later overrides earlier
+- **Separate TUI config** — `~/.config/apex/tui.json` for theme, keybinds, scroll, mouse settings
+- **24 config sections** — model, provider, agent, command, server, permission, tools, lsp, mcp, plugin, formatter, snapshot, autoupdate, share, shell, compaction, watcher, theme, keybinds, instructions, disabled_providers, enabled_providers, default_agent
+- **Variable substitution** — `{env:VAR_NAME}` and `{file:/path/to/file}` in config values
+- **JSONC support** — C-style comments (`//`, `/* */`) stripped before parsing
+- **Auto-migration** — old `~/.apex/config.json` auto-migrated to new `~/.config/apex/apex.json` on first run
+
+### New CLI Subcommands (20+)
+
+- `apex serve` — Start headless HTTP API server (like `opencode serve`)
+- `apex web` — Start server + open web interface
+- `apex auth login/list/logout` — Provider credential management
+- `apex agent create/list` — Interactive agent creation wizard
+- `apex session list/delete` — Session management
+- `apex stats` — Token usage and cost statistics
+- `apex export/import` — Session JSON export/import
+- `apex upgrade` — Upgrade to latest version
+- `apex uninstall` — Full uninstall with --keep-config, --keep-data, --dry-run
+- `apex mcp add/list/auth` — MCP server management
+- `apex db path` — Database path utility
+- `apex pr <number>` — Fetch and checkout a PR
+- `apex attach <url>` — Attach TUI to remote backend
+- `apex connect` — Interactive provider configuration
+- `apex init` — Initialize project (create AGENTS.md)
+- `apex compact` — Compact session context
+- `apex details` — Toggle tool execution details
+- `apex thinking` — Toggle reasoning blocks display
+
+### New TUI Features
+
+- **Command palette** — Ctrl+P with fuzzy search across 17+ commands
+- **Leader key system** — Ctrl+X + mnemonic (N=new, U=undo, R=redo, C=compact, M=models, T=themes, S=status, E=editor, X=export, B=sidebar, A=agents, L=sessions, Q=quit)
+- **@ file references** — Type `@` for fuzzy file search, select with Tab/Enter
+- **! bash inline** — Messages starting with `!` execute as shell commands
+- **Model selector** — Ctrl+K with search/filter across all models
+- **Theme selector** — Ctrl+X+T, fetches themes from backend
+- **Agent selector** — Ctrl+X+A, shows primary + subagents with @ indicator
+- **Session list** — Ctrl+X+L, switch between saved sessions
+- **Status overlay** — Ctrl+X+S, shows tokens, costs, duration
+- **Help overlay** — `?` key, categorized keybinds
+- **Thinking toggle** — Ctrl+T, cycle show/hide/off reasoning blocks
+- **Scroll support** — PageUp/PageDown, scroll indicator
+- **Error handling** — Connection error banner with auto-dismiss, reconnecting indicator
+- **Configurable keybinds** — via `tui.json` `keybinds` section
+
+### New Agent System
+
+- **11 agents total**: 4 primary (Coder, Architect, Planner, Shell) + 4 subagents (@reviewer, @general, @explore, @scout) + 3 hidden system agents (compaction, title, summary)
+- **Subagent @mention** — Invoke subagents via `@name` in messages
+- **Markdown agent definitions** — Agents via YAML frontmatter in `.apex/agents/*.md` or `~/.config/apex/agents/*.md`
+- **Agent permissions** — Per-agent ALLOW/DENY/ASK with glob pattern support for bash commands
+- **AgentConfig enhancements** — temperature, top_p, max_steps, hidden, disabled, color
+
+### New Theme System
+
+- **12 built-in themes**: apex, ayu, catppuccin, catppuccin-macchiato, everforest, gruvbox, kanagawa, matrix, nord, one-dark, system, tokyonight
+- **Dark/light mode** per theme with automatic terminal detection
+- **Custom themes** via JSON files in `~/.config/apex/themes/*.json` or `.apex/themes/*.json`
+- **Color definitions** with references, hex, ANSI, and "none" (terminal default)
+- **Full syntax highlighting** colors: comment, keyword, function, string, number, type, operator
+- **Markdown colors**: heading, link, code, quote, list, image
+
+### New Session Sharing
+
+- `/share` — Creates a public URL (`https://apex-ai.dev/s/{id}`)
+- `/unshare` — Removes shared session
+- **3 modes**: manual (default), auto (share every session), disabled
+- **Sanitization** — API keys, tokens, and secrets stripped from shared data
+- **Export/Import** — JSON session format for sharing and backup
+
+### New Formatters
+
+- **11 built-in formatters**: ruff (Python), prettier (JS/TS/JSON/MD), rustfmt (Rust), gofmt (Go), google-java-format (Java), clang-format (C/C++), rubocop (Ruby), scalafmt (Scala), ktlint (Kotlin), swift-format (Swift), zig fmt (Zig)
+- **Configurable** — enable/disable per-formatter, custom formatter definitions
+- **Auto-discovery** — detects installed formatters on the system
+
+### New File Watcher
+
+- **Configurable ignore patterns** — via `apex.json` `watcher.ignore`
+- **Gitignore-aware** — respects `.gitignore` in project tree
+- **Polling-based** — background daemon thread, 1s interval, 300ms debounce
+- **No external dependencies** — uses only stdlib
+
+### HTTP API Expansion
+
+- **56 endpoints total** (10 existing + 46 new)
+- **New API v1 endpoints**: config, agents, sessions CRUD, share/unshare, themes, stats, formatters, auth login/logout/status, commands, undo/redo, init, export/import, models refresh, providers, compact, format code
+- **Auth on all endpoints** — Bearer token or X-API-Key header
+- **Rate limiting** on all endpoints
+- **Sanitized responses** — no API keys in responses
+
+### Other Changes
+
+- **Code cleanup** — Removed 15 dead `refactored_*.py` files and their tests
+- **Gitignore fixed** — Removed entries that masked committed files (db/, prisma/, examples/, etc.)
+- **Build artifacts untracked** — `apex_agent.egg-info/` and `bun.lock` removed from git
+- **requires.txt** — Added missing `click>=8.1.0`
+- **2094 tests passing** — Full test suite green
+- **New Python modules**: `config_v2.py`, `theme_manager.py`, `share.py`, `formatter.py`, `watcher.py`, `commands_manager.py`
+
 ## [1.4.0] - 2026-05-11
 
 ### Breaking Change: TUI is now the default mode + Ink replaces OpenTUI
 
 - **`apex` now launches TUI by default** — Running `apex` without arguments starts the Terminal UI instead of the CLI REPL
-- **`apex --cli` or `apex cli`** — New flag and subcommand to explicitly launch the CLI REPL mode
+- **`apex` launches TUI by default** — TUI-only mode, no CLI REPL
 - **Replaced OpenTUI with Ink** — OpenTUI required Bun's `bun:ffi` to load a Zig native library, which does NOT work with Node.js. Ink is a pure-JavaScript React terminal framework that works with any Node.js runtime
 - **TUI now works on Windows** — No Bun dependency needed! Just Node.js (which you already have)
 

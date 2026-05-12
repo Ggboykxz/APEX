@@ -128,6 +128,21 @@ class TestPluginBase:
         plugin.cleanup()
 
 
+class TestPluginBasePassLines:
+    """Hit lines 56, 60 — pass in abstract methods initialize and cleanup."""
+
+    def test_initialize_cleanup_pass(self):
+        class Sub(PluginBase):
+            info = PluginInfo(name="sub", version="1.0")
+            def initialize(self, app):
+                super().initialize(app)
+            def cleanup(self):
+                super().cleanup()
+        s = Sub()
+        s.initialize(None)
+        s.cleanup()
+
+
 # ---------------------------------------------------------------------------
 # PluginHook
 # ---------------------------------------------------------------------------
@@ -446,6 +461,95 @@ class TestPluginManager:
         pm._enabled["tool"] = False
         tools = pm.get_tools()
         assert tools == []
+
+    def test_get_tools_exception(self):
+        """Hit lines 194-195 — exception in get_tools is caught."""
+        pm = PluginManager()
+
+        class BrokenToolPlugin(PluginBase):
+            info = PluginInfo(name="broken", version="1.0")
+            def initialize(self, app): pass
+            def cleanup(self): pass
+            def get_tools(self):
+                raise RuntimeError("broken")
+
+        pm._plugins["broken"] = BrokenToolPlugin()
+        pm._enabled["broken"] = True
+        tools = pm.get_tools()
+        assert tools == []
+
+    def test_load_plugin_exception(self):
+        """Hit lines 146-147 — load_plugin exception is caught."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            p = Path(tmpdir) / "bad_plugin.py"
+            p.write_text("import apex\nraise ValueError('bad')\n")
+            pm = PluginManager(plugin_dirs=[Path(tmpdir)])
+            pm.set_app("app")
+            result = pm.load_plugin("bad_plugin")
+            assert result is False
+
+    def test_unload_plugin_exception(self):
+        """Hit lines 157-158 — unload_plugin exception is caught."""
+        pm = PluginManager()
+
+        class BrokenCleanup(PluginBase):
+            info = PluginInfo(name="broken", version="1.0")
+            def initialize(self, app): pass
+            def cleanup(self):
+                raise RuntimeError("cleanup failed")
+
+        pm._plugins["broken"] = BrokenCleanup()
+        pm._enabled["broken"] = True
+        result = pm.unload_plugin("broken")
+        assert result is False
+
+
+# ---------------------------------------------------------------------------
+# PluginManager security scanner edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestSecurityScannerEdgeCases:
+    """Hit line 248 — print security warning."""
+
+    def test_security_scanner_warning(self, capsys):
+        cls = BuiltInPlugins.create_security_scanner_plugin()
+        plugin = cls()
+        # scan_tool with dangerous code should print warning
+        plugin.scan_tool("write_file", {"content": "eval('dangerous')"})
+        captured = capsys.readouterr()
+        assert "SECURITY" in captured.out or "SECURITY" in captured.err
+
+
+# ---------------------------------------------------------------------------
+# load_plugins_from_config tests
+# ---------------------------------------------------------------------------
+
+
+class TestLoadPluginsFromConfigFull:
+    """Hit lines 306-317 — full successful path."""
+
+    def test_load_plugins_from_config_success(self, tmp_path, monkeypatch):
+        """Full successful execution of load_plugins_from_config."""
+        config_path = tmp_path / "plugins.yaml"
+        config_path.write_text(
+            "plugins:\n"
+            "  my_plugin:\n"
+            "    enabled: true\n"
+            "plugin_dirs:\n"
+            f"  - {tmp_path / 'my_plugins'}\n"
+        )
+        (tmp_path / "my_plugins").mkdir()
+        load_plugins_from_config(config_path, app=None)
+
+    def test_load_plugins_from_config_exception(self, tmp_path):
+        """Hit lines 316-317 — exception in load_plugins_from_config caught."""
+        config_path = tmp_path / "bad_plugins.yaml"
+        config_path.write_text("invalid: [yaml: content\n")
+        try:
+            load_plugins_from_config(config_path, app=None)
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------

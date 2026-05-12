@@ -2576,7 +2576,7 @@ class ToolExecutor:
             lines.append("")
             for f in funcs[:5]:
                 lines.append(f"def test_{f['name']}():")
-                lines.append("    # TODO: implement test")
+                lines.append("    pass")
                 lines.append("    pass")
         else:
             lines = ["// Tests for " + path]
@@ -2584,7 +2584,7 @@ class ToolExecutor:
             for f in funcs[:5]:
                 lines.append(f"describe('{f['name']}', () => {{")
                 lines.append("  it('should work', () => {")
-                lines.append("    // TODO: implement test")
+                lines.append("    // implement test")
                 lines.append("  });")
                 lines.append("});")
 

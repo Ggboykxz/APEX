@@ -1,12 +1,99 @@
 """Native RLM (Remote Language Model) query - batched analysis through cheap models."""
 
 import asyncio
-from typing import Callable
+import time
+from dataclasses import asdict, dataclass
+from typing import Callable, Optional
 from concurrent.futures import ThreadPoolExecutor
 
 import litellm
 
 from .config import MODELS
+
+
+@dataclass
+class RLMConfig:
+    """Configuration for the Rate Limit Manager."""
+
+    requests_per_minute: int = 60
+    requests_per_hour: int = 1000
+    requests_per_day: int = 10000
+
+
+class RLM:
+    """Rate Limit Manager - tracks and enforces per-key rate limits."""
+
+    WINDOWS = {
+        "minute": 60,
+        "hour": 3600,
+        "day": 86400,
+    }
+
+    def __init__(self, config: Optional[RLMConfig] = None):
+        self.config = config or RLMConfig()
+        self._counts: dict[str, dict[str, tuple[int, float]]] = {}
+
+    def _ensure_key(self, key: str) -> dict[str, tuple[int, float]]:
+        if key not in self._counts:
+            self._counts[key] = {w: (0, 0.0) for w in self.WINDOWS}
+        return self._counts[key]
+
+    def check_rate_limit(self, key: str) -> dict:
+        windows = self._ensure_key(key)
+        now = time.time()
+        result: dict = {"allowed": True, "retry_after": 0}
+
+        for window, window_secs in self.WINDOWS.items():
+            count, timestamp = windows[window]
+            limit = getattr(self.config, f"requests_per_{window}")
+
+            if now - timestamp < window_secs:
+                remaining = limit - count
+                if remaining <= 0:
+                    result["allowed"] = False
+                    retry = int(window_secs - (now - timestamp))
+                    result["retry_after"] = max(result["retry_after"], retry)
+            else:
+                remaining = limit
+
+            result[f"remaining_{window}"] = max(0, remaining)
+
+        return result
+
+    def increment(self, key: str) -> dict:
+        windows = self._ensure_key(key)
+        now = time.time()
+
+        for window, window_secs in self.WINDOWS.items():
+            count, timestamp = windows[window]
+            if now - timestamp >= window_secs:
+                windows[window] = (1, now)
+            else:
+                windows[window] = (count + 1, timestamp)
+
+        return self.check_rate_limit(key)
+
+    def reset(self, key: str) -> None:
+        self._counts.pop(key, None)
+
+    def to_dict(self) -> dict:
+        return {
+            "config": asdict(self.config),
+            "counts": {
+                k: {w: list(v) for w, v in wins.items()}
+                for k, wins in self._counts.items()
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "RLM":
+        config = RLMConfig(**data["config"])
+        rlm = cls(config=config)
+        rlm._counts = {
+            k: {w: tuple(v) for w, v in wins.items()}
+            for k, wins in data.get("counts", {}).items()
+        }
+        return rlm
 
 
 class RLMQuery:

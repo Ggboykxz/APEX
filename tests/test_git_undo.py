@@ -207,3 +207,64 @@ class TestGitUndoManager:
         files = manager._get_current_files()
         assert "file1.py" in files
         assert "file2.py" in files
+
+
+class TestGitUndoEdgeCases:
+    """Hit lines 41-42, 53-54, 73, 96 in git_undo.py."""
+
+    @pytest.fixture
+    def git_repo(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            _git_init(repo)
+            _git_commit(repo, "initial commit")
+            yield repo
+
+    def test_run_git_file_not_found(self, monkeypatch):
+        """Hit line 41-42 — FileNotFoundError in _run_git."""
+        import subprocess
+        def broken_run(*a, **kw):
+            raise FileNotFoundError("git not found")
+        monkeypatch.setattr(subprocess, "run", broken_run)
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            mgr = GitUndoManager(cwd=Path(tmp))
+            code, stdout, stderr = mgr._run_git("status")
+            assert code == -1
+            assert "git not found" in stderr
+
+    def test_load_history_corrupt_json(self, git_repo):
+        """Hit lines 53-54 — corrupt history file handled gracefully."""
+        mgr = GitUndoManager(cwd=git_repo)
+        # Write corrupt JSON
+        history_file = mgr._undo_dir / "history.json"
+        history_file.parent.mkdir(parents=True, exist_ok=True)
+        history_file.write_text("{invalid json}")
+        # Re-create to trigger load
+        mgr2 = GitUndoManager(cwd=git_repo)
+        assert mgr2.snapshots == []
+
+    def test_get_current_files_git_fails(self, monkeypatch, git_repo):
+        """Hit line 73 — return [] when git command fails."""
+        import subprocess
+        def fail_run(*a, **kw):
+            return type("R", (), {"returncode": 1, "stdout": "", "stderr": "error"})()
+        monkeypatch.setattr(subprocess, "run", fail_run)
+        mgr = GitUndoManager(cwd=git_repo)
+        files = mgr._get_current_files()
+        assert files == []
+
+    def test_create_snapshot_git_add_fails(self, monkeypatch, git_repo):
+        """Hit line 96 — git_commit = parent_commit when git add fails."""
+        import subprocess
+        original_run = subprocess.run
+        def selective_fail(*a, **kw):
+            args_str = " ".join(str(x) for x in a[0]) if a else ""
+            if "add" in args_str and "." in args_str:
+                return type("R", (), {"returncode": 1, "stdout": "", "stderr": "add failed"})()
+            return original_run(*a, **kw)
+        monkeypatch.setattr(subprocess, "run", selective_fail)
+        mgr = GitUndoManager(cwd=git_repo)
+        mgr.create_snapshot("test")
+        # Should not crash
+        assert mgr.current_index == 0

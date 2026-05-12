@@ -146,6 +146,38 @@ class TestCommandManager:
     def test_project_commands_dir_is_path(self):
         assert isinstance(CommandManager.PROJECT_COMMANDS_DIR, type(Path(".")))
 
+    def test_load_user_commands_from_existing_dir(self, manager):
+        """Hit line 42 — load from existing USER_COMMANDS_DIR."""
+        manager.USER_COMMANDS_DIR.mkdir(parents=True, exist_ok=True)
+        cmd_file = manager.USER_COMMANDS_DIR / "user_cmd.md"
+        cmd_file.write_text("# User Cmd\n\nA user command\n\ncontent here")
+        # Re-initialize from new manager to trigger load
+        manager._load_user_commands()
+        cmd = manager.get_command("user:user_cmd")
+        assert cmd is not None
+
+    def test_load_from_dir_invalid_md(self, manager):
+        """Hit lines 58-59 — catch exception during md file parsing."""
+        cmd_dir = Path(manager.USER_COMMANDS_DIR) / ".." / "bad_commands"
+        cmd_dir = cmd_dir.resolve()
+        cmd_dir.mkdir(parents=True, exist_ok=True)
+        bad_file = cmd_dir / "bad.md"
+        bad_file.write_bytes(b"\xff\xfe\x00\x01")  # invalid UTF-8
+        manager._load_from_dir(cmd_dir, "user")
+
+    def test_parse_command_empty_content(self, manager):
+        """_parse_command always returns a Command (empty lines not possible)."""
+        result = manager._parse_command("", "empty", "user")
+        assert result is not None
+
+    def test_create_command_user_category(self, manager):
+        """Hit line 136 — user category branch in create_command."""
+        # Ensure USER_COMMANDS_DIR is valid
+        manager.USER_COMMANDS_DIR.mkdir(parents=True, exist_ok=True)
+        manager.create_command("usr_cmd", "content", category="user", description="desc")
+        cmd = manager.get_command("user:usr_cmd")
+        assert cmd is not None
+
 
 class TestCreateCommandManager:
     def test_returns_instance(self, tmp_path):

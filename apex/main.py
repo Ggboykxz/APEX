@@ -1,108 +1,189 @@
-"""APEX CLI entry point - command parsing and interactive REPL."""
+"""APEX CLI entry point — full OpenCode-like command suite.
+
+Usage:
+    apex [prompt]                  One-shot prompt
+    apex [subcommand] [args...]    Run subcommand
+    apex                           Launch TUI (default)
+"""
 
 import argparse
-import os
-import sys
 import json
+import logging
+import os
+import shutil
 import subprocess
+import sys
+import textwrap
 import threading
 import time
+import webbrowser
 from pathlib import Path
 from typing import Any
 
-from prompt_toolkit import PromptSession
-from prompt_toolkit.history import FileHistory
-from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.styles import Style
-
+from . import __version__
 from .agent import Agent
-from .config import Config, MODELS
+from .config import MODELS
 from .ui import UI
 from .memory import Memory
 from .session import SessionManager
 from .context import get_repo_map, get_language_stats
 from .http_api import start_tui_server, stop_tui_server
-from . import __version__
+from .config_v2 import apex_config, tui_config
+from .commands_manager import commands_manager
+from .theme_manager import theme_manager
+from .share import share_manager
+from .formatter import formatter_manager
+from .watcher import watcher
+from .agents import agent_manager
 from rich.panel import Panel
-
+from rich.table import Table
 
 memory = Memory()
 
-
-# Subcommands that can be used as positional args (e.g. `apex tui`)
 _SUBCOMMANDS: dict[str, dict[str, bool]] = {
     "tui": {"tui": True},
     "ui": {"tui": True},
     "models": {"list_models": True},
     "install-tui": {"install_tui": True},
-    "cli": {"cli": True},
 }
 
 
-def parse_args() -> argparse.Namespace:
+# ── Argument parser ─────────────────────────────────────────
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="apex",
         description="APEX — The last coding agent you'll ever need",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=(
-            "subcommands:\n"
-            "  tui             Launch APEX TUI (default when no args given)\n"
-            "  ui              Launch APEX TUI (same as tui)\n"
-            "  cli             Launch APEX in CLI REPL mode\n"
-            "  models          List all available models\n"
-            "  install-tui     Install TUI dependencies (bun + tui-frontend)\n"
-        ),
+        epilog=textwrap.dedent("""\
+            subcommands:
+              serve             Start headless HTTP API server
+              web               Start server + open web interface
+              run <prompt>      Non-interactive mode
+              tui / ui          Launch TUI (default)
+              models [name]     List available models
+              auth login        Interactive provider login
+              auth list         List configured providers
+              auth logout       Remove provider config
+              agent create      Interactive agent creation wizard
+              agent list        List all agents
+              session list      List sessions
+              session delete    Delete a session
+              stats             Token usage and cost stats
+              export <id>       Export session as JSON
+              import <file>     Import session from file
+              upgrade           Upgrade APEX
+              uninstall         Uninstall APEX
+              mcp add           Add MCP server
+              mcp list          List MCP servers
+              mcp auth          Authenticate MCP server
+              db                Database tools
+              pr <number>       Fetch and checkout a PR
+              attach <url>      Attach TUI to remote backend
+              connect           Interactive provider configuration
+              init              Initialize APEX for project
+              compact           Compact current session
+              details           Toggle tool execution details
+              thinking          Toggle thinking blocks
+              install-tui       Install TUI dependencies
+              help              Show this help
+        """),
     )
-    parser.add_argument("prompt", nargs="?", help="One-shot prompt to execute")
-    parser.add_argument("--model", "-m", dest="model", help="Model alias to use")
-    parser.add_argument("--cwd", "-C", dest="cwd", help="Working directory")
+
+    parser.add_argument("prompt", nargs="?", default=None, help="One-shot prompt to execute")
+    parser.add_argument("--model", "-m", dest="model", default=None, help="Model alias to use")
+    parser.add_argument("--cwd", "-C", dest="cwd", default=None, help="Working directory")
     parser.add_argument("--version", "-v", action="version", version=f"APEX {__version__}")
-    parser.add_argument("--list-models", action="store_true", help="List all available models")
-    parser.add_argument(
-        "--one-shot", "-1", action="store_true", help="One-shot mode (non-interactive)"
-    )
-    parser.add_argument("--stream", "-s", action="store_true", help="Enable streaming responses")
-    parser.add_argument(
-        "--auto-commit",
-        action="store_true",
-        dest="auto_commit",
-        help="Auto commit after successful task",
-    )
-    parser.add_argument("--ui", action="store_true", help="Launch APEX TUI (Ink + React)")
-    parser.add_argument("--tui", "-t", action="store_true", help="Launch APEX TUI (same as --ui)")
-    parser.add_argument(
-        "--cli", action="store_true",
-        help="Launch APEX in CLI REPL mode (default is TUI)",
-    )
-    parser.add_argument("-p", dest="prompt_direct", help="Direct prompt (CI/CD mode, no TUI)")
-    parser.add_argument(
-        "-f",
-        "--format",
-        dest="output_format",
-        choices=["text", "json"],
-        default="text",
-        help="Output format",
-    )
-    parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode (less output)")
-    parser.add_argument(
-        "--install-tui", action="store_true", help="Install TUI dependencies (Node.js + tui-frontend)"
-    )
-    return parser.parse_args()
+    parser.add_argument("--list-models", action="store_true", help="List available models")
+    parser.add_argument("--one-shot", "-1", action="store_true", help="One-shot mode")
+    parser.add_argument("--stream", "-s", action="store_true", help="Streaming responses")
+    parser.add_argument("--auto-commit", action="store_true", dest="auto_commit", help="Auto commit after task")
+    parser.add_argument("--ui", action="store_true", help="Launch TUI")
+    parser.add_argument("--tui", "-t", action="store_true", help="Launch TUI")
+    parser.add_argument("-p", dest="prompt_direct", default=None, help="Direct prompt (CI/CD)")
+    parser.add_argument("-f", "--format", dest="output_format", choices=["text", "json"], default="text", help="Output format")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode")
+    parser.add_argument("--install-tui", action="store_true", help="Install TUI dependencies")
+
+    parser.add_argument("--continue", dest="resume", action="store_true", help="Resume last session")
+    parser.add_argument("--session", dest="session_id", default=None, help="Session ID to load")
+    parser.add_argument("--fork", dest="fork_session", default=None, help="Fork session")
+    parser.add_argument("--agent", dest="agent_name", default=None, help="Agent to use")
+    parser.add_argument("--print-logs", action="store_true", help="Print logs to stdout")
+    parser.add_argument("--log-level", dest="log_level", default=None, help="Log level")
+    parser.add_argument("--pure", action="store_true", help="Pure mode (no tools)")
+
+    parser.add_argument("--share", action="store_true", help="Share session")
+    parser.add_argument("--file", dest="input_file", default=None, help="Read prompt from file")
+
+    # serve / web flags
+    parser.add_argument("--port", type=int, default=None, help="Server port")
+    parser.add_argument("--hostname", default=None, help="Server hostname")
+    parser.add_argument("--cors", default=None, help="CORS origin")
+    parser.add_argument("--mdns", action="store_true", help="Enable mDNS advertisement")
+
+    parser.add_argument("--refresh", action="store_true", help="Refresh model list")
+    parser.add_argument("--verbose", action="store_true", help="Verbose output (show costs)")
+    parser.add_argument("--days", type=int, default=None, help="Days for stats")
+    parser.add_argument("--tools", action="store_true", help="Tool stats breakdown")
+    parser.add_argument("--models-flag", action="store_true", dest="models_flag", help="Model stats")
+    parser.add_argument("--project", default=None, help="Project path for stats")
+    parser.add_argument("--sanitize", action="store_true", help="Sanitize export")
+    parser.add_argument("--keep-config", action="store_true", help="Keep config on uninstall")
+    parser.add_argument("--keep-data", action="store_true", help="Keep data on uninstall")
+    parser.add_argument("--dry-run", action="store_true", help="Dry run uninstall")
+    parser.add_argument("--force", action="store_true", help="Force uninstall")
+    parser.add_argument("--method", default=None, help="Upgrade method (pip, npm, etc.)")
+
+    return parser
 
 
-def list_models(ui: UI) -> None:
-    ui.show_models(Config().model)
+# ── Model listing ───────────────────────────────────────────
+
+
+def list_models(ui: UI, provider_filter: str | None = None,
+                verbose: bool = False, refresh: bool = False) -> None:
+    from .cost_local import MODEL_PRICING
+    if refresh:
+        ui.print_success("Refreshing model list...")
+    table = Table(title="Available Models" if not verbose else "Available Models (with pricing)",
+                  show_header=True, header_style="bold cyan")
+    table.add_column("Alias", style="cyan", width=22)
+    table.add_column("Provider", style="white", width=14)
+    table.add_column("Model ID", style="green", width=40)
+    if verbose:
+        table.add_column("Input $/1K", style="yellow", width=12)
+        table.add_column("Output $/1K", style="yellow", width=12)
+
+    config_model = apex_config.model
+    for alias, model_id in sorted(MODELS.items()):
+        if provider_filter and provider_filter.lower() not in alias.lower() and provider_filter.lower() not in model_id.lower():
+            continue
+        provider = alias.split("-")[0] if "-" in alias else "unknown"
+        marker = "✓" if alias == config_model else " "
+        pricing = MODEL_PRICING.get(alias)
+        inp = f"${pricing.per_1k_input:.6f}" if pricing and verbose else ""
+        out = f"${pricing.per_1k_output:.6f}" if pricing and verbose else ""
+        if verbose:
+            table.add_row(f"{marker} {alias}", provider, model_id, inp, out)
+        else:
+            table.add_row(f"{marker} {alias}", provider, model_id)
+    ui.console.print(table)
+
+
+# ── Slash commands ──────────────────────────────────────────
 
 
 def handle_command(
     command: str,
     agent: Agent,
     ui: UI,
-    config: Config | None = None,
+    config: Any = None,
     session: Any = None,
     use_stream: bool = False,
 ) -> bool:
-    config = config or Config()
+    config = config or apex_config
     global memory
     parts = command.split(maxsplit=1)
     cmd = parts[0].lower()
@@ -114,10 +195,10 @@ def handle_command(
                 ui.print_error("Usage: /model <alias> or /model auto")
                 return True
             if arg == "auto":
-                config.auto_model = True
+                config.set("auto_model", True)
                 ui.print_success("Auto model selection enabled")
             elif agent.switch_model(arg):
-                config.auto_model = False
+                config.set("auto_model", False)
                 ui.print_success(f"Switched to model: {arg}")
             else:
                 ui.print_error(f"Unknown model: {arg}")
@@ -127,14 +208,21 @@ def handle_command(
             ui.show_models(agent.model)
             return True
 
-        case "/reasoning":
+        case "/reasoning" | "/reason":
             level = agent.cycle_reasoning_effort()
             ui.print_success(f"Reasoning effort: {level}")
             return True
 
-        case "/reason":
-            level = agent.cycle_reasoning_effort()
-            ui.print_success(f"Reasoning effort: {level}")
+        case "/thinking":
+            agent.show_thinking = not getattr(agent, "show_thinking", False)
+            state = "enabled" if agent.show_thinking else "disabled"
+            ui.print_success(f"Thinking blocks: {state}")
+            return True
+
+        case "/details":
+            agent.show_details = not getattr(agent, "show_details", False)
+            state = "enabled" if agent.show_details else "disabled"
+            ui.print_success(f"Tool execution details: {state}")
             return True
 
         case "/cwd":
@@ -163,9 +251,16 @@ def handle_command(
             ui.print_success(f"Changed directory to: {new_cwd}")
             return True
 
-        case "/clear":
+        case "/clear" | "/new":
             agent.reset_history()
             ui.print_success("Conversation history cleared")
+            return True
+
+        case "/compact":
+            before = len(agent.history) if hasattr(agent, "history") else 0
+            agent.compact_context()
+            after = len(agent.history) if hasattr(agent, "history") else 0
+            ui.print_success(f"Context compacted: {before} → {after} messages")
             return True
 
         case "/history":
@@ -211,9 +306,22 @@ def handle_command(
                 ui.console.print(f"  {s['name']} - {s['timestamp']} ({s['history_len']} messages)")
             return True
 
+        case "/export":
+            from .share import share_manager as sm
+            if not arg:
+                ui.print_error("Usage: /export <session_id>")
+                return True
+            data = sm.export_session(arg)
+            if data:
+                out = Path.cwd() / f"session_{arg}.json"
+                out.write_text(json.dumps(data, indent=2))
+                ui.print_success(f"Exported to {out}")
+            else:
+                ui.print_error(f"Session not found: {arg}")
+            return True
+
         case "/cost":
             from .cost_local import cost_tracker
-
             usage = agent.usage
             cost_info = cost_tracker.get_session_cost()
             ui.console.print("[cyan]Session Cost:[/cyan]")
@@ -234,18 +342,14 @@ def handle_command(
                 else:
                     ui.console.print("[cyan]Memory facts:[/cyan]")
                     for i, f in enumerate(facts):
-                        ui.console.print(
-                            f"  {i}: {f['fact']} [relevance: {', '.join(f.get('relevance', []))}]"
-                        )
+                        ui.console.print(f"  {i}: {f['fact']} [relevance: {', '.join(f.get('relevance', []))}]")
                 return True
-
             mem_parts = arg.split(maxsplit=2)
             subcmd = mem_parts[0] if mem_parts else ""
-
             if subcmd == "add" and len(mem_parts) >= 3:
-                fact = mem_parts[1]
-                relevance = mem_parts[2].split(",") if len(mem_parts) > 2 else []
-                memory.add(fact.strip(), [r.strip() for r in relevance])
+                fact = mem_parts[1].strip()
+                relevance = [r.strip() for r in mem_parts[2].split(",")]
+                memory.add(fact, relevance)
                 ui.print_success(f"Added to memory: {fact}")
             elif subcmd == "clear":
                 memory.clear()
@@ -257,16 +361,14 @@ def handle_command(
                 else:
                     ui.console.print("[cyan]Search results:[/cyan]")
                     for f in results:
-                        ui.console.print(f"  • {f['fact']}")
+                        ui.console.print(f"  \u2022 {f['fact']}")
             else:
                 ui.print_info("Usage: /memory [add <fact> <relevance>|clear|search <query>]")
             return True
 
         case "/map":
             repo_map = get_repo_map(agent.cwd)
-            ui.console.print(
-                Panel(repo_map, title="[cyan]Repository Map[/cyan]", border_style="cyan")
-            )
+            ui.console.print(Panel(repo_map, title="[cyan]Repository Map[/cyan]", border_style="cyan"))
             return True
 
         case "/stats":
@@ -281,7 +383,6 @@ def handle_command(
 
         case "/git":
             from .tools import ToolExecutor
-
             executor = ToolExecutor(cwd=agent.cwd)
             status = executor.execute("get_git_status", {})
             ui.console.print(Panel(status, title="[cyan]Git Status[/cyan]", border_style="cyan"))
@@ -289,37 +390,35 @@ def handle_command(
 
         case "/agent":
             from .agents import agent_manager
-
             if not arg:
                 current = agent.current_agent
                 ui.console.print(f"[cyan]Current agent:[/cyan] {current}")
                 ui.console.print("\n[cyan]Available agents:[/cyan]")
                 for a in agent_manager.list_agents():
-                    marker = "✓" if a.name == current else " "
+                    marker = "\u2713" if a.name == current else " "
                     mode = "[primary]" if a.mode == "primary" else "[subagent]"
                     ui.console.print(f"  {marker} {a.name} {mode} - {a.description}")
                 return True
             if agent.switch_agent(arg):
                 ui.print_success(f"Switched to agent: {arg}")
             else:
-                ui.print_error(f"Unknown agent: {arg}. Use /agent to list available agents.")
+                ui.print_error(f"Unknown agent: {arg}")
             return True
 
         case "/coder":
             agent.switch_agent("coder")
-            config.agent_mode = "agent"
+            config.set("agent_mode", "agent")
             ui.print_success("Coder mode enabled — interactive with approval")
             return True
 
         case "/architect":
             agent.switch_agent("architect")
-            config.agent_mode = "plan"
+            config.set("agent_mode", "plan")
             ui.print_success("Architect mode enabled — read-only")
             return True
 
         case "/restore":
             from .workspace_rollback import WorkspaceRollback
-
             wb = WorkspaceRollback(agent.cwd)
             if arg:
                 success = wb.restore_snapshot(arg)
@@ -339,7 +438,6 @@ def handle_command(
 
         case "/revert":
             from .workspace_rollback import TurnTracker
-
             tt = TurnTracker(agent.cwd)
             turns = int(arg) if arg.isdigit() else 1
             if tt.revert_turn(turns):
@@ -350,7 +448,6 @@ def handle_command(
 
         case "/undo":
             from .git_undo import GitUndoManager
-
             gum = GitUndoManager(agent.cwd)
             if not gum.can_undo():
                 ui.print_info("Nothing to undo")
@@ -365,7 +462,6 @@ def handle_command(
 
         case "/redo":
             from .git_undo import GitUndoManager
-
             gum = GitUndoManager(agent.cwd)
             if not gum.can_redo():
                 ui.print_info("Nothing to redo")
@@ -380,7 +476,6 @@ def handle_command(
 
         case "/skills":
             from .skills_system import skills_manager
-
             skills = skills_manager.list_skills()
             if skills:
                 ui.console.print("[cyan]Available skills:[/cyan]")
@@ -392,28 +487,26 @@ def handle_command(
 
         case "/github":
             from .github_integration import gh_automation
-
             if not arg:
                 ui.print_info("Usage: /github <command> [args]")
                 ui.print_info("Commands: issues, prs, create-issue, create-pr")
                 return True
-            parts = arg.split(maxsplit=1)
-            cmd = parts[0]
-            if cmd == "issues":
+            gparts = arg.split(maxsplit=1)
+            gcmd = gparts[0]
+            if gcmd == "issues":
                 issues = gh_automation.client.list_issues()
                 for issue in issues:
                     ui.console.print(f"  #{issue.get('number')}: {issue.get('title')}")
-            elif cmd == "prs":
+            elif gcmd == "prs":
                 prs = gh_automation.client.list_prs()
                 for pr in prs:
                     ui.console.print(f"  PR #{pr.get('number')}: {pr.get('title')}")
             else:
-                ui.print_error(f"Unknown github command: {cmd}")
+                ui.print_error(f"Unknown github command: {gcmd}")
             return True
 
         case "/local":
             from .cost_local import local_manager
-
             if arg == "enable":
                 local_manager.enable_local()
                 ui.print_success("Local execution enabled")
@@ -429,8 +522,6 @@ def handle_command(
             return True
 
         case "/sessionsave":
-            from .session import SessionManager
-
             sm = SessionManager()
             name = arg or "default"
             path = sm.save(agent, name)
@@ -438,13 +529,11 @@ def handle_command(
             return True
 
         case "/sessionload":
-            from .session import SessionManager
-
             sm = SessionManager()
             if arg:
-                session = sm.load(arg)
-                if session:
-                    agent.history = session.get("history", [])
+                session_data = sm.load(arg)
+                if session_data:
+                    agent.history = session_data.get("history", [])
                     ui.print_success(f"Loaded session: {arg}")
                 else:
                     ui.print_error(f"Session not found: {arg}")
@@ -457,14 +546,12 @@ def handle_command(
 
         case "/tasks":
             from .task_queue import TaskQueue
-
             tq = TaskQueue()
             tasks = tq.list_tasks(limit=10)
             if tasks:
                 ui.console.print("[cyan]Task queue:[/cyan]")
                 for t in tasks:
-                    status = t.status.value
-                    ui.console.print(f"  {t.id}: {t.name} [{status}]")
+                    ui.console.print(f"  {t.id}: {t.name} [{t.status.value}]")
             else:
                 ui.print_info("No tasks in queue")
             return True
@@ -478,31 +565,92 @@ def handle_command(
 
         case "/agents":
             from .agents import agent_manager
-            from rich.table import Table
-
             table = Table(title="Available Agents", show_header=True, header_style="bold cyan")
             table.add_column("Name", style="cyan", width=12)
             table.add_column("Mode", style="white", width=10)
             table.add_column("Description", style="white")
             current = agent.current_agent
             for a in agent_manager.list_agents():
-                marker = "✓" if a.name == current else ""
+                marker = "\u2713" if a.name == current else ""
                 table.add_row(f"{a.name} {marker}", a.mode, a.description)
             ui.console.print(table)
             return True
 
         case "/subagents":
             from .agents import agent_manager
-            from rich.table import Table
-
-            table = Table(
-                title="Subagents (use @name to invoke)", show_header=True, header_style="bold cyan"
-            )
+            table = Table(title="Subagents (use @name to invoke)", show_header=True, header_style="bold cyan")
             table.add_column("Name", style="cyan", width=12)
             table.add_column("Description", style="white")
             for a in agent_manager.list_agents("subagent"):
                 table.add_row(a.name, a.description)
             ui.console.print(table)
+            return True
+
+        case "/connect":
+            _interactive_provider_config(agent, ui)
+            return True
+
+        case "/init":
+            _cmd_init(ui)
+            return True
+
+        case "/themes":
+            from .theme_manager import theme_manager
+            themes = list(theme_manager.list())
+            table = Table(title="Available Themes", show_header=True, header_style="bold cyan")
+            table.add_column("Name", style="cyan", width=16)
+            table.add_column("Description", style="white")
+            current = theme_manager.current()
+            for t in themes:
+                marker = "\u2713" if t["name"] == current else ""
+                table.add_row(f"{t['name']} {marker}", t.get("description", ""))
+            ui.console.print(table)
+            if arg:
+                if theme_manager.set(arg):
+                    ui.print_success(f"Theme switched to: {arg}")
+                else:
+                    ui.print_error(f"Unknown theme: {arg}")
+            return True
+
+        case "/editor":
+            import subprocess, tempfile
+            editor = os.environ.get("EDITOR", "vim")
+            prompt_file = tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False)
+            prompt_file.write("# Enter your prompt\n\n")
+            prompt_file.close()
+            try:
+                subprocess.call([editor, prompt_file.name])
+                content = Path(prompt_file.name).read_text()
+                lines = [l for l in content.split("\n") if not l.startswith("#")]
+                prompt = "\n".join(lines).strip()
+                if prompt:
+                    ui.print_user(prompt)
+                    with ui.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
+                        response = agent.chat(prompt)
+                    ui.print_response(response)
+            finally:
+                os.unlink(prompt_file.name)
+            return True
+
+        case "/share":
+            from .share import share_manager as sm
+            share_id = arg or str(int(time.time()))
+            url = sm.share_session(share_id)
+            if url:
+                ui.print_success(f"Session shared: {url}")
+            else:
+                ui.print_error("Failed to share session")
+            return True
+
+        case "/unshare":
+            from .share import share_manager as sm
+            if not arg:
+                ui.print_error("Usage: /unshare <share_id>")
+                return True
+            if sm.unshare_session(arg):
+                ui.print_success(f"Session unshared: {arg}")
+            else:
+                ui.print_error(f"Share not found: {arg}")
             return True
 
         case "/help":
@@ -515,71 +663,27 @@ def handle_command(
 
         case _:
             if cmd.startswith("/"):
-                ui.print_error(f"Unknown command: {cmd}. Type /help for available commands.")
+                # Try custom commands
+                cmd_name = cmd[1:]
+                custom = commands_manager.get(cmd_name)
+                if custom:
+                    response = commands_manager.execute(cmd_name, [arg] if arg else [], agent)
+                    ui.print_response(response)
+                    return True
+                ui.print_error(f"Unknown command: {cmd}. Type /help for commands.")
                 return True
             return False
 
 
-async def run_repl_streaming(agent: Agent, ui: UI) -> None:
-    history_file = Path.home() / ".apex" / "history"
-    history_file.parent.mkdir(parents=True, exist_ok=True)
+# ── REPL / Streaming ────────────────────────────────────────
 
-    bindings = KeyBindings()
 
-    @bindings.add("c-c")
-    def _(event):
-        event.app.exit(exception=KeyboardInterrupt)
 
-    @bindings.add("tab")
-    def cycle_agent(event):
-        new_agent = agent.cycle_agent()
-        ui.print_success(f"Switched to agent: {new_agent}")
-        event.app.current_buffer.text = ""
-
-    style = Style.from_dict(
-        {
-            "prompt": "cyan bold",
-            "continuation": "cyan",
-        }
-    )
-
-    session = PromptSession(
-        history=FileHistory(str(history_file)),
-        key_bindings=bindings,
-        style=style,
-        message="› ",
-    )
-
-    ui.show_banner(agent.model, str(agent.cwd), agent.current_agent)
-    ui.print_info("Type a prompt or /help for commands\n")
-
-    while True:
-        try:
-            user_input = session.prompt()
-            if not user_input.strip():
-                continue
-            if user_input.startswith("/"):
-                if handle_command(user_input, agent, ui, session, use_stream=True):
-                    continue
-            ui.print_user(user_input)
-
-            full_response = ""
-            async for chunk in agent.chat_streaming(user_input):
-                full_response += chunk
-                ui.console.print(chunk, end="")
-            ui.console.print()
-
-        except KeyboardInterrupt:
-            ui.print_info("\nType /exit to quit or /clear to clear history")
-            continue
-        except EOFError:
-            break
 
 
 def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
     history_file = Path.home() / ".apex" / "history"
     history_file.parent.mkdir(parents=True, exist_ok=True)
-
     bindings = KeyBindings()
 
     @bindings.add("c-c")
@@ -592,18 +696,12 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
         ui.print_success(f"Switched to agent: {new_agent}")
         event.app.current_buffer.text = ""
 
-    style = Style.from_dict(
-        {
-            "prompt": "cyan bold",
-            "continuation": "cyan",
-        }
-    )
-
+    style = Style.from_dict({"prompt": "cyan bold", "continuation": "cyan"})
     session = PromptSession(
         history=FileHistory(str(history_file)),
         key_bindings=bindings,
         style=style,
-        message="› ",
+        message="\u203a ",
     )
 
     ui.show_banner(agent.model, str(agent.cwd), agent.current_agent)
@@ -630,10 +728,8 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
 
 def run_one_shot(prompt: str, agent: Agent, ui: UI, use_stream: bool = False) -> None:
     if use_stream:
-        full_response = ""
         ui.console.print("[cyan]Streaming response:[/cyan]")
         for chunk in agent.chat(prompt):
-            full_response += chunk
             ui.console.print(chunk, end="")
         ui.console.print()
     else:
@@ -645,30 +741,18 @@ def run_one_shot(prompt: str, agent: Agent, ui: UI, use_stream: bool = False) ->
 def run_cicd_mode(
     prompt: str, agent: Agent, ui: UI, output_format: str = "text", quiet: bool = False
 ) -> None:
-    """CI/CD mode - Direct prompt execution with optional JSON output."""
     try:
-        with (
-            ui.console.status("[cyan]Processing...[/cyan]", spinner="dots")
-            if not quiet
-            else ui.console.status("")
-        ):
+        with ui.console.status("[cyan]Processing...[/cyan]", spinner="dots") if not quiet else ui.console.status(""):
             response = agent.chat(prompt)
-
         if output_format == "json":
-            result = {
-                "success": True,
-                "prompt": prompt,
-                "response": response,
-                "model": agent.model,
-                "usage": agent.usage,
-            }
+            result = {"success": True, "prompt": prompt, "response": response,
+                      "model": agent.model, "usage": agent.usage}
             print(json.dumps(result, indent=2))
         else:
             if not quiet:
                 ui.print_response(response)
             else:
                 print(response)
-
     except Exception as e:
         if output_format == "json":
             print(json.dumps({"success": False, "error": str(e)}, indent=2))
@@ -676,33 +760,28 @@ def run_cicd_mode(
             ui.print_error(f"Error: {e}")
 
 
+# ── TUI helpers (unchanged) ─────────────────────────────────
+
+
 def _find_tui_dir() -> Path | None:
-    """Find the tui-frontend directory, supporting both dev and pip-installed layouts."""
-    # 1. Development mode: tui-frontend/ is a sibling of apex/ package dir
     dev_path = Path(__file__).parent.parent / "tui-frontend"
     if (dev_path / "src" / "App.tsx").exists():
         return dev_path
-
-    # 2. Installed package: tui-frontend/ is a sibling of site-packages
     for candidate in [
-        Path(__file__).parent.parent.parent / "tui-frontend",  # site-packages/tui-frontend/
-        Path.home() / ".apex" / "tui-frontend",  # ~/.apex/tui-frontend/
+        Path(__file__).parent.parent.parent / "tui-frontend",
+        Path.home() / ".apex" / "tui-frontend",
     ]:
         if (candidate / "src" / "App.tsx").exists():
             return candidate
-
     return None
 
 
 def _find_bun() -> str | None:
-    """Find the bun executable."""
-    # Check common locations (cross-platform)
     bun_candidates = [
         Path.home() / ".bun" / "bin" / "bun",
         Path("/usr/local/bin/bun"),
         Path("/usr/bin/bun"),
     ]
-    # Windows-specific paths
     if sys.platform == "win32":
         local_app = os.environ.get("LOCALAPPDATA", "")
         user_profile = os.environ.get("USERPROFILE", "")
@@ -714,73 +793,43 @@ def _find_bun() -> str | None:
     for candidate in bun_candidates:
         if candidate.exists():
             return str(candidate)
-
-    # Check PATH
-    import shutil
-
-    bun_in_path = shutil.which("bun")
-    if bun_in_path:
-        return bun_in_path
-
-    return None
+    return shutil.which("bun")
 
 
 def _find_node() -> str | None:
-    """Find the node executable."""
-    import shutil
     return shutil.which("node")
 
 
 def _find_npx() -> str | None:
-    """Find the npx executable."""
-    import shutil
     return shutil.which("npx")
 
 
 def _install_bun(ui: UI) -> str | None:
-    """Attempt to install bun automatically."""
     ui.print_info("Bun not found. Installing bun runtime...")
     try:
         if sys.platform == "win32":
-            # Windows: use PowerShell to install bun
-            ps_cmd = (
-                'irm bun.sh/install.ps1 | iex'
-            )
             result = subprocess.run(
-                ["powershell", "-Command", ps_cmd],
-                capture_output=True,
-                text=True,
-                timeout=120,
+                ["powershell", "-Command", "irm bun.sh/install.ps1 | iex"],
+                capture_output=True, text=True, timeout=120,
                 env={**os.environ, "BUN_INSTALL": str(Path.home() / ".bun")},
             )
             if result.returncode != 0:
-                ui.print_warning(f"Bun install failed: {result.stderr[:200]}")
                 return None
         else:
-            # Unix: use curl + bash
-            install_cmd = ["curl", "-fsSL", "https://bun.sh/install"]
             result = subprocess.run(
-                install_cmd,
-                capture_output=True,
-                text=True,
-                timeout=60,
+                ["curl", "-fsSL", "https://bun.sh/install"],
+                capture_output=True, text=True, timeout=60,
             )
             if result.returncode != 0:
                 return None
-
             install_result = subprocess.run(
                 ["bash", "-c", result.stdout],
-                capture_output=True,
-                text=True,
-                timeout=120,
+                capture_output=True, text=True, timeout=120,
                 env={**os.environ, "BUN_INSTALL": str(Path.home() / ".bun")},
             )
             if install_result.returncode != 0:
                 return None
-
         bun_path = Path.home() / ".bun" / "bin" / "bun"
-        if sys.platform == "win32":
-            bun_path = bun_path.with_suffix(".exe") if not bun_path.exists() else bun_path
         if bun_path.exists():
             ui.print_success("Bun installed successfully!")
             return str(bun_path)
@@ -790,163 +839,87 @@ def _install_bun(ui: UI) -> str | None:
 
 
 def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
-    """Install TUI dependencies if needed (bun install, with npm fallback)."""
     node_modules = tui_dir / "node_modules"
     if node_modules.exists() and (node_modules / "ink").exists():
         return True
-
     ui.print_info("Installing TUI dependencies (first run)...")
-
-    # Try bun first
     bun_path = _find_bun()
     if bun_path:
         try:
             result = subprocess.run(
-                [bun_path, "install"],
-                cwd=str(tui_dir),
-                capture_output=True,
-                text=True,
-                timeout=120,
+                [bun_path, "install"], cwd=str(tui_dir),
+                capture_output=True, text=True, timeout=120,
             )
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed!")
                 return True
-            else:
-                ui.print_warning(f"bun install failed: {result.stderr[:200]}")
-                ui.print_info("Trying npm as fallback...")
-        except Exception as e:
-            ui.print_warning(f"bun install error: {e}")
-            ui.print_info("Trying npm as fallback...")
-
-    # Fallback to npm (works on Windows where bun may not be compatible)
-    import shutil
+        except Exception:
+            pass
     npm_path = shutil.which("npm")
     if npm_path:
         try:
             result = subprocess.run(
-                [npm_path, "install"],
-                cwd=str(tui_dir),
-                capture_output=True,
-                text=True,
-                timeout=180,
+                [npm_path, "install"], cwd=str(tui_dir),
+                capture_output=True, text=True, timeout=180,
             )
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed with npm!")
                 return True
-            else:
-                ui.print_error(f"npm install failed: {result.stderr[:200]}")
-                return False
-        except Exception as e:
-            ui.print_error(f"npm install error: {e}")
-            return False
-
-    ui.print_error(
-        "Could not install TUI dependencies. Neither bun nor npm is available.\n"
-        "Install bun: https://bun.sh\n"
-        "Or install Node.js: https://nodejs.org"
-    )
+        except Exception:
+            pass
+    ui.print_error("Could not install TUI dependencies. Neither bun nor npm is available.")
     return False
 
 
-def _try_run_tui_process(
-    tui_dir: Path, runtime_cmd: list[str], ui: UI,
-    runtime_name: str = "OpenTUI",
-) -> bool:
-    """Try to run the TUI frontend with the given runtime command.
-
-    The HTTP API server must already be started before calling this.
-
-    Args:
-        tui_dir: Path to tui-frontend directory.
-        runtime_cmd: Command list to run (e.g. ["bun", "src/App.tsx"] or ["tsx", "src/App.tsx"]).
-        ui: UI instance for messages.
-        runtime_name: Display name for the runtime.
-
-    Returns True if TUI ran and exited normally. False if it crashed.
-    """
+def _try_run_tui_process(tui_dir: Path, runtime_cmd: list[str], ui: UI,
+                         runtime_name: str = "OpenTUI") -> bool:
     ui.print_info(f"Starting APEX TUI with {runtime_name} (Ctrl+C to exit)...")
-
     env = os.environ.copy()
-    # Add local node_modules/.bin to PATH so tsx is found
     local_bin = tui_dir / "node_modules" / ".bin"
     if local_bin.exists():
         path_sep = ";" if sys.platform == "win32" else ":"
         env["PATH"] = str(local_bin) + path_sep + env.get("PATH", "")
-    # Add bun directory to PATH (in case runtime needs it for resolution)
     bun_path = _find_bun()
     if bun_path:
         path_sep = ";" if sys.platform == "win32" else ":"
         env["PATH"] = str(Path(bun_path).parent) + path_sep + env.get("PATH", "")
     env["APEX_HTTP_PORT"] = "8080"
-
     try:
         proc = subprocess.Popen(
-            runtime_cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env,
-            text=True,
-            bufsize=1,
-            cwd=str(tui_dir),
+            runtime_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, env=env, text=True, bufsize=1, cwd=str(tui_dir),
         )
-
-        # Read stderr in a separate thread to avoid deadlock
         stderr_lines: list[str] = []
-
         def read_stderr():
-            try:
-                for line in iter(proc.stderr.readline, ""):
-                    if line.strip():
-                        stderr_lines.append(line.rstrip())
-            except Exception:
-                pass
-
+            for line in iter(proc.stderr.readline, ""):
+                if line.strip():
+                    stderr_lines.append(line.rstrip())
         stderr_thread = threading.Thread(target=read_stderr, daemon=True)
         stderr_thread.start()
 
-        # Read stdout for JSON quit signals
         def read_stdout():
-            try:
-                for line in iter(proc.stdout.readline, ""):
-                    if not line.strip():
-                        continue
-                    try:
-                        msg = json.loads(line)
-                        if msg.get("type") == "quit":
-                            proc.terminate()
-                            return
-                    except json.JSONDecodeError:
-                        pass
-            except Exception:
-                pass
-
+            for line in iter(proc.stdout.readline, ""):
+                if not line.strip():
+                    continue
+                try:
+                    msg = json.loads(line)
+                    if msg.get("type") == "quit":
+                        proc.terminate()
+                        return
+                except json.JSONDecodeError:
+                    pass
         stdout_thread = threading.Thread(target=read_stdout, daemon=True)
         stdout_thread.start()
-
-        # Wait to check if the runtime crashes immediately
         time.sleep(2.0)
         if proc.poll() is not None:
             stderr_output = "\n".join(stderr_lines)
-            if "not compatible" in stderr_output.lower() or "version de" in stderr_output.lower():
-                ui.print_error(f"{runtime_name} is not compatible with this Windows version.")
-                return False
-            elif proc.returncode != 0:
+            if proc.returncode != 0:
                 ui.print_error(f"{runtime_name} exited with code {proc.returncode}")
-                if stderr_output:
-                    ui.print_info(f"Error: {stderr_output[:400]}")
                 return False
-            else:
-                # Exited with code 0 immediately - probably didn't start properly
-                ui.print_error(f"{runtime_name} exited immediately")
-                return False
-
-        # TUI is running - block until it exits
+            return False
         while proc.poll() is None:
             time.sleep(0.1)
-
         return True
-
     except FileNotFoundError:
         ui.print_error(f"{runtime_name} executable not found: {runtime_cmd[0]}")
         return False
@@ -956,99 +929,75 @@ def _try_run_tui_process(
 
 
 def _ensure_tsx(tui_dir: Path) -> str | None:
-    """Ensure tsx is available for running TSX files with Node.js.
-
-    Returns the path to tsx executable, or None if not available.
-    """
-    # Check if tsx is already in local node_modules
     local_tsx = tui_dir / "node_modules" / ".bin" / ("tsx.cmd" if sys.platform == "win32" else "tsx")
     if local_tsx.exists():
         return str(local_tsx)
-
-    # Check if tsx is in PATH
-    import shutil
-    tsx_in_path = shutil.which("tsx")
-    if tsx_in_path:
-        return tsx_in_path
-
-    return None
+    return shutil.which("tsx")
 
 
 def _install_tsx(tui_dir: Path, ui: UI) -> str | None:
-    """Install tsx as a devDependency for the TUI frontend."""
-    import shutil
     npm_path = shutil.which("npm")
     if not npm_path:
         return None
-
     ui.print_info("Installing tsx runtime for Node.js TUI support...")
     try:
         result = subprocess.run(
             [npm_path, "install", "--save-dev", "tsx"],
-            cwd=str(tui_dir),
-            capture_output=True,
-            text=True,
-            timeout=120,
+            cwd=str(tui_dir), capture_output=True, text=True, timeout=120,
         )
         if result.returncode == 0:
             ui.print_success("tsx installed successfully!")
             return _ensure_tsx(tui_dir)
-        else:
-            ui.print_warning(f"tsx install failed: {result.stderr[:200]}")
-    except Exception as e:
-        ui.print_warning(f"tsx install error: {e}")
+    except Exception:
+        pass
     return None
 
 
-def run_apex_tui(agent: Agent, ui: UI) -> None:
-    """Run APEX TUI - Ink + React terminal interface with real backend.
-
-    The TUI uses Ink (React for terminal) which works with Node.js.
-    Falls back to CLI REPL only if Node.js is not available.
-    """
-    # Find tui-frontend directory
+def run_apex_tui(agent: Agent, ui: UI, resume: bool = False,
+                 session_id: str | None = None, fork: str | None = None) -> None:
     tui_dir = _find_tui_dir()
     if not tui_dir:
-        ui.print_warning("TUI frontend not found. Install with: apex install-tui")
-        ui.print_info("Falling back to CLI mode.\n")
-        run_repl(agent, ui)
-        return
+        ui.print_error("TUI frontend not found. Install with: apex install-tui")
+        sys.exit(1)
 
-    # Ensure TUI dependencies are installed
     if not _setup_tui_frontend(tui_dir, ui):
-        ui.print_warning("TUI dependencies not installed. Falling back to CLI mode.\n")
-        run_repl(agent, ui)
-        return
+        ui.print_error("TUI dependencies not installed. Run: apex install-tui")
+        sys.exit(1)
 
-    # Ensure tsx is available for running TSX files with Node.js
     tsx_path = _ensure_tsx(tui_dir)
     if not tsx_path:
         tsx_path = _install_tsx(tui_dir, ui)
 
     tui_entry = str(tui_dir / "src" / "App.tsx")
-
-    # Build the runtime command
     runtime_cmd: list[str] | None = None
-    runtime_name: str = ""
+    runtime_name = ""
 
     if tsx_path:
         runtime_cmd = [tsx_path, tui_entry]
         runtime_name = "Node.js + tsx"
     else:
-        # Fallback: try node with native TS support (Node 22+)
         node_path = _find_node()
         if node_path:
             runtime_cmd = [node_path, "--experimental-strip-types", tui_entry]
             runtime_name = "Node.js (native TS)"
 
     if not runtime_cmd:
-        ui.print_error("\nNo TUI runtime available. Install Node.js: https://nodejs.org")
-        ui.print_info("Or use CLI mode: apex --cli\n")
-        ui.print_warning("Falling back to CLI mode...\n")
-        run_repl(agent, ui)
-        return
+        ui.print_error("TUI requires Node.js. Install from https://nodejs.org")
+        sys.exit(1)
 
-    # Start the HTTP API server ONCE (shared with TUI)
+    # Resume or load session if requested
+    if resume:
+        sm = SessionManager()
+        sessions = sm.list_sessions()
+        if sessions:
+            latest = sessions[0]
+            sm.load(latest["name"], agent)
+            ui.print_success(f"Resumed session: {latest['name']}")
+    elif session_id:
+        sm = SessionManager()
+        sm.load(session_id, agent)
+        ui.print_success(f"Loaded session: {session_id}")
+
     ui.print_info("Starting APEX HTTP API server on port 8080...")
     server = start_tui_server(port=8080, agent=agent)
     time.sleep(0.5)
@@ -1060,19 +1009,11 @@ def run_apex_tui(agent: Agent, ui: UI) -> None:
     finally:
         stop_tui_server(server)
 
-    # TUI failed
-    ui.print_error(f"\n{runtime_name} TUI failed. Possible fixes:")
-    ui.print_info("  1. Install Node.js: https://nodejs.org (LTS recommended)")
-    ui.print_info("  2. Run: apex install-tui")
-    ui.print_info("  3. Use CLI mode: apex --cli\n")
-    ui.print_warning("Falling back to CLI mode...\n")
-    run_repl(agent, ui)
+    ui.print_error(f"TUI failed. Run: apex install-tui")
+    sys.exit(1)
 
 
 def _install_tui_command(ui: UI) -> None:
-    """Install TUI dependencies: bun runtime + tui-frontend source files."""
-
-    # Step 1: Install bun
     bun_path = _find_bun()
     if bun_path:
         ui.print_success(f"Bun already installed: {bun_path}")
@@ -1080,21 +1021,17 @@ def _install_tui_command(ui: UI) -> None:
         ui.print_info("Installing Bun runtime...")
         bun_path = _install_bun(ui)
         if not bun_path:
-            ui.print_error("Failed to install Bun. Install manually:")
-            ui.print_info("  curl -fsSL https://bun.sh/install | bash")
+            ui.print_error("Failed to install Bun. Run: curl -fsSL https://bun.sh/install | bash")
             return
         ui.print_success(f"Bun installed: {bun_path}")
 
-    # Step 2: Check for tui-frontend
     tui_dir = _find_tui_dir()
     if tui_dir:
         ui.print_success(f"TUI frontend found: {tui_dir}")
     else:
-        # Clone tui-frontend to ~/.apex/
         apex_dir = Path.home() / ".apex"
         apex_dir.mkdir(parents=True, exist_ok=True)
         tui_target = apex_dir / "tui-frontend"
-
         if tui_target.exists():
             ui.print_success(f"TUI frontend already at: {tui_target}")
             tui_dir = tui_target
@@ -1102,27 +1039,16 @@ def _install_tui_command(ui: UI) -> None:
             ui.print_info("Downloading TUI frontend from GitHub...")
             try:
                 result = subprocess.run(
-                    [
-                        "git",
-                        "clone",
-                        "--depth",
-                        "1",
-                        "https://github.com/Ggboykxz/APEX.git",
-                        str(apex_dir / "apex-tmp"),
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
+                    ["git", "clone", "--depth", "1", "https://github.com/Ggboykxz/APEX.git",
+                     str(apex_dir / "apex-tmp")],
+                    capture_output=True, text=True, timeout=60,
                 )
                 if result.returncode == 0:
-                    # Copy only tui-frontend
-                    import shutil as sh
-
-                    sh.copytree(
-                        str(apex_dir / "apex-tmp" / "tui-frontend"),
-                        str(tui_target),
-                    )
-                    sh.rmtree(str(apex_dir / "apex-tmp"), ignore_errors=True)
+                    if (apex_dir / "apex-tmp" / "tui-frontend").exists():
+                        shutil.copytree(
+                            str(apex_dir / "apex-tmp" / "tui-frontend"), str(tui_target),
+                        )
+                    shutil.rmtree(str(apex_dir / "apex-tmp"), ignore_errors=True)
                     tui_dir = tui_target
                     ui.print_success(f"TUI frontend installed: {tui_target}")
                 else:
@@ -1132,63 +1058,915 @@ def _install_tui_command(ui: UI) -> None:
                 ui.print_error(f"Failed to download TUI frontend: {e}")
                 return
 
-    # Step 3: Install tsx for Node.js fallback
     if tui_dir and not _find_bun():
         tsx_path = _ensure_tsx(tui_dir)
         if not tsx_path:
             _install_tsx(tui_dir, ui)
 
-    # Step 4: Install TUI npm dependencies
     if tui_dir:
         if _setup_tui_frontend(tui_dir, ui):
             ui.print_success("TUI setup complete! Run: apex")
         else:
             ui.print_error("Failed to install TUI dependencies.")
-            ui.print_info("Try manually: cd ~/.apex/tui-frontend && npm install")
+
+
+# ── Subcommand handlers ─────────────────────────────────────
+
+
+def _cmd_serve(args: argparse.Namespace, ui: UI) -> None:
+    try:
+        from .http_api import HTTPServer
+        host = args.hostname or apex_config.server.get("hostname", "127.0.0.1")
+        port = args.port or apex_config.server.get("port", 8080)
+        ui.print_info(f"Starting APEX HTTP API server on {host}:{port}...")
+        agent = Agent(apex_config)
+        server = HTTPServer(host=host, port=port)
+        ui.print_success(f"Server running at http://{host}:{port}")
+        server.run()
+    except Exception as e:
+        ui.print_error(f"Failed to start server: {e}")
+        sys.exit(1)
+
+
+def _cmd_web(args: argparse.Namespace, ui: UI) -> None:
+    try:
+        from .http_api import HTTPServer
+        host = args.hostname or apex_config.server.get("hostname", "127.0.0.1")
+        port = args.port or apex_config.server.get("port", 8080)
+        ui.print_info(f"Starting APEX web server on {host}:{port}...")
+        agent = Agent(apex_config)
+        server = HTTPServer(host=host, port=port)
+        url = f"http://{host}:{port}"
+        ui.print_success(f"Opening {url} in browser...")
+        webbrowser.open(url)
+        server.run()
+    except Exception as e:
+        ui.print_error(f"Failed to start web server: {e}")
+        sys.exit(1)
+
+
+def _cmd_auth(args: argparse.Namespace, ui: UI) -> None:
+    auth_dir = Path.home() / ".config" / "apex"
+    auth_file = auth_dir / "auth.json"
+    auth_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.auth_subcommand == "list":
+        if auth_file.exists():
+            data = json.loads(auth_file.read_text())
+            table = Table(title="Configured Providers", show_header=True, header_style="bold cyan")
+            table.add_column("Provider", style="cyan", width=20)
+            table.add_column("Key (last 8)", style="yellow", width=16)
+            table.add_column("Model", style="green", width=24)
+            for prov, info in data.items():
+                key_preview = "..." + info.get("api_key", "")[-8:] if info.get("api_key") else "not set"
+                model = info.get("model", "default")
+                table.add_row(prov, key_preview, model)
+            ui.console.print(table)
+        else:
+            ui.print_info("No providers configured")
+        return
+
+    if args.auth_subcommand == "logout":
+        if not args.auth_provider:
+            ui.print_error("Usage: apex auth logout --provider <name>")
+            sys.exit(1)
+        if auth_file.exists():
+            data = json.loads(auth_file.read_text())
+            if args.auth_provider in data:
+                del data[args.auth_provider]
+                auth_file.write_text(json.dumps(data, indent=2))
+                ui.print_success(f"Logged out from provider: {args.auth_provider}")
+            else:
+                ui.print_error(f"Provider not found: {args.auth_provider}")
+                sys.exit(1)
+        return
+
+    # login
+    provider = args.auth_provider
+    if not provider:
+        provider = ui.input("Provider name (e.g. anthropic, openai): ").strip()
+    if not provider:
+        ui.print_error("Provider name required")
+        sys.exit(1)
+
+    key = ui.input(f"API key for {provider}: ").strip()
+    if not key:
+        ui.print_error("API key required")
+        sys.exit(1)
+
+    data = {}
+    if auth_file.exists():
+        data = json.loads(auth_file.read_text())
+    data[provider] = {"api_key": key, "model": args.model or "default", "configured_at": time.time()}
+    auth_file.write_text(json.dumps(data, indent=2))
+    ui.print_success(f"Provider '{provider}' configured!")
+
+
+def _cmd_agent(args: argparse.Namespace, ui: UI) -> None:
+    from .agents import agent_manager, AgentConfig
+
+    if args.agent_subcommand == "list":
+        agents = agent_manager.list_agents()
+        if not agents:
+            ui.print_info("No agents configured")
+            return
+        table = Table(title="APEX Agents", show_header=True, header_style="bold cyan")
+        table.add_column("Name", style="cyan", width=14)
+        table.add_column("Mode", style="white", width=10)
+        table.add_column("Model", style="green", width=20)
+        table.add_column("Description", style="white")
+        for a in agents:
+            model = a.model or "default"
+            table.add_row(a.name, a.mode, model, a.description)
+        ui.console.print(table)
+        return
+
+    if args.agent_subcommand == "create":
+        ui.print_info("Creating new agent (interactive wizard)...")
+        name = ui.input("Agent name: ").strip()
+        if not name:
+            ui.print_error("Name required")
+            sys.exit(1)
+        desc = ui.input("Description: ").strip()
+        mode = ui.input("Mode (primary/subagent) [subagent]: ").strip() or "subagent"
+        model = ui.input("Model (leave empty for default): ").strip() or None
+        read_perm = ui.input("Read permission (allow/ask/deny) [allow]: ").strip() or "allow"
+        edit_perm = ui.input("Edit permission (allow/ask/deny) [ask]: ").strip() or "ask"
+        bash_perm = ui.input("Bash permission (allow/ask/deny) [ask]: ").strip() or "ask"
+
+        agent_dir = Path.home() / ".config" / "apex" / "agents"
+        agent_dir.mkdir(parents=True, exist_ok=True)
+        agent_file = agent_dir / f"{name}.md"
+
+        content = f"""---
+description: {desc}
+mode: {mode}
+model: {model or ""}
+permission:
+  read: {read_perm}
+  edit: {edit_perm}
+  bash: {bash_perm}
+---
+
+You are the {name} agent for APEX.
+
+{desc}
+
+Your role:
+- Analyze code and provide expert insights
+- Follow best practices for the task at hand
+- Be thorough and precise in all your work
+"""
+        agent_file.write_text(content)
+        # Reload markdown agents
+        agent_manager.load_markdown_agents()
+        ui.print_success(f"Agent '{name}' created at {agent_file}")
+        return
+
+    ui.print_error("Usage: apex agent <create|list>")
+    sys.exit(1)
+
+
+def _cmd_run(args: argparse.Namespace, ui: UI) -> None:
+    config = apex_config
+    if args.model:
+        config.model = args.model
+    if args.agent_name:
+        config.set("default_agent", args.agent_name)
+
+    agent = Agent(config)
+    if args.agent_name:
+        agent.switch_agent(args.agent_name)
+
+    if args.resume:
+        sm = SessionManager()
+        sessions = sm.list_sessions()
+        if sessions:
+            sm.load(sessions[0]["name"], agent)
+    elif args.session_id:
+        sm = SessionManager()
+        sm.load(args.session_id, agent)
+
+    prompt = args.prompt
+    if args.input_file:
+        prompt = Path(args.input_file).read_text().strip()
+    if not prompt:
+        ui.print_error("No prompt provided. Usage: apex run <prompt>")
+        sys.exit(1)
+
+    if args.output_format == "json":
+        try:
+            response = agent.chat(prompt)
+            result = {"success": True, "prompt": prompt, "response": response,
+                      "model": agent.model, "usage": agent.usage}
+            print(json.dumps(result, indent=2))
+        except Exception as e:
+            print(json.dumps({"success": False, "error": str(e)}, indent=2))
+            sys.exit(1)
+    else:
+        run_one_shot(prompt, agent, ui, args.stream)
+
+
+def _cmd_session(args: argparse.Namespace, ui: UI) -> None:
+    sm = SessionManager()
+    if args.session_subcommand == "list":
+        count = args.n if hasattr(args, "n") and args.n else 20
+        sessions = sm.list_sessions()[:count]
+        if not sessions:
+            ui.print_info("No saved sessions")
+            return
+        fmt = getattr(args, "list_format", "table")
+        if fmt == "json":
+            print(json.dumps(sessions, indent=2))
+        else:
+            table = Table(title="Sessions", show_header=True, header_style="bold cyan")
+            table.add_column("Name", style="cyan", width=16)
+            table.add_column("Model", style="green", width=20)
+            table.add_column("Messages", style="yellow", width=10)
+            table.add_column("Timestamp", style="white")
+            for s in sessions:
+                table.add_row(s["name"], s.get("model", ""), str(s.get("history_len", 0)), s.get("timestamp", ""))
+            ui.console.print(table)
+        return
+
+    if args.session_subcommand == "delete":
+        if not args.session_id:
+            ui.print_error("Usage: apex session delete <session_id>")
+            sys.exit(1)
+        sessions_dir = Path.home() / ".apex" / "sessions"
+        deleted = False
+        for f in sessions_dir.glob(f"*{args.session_id}*"):
+            if f.is_file() and f.suffix == ".json":
+                f.unlink()
+                deleted = True
+        if deleted:
+            ui.print_success(f"Deleted session: {args.session_id}")
+        else:
+            ui.print_error(f"Session not found: {args.session_id}")
+            sys.exit(1)
+        return
+
+    ui.print_error("Usage: apex session <list|delete>")
+    sys.exit(1)
+
+
+def _cmd_stats(args: argparse.Namespace, ui: UI) -> None:
+    from .cost_local import cost_tracker, MODEL_PRICING
+    sm = SessionManager()
+    sessions = sm.list_sessions()
+
+    days = args.days or 30
+    cutoff = time.time() - (days * 86400)
+    recent = [s for s in sessions if s.get("timestamp") and _parse_ts(s["timestamp"]) > cutoff]
+
+    total_input = 0
+    total_output = 0
+    total_cost = 0.0
+    model_stats: dict[str, dict] = {}
+
+    for s in recent:
+        model = s.get("model", "unknown")
+        history_len = s.get("history_len", 0)
+        # rough estimate: ~500 tokens per message average
+        inp_est = history_len * 250
+        out_est = history_len * 250
+        total_input += inp_est
+        total_output += out_est
+        pricing = MODEL_PRICING.get(model)
+        if pricing:
+            cost = (inp_est / 1000 * pricing.per_1k_input) + (out_est / 1000 * pricing.per_1k_output)
+        else:
+            cost = 0.0
+        total_cost += cost
+        if model not in model_stats:
+            model_stats[model] = {"sessions": 0, "input": 0, "output": 0, "cost": 0.0}
+        model_stats[model]["sessions"] += 1
+        model_stats[model]["input"] += inp_est
+        model_stats[model]["output"] += out_est
+        model_stats[model]["cost"] += cost
+
+    table = Table(title=f"Usage Stats (last {days} days)", show_header=True, header_style="bold cyan")
+    table.add_column("Metric", style="white", width=16)
+    table.add_column("Value", style="green")
+    table.add_row("Sessions", str(len(recent)))
+    table.add_row("Total Input Tokens", f"{total_input:,}")
+    table.add_row("Total Output Tokens", f"{total_output:,}")
+    table.add_row("Total Tokens", f"{total_input + total_output:,}")
+    table.add_row("Estimated Cost", f"${total_cost:.4f}")
+    ui.console.print(table)
+
+    if args.tools or args.models_flag:
+        model_table = Table(title="Per-Model Breakdown", show_header=True, header_style="bold cyan")
+        model_table.add_column("Model", style="cyan", width=24)
+        model_table.add_column("Sessions", style="yellow", width=10)
+        model_table.add_column("Input", style="white", width=14)
+        model_table.add_column("Output", style="white", width=14)
+        model_table.add_column("Cost", style="green", width=12)
+        for model_name, ms in sorted(model_stats.items(), key=lambda x: -x[1]["cost"]):
+            model_table.add_row(model_name, str(ms["sessions"]),
+                                f"{ms['input']:,}", f"{ms['output']:,}", f"${ms['cost']:.4f}")
+        ui.console.print(model_table)
+
+
+def _parse_ts(ts: str) -> float:
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(ts).timestamp()
+    except Exception:
+        return 0
+
+
+def _cmd_export(args: argparse.Namespace, ui: UI) -> None:
+    from .share import share_manager as sm
+    if not args.session_id:
+        ui.print_error("Usage: apex export <session_id> [--sanitize]")
+        sys.exit(1)
+    data = sm.export_session(args.session_id)
+    if not data:
+        ui.print_error(f"Session not found: {args.session_id}")
+        sys.exit(1)
+    if args.sanitize:
+        data = sm.sanitize_session_data(data)
+    out = Path.cwd() / f"session_{args.session_id}.json"
+    out.write_text(json.dumps(data, indent=2))
+    ui.print_success(f"Exported to {out}")
+
+
+def _cmd_import(args: argparse.Namespace, ui: UI) -> None:
+    from .share import share_manager as sm
+    if not args.file:
+        ui.print_error("Usage: apex import <file>")
+        sys.exit(1)
+    file_path = args.file
+    # Handle URLs
+    if file_path.startswith(("http://", "https://", "apex://")):
+        import urllib.request
+        try:
+            if file_path.startswith("apex://share/"):
+                share_id = file_path.split("/")[-1]
+                url = f"https://apex-ai.dev/s/{share_id}.json"
+            else:
+                url = file_path
+            resp = urllib.request.urlopen(url)
+            data = json.loads(resp.read())
+            session_id = sm._generate_id()
+            sessions_dir = Path.home() / ".apex" / "sessions"
+            sessions_dir.mkdir(parents=True, exist_ok=True)
+            out = sessions_dir / f"imported_{session_id}.json"
+            out.write_text(json.dumps(data, indent=2))
+            ui.print_success(f"Imported from URL as session: {session_id}")
+        except Exception as e:
+            ui.print_error(f"Failed to import from URL: {e}")
+            sys.exit(1)
+    else:
+        result = sm.import_session(file_path)
+        if result:
+            ui.print_success(f"Imported session: {result}")
+        else:
+            ui.print_error(f"Failed to import from: {file_path}")
+            sys.exit(1)
+
+
+def _cmd_upgrade(args: argparse.Namespace, ui: UI) -> None:
+    method = args.method or "pip"
+    ui.print_info(f"Upgrading APEX via {method}...")
+    try:
+        if method == "pip":
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", "apex-ai"],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode == 0:
+                ui.print_success("APEX upgraded successfully!")
+            else:
+                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
+                sys.exit(1)
+        elif method == "pipx":
+            result = subprocess.run(
+                ["pipx", "upgrade", "apex-ai"],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode == 0:
+                ui.print_success("APEX upgraded successfully!")
+            else:
+                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
+                sys.exit(1)
+        elif method == "npm":
+            result = subprocess.run(
+                ["npm", "install", "-g", "apex-ai"],
+                capture_output=True, text=True, timeout=120,
+            )
+            if result.returncode == 0:
+                ui.print_success("APEX upgraded successfully!")
+            else:
+                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
+                sys.exit(1)
+        else:
+            ui.print_error(f"Unknown upgrade method: {method}")
+            sys.exit(1)
+    except Exception as e:
+        ui.print_error(f"Upgrade error: {e}")
+        sys.exit(1)
+
+
+def _cmd_uninstall(args: argparse.Namespace, ui: UI) -> None:
+    if not args.dry_run and not args.force:
+        confirm = ui.input("Are you sure you want to uninstall APEX? (yes/no): ").strip().lower()
+        if confirm != "yes":
+            ui.print_info("Uninstall cancelled")
+            return
+
+    if args.dry_run:
+        ui.print_info("[DRY RUN] Would uninstall APEX")
+
+    apex_dir = Path.home() / ".apex"
+    config_dir = Path.home() / ".config" / "apex"
+
+    if args.dry_run:
+        if apex_dir.exists():
+            ui.print_info(f"  Would remove: {apex_dir}")
+        if config_dir.exists() and not args.keep_config:
+            ui.print_info(f"  Would remove: {config_dir}")
+        ui.print_info("[DRY RUN] Would run: pip uninstall apex-ai")
+        return
+
+    if not args.keep_config:
+        if config_dir.exists():
+            shutil.rmtree(config_dir)
+            ui.print_success("Removed config directory")
+    else:
+        ui.print_info("Keeping config directory")
+
+    if not args.keep_data:
+        sessions_dir = apex_dir / "sessions"
+        if sessions_dir.exists():
+            shutil.rmtree(sessions_dir)
+            ui.print_success("Removed session data")
+        memory_dir = apex_dir / "memory"
+        if memory_dir.exists():
+            shutil.rmtree(memory_dir)
+            ui.print_success("Removed memory data")
+    else:
+        ui.print_info("Keeping data directory")
+
+    # Uninstall pip package
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "uninstall", "-y", "apex-ai"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode == 0:
+            ui.print_success("APEX uninstalled successfully!")
+        else:
+            ui.print_warning(f"pip uninstall: {result.stderr[:200]}")
+    except Exception as e:
+        ui.print_warning(f"pip uninstall error: {e}")
+
+    ui.print_info("APEX has been removed. We hope to see you again!")
+
+
+def _cmd_mcp(args: argparse.Namespace, ui: UI) -> None:
+    from .mcp import mcp_manager, MCPServerConfig
+
+    if args.mcp_subcommand == "list":
+        servers = mcp_manager.list_servers() if hasattr(mcp_manager, "list_servers") else []
+        if not servers:
+            ui.print_info("No MCP servers configured")
+            return
+        table = Table(title="MCP Servers", show_header=True, header_style="bold cyan")
+        table.add_column("Name", style="cyan", width=16)
+        table.add_column("Command", style="green", width=30)
+        table.add_column("Enabled", style="yellow", width=8)
+        for s in servers:
+            enabled = "\u2713" if getattr(s, "enabled", True) else "\u2717"
+            table.add_row(s.name, s.command, enabled)
+        ui.console.print(table)
+        return
+
+    if args.mcp_subcommand == "add":
+        ui.print_info("Adding new MCP server (interactive)...")
+        name = ui.input("Server name: ").strip()
+        if not name:
+            ui.print_error("Name required")
+            sys.exit(1)
+        command = ui.input("Command (e.g. npx @modelcontextprotocol/server-github): ").strip()
+        if not command:
+            ui.print_error("Command required")
+            sys.exit(1)
+        args_input = ui.input("Arguments (comma-separated, optional): ").strip()
+        env_vars = ui.input("Environment variables (KEY=VAL, comma-separated, optional): ").strip()
+
+        mcp_config = MCPServerConfig(
+            name=name,
+            command=command.split()[0],
+            args=command.split()[1:] if len(command.split()) > 1 else [],
+            env={} if not env_vars else dict(kv.split("=", 1) for kv in env_vars.split(",") if "=" in kv),
+        )
+        if hasattr(mcp_manager, "add_server"):
+            mcp_manager.add_server(mcp_config)
+        ui.print_success(f"MCP server '{name}' added!")
+        return
+
+    if args.mcp_subcommand == "auth":
+        if not args.mcp_name:
+            ui.print_error("Usage: apex mcp auth <name>")
+            sys.exit(1)
+        ui.print_success(f"Authenticated with MCP server: {args.mcp_name}")
+        return
+
+    ui.print_error("Usage: apex mcp <add|list|auth>")
+    sys.exit(1)
+
+
+def _cmd_db(args: argparse.Namespace, ui: UI) -> None:
+    if args.db_subcommand == "path":
+        db_paths = [
+            Path.home() / ".apex" / "api_keys.db",
+            Path.home() / ".apex" / "sessions",
+            Path.home() / ".config" / "apex" / "apex.json",
+        ]
+        for p in db_paths:
+            if p.exists():
+                print(p)
+    else:
+        ui.print_info("Usage: apex db path")
+
+
+def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
+    if not args.pr_number:
+        ui.print_error("Usage: apex pr <number>")
+        sys.exit(1)
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["gh", "pr", "view", str(args.pr_number), "--json", "headRefName,headRepository,baseRefName,url"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if result.returncode != 0:
+            ui.print_error(f"Failed to fetch PR #{args.pr_number}: {result.stderr[:200]}")
+            sys.exit(1)
+        pr_info = json.loads(result.stdout)
+        branch = pr_info.get("headRefName", "")
+        ui.print_info(f"PR #{args.pr_number}: {branch}")
+        checkout = subprocess.run(
+            ["gh", "pr", "checkout", str(args.pr_number)],
+            capture_output=True, text=True, timeout=30,
+        )
+        if checkout.returncode == 0:
+            ui.print_success(f"Checked out PR #{args.pr_number} ({branch})")
+        else:
+            ui.print_error(f"Failed to checkout PR: {checkout.stderr[:200]}")
+            sys.exit(1)
+    except FileNotFoundError:
+        ui.print_error("gh CLI not found. Install GitHub CLI: https://cli.github.com")
+        sys.exit(1)
+
+
+def _cmd_attach(args: argparse.Namespace, ui: UI) -> None:
+    if not args.url:
+        ui.print_error("Usage: apex attach <url>")
+        sys.exit(1)
+    ui.print_success(f"Attaching TUI to remote backend: {args.url}")
+    config = apex_config
+    config.set("remote_url", args.url)
+    agent = Agent(config)
+    run_apex_tui(agent, ui)
+
+
+def _interactive_provider_config(agent: Agent | None = None, ui: UI | None = None) -> None:
+    if ui is None:
+        from .ui import UI
+        ui = UI()
+    ui.print_info("Welcome to APEX provider configuration!")
+    ui.print_info("You can set API keys via environment variables or configure them here.\n")
+
+    providers = [
+        ("anthropic", "ANTHROPIC_API_KEY", "claude-sonnet-4-5"),
+        ("openai", "OPENAI_API_KEY", "gpt-4o"),
+        ("google", "GEMINI_API_KEY", "gemini-2.5-pro"),
+        ("deepseek", "DEEPSEEK_API_KEY", "deepseek-chat"),
+        ("groq", "GROQ_API_KEY", "llama-3.3-70b"),
+        ("mistral", "MISTRAL_API_KEY", "mistral-large-latest"),
+        ("xai", "XAI_API_KEY", "grok-4"),
+    ]
+
+    auth_dir = Path.home() / ".config" / "apex"
+    auth_dir.mkdir(parents=True, exist_ok=True)
+    auth_file = auth_dir / "auth.json"
+    data = {}
+    if auth_file.exists():
+        data = json.loads(auth_file.read_text())
+
+    for name, env_var, default_model in providers:
+        existing = data.get(name, {})
+        env_val = os.environ.get(env_var, "")
+        if existing.get("api_key"):
+            ui.print_info(f"  [{name}] Already configured (key: ...{existing['api_key'][-8:]})")
+        elif env_val:
+            ui.print_success(f"  [{name}] Found {env_var} in environment")
+            data[name] = {"api_key": env_val, "model": default_model}
+        else:
+            answer = ui.input(f"  Configure {name}? (y/N): ").strip().lower()
+            if answer == "y":
+                key = ui.input(f"    API key for {name}: ").strip()
+                if key:
+                    model = ui.input(f"    Default model [{default_model}]: ").strip() or default_model
+                    data[name] = {"api_key": key, "model": model}
+                    os.environ[env_var] = key
+
+    auth_file.write_text(json.dumps(data, indent=2))
+    ui.print_success("Provider configuration saved!")
+
+
+def _cmd_connect(args: argparse.Namespace, ui: UI) -> None:
+    _interactive_provider_config(None, ui)
+
+
+def _cmd_init(ui: UI) -> None:
+    agents_file = Path.cwd() / "AGENTS.md"
+    if agents_file.exists():
+        ui.print_info("AGENTS.md already exists")
+        return
+    content = """# APEX Project Configuration
+
+## Overview
+This project is configured for use with APEX — the coding AI agent.
+
+## Commands
+
+/test - Run the full test suite
+/review - Review current changes
+/commit - Commit with AI-generated message
+
+## Guidelines
+
+- Follow existing code style and conventions
+- Write tests for new functionality
+- Keep functions focused and small
+"""
+    agents_file.write_text(content)
+    ui.print_success(f"Created {agents_file}")
+
+    # Also create .apex directory
+    apex_dir = Path.cwd() / ".apex"
+    apex_dir.mkdir(parents=True, exist_ok=True)
+    (apex_dir / "commands").mkdir(exist_ok=True)
+    (apex_dir / "agents").mkdir(exist_ok=True)
+    ui.print_success("Initialized .apex project directory")
+
+
+def _cmd_compact(args: argparse.Namespace, ui: UI) -> None:
+    config = apex_config
+    agent = Agent(config)
+    if hasattr(agent, "compact_context"):
+        before = len(agent.history) if hasattr(agent, "history") else 0
+        agent.compact_context()
+        after = len(agent.history) if hasattr(agent, "history") else 0
+        ui.print_success(f"Context compacted: {before} → {after} messages")
+    else:
+        ui.print_info("Compaction not available in this context")
+
+
+def _cmd_details(args: argparse.Namespace, ui: UI) -> None:
+    config = apex_config
+    config.set("show_details", not config.get("show_details", False))
+    state = "enabled" if config.get("show_details") else "disabled"
+    ui.print_success(f"Tool execution details: {state}")
+
+
+def _cmd_thinking(args: argparse.Namespace, ui: UI) -> None:
+    config = apex_config
+    config.set("show_thinking", not config.get("show_thinking", False))
+    state = "enabled" if config.get("show_thinking") else "disabled"
+    ui.print_success(f"Thinking blocks: {state}")
+
+
+# ── Backward compat aliases ─────────────────────────────────
+
+
+def parse_args() -> argparse.Namespace:
+    return build_parser().parse_args()
+
+# ── Main entry ──────────────────────────────────────────────
 
 
 def main() -> None:
-    args = parse_args()
+    parser = build_parser()
 
-    # Intercept positional subcommands: `apex tui`, `apex models`, etc.
-    if args.prompt and args.prompt.lower() in _SUBCOMMANDS:
-        for key, value in _SUBCOMMANDS[args.prompt.lower()].items():
-            setattr(args, key, value)
-        args.prompt = None
-
-    config = Config()
-    if args.model:
-        if args.model not in MODELS:
-            print(f"Error: Unknown model '{args.model}'", file=sys.stderr)
-            print("Use --list-models to see available models", file=sys.stderr)
-            sys.exit(1)
-        config.model = args.model
-    if args.cwd:
-        config.cwd = Path(args.cwd).expanduser().resolve()
-
-    agent = Agent(config)
-    ui = UI()
-
-    if args.list_models:
-        list_models(ui)
+    # Handle --help first to show full epilog
+    if len(sys.argv) == 1 or (len(sys.argv) == 2 and sys.argv[1] in ("--help", "-h")):
+        parser.print_help()
         sys.exit(0)
 
-    if args.install_tui:
+    raw_args = sys.argv[1:]
+
+    # Intercept positional subcommands: `apex models`, etc.
+    if raw_args and raw_args[0].lower() in _SUBCOMMANDS:
+        parsed = parser.parse_args(raw_args)
+        for key, value in _SUBCOMMANDS[raw_args[0].lower()].items():
+            setattr(parsed, key, value)
+        parsed.prompt = None
+        _dispatch(parsed)
+        return
+
+    # Dispatch by verb
+    verb = raw_args[0].lower() if raw_args else ""
+
+    # These subcommands use subparsers
+    subcommand_map = {
+        "auth": ("auth_subcommand", raw_args[1] if len(raw_args) > 1 and not raw_args[1].startswith("-") else "login"),
+        "agent": ("agent_subcommand", raw_args[1] if len(raw_args) > 1 and not raw_args[1].startswith("-") else "list"),
+        "session": ("session_subcommand", raw_args[1] if len(raw_args) > 1 and not raw_args[1].startswith("-") else "list"),
+        "mcp": ("mcp_subcommand", raw_args[1] if len(raw_args) > 1 and not raw_args[1].startswith("-") else "list"),
+        "db": ("db_subcommand", raw_args[2] if len(raw_args) > 2 and raw_args[1] == "path" else ""),
+    }
+
+    if verb in subcommand_map:
+        attr_name, sub_val = subcommand_map[verb]
+        # Build modified args for dispatch
+        modified = [verb]
+        if verb == "db":
+            modified = ["db", "path"]
+        elif verb in ("auth", "agent", "session", "mcp"):
+            # If sub_val is a flag (--something), treat as the verb action
+            idx = 1
+            if len(raw_args) > 1 and not raw_args[1].startswith("-"):
+                modified.append(raw_args[1])
+            else:
+                modified.append(sub_val)
+            # Pass extra flags
+            modified.extend(raw_args[2:] if len(raw_args) > 2 and not raw_args[1].startswith("-") else raw_args[1:])
+
+        parsed = parser.parse_args(modified)
+        parsed.prompt = None
+        _dispatch_verb(verb, parsed)
+        return
+
+    # Direct-verb subcommands (routed to _dispatch_verb)
+    known_verbs = {"serve", "web", "connect", "init", "compact", "details", "thinking",
+                   "stats", "export", "import", "upgrade", "uninstall", "pr", "attach"}
+    if verb in known_verbs:
+        parsed = argparse.Namespace()
+        parsed.prompt = None
+        parsed.model = None
+        parsed.cwd = None
+        parsed.agent_name = None
+        parsed.resume = False
+        parsed.session_id = None
+        parsed.fork_session = None
+        parsed.stream = False
+        parsed.quiet = False
+        parsed.output_format = "text"
+        parsed.port = None
+        parsed.hostname = None
+        parsed.cors = None
+        parsed.mdns = False
+        parsed.refresh = False
+        parsed.verbose = False
+        parsed.sanitize = False
+        parsed.keep_config = False
+        parsed.keep_data = False
+        parsed.dry_run = False
+        parsed.force = False
+        parsed.method = None
+        parsed.share = False
+        parsed.input_file = None
+        parsed.print_logs = False
+        parsed.log_level = None
+        parsed.pure = False
+        parsed.install_tui = False
+        parsed.list_models = False
+        parsed.auto_commit = False
+        # For subcommands, keep the rest of raw_args so handlers can read them
+        parsed.raw_args = raw_args[1:]
+        _dispatch_verb(verb, parsed)
+        return
+
+    # Regular parsing for all other cases
+    try:
+        parsed = parser.parse_args(raw_args)
+    except SystemExit:
+        sys.exit(1)
+    _dispatch(parsed)
+
+
+def _dispatch(parsed: argparse.Namespace) -> None:
+    from apex.config import Config
+    config = Config()
+
+    # Log level
+    if parsed.log_level:
+        logging.basicConfig(level=getattr(logging, parsed.log_level.upper(), logging.INFO))
+    if parsed.print_logs:
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+    if parsed.model and parsed.model not in MODELS:
+        print(f"Error: Unknown model '{parsed.model}'", file=sys.stderr)
+        print("Use --list-models to see available models", file=sys.stderr)
+        sys.exit(1)
+
+    if parsed.cwd:
+        config.cwd = str(Path(parsed.cwd).expanduser().resolve())
+
+    ui = UI()
+
+    # model/agent flags
+    if parsed.model:
+        config.model = parsed.model
+    if parsed.agent_name:
+        config.set("default_agent", parsed.agent_name)
+
+    # Conditional model list
+    if parsed.list_models or hasattr(parsed, "list_models") and parsed.list_models:
+        list_models(ui, verbose=parsed.verbose, refresh=parsed.refresh)
+        sys.exit(0)
+
+    if parsed.install_tui or (hasattr(parsed, "install_tui") and parsed.install_tui):
         _install_tui_command(ui)
         sys.exit(0)
 
-    if args.cli:
-        # Explicit CLI mode requested
-        run_repl(agent, ui, args.stream)
-    elif args.ui or args.tui:
-        run_apex_tui(agent, ui)
-    elif args.prompt_direct:
-        run_cicd_mode(args.prompt_direct, agent, ui, args.output_format, args.quiet)
-    elif args.prompt:
-        run_one_shot(args.prompt, agent, ui, args.stream)
+    # Pure mode
+    if parsed.pure:
+        config.set("pure_mode", True)
+
+    agent = Agent(config)
+
+    if parsed.agent_name:
+        agent.switch_agent(parsed.agent_name)
+
+    # Resume / session / fork handling
+    if parsed.resume:
+        sm = SessionManager()
+        sessions = sm.list_sessions()
+        if sessions:
+            sm.load(sessions[0]["name"], agent)
+    elif parsed.session_id:
+        sm = SessionManager()
+        sm.load(parsed.session_id, agent)
+    elif parsed.fork_session:
+        sm = SessionManager()
+        sm.load(parsed.fork_session, agent)
+
+    # Route to appropriate mode
+    if parsed.ui or parsed.tui:
+        run_apex_tui(agent, ui, resume=parsed.resume, session_id=parsed.session_id, fork=parsed.fork_session)
+    elif parsed.prompt_direct:
+        run_cicd_mode(parsed.prompt_direct, agent, ui, parsed.output_format, parsed.quiet)
+    elif parsed.prompt:
+        run_one_shot(parsed.prompt, agent, ui, parsed.stream)
     else:
-        # Default: launch TUI
         run_apex_tui(agent, ui)
+
+
+def _dispatch_verb(verb: str, parsed: argparse.Namespace) -> None:
+    ui = UI()
+    match verb:
+        case "serve":
+            _cmd_serve(parsed, ui)
+        case "web":
+            _cmd_web(parsed, ui)
+        case "auth":
+            _cmd_auth(parsed, ui)
+        case "agent":
+            _cmd_agent(parsed, ui)
+        case "run":
+            _cmd_run(parsed, ui)
+        case "session":
+            _cmd_session(parsed, ui)
+        case "stats":
+            _cmd_stats(parsed, ui)
+        case "export":
+            _cmd_export(parsed, ui)
+        case "import":
+            _cmd_import(parsed, ui)
+        case "upgrade":
+            _cmd_upgrade(parsed, ui)
+        case "uninstall":
+            _cmd_uninstall(parsed, ui)
+        case "mcp":
+            _cmd_mcp(parsed, ui)
+        case "db":
+            _cmd_db(parsed, ui)
+        case "pr":
+            _cmd_pr(parsed, ui)
+        case "attach":
+            _cmd_attach(parsed, ui)
+        case "connect":
+            _cmd_connect(parsed, ui)
+        case "init":
+            _cmd_init(ui)
+        case "compact":
+            _cmd_compact(parsed, ui)
+        case "details":
+            _cmd_details(parsed, ui)
+        case "thinking":
+            _cmd_thinking(parsed, ui)
+        case _:
+            if parsed.prompt:
+                _dispatch(parsed)
+            else:
+                ui.print_error(f"Unknown command: {verb}")
+                sys.exit(1)
 
 
 if __name__ == "__main__":

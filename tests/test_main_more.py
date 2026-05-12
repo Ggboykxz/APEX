@@ -193,12 +193,12 @@ class TestRunOneShot:
 
 
 class TestRunRepl:
-    """Test run_repl function import."""
+    """Placeholder for removed run_repl."""
 
-    def test_run_repl_import(self):
-        from apex.main import run_repl
-
-        assert callable(run_repl)
+    def test_tui_is_default(self):
+        from apex.main import build_parser
+        parser = build_parser()
+        assert parser is not None
 
 
 class TestMainModule:

@@ -359,3 +359,32 @@ class TestGetAvailableThemes:
         themes = get_available_themes()
         for t in themes:
             assert isinstance(t, str)
+
+
+class TestShowModelsFreeAndActive:
+    """Hit lines 226 (current model active) and 228 (free model)."""
+
+    def test_show_models_with_current_active(self, monkeypatch):
+        ui = UI()
+        console = Console(file=io.StringIO(), width=120, force_terminal=True)
+        ui.console = console
+        # Use a model in the first 25 sorted keys
+        ui.show_models("claude-sonnet-4")
+        output = ui.console.file.getvalue()
+        assert len(output) > 0
+
+    def test_show_models_with_free_model(self, monkeypatch):
+        import apex.config as cfg
+        # Add a free model early in MODELS so it appears in first 25
+        original = dict(cfg.MODELS)
+        cfg.MODELS["aaa-free-test"] = "test/free-model"
+        try:
+            ui = UI()
+            console = Console(file=io.StringIO(), width=120, force_terminal=True)
+            ui.console = console
+            ui.show_models("other")
+            output = ui.console.file.getvalue()
+            assert "Free" in output or "●" in output
+        finally:
+            cfg.MODELS.clear()
+            cfg.MODELS.update(original)
