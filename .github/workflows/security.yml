@@ -55,7 +55,7 @@ jobs:
       - name: Audit Python dependencies
         run: |
           pip install -e ".[dev]" || pip install -e .
-          pip-audit --desc || true
+          pip-audit --desc
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -64,13 +64,13 @@ jobs:
       - name: Audit Node.js dependencies (root)
         run: |
           bun install
-          bunx npm-audit || true
+          bunx npm-audit
 
       - name: Audit Node.js dependencies (TUI)
         run: |
           cd tui-frontend
           bun install
-          bunx npm-audit || true
+          bunx npm-audit
 
   secrets-scan:
     name: Secret Scanning
@@ -81,7 +81,7 @@ jobs:
           fetch-depth: 0
 
       - name: TruffleHog OSS
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@v3.82.0
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -103,10 +103,10 @@ jobs:
         run: pip install bandit[toml]
 
       - name: Run Bandit
-        run: bandit -r apex/ -ll -ii -f json -o bandit-report.json || true
+        run: bandit -r apex/ -ll -ii -f json -o bandit-report.json
 
       - name: Run Bandit (summary)
-        run: bandit -r apex/ -ll -ii || true
+        run: bandit -r apex/ -ll -ii
 
       - name: Upload Bandit report
         if: always()

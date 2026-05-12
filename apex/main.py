@@ -854,32 +854,22 @@ def _find_npx() -> str | None:
 
 
 def _install_bun(ui: UI) -> str | None:
-    ui.print_info("Bun not found. Installing bun runtime...")
+    ui.print_info("Bun not found. Installing bun runtime via npm...")
     try:
-        if sys.platform == "win32":
-            result = subprocess.run(
-                ["powershell", "-Command", "irm bun.sh/install.ps1 | iex"],
-                capture_output=True, text=True, timeout=120,
-                env={**os.environ, "BUN_INSTALL": str(Path.home() / ".bun")},
-            )
-            if result.returncode != 0:
-                return None
-        else:
-            result = subprocess.run(
-                ["curl", "-fsSL", "https://bun.sh/install"],
-                capture_output=True, text=True, timeout=60,
-            )
-            if result.returncode != 0:
-                return None
-            install_result = subprocess.run(
-                ["bash", "-c", result.stdout],
-                capture_output=True, text=True, timeout=120,
-                env={**os.environ, "BUN_INSTALL": str(Path.home() / ".bun")},
-            )
-            if install_result.returncode != 0:
-                return None
-        bun_path = Path.home() / ".bun" / "bin" / "bun"
-        if bun_path.exists():
+        npx_path = _find_npx()
+        if not npx_path:
+            ui.print_error("npx not found. Install Node.js first: https://nodejs.org")
+            return None
+        result = subprocess.run(
+            [npx_path, "--yes", "bun@1", "--version"],
+            capture_output=True, text=True, timeout=120,
+            env={**os.environ, "npm_config_prefix": str(Path.home() / ".npm-global")},
+        )
+        if result.returncode != 0:
+            ui.print_error("Failed to install bun via npx")
+            return None
+        bun_path = shutil.which("bun") or Path.home() / ".npm-global" / "bin" / "bun"
+        if bun_path and Path(bun_path).exists():
             ui.print_success("Bun installed successfully!")
             return str(bun_path)
     except Exception:

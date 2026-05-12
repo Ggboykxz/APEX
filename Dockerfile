@@ -1,5 +1,5 @@
 # ============================================
-# APEX v1.3.0 — Multi-stage Docker Image
+# APEX v1.5.0 — Multi-stage Docker Image
 # Universal AI coding agent. Every model. One terminal.
 # ============================================
 
@@ -31,12 +31,13 @@ COPY tui-frontend/ ./
 FROM python:3.13-slim AS final
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl git ca-certificates unzip && \
+    apt-get install -y --no-install-recommends git ca-certificates unzip && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Bun for TUI
-RUN curl -fsSL https://bun.sh/install | bash && \
-    ln -s /root/.bun/bin/bun /usr/local/bin/bun
+# Install Bun from official image
+COPY --from=tui-builder /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=tui-builder /root/.bun /root/.bun
+RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -54,13 +55,18 @@ COPY pyproject.toml README.md ./
 # Copy TUI frontend
 COPY --from=tui-builder /app/tui-frontend /app/tui-frontend
 
+# Create non-root user
+RUN groupadd -r apex && useradd -r -g apex -m -d /home/apex apex && \
+    mkdir -p /workspace && chown -R apex:apex /workspace /app
+
 # Create workspace directory
-RUN mkdir -p /workspace
 WORKDIR /workspace
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD apex --version > /dev/null 2>&1 || exit 1
+
+USER apex
 
 # Default: run APEX CLI
 ENTRYPOINT ["apex"]

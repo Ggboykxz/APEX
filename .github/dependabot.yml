@@ -44,8 +44,12 @@ updates:
       include: scope
     rebase-strategy: auto
     ignore:
-      - dependency-name: "*"
+      - dependency-name: "next"
         update-types: [version-update:semver-major]
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "typescript"
+      - dependency-name: "eslint"
 
   # npm dependencies — TUI frontend (tui-frontend/)
   - package-ecosystem: npm

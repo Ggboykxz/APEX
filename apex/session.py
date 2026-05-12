@@ -3,9 +3,9 @@
 import json
 import re
 import hashlib
-import base64
-import secrets
+import os
 import logging
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -13,6 +13,44 @@ from typing import Any, Optional
 from .agent import Agent
 
 logger = logging.getLogger(__name__)
+
+_ENCRYPTION_KEY: Optional[bytes] = None
+
+
+def _get_encryption_key() -> bytes:
+    global _ENCRYPTION_KEY
+    if _ENCRYPTION_KEY is not None:
+        return _ENCRYPTION_KEY
+    key_file = Path.home() / ".apex" / ".session_key"
+    if key_file.exists():
+        _ENCRYPTION_KEY = key_file.read_bytes()
+    else:
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        _ENCRYPTION_KEY = hashlib.sha256(os.urandom(64)).digest()
+        key_file.write_bytes(_ENCRYPTION_KEY)
+        key_file.chmod(0o600)
+    return _ENCRYPTION_KEY
+
+
+def _encrypt(data: bytes) -> tuple[bytes, bytes, bytes]:
+    key = _get_encryption_key()
+    import hashlib as _h
+    nonce = os.urandom(12)
+    cipher = _h.shake_256(key + nonce)
+    stream = cipher.digest(len(data))
+    ciphertext = bytes(a ^ b for a, b in zip(data, stream))
+    tag = hashlib.sha256(nonce + ciphertext + key).digest()[:16]
+    return nonce, ciphertext, tag
+
+
+def _decrypt(nonce: bytes, ciphertext: bytes, tag: bytes) -> bytes:
+    key = _get_encryption_key()
+    expected_tag = hashlib.sha256(nonce + ciphertext + key).digest()[:16]
+    if tag != expected_tag:
+        raise ValueError("Decryption failed: data integrity check failed")
+    cipher = hashlib.shake_256(key + nonce)
+    stream = cipher.digest(len(ciphertext))
+    return bytes(a ^ b for a, b in zip(ciphertext, stream))
 
 
 class UndoManager:
@@ -77,7 +115,7 @@ class SessionManager:
             raise ValueError(f"Invalid session name: {name}")
         safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{safe_name}.json"
+        filename = f"{timestamp}_{safe_name}.enc"
         filepath = (self._sessions_dir / filename).resolve()
         if (
             self._sessions_dir.resolve() not in filepath.parents
@@ -94,8 +132,11 @@ class SessionManager:
             "usage": agent.usage,
         }
 
-        with open(filepath, "w") as f:
-            json.dump(session_data, f, indent=2)
+        payload = json.dumps(session_data, separators=(",", ":")).encode()
+        nonce, ciphertext, tag = _encrypt(payload)
+
+        with open(filepath, "wb") as f:
+            f.write(nonce + tag + ciphertext)
 
         latest_link = self._sessions_dir / f"latest_{name}.json"
         if latest_link.exists():
@@ -107,7 +148,9 @@ class SessionManager:
     def load(self, name: str, agent: Agent) -> bool:
         latest_link = self._sessions_dir / f"latest_{name}.json"
         if not latest_link.exists():
-            matching = list(self._sessions_dir.glob(f"*_{name}.json"))
+            matching = list(self._sessions_dir.glob(f"*_{name}.enc"))
+            if not matching:
+                matching = list(self._sessions_dir.glob(f"*_{name}.json"))
             if not matching:
                 return False
             filepath = max(matching, key=lambda p: p.stat().st_mtime)
@@ -118,8 +161,12 @@ class SessionManager:
             filepath = resolved
 
         try:
-            with open(filepath) as f:
-                session_data = json.load(f)
+            raw = filepath.read_bytes()
+            if filepath.suffix == ".json":
+                session_data = json.loads(raw)
+            else:
+                nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
+                session_data = json.loads(_decrypt(nonce, ciphertext, tag))
 
             agent.switch_model(session_data.get("model", "claude-sonnet"))
             agent.cwd = Path(session_data.get("cwd", "."))
@@ -147,6 +194,23 @@ class SessionManager:
                     )
             except Exception:
                 continue
+        for filepath in self._sessions_dir.glob("*.enc"):
+            if filepath.is_symlink():
+                continue
+            try:
+                raw = filepath.read_bytes()
+                nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
+                data = json.loads(_decrypt(nonce, ciphertext, tag))
+                sessions.append(
+                    {
+                        "name": data.get("name", "unknown"),
+                        "timestamp": data.get("timestamp", ""),
+                        "model": data.get("model", ""),
+                        "history_len": len(data.get("history", [])),
+                    }
+                )
+            except Exception:
+                continue
         return sorted(sessions, key=lambda s: s["timestamp"], reverse=True)
 
     def share(self, agent: Agent, name: str = "default") -> str:
@@ -158,23 +222,23 @@ class SessionManager:
             "history": agent.history,
             "usage": agent.usage,
         }
-        json_str = json.dumps(session_data, separators=(",", ":"))
-        compressed = base64.b64encode(json_str.encode()).decode()
+        payload = json.dumps(session_data, separators=(",", ":")).encode()
 
-        full_hash = hashlib.sha256()
-        full_hash.update(json_str.encode())
-        full_hash.update(str(datetime.now().timestamp()).encode())
-        full_hash.update(secrets.token_bytes(32))
-        share_id = full_hash.hexdigest()[:16]
+        encrypted_payload = b""
+        for i in range(0, len(payload), 32):
+            chunk = payload[i:i + 32]
+            nonce, ciphertext, tag = _encrypt(chunk)
+            encrypted_payload += nonce + tag + ciphertext
+
+        encoded = hashlib.sha256(payload + os.urandom(16)).hexdigest()[:16]
+        share_id = encoded
 
         share_dir = self._sessions_dir / "shared"
         share_dir.mkdir(exist_ok=True)
-        filepath = share_dir / f"{share_id}.json"
+        filepath = share_dir / f"{share_id}.enc"
 
-        nonce = secrets.token_hex(16)
-
-        with open(filepath, "w") as f:
-            json.dump({"data": compressed, "nonce": nonce, "id": share_id}, f)
+        with open(filepath, "wb") as f:
+            f.write(encrypted_payload)
 
         logger.info(f"Created shared session: {share_id}")
         return f"apex://share/{share_id}"
@@ -182,16 +246,33 @@ class SessionManager:
     def load_shared(self, share_id: str, agent: Agent) -> bool:
         try:
             share_dir = self._sessions_dir / "shared"
-            filepath = share_dir / f"{share_id}.json"
+            filepath = share_dir / f"{share_id}.enc"
+            if not filepath.exists():
+                filepath = share_dir / f"{share_id}.json"
             if not filepath.exists():
                 logger.warning(f"Shared session not found: {share_id}")
                 return False
-            with open(filepath) as f:
-                wrapper = json.load(f)
-            compressed = wrapper.get("data", "")
 
-            json_str = base64.b64decode(compressed.encode()).decode()
-            session_data = json.loads(json_str)
+            raw = filepath.read_bytes()
+            if filepath.suffix == ".json":
+                import base64
+                wrapper = json.loads(raw)
+                compressed = wrapper.get("data", "")
+                json_str = base64.b64decode(compressed.encode()).decode()
+                session_data = json.loads(json_str)
+            else:
+                chunks = []
+                pos = 0
+                while pos < len(raw):
+                    nonce = raw[pos:pos + 12]
+                    tag = raw[pos + 12:pos + 28]
+                    ct_len = min(32, len(raw) - pos - 28)
+                    ciphertext = raw[pos + 28:pos + 28 + ct_len]
+                    if len(ciphertext) < 1:
+                        break
+                    chunks.append(_decrypt(nonce, ciphertext, tag))
+                    pos += 28 + ct_len
+                session_data = json.loads(b"".join(chunks))
 
             agent.switch_model(session_data.get("model", "claude-sonnet"))
             agent.cwd = Path(session_data.get("cwd", "."))

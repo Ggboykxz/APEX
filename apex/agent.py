@@ -7,8 +7,13 @@ import logging
 from pathlib import Path
 from typing import Any, AsyncGenerator
 
-import litellm
-from litellm import BadRequestError, RateLimitError, AuthenticationError
+try:
+    import litellm
+    from litellm import BadRequestError, RateLimitError, AuthenticationError
+    _LITELLM_AVAILABLE = True
+except ImportError:
+    _LITELLM_AVAILABLE = False
+    BadRequestError = RateLimitError = AuthenticationError = Exception
 
 from .config import Config, MODELS
 from .tools import ToolExecutor, AsyncToolExecutor, get_all_tool_schemas
@@ -276,7 +281,9 @@ class Agent:
             self._set_agent_system_prompt()
 
     def _chat_internal(self, user_input: str, max_rounds: int | None = None) -> str:
-        max_rounds = max_rounds or self.config.max_tool_rounds
+        if not _LITELLM_AVAILABLE:
+            return "ERROR: litellm is not installed. Run: pip install litellm"
+        max_rounds = max_rounds or 10
         messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
         model_str = MODELS.get(self.model, self.model)
 
@@ -436,7 +443,10 @@ class Agent:
     async def _chat_internal_streaming(
         self, user_input: str, max_rounds: int | None = None
     ) -> AsyncGenerator[str, None]:
-        max_rounds = max_rounds or self.config.max_tool_rounds
+        if not _LITELLM_AVAILABLE:
+            yield "ERROR: litellm is not installed. Run: pip install litellm"
+            return
+        max_rounds = max_rounds or 10
         messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
         model_str = MODELS.get(self.model, self.model)
 
