@@ -92,11 +92,11 @@ const VERSIONS = [
     version: 'v1.5.0', name: 'OpenCode UX', status: 'shipping' as const, progress: 100, color: '#00e5ff',
     desc: 'Streaming responses, git tools, web search, persistent memory, and model benchmarking — more powerful workflows.',
     features: [
-      { text: 'Streaming Responses (SSE for web frontend)', done: false },
-      { text: 'Git Tools Integration (blame, log, diff)', done: false },
-      { text: 'Web Search & Fetch', done: false },
-      { text: 'Persistent Memory (cross-session)', done: false },
-      { text: 'Model Benchmarking', done: false },
+      { text: 'Streaming Responses (SSE for web frontend)', done: true },
+      { text: 'Git Tools Integration (blame, log, diff)', done: true },
+      { text: 'Web Search & Fetch', done: true },
+      { text: 'Persistent Memory (cross-session)', done: true },
+      { text: 'Model Benchmarking', done: true },
     ]
   },
   {

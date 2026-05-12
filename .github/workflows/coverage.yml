@@ -30,7 +30,6 @@ jobs:
           pip install pytest-cov pytest-asyncio
 
       - name: Run tests with coverage
-        continue-on-error: true
         run: |
           pytest \
             --cov=apex \
@@ -38,8 +37,7 @@ jobs:
             --cov-report=term-missing \
             --cov-report=html \
             --cov-fail-under=10 \
-            -ra -q \
-            || true
+            -ra -q
 
       - name: Coverage summary
         if: always()

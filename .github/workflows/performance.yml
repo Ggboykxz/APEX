@@ -119,22 +119,15 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
           # Find the latest benchmark JSON
           LATEST_BENCH=$(find .benchmarks -name "*.json" -type f 2>/dev/null | sort | tail -1)
 
           if [ -n "$LATEST_BENCH" ]; then
-            # Store benchmark data with timestamp
             TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%S")
             mkdir -p bench-history
             cp "$LATEST_BENCH" "bench-history/bench-${TIMESTAMP}.json"
-
-            # Keep only the last 50 benchmark files
             cd bench-history
             ls -t bench-*.json | tail -n +51 | xargs -r rm --
             cd ..
-
             echo "Benchmark data saved: bench-history/bench-${TIMESTAMP}.json"
           fi

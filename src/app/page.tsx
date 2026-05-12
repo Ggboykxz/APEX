@@ -1,5 +1,7 @@
 'use client'
 
+import { APP_VERSION_TAG } from '@/lib/version'
+
 import { useState, useEffect, useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 import {
@@ -50,7 +52,7 @@ const STATS = [
 ]
 
 const PAGE_LINKS = [
-  { href: '/agents', icon: Bot, title: 'Agents', desc: '5 specialized agents for every workflow', color: 'text-apex-cyan' },
+  { href: '/agents', icon: Bot, title: 'Agents', desc: '11 specialized agents for every workflow', color: 'text-apex-cyan' },
   { href: '/models', icon: Cpu, title: 'Models', desc: '170+ models from 21 providers', color: 'text-apex-green' },
   { href: '/tools', icon: Wrench, title: 'Tools', desc: '75+ built-in tools for every workflow', color: 'text-apex-yellow' },
   { href: '/install', icon: Box, title: 'Install', desc: '6 installation methods for every platform', color: 'text-apex-cyan' },
@@ -243,7 +245,7 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }} className="text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v1.3.0 — CLI Subcommands & TUI Fix
+              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v1.5.0 — OpenCode UX · Full Audit & Production Readiness
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold font-mono leading-tight mb-6">
               The Universal <span className="animated-gradient-text">AI Coding</span><br />Agent
@@ -297,7 +299,7 @@ export default function Home() {
               <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">coder</span><span className="text-muted-foreground">•</span><span className="flex items-center gap-1"><AnthropicIcon size={12} /><span>claude-sonnet-4.6</span></span></div>
             </div>
             <div className="bg-[#0a0e14] p-6 font-mono text-sm leading-7 min-h-[320px]">
-              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.3.0 — Ready</div>
+              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v1.5.0 — Ready</div>
               <div className="mt-2"><span className="text-apex-green">user</span><span className="text-muted-foreground">@apex</span><span className="text-apex-cyan"> ~ </span><span className="text-foreground">Fix the authentication bug in auth.py</span></div>
               <div className="mt-3 text-muted-foreground"><span className="text-apex-cyan">◆</span> Using <span className="text-foreground">coder</span> agent with <span className="text-apex-cyan">claude-sonnet-4.6</span></div>
               <div className="mt-2 space-y-1.5">

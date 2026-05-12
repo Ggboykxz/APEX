@@ -5,10 +5,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  reactStrictMode: false,
+  reactStrictMode: true,
   // GitHub Pages deploys to /APEX/ subpath
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
   assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || "",

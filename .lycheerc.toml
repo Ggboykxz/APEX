@@ -1,0 +1,72 @@
+# Lychee link checker configuration
+
+# Exclude files
+exclude_path = [
+  "node_modules",
+  ".git",
+  "__pycache__",
+  "dist",
+  "build",
+  ".next",
+  "target",
+  "venv",
+  ".venv",
+  "package-lock.json",
+  "bun.lock",
+]
+
+# Exclude URLs from checking
+exclude = [
+  # Private/internal URLs
+  "https://apex-ai.dev",
+  "http://localhost*",
+  "http://127.0.0.1*",
+  "https://github.com/Ggboykxz/APEX/issues*",
+  
+  # Rate-limited or unreliable
+  "https://pypi.org/",
+  "https://pypi.org/project/",
+  
+  # Social media (often blocks bots)
+  "https://twitter.com/*",
+  "https://x.com/*",
+  
+  # Email addresses
+  "mailto:*",
+  
+  # Dynamic/sponsor links
+  "https://github.com/sponsors/*",
+]
+
+# HTTP headers
+headers = {
+  "User-Agent" = "APEX-LinkChecker/1.0"
+}
+
+# Timeout per request (seconds)
+timeout = 20
+
+# Retry on failure
+retry = true
+max_retries = 2
+
+# Acceptable status codes
+accept = [
+  200,
+  201,
+  202,
+  203,
+  204,
+  205,
+  206,
+  301,
+  302,
+  303,
+  307,
+  308,
+  403,
+  429,
+]
+
+# Schemes to check
+scheme = ["http", "https"]

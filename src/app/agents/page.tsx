@@ -118,7 +118,7 @@ export default function AgentsPage() {
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 text-center">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Multi-Agent System</div>
-              <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4"><span className="animated-gradient-text">5 Specialized</span> Agents</h1>
+              <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4"><span className="animated-gradient-text">11 Specialized</span> Agents</h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">11 specialized agents: 4 primary (Tab to cycle), 4 subagents (@mention to invoke), and 3 system agents. Custom agents via markdown files.</p>
             </motion.div>
           </div>
@@ -258,8 +258,8 @@ export default function AgentsPage() {
         {/* OpenCode Architecture */}
         <section className="py-12 bg-card/30">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Layers className="w-6 h-6 text-apex-cyan" /> OpenCode Architecture (v1.3.0)</h2>
-            <p className="text-muted-foreground mb-6">APEX v1.3.0 features the OpenCode architecture — structured messages, snapshots, custom commands, CLI subcommands, and a typed event bus that powers the agent system.</p>
+            <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Layers className="w-6 h-6 text-apex-cyan" /> OpenCode Architecture (v1.5.0)</h2>
+            <p className="text-muted-foreground mb-6">APEX v1.5.0 features the OpenCode architecture — structured messages, snapshots, custom commands, CLI subcommands, and a typed event bus that powers the agent system.</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-5 rounded-xl border border-apex-cyan/20 bg-apex-cyan/5">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">Structured Parts</h3>
