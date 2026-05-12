@@ -840,6 +840,7 @@ class HTTPServer:
         "GROQ", "XAI", "TOGETHER", "FIREWORKS", "CEREBRAS", "PERPLEXITY",
         "HF", "GITHUB", "NVIDIA", "CLOUDFLARE", "DASHSCOPE", "LLAMA",
         "OPENROUTER", "HUGGINGFACE", "BEDROCK", "AZURE",
+        "OPENCODE", "OPENCODE_GO",
     }
 
     async def api_auth_login(self, request: web.Request) -> web.Response:

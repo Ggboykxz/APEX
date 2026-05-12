@@ -223,6 +223,50 @@ export const PROVIDER_ICONS: Record<string, React.FC<{ size?: number }>> = {
   local: OllamaIcon,
 }
 
+export function ZenIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" stroke="#00e5ff" strokeWidth="1.5" fill="rgba(0,229,255,0.1)" />
+      <path d="M8 12l3 3 5-6" stroke="#00e5ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function GoIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" stroke="#00ff88" strokeWidth="1.5" fill="rgba(0,255,136,0.1)" />
+      <path d="M12 8v8M8 12h8" stroke="#00ff88" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export const PROVIDER_ICONS: Record<string, React.FC<{ size?: number }>> = {
+  anthropic: AnthropicIcon,
+  openai: OpenAIIcon,
+  google: GoogleIcon,
+  xai: XAIIcon,
+  meta: MetaIcon,
+  deepseek: DeepSeekIcon,
+  alibaba: AlibabaIcon,
+  mistral: MistralIcon,
+  groq: GroqIcon,
+  cohere: CohereIcon,
+  cerebras: CerebrasIcon,
+  fireworks: FireworksIcon,
+  together: TogetherIcon,
+  huggingface: HuggingFaceIcon,
+  perplexity: PerplexityIcon,
+  nvidia: NvidiaIcon,
+  cloudflare: CloudflareIcon,
+  microsoft: MicrosoftIcon,
+  aws: AwsIcon,
+  openrouter: OpenRouterIcon,
+  local: OllamaIcon,
+  zen: ZenIcon,
+  go: GoIcon,
+}
+
 export const PROVIDER_LIST = [
   { name: 'Anthropic', iconKey: 'anthropic', color: '#d4a574' },
   { name: 'OpenAI', iconKey: 'openai', color: '#10a37f' },
@@ -244,5 +288,7 @@ export const PROVIDER_LIST = [
   { name: 'Microsoft', iconKey: 'microsoft', color: '#00A4EF' },
   { name: 'AWS', iconKey: 'aws', color: '#FF9900' },
   { name: 'OpenRouter', iconKey: 'openrouter', color: '#6366f1' },
+  { name: 'Zen', iconKey: 'zen', color: '#00e5ff' },
+  { name: 'Go', iconKey: 'go', color: '#00ff88' },
   { name: 'Local', iconKey: 'local', color: '#00ff88' },
 ]

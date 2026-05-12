@@ -122,6 +122,42 @@ export const APEX_MODELS: ModelInfo[] = [
   { id: "ollama-qwen3", name: "Qwen3 (Local)", provider: "Ollama", contextWindow: 32768, inputCostPer1K: 0, outputCostPer1K: 0 },
   { id: "ollama-deepseek", name: "DeepSeek (Local)", provider: "Ollama", contextWindow: 32768, inputCostPer1K: 0, outputCostPer1K: 0 },
   { id: "ollama-gemma3", name: "Gemma 3 (Local)", provider: "Ollama", contextWindow: 8192, inputCostPer1K: 0, outputCostPer1K: 0 },
+
+  // OpenCode Zen (free tier — no API key needed)
+  { id: "zen-minimax-m2.5-free", name: "MiniMax M2.5 Free", provider: "Zen", contextWindow: 1048576, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "zen-qwen3.6-plus-free", name: "Qwen3.6 Plus Free", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "zen-nemotron-3-super-free", name: "Nemotron 3 Super Free", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+  { id: "zen-grok-code-fast", name: "Grok Code Fast 1", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0, outputCostPer1K: 0 },
+
+  // OpenCode Zen (pay-as-you-go, $20 top-up)
+  { id: "zen-claude-sonnet-4.6", name: "Claude 4.6 Sonnet", provider: "Zen", contextWindow: 200000, inputCostPer1K: 0.003, outputCostPer1K: 0.015 },
+  { id: "zen-claude-opus-4.6", name: "Claude 4.6 Opus", provider: "Zen", contextWindow: 200000, inputCostPer1K: 0.005, outputCostPer1K: 0.025 },
+  { id: "zen-gpt-5", name: "GPT-5", provider: "Zen", contextWindow: 200000, inputCostPer1K: 0.00107, outputCostPer1K: 0.0085 },
+  { id: "zen-gpt-5.4", name: "GPT-5.4", provider: "Zen", contextWindow: 200000, inputCostPer1K: 0.005, outputCostPer1K: 0.0225 },
+  { id: "zen-gemini-3-flash", name: "Gemini 3 Flash", provider: "Zen", contextWindow: 1048576, inputCostPer1K: 0.0005, outputCostPer1K: 0.003 },
+  { id: "zen-gemini-3.1-pro", name: "Gemini 3.1 Pro", provider: "Zen", contextWindow: 1048576, inputCostPer1K: 0.004, outputCostPer1K: 0.018 },
+  { id: "zen-kimi-k2.5", name: "Kimi K2.5", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0.0006, outputCostPer1K: 0.003 },
+  { id: "zen-kimi-k2.6", name: "Kimi K2.6", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0.00095, outputCostPer1K: 0.004 },
+  { id: "zen-glm-5", name: "GLM-5", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0.001, outputCostPer1K: 0.0032 },
+  { id: "zen-glm-5.1", name: "GLM-5.1", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0.0014, outputCostPer1K: 0.0044 },
+  { id: "zen-minimax-m2.5", name: "MiniMax M2.5", provider: "Zen", contextWindow: 1048576, inputCostPer1K: 0.0003, outputCostPer1K: 0.0012 },
+  { id: "zen-minimax-m2.7", name: "MiniMax M2.7", provider: "Zen", contextWindow: 1048576, inputCostPer1K: 0.0003, outputCostPer1K: 0.0012 },
+  { id: "zen-deepseek-v4-pro", name: "DeepSeek V4 Pro", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0.0005, outputCostPer1K: 0.002 },
+  { id: "zen-deepseek-v4-flash", name: "DeepSeek V4 Flash", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0.00015, outputCostPer1K: 0.0006 },
+  { id: "zen-qwen3.5-plus", name: "Qwen3.5 Plus", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0.0005, outputCostPer1K: 0.003 },
+  { id: "zen-qwen3.6-plus", name: "Qwen3.6 Plus", provider: "Zen", contextWindow: 131072, inputCostPer1K: 0.0005, outputCostPer1K: 0.003 },
+
+  // OpenCode Go ($10/mo subscription, curated open models)
+  { id: "go-glm-5", name: "GLM-5 (Go)", provider: "Go", contextWindow: 131072, inputCostPer1K: 0.001, outputCostPer1K: 0.0032 },
+  { id: "go-glm-5.1", name: "GLM-5.1 (Go)", provider: "Go", contextWindow: 131072, inputCostPer1K: 0.0014, outputCostPer1K: 0.0044 },
+  { id: "go-kimi-k2.5", name: "Kimi K2.5 (Go)", provider: "Go", contextWindow: 131072, inputCostPer1K: 0.0006, outputCostPer1K: 0.003 },
+  { id: "go-kimi-k2.6", name: "Kimi K2.6 (Go)", provider: "Go", contextWindow: 131072, inputCostPer1K: 0.00095, outputCostPer1K: 0.004 },
+  { id: "go-minimax-m2.5", name: "MiniMax M2.5 (Go)", provider: "Go", contextWindow: 1048576, inputCostPer1K: 0.0003, outputCostPer1K: 0.0012 },
+  { id: "go-minimax-m2.7", name: "MiniMax M2.7 (Go)", provider: "Go", contextWindow: 1048576, inputCostPer1K: 0.0003, outputCostPer1K: 0.0012 },
+  { id: "go-qwen3.5-plus", name: "Qwen3.5 Plus (Go)", provider: "Go", contextWindow: 131072, inputCostPer1K: 0.0005, outputCostPer1K: 0.003 },
+  { id: "go-qwen3.6-plus", name: "Qwen3.6 Plus (Go)", provider: "Go", contextWindow: 131072, inputCostPer1K: 0.0005, outputCostPer1K: 0.003 },
+  { id: "go-deepseek-v4-pro", name: "DeepSeek V4 Pro (Go)", provider: "Go", contextWindow: 131072, inputCostPer1K: 0.0005, outputCostPer1K: 0.002 },
+  { id: "go-deepseek-v4-flash", name: "DeepSeek V4 Flash (Go)", provider: "Go", contextWindow: 131072, inputCostPer1K: 0.00015, outputCostPer1K: 0.0006 },
 ]
 
 export const DEFAULT_KEYBINDS: KeybindInfo[] = [
