@@ -60,6 +60,9 @@ def build_parser() -> argparse.ArgumentParser:
             subcommands:
               serve             Start headless HTTP API server
               web               Start server + open web interface
+              gateway start     Start APEX Gateway (proxy + auth + rate limits)
+              gateway key       Generate a new gateway API key
+              gateway status    Show gateway status and usage
               run <prompt>      Non-interactive mode
               tui / ui          Launch TUI (default)
               models [name]     List available models
@@ -1877,6 +1880,67 @@ def _cmd_plugin(args: argparse.Namespace, ui: UI) -> None:
         ui.print_error(f"Failed to load plugin: {e}")
 
 
+# ── Gateway ────────────────────────────────────────────────
+
+
+def _cmd_gateway(parsed: argparse.Namespace, ui: UI) -> None:
+    """Handle gateway subcommands: start, key, status."""
+    args = sys.argv[2:] if len(sys.argv) > 2 else []
+    sub = args[0].lower() if args else "help"
+
+    if sub == "start":
+        import asyncio
+        from .gateway import GatewayServer
+        from .gateway.config import GatewayConfig
+        try:
+            cfg = GatewayConfig.from_env()
+            server = GatewayServer(cfg)
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(server.start())
+                print("Press Ctrl+C to stop")
+                loop.run_forever()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                loop.run_until_complete(server.stop())
+                loop.close()
+        except Exception as e:
+            ui.print_error(f"Gateway error: {e}")
+            sys.exit(1)
+    elif sub == "key":
+        from .gateway import GatewayServer
+        from .gateway.config import GatewayConfig
+        cfg = GatewayConfig.from_env()
+        server = GatewayServer(cfg)
+        tier = args[1] if len(args) > 1 else "free"
+        label = args[2] if len(args) > 2 else ""
+        api_key = server.auth.generate_key(tier, label)
+        ui.print_success(f"Gateway API key generated ({tier}):")
+        ui.print_info(api_key)
+    elif sub == "status":
+        from .gateway import GatewayServer
+        from .gateway.config import GatewayConfig
+        cfg = GatewayConfig.from_env()
+        server = GatewayServer(cfg)
+        keys = server.auth.list_keys()
+        if not keys:
+            ui.print_info("No API keys registered")
+        else:
+            ui.print_info(f"Gateway keys ({len(keys)}):")
+            for k in keys:
+                ui.print_info(f"  [{k['tier']}] {k['key_id']} — {k['label'] or 'no label'} {'(active)' if k['is_active'] else '(revoked)'}")
+    else:
+        ui.print_info("Usage:")
+        ui.print_info("  apex gateway start              Start the gateway server")
+        ui.print_info("  apex gateway key [tier] [label]  Generate an API key")
+        ui.print_info("  apex gateway status              Show registered keys")
+        ui.print_info("")
+        ui.print_info("Tiers: free (default), pro, unlimited")
+        ui.print_info("Set OPENROUTER_API_KEY or APEX_GATEWAY_KEY in .env")
+
+
 # ── Backward compat aliases ─────────────────────────────────
 
 
@@ -1954,7 +2018,7 @@ def main() -> None:
     # Direct-verb subcommands (routed to _dispatch_verb)
     known_verbs = {"serve", "web", "connect", "init", "compact", "details", "thinking",
                    "stats", "export", "import", "upgrade", "uninstall", "pr", "attach", "debug",
-                   "github", "plugin"}
+                   "github", "plugin", "gateway"}
     if verb in known_verbs:
         parsed = argparse.Namespace()
         parsed.prompt = None
@@ -2133,6 +2197,8 @@ def _dispatch_verb(verb: str, parsed: argparse.Namespace) -> None:
             _cmd_github(parsed, ui)
         case "plugin":
             _cmd_plugin(parsed, ui)
+        case "gateway":
+            _cmd_gateway(parsed, ui)
         case _:
             if parsed.prompt:
                 _dispatch(parsed)
