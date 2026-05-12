@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================
-# APEX v1.2.0 Installer — The universal AI coding agent
+# APEX v1.0.0 Installer — The universal AI coding agent
 # https://github.com/Ggboykxz/APEX
 # ============================================
 
@@ -14,7 +14,7 @@ MUTED='\033[0;90m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-APEX_VERSION="1.2.0"
+APEX_VERSION="1.0.0"
 version=""
 uninstall_mode=false
 default_model=""

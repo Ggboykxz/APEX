@@ -36,7 +36,7 @@ function Footer() {
 
 const VERSIONS = [
   {
-    version: 'v1.0.0', name: 'First Stable Release', status: 'released' as const, progress: 100, color: '#00e5ff',
+    version: 'v1.0.0', name: 'First Production Release', status: 'released' as const, progress: 100, color: '#00e5ff',
     desc: 'First stable release of APEX — the universal AI coding agent. 100+ models, 75+ tools, 5 specialized agents, OpenCode architecture with snapshots and undo/redo, custom commands, event bus, and security system.',
     features: [
       { text: '5 Specialized Agents (Coder, Architect, Planner, Reviewer, Shell)', done: true },
@@ -89,7 +89,7 @@ const VERSIONS = [
     ]
   },
   {
-    version: 'v1.5.0', name: 'OpenCode UX', status: 'shipping' as const, progress: 100, color: '#00e5ff',
+    version: 'v1.0.0', name: 'First Production Release', status: 'released' as const, progress: 100, color: '#00e5ff',
     desc: 'Streaming responses, git tools, web search, persistent memory, and model benchmarking — more powerful workflows.',
     features: [
       { text: 'Streaming Responses (SSE for web frontend)', done: true },

@@ -80,7 +80,7 @@ export function ChatPanel({
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
         {visibleMessages.length === 0 && !isGenerating && (
           <Box flexDirection="column" paddingY={1}>
-            <Text color={apexTheme.green} bold>▲ APEX v1.5.0</Text>
+            <Text color={apexTheme.green} bold>▲ APEX v1.0.0</Text>
             <Text color={apexTheme.gray}>Type a message or use /commands</Text>
             <Text color={apexTheme.dimGray}>Tab — Switch agents</Text>
             <Text color={apexTheme.dimGray}>Ctrl+P — Command palette</Text>

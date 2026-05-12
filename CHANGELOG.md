@@ -2,32 +2,35 @@
 
 All notable changes to APEX will be documented in this file.
 
-## [1.5.0] - 2026-05-12
+## [1.0.0] - 2026-05-12
 
-### OpenCode-like UX — Full parity with OpenCode experience
+### 🚀 First Production Release
 
-APEX v1.5.0 brings the complete OpenCode user experience to APEX: hierarchical JSON config, 20+ CLI subcommands, leader keys, command palette, @ file references, !bash inline, 12 themes, session sharing, auto-formatters, file watcher, subagent system, custom commands via markdown, and 56 HTTP API endpoints.
+APEX v1.0.0 is the first production release — a universal AI coding agent built in Gabon 🇬🇦.
 
-### New Config System
+### Features
 
-- **Hierarchical JSON/JSONC config** — `~/.config/apex/apex.json` (global) → `$APEX_CONFIG` (custom) → `./apex.json` (project) → `$APEX_CONFIG_CONTENT` (inline), later overrides earlier
-- **Separate TUI config** — `~/.config/apex/tui.json` for theme, keybinds, scroll, mouse settings
-- **24 config sections** — model, provider, agent, command, server, permission, tools, lsp, mcp, plugin, formatter, snapshot, autoupdate, share, shell, compaction, watcher, theme, keybinds, instructions, disabled_providers, enabled_providers, default_agent
-- **Variable substitution** — `{env:VAR_NAME}` and `{file:/path/to/file}` in config values
-- **JSONC support** — C-style comments (`//`, `/* */`) stripped before parsing
-- **Auto-migration** — old `~/.apex/config.json` auto-migrated to new `~/.config/apex/apex.json` on first run
-
-### New CLI Subcommands (20+)
-
-- `apex serve` — Start headless HTTP API server (like `opencode serve`)
-- `apex web` — Start server + open web interface
-- `apex auth login/list/logout` — Provider credential management
-- `apex agent create/list` — Interactive agent creation wizard
-- `apex session list/delete` — Session management
-- `apex stats` — Token usage and cost statistics
-- `apex export/import` — Session JSON export/import
-- `apex upgrade` — Upgrade to latest version
-- `apex uninstall` — Full uninstall with --keep-config, --keep-data, --dry-run
+- **170+ AI models** — Claude, GPT, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and 150+ more via litellm
+- **APEX Free** — 19 free coding models via OpenRouter (Qwen3 Coder 480B, Ring 2.6 1T, DeepSeek R1, Nemotron Super...)
+- **APEX Pro** — 10 frontier models (GLM-5.1, Kimi K2.6, MiniMax M2.7, DeepSeek V4 Pro...)
+- **APEX Gateway** — Built-in proxy with auth, rate limiting, and usage tracking (per-user API keys)
+- **Bring Your Own Key** — Use your own Anthropic, OpenAI, Google, Ollama, or any litellm-compatible provider
+- **Ink TUI** — Full terminal UI with command palette (Ctrl+P), leader keys (Ctrl+X), @ file references, !bash inline
+- **12 built-in themes** — apex, nord, catppuccin, tokyonight, gruvbox, matrix, and more
+- **11 specialized agents** — Build, Plan, Planner, Shell + @reviewer, @general, @explore, @scout + system agents
+- **75+ built-in tools** — File ops, search, git, web, LSP, sandboxed execution, and more
+- **Snapshots & Undo/Redo** — Git-based automatic backups before every destructive action
+- **Hierarchical JSON/JSONC config** — Global → custom → project → inline
+- **CLI subcommands** — 20+ commands for auth, sessions, agents, MCP, plugins, and more
+- **HTTP API** — 56 REST endpoints for remote operation
+- **Session sharing** — Share sessions via public URLs with automatic secret sanitization
+- **File watcher** — Configurable file watching with gitignore-aware patterns
+- **11 auto-formatters** — ruff, prettier, gofmt, rustfmt, and more
+- **Custom commands** — Define commands via markdown files with $ARGUMENTS, !shell, @file
+- **MCP support** — Model Context Protocol for external tool integration
+- **LSP integration** — Language Server Protocol for code intelligence
+- **Security** — Shell command analysis, permission rulesets, rate limiting, API key management
+- **Cross-platform** — Linux, macOS, Windows (via WSL)
 - `apex mcp add/list/auth` — MCP server management
 - `apex db path` — Database path utility
 - `apex pr <number>` — Fetch and checkout a PR
