@@ -64,13 +64,13 @@ jobs:
       - name: Audit Node.js dependencies (root)
         run: |
           bun install
-          bunx npm-audit
+          bunx npm audit
 
       - name: Audit Node.js dependencies (TUI)
         run: |
           cd tui-frontend
           bun install
-          bunx npm-audit
+          bunx npm audit
 
   secrets-scan:
     name: Secret Scanning

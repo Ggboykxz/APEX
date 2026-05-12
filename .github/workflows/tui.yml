@@ -54,7 +54,8 @@ jobs:
         run: bun install
 
       - name: Run linter
-        run: bunx eslint . --ext .ts,.tsx || true
+        run: bunx eslint . --ext .ts,.tsx
+        continue-on-error: true
 
   build:
     name: Build

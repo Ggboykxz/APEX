@@ -39,13 +39,8 @@ jobs:
           test -f docs/index.md || (echo "ERROR: docs/index.md not found" && exit 1)
           echo "Docs structure OK"
 
-      - name: Build docs (strict)
+      - name: Build docs
         run: mkdocs build --strict || mkdocs build
-        continue-on-error: true
-
-      - name: Build docs (non-strict fallback)
-        if: failure()
-        run: mkdocs build
 
   deploy:
     name: Build & Deploy Website (with docs)

@@ -115,13 +115,11 @@ jobs:
           retention-days: 90
           overwrite: true
 
-      - name: Commit benchmark results to gh-pages
+      - name: Persist benchmark results
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
-          # Find the latest benchmark JSON
           LATEST_BENCH=$(find .benchmarks -name "*.json" -type f 2>/dev/null | sort | tail -1)
-
           if [ -n "$LATEST_BENCH" ]; then
             TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%S")
             mkdir -p bench-history
@@ -129,5 +127,8 @@ jobs:
             cd bench-history
             ls -t bench-*.json | tail -n +51 | xargs -r rm --
             cd ..
-            echo "Benchmark data saved: bench-history/bench-${TIMESTAMP}.json"
+            git add bench-history/
+            git diff --staged --quiet || git commit -m "chore: update benchmark data [skip ci]"
+            git push
+            echo "Benchmark data persisted: bench-history/bench-${TIMESTAMP}.json"
           fi

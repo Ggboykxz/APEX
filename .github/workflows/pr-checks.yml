@@ -20,7 +20,7 @@ jobs:
 
       - name: Check PR title follows Conventional Commits
         run: |
-          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_TITLE=$(jq -r '.pull_request.title' "$GITHUB_EVENT_PATH")
           if echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+"; then
             echo "PR title follows Conventional Commits: $PR_TITLE"
           else
@@ -112,8 +112,13 @@ jobs:
               - 'mkdocs.yml'
 
       - name: Log changes
+        env:
+          PYTHON_CHANGED: ${{ steps.filter.outputs.python }}
+          TUI_CHANGED: ${{ steps.filter.outputs.tui }}
+          WEBSITE_CHANGED: ${{ steps.filter.outputs.website }}
+          DOCS_CHANGED: ${{ steps.filter.outputs.docs }}
         run: |
-          echo "Python changed: ${{ steps.filter.outputs.python }}"
-          echo "TUI changed: ${{ steps.filter.outputs.tui }}"
-          echo "Website changed: ${{ steps.filter.outputs.website }}"
-          echo "Docs changed: ${{ steps.filter.outputs.docs }}"
+          echo "Python changed: $PYTHON_CHANGED"
+          echo "TUI changed: $TUI_CHANGED"
+          echo "Website changed: $WEBSITE_CHANGED"
+          echo "Docs changed: $DOCS_CHANGED"

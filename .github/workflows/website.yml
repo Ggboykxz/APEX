@@ -20,6 +20,10 @@ on:
       - "public/**"
       - "package.json"
       - "bun.lock"
+      - "next.config.ts"
+      - "tailwind.config.ts"
+      - "postcss.config.mjs"
+      - "prisma/**"
       - ".github/workflows/website.yml"
 
 concurrency:
@@ -41,7 +45,8 @@ jobs:
         run: bun install
 
       - name: Run ESLint
-        run: bun run lint || true
+        run: bun run lint
+        continue-on-error: true
 
   build:
     name: Next.js Build
