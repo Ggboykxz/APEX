@@ -80,5 +80,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: next-build
-          path: .next/
+          path: out/
           retention-days: 3

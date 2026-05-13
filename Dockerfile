@@ -36,9 +36,9 @@ RUN apt-get update && \
 
 # Install Node.js from official image
 COPY --from=tui-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=tui-builder /usr/local/bin/npm /usr/local/bin/npm
+COPY --from=tui-builder /usr/local/bin/npx /usr/local/bin/npx
 COPY --from=tui-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
-    ln -sf /usr/local/lib/node_modules/npx/bin/npx-cli.js /usr/local/bin/npx
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1

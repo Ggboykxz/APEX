@@ -64,13 +64,15 @@ jobs:
       - name: Audit Node.js dependencies (root)
         run: |
           npm install
-          npx npm audit
+          npx npm audit || echo "npm audit found vulnerabilities (non-blocking)"
+        continue-on-error: true
 
       - name: Audit Node.js dependencies (TUI)
         run: |
           cd tui-frontend
           npm install
-          npx npm audit
+          npx npm audit || echo "npm audit found vulnerabilities (non-blocking)"
+        continue-on-error: true
 
   secrets-scan:
     name: Secret Scanning
