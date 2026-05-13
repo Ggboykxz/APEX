@@ -477,7 +477,7 @@ def test_delete_file_exception(executor, tmp_path):
 
 # ─── create_directory exception ──────────────────────────────────────────
 
-def test_create_directory_already_exists(executor, tmp_path):
+def test_create_directory_already_exists_subdir(executor, tmp_path):
     d = tmp_path / "project" / "exist"
     d.mkdir(parents=True)
     result = executor.execute("create_directory", {"path": str(d)})
@@ -971,7 +971,7 @@ def test_clipboard_read_pyperclip(executor, monkeypatch):
 def test_clipboard_read_exception(executor, monkeypatch):
     """Cover main exception handler line 1995-1996."""
     import subprocess
-    original_run = subprocess.run
+    _original_run = subprocess.run
     def fake_run(*a, **kw):
         raise Exception("xclip fail")
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -1094,9 +1094,6 @@ def test_undo_success(executor, monkeypatch):
             return {"type": "edit_file", "details": {"path": "test.txt"}}
 
     # Direct approach: set _undo_manager
-    class UM:
-        def undo(self):
-            return {"type": "edit_file", "details": {"path": "test.txt"}}
     class UM:
         def undo(self):
             return {"type": "edit_file", "details": {"path": "test.txt"}}
@@ -1961,7 +1958,7 @@ def test_validate_workspace_with_issues(executor, monkeypatch):
 
 def test_security_audit_project(executor, monkeypatch):
     """Cover lines 2875-2884."""
-    issues_captured = []
+    _issues_captured = []
     class FakeSA:
         def __init__(self, cwd):
             pass

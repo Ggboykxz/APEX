@@ -3,9 +3,7 @@
 import asyncio
 import json
 import os
-import subprocess
 import sys
-import threading
 from pathlib import Path
 from unittest.mock import AsyncMock, patch, MagicMock
 
@@ -962,7 +960,7 @@ class TestV1ShareDetailed:
         with patch.object(server, "auth_middleware") as mock_auth:
             mock_auth.require_auth = False
             mock_auth.authenticate = AsyncMock(return_value=(True, None, None))
-            with patch("apex.http_api.share_manager.share_session", return_value="") as mock_share:
+            with patch("apex.http_api.share_manager.share_session", return_value=""):
                 async with TestClient(TestServer(server.app)) as client:
                     resp = await client.post("/api/v1/share", json={"title": "test"})
                     assert resp.status == 403
@@ -1503,7 +1501,7 @@ class TestTuiServerCleanup:
             with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
-                server = start_tui_server(port=9999)
+                start_tui_server(port=9999)
                 target_fn = mock_thread_cls.call_args[1]["target"]
                 target_fn()
                 loop.close.assert_called_once()
@@ -1519,7 +1517,7 @@ class TestTuiServerCleanup:
             with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
-                server = start_tui_server(port=9999)
+                start_tui_server(port=9999)
                 target_fn = mock_thread_cls.call_args[1]["target"]
                 target_fn()
                 loop.close.assert_called_once()
@@ -1541,7 +1539,7 @@ class TestTuiServerCleanup:
                 with patch("threading.Thread") as mock_thread_cls:
                     mock_thread_instance = MagicMock()
                     mock_thread_cls.return_value = mock_thread_instance
-                    server = start_tui_server(port=9999)
+                    start_tui_server(port=9999)
                     target_fn = mock_thread_cls.call_args[1]["target"]
                     target_fn()
                     loop.close.assert_called_once()

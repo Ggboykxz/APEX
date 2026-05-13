@@ -1,6 +1,6 @@
 """Tests for gateway configuration."""
 
-from apex.gateway.config import GatewayConfig, TierConfig, DEFAULT_TIERS
+from apex.gateway.config import GatewayConfig, DEFAULT_TIERS
 
 
 class TestTierConfig:

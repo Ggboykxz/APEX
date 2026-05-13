@@ -303,9 +303,8 @@ class TestContextEdgeCases:
 
     def test_get_repo_map_permission_error(self, tmp_path, monkeypatch):
         """Hit line 66-67 — PermissionError returns ERROR string."""
-        import os
         # Patch Path.iterdir to raise PermissionError
-        original_iterdir = type(tmp_path).iterdir
+        type(tmp_path).iterdir
         def broken_iterdir(self):
             raise PermissionError("Access denied")
         monkeypatch.setattr(type(tmp_path), "iterdir", broken_iterdir)
@@ -315,7 +314,6 @@ class TestContextEdgeCases:
     def test_get_language_stats_permission_error(self, tmp_path, monkeypatch):
         """Hit lines 149-150 — PermissionError in os.walk is silently caught."""
         import os
-        original_walk = os.walk
         def broken_walk(*a, **kw):
             raise PermissionError("Access denied")
         monkeypatch.setattr(os, "walk", broken_walk)

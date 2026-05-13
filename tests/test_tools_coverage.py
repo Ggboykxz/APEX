@@ -2,7 +2,6 @@
 
 import pytest
 import subprocess
-import sys
 from pathlib import Path
 
 
@@ -202,8 +201,8 @@ def test_web_search_snippet_empty(executor, monkeypatch):
 def test_format_file_python_success(executor, tmp_path, monkeypatch):
     f = tmp_path / "f.py"
     f.write_text("x=1")
-    monkeypatch.setattr(subprocess, "run",
-                        lambda *a, **kw: type("R", (), {"returncode": 0, "stderr": "", "stdout": "x = 1\n"})())
+    from apex.formatter import formatter_manager as fm
+    monkeypatch.setattr(fm, "format_file", lambda path: True)
     result = executor.execute("format_file", {"path": str(f)})
     assert "SUCCESS" in result
 
@@ -222,8 +221,8 @@ def test_format_file_python_error(executor, tmp_path, monkeypatch):
 def test_format_file_rs_success(executor, tmp_path, monkeypatch):
     f = tmp_path / "f.rs"
     f.write_text("fn main(){}")
-    monkeypatch.setattr(subprocess, "run",
-                        lambda *a, **kw: type("R", (), {"returncode": 0, "stderr": ""})())
+    from apex.formatter import formatter_manager as fm
+    monkeypatch.setattr(fm, "format_file", lambda path: True)
     result = executor.execute("format_file", {"path": str(f)})
     assert "SUCCESS" in result
 

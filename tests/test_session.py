@@ -171,14 +171,17 @@ class TestSessionManagerSave:
     def test_save_creates_file(self, session_mgr, agent):
         filepath = session_mgr.save(agent, "test_save")
         assert filepath.exists()
-        assert filepath.suffix == ".json"
+        assert filepath.suffix == ".enc"
 
     def test_save_file_contents(self, session_mgr, agent):
         agent.history = [{"role": "user", "content": "Hello"}]
         agent.model = "gpt-4o-mini"
         filepath = session_mgr.save(agent, "test_contents")
-        with open(filepath) as f:
-            data = json.load(f)
+        # Read encrypted file and decrypt
+        from apex.session import _decrypt
+        raw = filepath.read_bytes()
+        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
+        data = json.loads(_decrypt(nonce, ciphertext, tag))
         assert data["name"] == "test_contents"
         assert data["model"] == "gpt-4o-mini"
         assert len(data["history"]) == 1
@@ -269,13 +272,8 @@ class TestSessionManagerShare:
     def test_share_creates_file(self, session_mgr, agent):
         link = session_mgr.share(agent, "test_share_file")
         share_id = link.split("/")[-1]
-        share_file = session_mgr._sessions_dir / "shared" / f"{share_id}.json"
+        share_file = session_mgr._sessions_dir / "shared" / f"{share_id}.enc"
         assert share_file.exists()
-        with open(share_file) as f:
-            data = json.load(f)
-        assert "data" in data
-        assert "nonce" in data
-        assert data["id"] == share_id
 
     def test_share_and_load_roundtrip(self, session_mgr, agent):
         agent.history = [{"role": "user", "content": "Round trip test"}]
@@ -303,11 +301,13 @@ class TestSessionManagerSessionDataIntegrity:
     def test_usage_preserved(self, session_mgr, agent):
         agent._usage = {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150}
         session_mgr.save(agent, "test_usage")
-        # Check the saved file
+        # Check the saved file (encrypted .enc format)
         symlink = session_mgr._sessions_dir / "latest_test_usage.json"
         target = session_mgr._sessions_dir / symlink.readlink()
-        with open(target) as f:
-            data = json.load(f)
+        from apex.session import _decrypt
+        raw = target.read_bytes()
+        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
+        data = json.loads(_decrypt(nonce, ciphertext, tag))
         assert data["usage"]["prompt_tokens"] == 100
 
     def test_cwd_preserved(self, session_mgr, agent):
@@ -315,8 +315,10 @@ class TestSessionManagerSessionDataIntegrity:
         session_mgr.save(agent, "test_cwd")
         symlink = session_mgr._sessions_dir / "latest_test_cwd.json"
         target = session_mgr._sessions_dir / symlink.readlink()
-        with open(target) as f:
-            data = json.load(f)
+        from apex.session import _decrypt
+        raw = target.read_bytes()
+        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
+        data = json.loads(_decrypt(nonce, ciphertext, tag))
         assert data["cwd"] == "/tmp/test_dir"
 
 
@@ -361,12 +363,9 @@ class TestSessionEdgeCases:
         """Hit lines 196-198 — exception processing shared session."""
         share_dir = session_mgr._sessions_dir / "shared"
         share_dir.mkdir(parents=True, exist_ok=True)
-        # Create a shared file with bad data that will decode OK but then fail
-        import json, base64
-        bad_data = base64.b64encode(b"not valid json").decode()
-        (share_dir / "bad_share.json").write_text(
-            json.dumps({"data": bad_data, "nonce": "x", "id": "bad_share"})
-        )
+        # Create a shared file with bad encrypted data
+        bad_data = b"not valid encrypted data at all"
+        (share_dir / "bad_share.enc").write_bytes(bad_data)
         result = session_mgr.load_shared("bad_share", agent)
         assert result is False
 

@@ -696,7 +696,7 @@ class TestRunServer:
                 await self._run_with_mocks(mock_web, mock_server_cls)
             )
 
-            resp = await get_routes["/"](MagicMock())
+            _resp = await get_routes["/"](MagicMock())
             mock_web.Response.assert_called_once()
             kwargs = mock_web.Response.call_args.kwargs
             assert kwargs["content_type"] == "text/html"

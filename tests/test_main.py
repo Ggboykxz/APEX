@@ -3,7 +3,7 @@
 import argparse
 import pytest
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 # ---------------------------------------------------------------------------
@@ -429,13 +429,13 @@ class TestHandleCommand:
     def test_exit(self, agent, ui):
         from apex.main import handle_command
         with patch("sys.exit") as mock_exit:
-            result = handle_command("/exit", agent, ui)
+            handle_command("/exit", agent, ui)
             assert mock_exit.called
 
     def test_quit(self, agent, ui):
         from apex.main import handle_command
         with patch("sys.exit") as mock_exit:
-            result = handle_command("/quit", agent, ui)
+            handle_command("/quit", agent, ui)
             assert mock_exit.called
 
     def test_unknown_command(self, agent, ui):
@@ -544,7 +544,7 @@ class TestDispatchVerb:
 
     def _make_args(self, **overrides):
         from apex.main import build_parser
-        p = build_parser()
+        build_parser()
         return argparse.Namespace(**{
             "prompt": None, "model": None, "cwd": None, "list_models": False,
             "one_shot": False, "stream": False, "auto_commit": False,

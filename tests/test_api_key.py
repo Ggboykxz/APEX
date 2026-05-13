@@ -490,7 +490,6 @@ class TestKeyManagerValidateError:
         ws = manager.create_workspace("WS", "user-1")
         key, info = manager.create_key(ws.workspace_id, "k")
 
-        original_connect = sqlite3.connect
         def broken_connect(*a, **kw):
             raise RuntimeError("DB connection failed")
         monkeypatch.setattr(sqlite3, "connect", broken_connect)

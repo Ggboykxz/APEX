@@ -10,7 +10,6 @@ import json
 import os
 import pathlib
 from pathlib import Path
-from textwrap import dedent
 
 import pytest
 
@@ -825,7 +824,7 @@ class TestEdgeCases:
 
     def test_oserror_on_read(self, mod, monkeypatch, tmp_path):
         _write(tmp_path / ".config" / "apex" / "apex.json", {"model": "global-model"})
-        cfg = mod.ApexConfig()
+        mod.ApexConfig()
         orig_read = tmp_path / ".config" / "apex" / "apex.json"
         orig_read.chmod(0o000)
         if not orig_read.is_file():

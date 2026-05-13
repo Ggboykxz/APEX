@@ -210,7 +210,7 @@ class TestSkillEdgeCases:
         bad_file = skills_dir / "bad.md"
         bad_file.write_bytes(b"\xff\xfe\x00\x01\x02")  # invalid UTF-8
         # Should not raise
-        sm = SkillManager(str(tmp_path))
+        _sm = SkillManager(str(tmp_path))
 
     def test_diff_second_file_not_found(self, tmp_path):
         """Hit line 102 — second file not found."""
@@ -256,7 +256,6 @@ class TestSkillEdgeCases:
         sr = SearchReplace(str(tmp_path))
         f = tmp_path / "test.py"
         f.write_text("hello world")
-        import stat
         f.chmod(0o000)  # no permissions
         result = sr.replace_in_files(r"hello", "hi", ["test.py"], dry_run=False)
         assert len(result.get("errors", [])) >= 1
@@ -265,7 +264,6 @@ class TestSkillEdgeCases:
     def test_analyze_file_exception(self, tmp_path):
         """Hit lines 215-216 — exception in analyze_file."""
         ca = CodeAnalyzer(str(tmp_path))
-        import stat
         f = tmp_path / "bad.py"
         f.write_text("x = 1")
         f.chmod(0o000)  # no read permission

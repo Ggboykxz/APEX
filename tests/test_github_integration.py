@@ -279,7 +279,7 @@ class TestGitHubIntegrationEdgeCases:
 
         monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
         client = GitHubClient(token="test", owner="o", repo="r")
-        result = client.create_issue("Title", "Body", labels=["bug"])
+        client.create_issue("Title", "Body", labels=["bug"])
         # Should include labels in the request data
         if called_data[0] is not None:
             import json

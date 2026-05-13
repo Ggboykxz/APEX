@@ -1,6 +1,5 @@
 """Tests for gateway authentication and API key management."""
 
-import json
 import tempfile
 from pathlib import Path
 

@@ -6,7 +6,7 @@ import os
 import time
 import threading
 from pathlib import Path
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch
 
 import pytest
 
@@ -442,7 +442,7 @@ class TestCheckChanges:
         (tmp_path / "pre.txt").write_text("x")
         fw._scan()
 
-        before = dict(fw._mtimes)
+        _before = dict(fw._mtimes)
         (tmp_path / "new.txt").write_text("y")
         fw._check_changes()
         assert str(tmp_path / "new.txt") in fw._mtimes
@@ -544,7 +544,7 @@ class TestAllPatterns:
     def test_no_project_dir_no_gitignore(self):
         fw = FileWatcher()
         patterns = fw._all_patterns()
-        gitignore_patterns = _load_gitignore_patterns(".")
+        _gitignore_patterns = _load_gitignore_patterns(".")
         # No gitignore loaded since _project_dir is None
         assert patterns == DEFAULT_IGNORE_PATTERNS
 

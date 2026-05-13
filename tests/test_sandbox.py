@@ -6,8 +6,6 @@ import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from apex.sandbox import CodeSandbox, ShellSession, sandbox
 
 
@@ -19,7 +17,7 @@ class TestCodeSandbox:
 
     def test_init_creates_temp_dir(self, tmp_path):
         with patch("apex.sandbox.tempfile.gettempdir", return_value=str(tmp_path)):
-            sb = CodeSandbox()
+            _sb = CodeSandbox()
             expected = tmp_path / "apex_sandbox"
             assert expected.exists()
             mode = os.stat(expected).st_mode

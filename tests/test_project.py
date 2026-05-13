@@ -243,11 +243,11 @@ class TestProjectEdgeCases:
         # Should not crash
         assert "language" in result
 
-    def test_extract_info_exception_pyproject(self, tmp_path):
+    def test_extract_info_exception_pyproject_invalid_toml(self, tmp_path):
         """Lines 206-207 — exception reading pyproject.toml caught."""
         (tmp_path / "pyproject.toml").write_text("[[[invalid toml")
         pi = ProjectInitializer(str(tmp_path))
-        result = pi.analyze()
+        _result = pi.analyze()
         # Should not crash
 
     def test_extract_info_exception_javascript(self, tmp_path, monkeypatch):
@@ -256,7 +256,7 @@ class TestProjectEdgeCases:
         (tmp_path / "package.json").write_text('{"name":"test","scripts":{"t":"test"}}')
         # Monkeypatch _detect_test_framework to avoid its own json.loads
         pi = ProjectInitializer(str(tmp_path))
-        original_dtf = pi._detect_test_framework
+        _original_dtf = pi._detect_test_framework
         def safe_dtf(result):
             result["language"] = "javascript"
             result["test_framework"] = "jest"
@@ -329,12 +329,10 @@ class TestFileWatcher:
             test_file.write_text("content")
 
             # Get the handler from the observer
-            from watchdog.observers.api import DEFAULT_OBSERVER_TIMEOUT
             handler = watchdog.events.FileSystemEventHandler()
             handler.callbacks = [lambda path: callbacks_called.append(path)]
             # Create event and call the handler's dispatch method
             event = FileModifiedEvent(str(test_file))
-            from watchdog.events import FileSystemEvent
             handler.dispatch(event)
             observer.stop()
             observer.join()

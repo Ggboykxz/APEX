@@ -3,7 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from apex.gateway.auth import AuthManager
 from apex.gateway.config import GatewayConfig, DEFAULT_TIERS

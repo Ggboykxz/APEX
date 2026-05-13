@@ -1,6 +1,5 @@
 """Comprehensive tests for apex/agent.py — aiming for 100% line coverage."""
 
-import json
 import logging
 from unittest.mock import MagicMock, patch
 

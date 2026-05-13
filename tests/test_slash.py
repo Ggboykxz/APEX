@@ -130,7 +130,7 @@ class TestSlashCommandManager:
 
     def test_execute_clear(self, manager):
         result = manager.execute("/clear")
-        assert "CLEAR" in result
+        assert "cleared" in result
 
     def test_execute_agent(self, manager):
         result = manager.execute("/agent coder")
@@ -186,7 +186,7 @@ class TestSlashCommandManager:
 
     def test_execute_models(self, manager):
         result = manager.execute("/models")
-        assert "MODELS" in result
+        assert "Available models" in result
 
     def test_execute_init(self, manager):
         result = manager.execute("/init")
@@ -198,11 +198,11 @@ class TestSlashCommandManager:
 
     def test_execute_approve(self, manager):
         result = manager.execute("/approve")
-        assert "APPROVE" in result
+        assert "approved" in result
 
     def test_execute_reject(self, manager):
         result = manager.execute("/reject bad idea")
-        assert "REJECT" in result
+        assert "rejected" in result
         assert "bad idea" in result
 
     def test_execute_reject_no_reason(self, manager):
@@ -219,7 +219,7 @@ class TestSlashCommandManager:
 
     def test_execute_commands(self, manager):
         result = manager.execute("/commands")
-        assert "COMMANDS" in result
+        assert "commands" in result
 
     def test_execute_unknown(self, manager):
         result = manager.execute("/unknown")
@@ -240,11 +240,11 @@ class TestSlashCommandManager:
 
     def test_cmd_model_default(self, manager):
         result = manager._cmd_model([], {})
-        assert "[SWITCH MODEL]" in result
+        assert "Unknown model" in result
 
     def test_cmd_cwd_default(self, manager):
         result = manager._cmd_cwd([], {})
-        assert "[CHANGE DIR]" in result
+        assert "Cannot change directory" in result
 
     def test_cmd_save_default(self, manager):
         result = manager._cmd_save([], {})
