@@ -39,7 +39,7 @@ export function StatusBar({
   const dispCompletion = isStreaming ? liveCompletionTokens! : totalCompletionTokens
 
   return (
-    <Box backgroundColor={apexTheme.titleBg} paddingX={1}>
+    <Box paddingX={1}>
       <Box justifyContent="space-between" width="100%">
         <Box>
           <Text color={agent?.color ?? apexTheme.cyan} bold>

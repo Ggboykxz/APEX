@@ -122,7 +122,7 @@ export function ApexApp() {
 
   useEffect(() => { if (connectionError) { const t = setTimeout(() => { setConnectionError(null); setIsReconnecting(false) }, 5000); return () => clearTimeout(t) } }, [connectionError])
   useEffect(() => {
-    fetch(`${API_BASE}/api/v1/tui-config`).then(r => r.json()).then(cfg => {
+    fetch(`${API_BASE}/api/v1/tui-config`).then(r => r.json()).then((cfg: any) => {
       try {
         (globalThis as any).__TUI_CONFIG__ = cfg
         if (cfg.leader_timeout) setLeaderTimeout(cfg.leader_timeout)
@@ -150,13 +150,13 @@ export function ApexApp() {
       }
       case "/exit": case "/quit": case "/q": exit(); return true
       case "/sessions": fetchSessions(); setShowSL(true); setSlIdx(0); return true
-      case "/undo": fetch(`${API_BASE}/api/v1/undo`, { method: "POST" }).then(r => r.json()).then(d => { setConnectionError(d.error ? null : null) }).catch(() => {}); return true
-      case "/redo": fetch(`${API_BASE}/api/v1/redo`, { method: "POST" }).then(r => r.json()).then(d => {}).catch(() => {}); return true
+      case "/undo": fetch(`${API_BASE}/api/v1/undo`, { method: "POST" }).then(r => r.json()).then((d: any) => { setConnectionError(d.error ? null : null) }).catch(() => {}); return true
+      case "/redo": fetch(`${API_BASE}/api/v1/redo`, { method: "POST" }).then(r => r.json()).then((_d: any) => {}).catch(() => {}); return true
       case "/compact": fetch(`${API_BASE}/api/v1/compact`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(() => {}).catch(() => {}); return true
       case "/share": case "/unshare": case "/export": case "/editor": case "/init": case "/connect": return false
       default: return false
     }
-  }, [fetchThemes, fetchSessions, exit])
+  }, [exit])
 
   const sendMessage = useCallback(async (userMessage: string) => {
     if (userMessage.startsWith("/")) {
@@ -348,8 +348,8 @@ export function ApexApp() {
       setHistoryIdx(next); setInputValue(inputHistory[next] ?? ""); return
     }
     if (key.ctrl && input === "g") { setScrollOffset(Math.max(0, messages.length - 1)); return }
-    if (key.home) { setScrollOffset(Math.max(0, messages.length - 1)); return }
-    if (key.end) { setScrollOffset(0); return }
+    if ((key as any).home) { setScrollOffset(Math.max(0, messages.length - 1)); return }
+    if ((key as any).end) { setScrollOffset(0); return }
     if (key.pageUp) { setScrollOffset((o) => Math.min(o + MAX_VISIBLE, Math.max(0, messages.length - 1))); return }
     if (key.pageDown) { setScrollOffset((o) => Math.max(0, o - MAX_VISIBLE)); return }
     if (key.backspace || key.delete) {
@@ -391,7 +391,7 @@ export function ApexApp() {
           <Text backgroundColor={apexTheme.accent} color="#000000" bold> ⌨ Leader key active — press a shortcut key </Text>
         </Box>
       )}
-      <Box width="100%" justifyContent="space-between" backgroundColor={apexTheme.titleBg} paddingX={1}>
+      <Box width="100%" justifyContent="space-between">
         <Box>
           <Text color={agent.color} bold>{agent.name}</Text>
           <Text color={apexTheme.dimGray}> · </Text>
