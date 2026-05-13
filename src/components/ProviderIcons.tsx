@@ -198,6 +198,25 @@ export function OllamaIcon({ size = 28 }: { size?: number }) {
   )
 }
 
+/* ── APEX Free & Pro Icons ── */
+export function FreeIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" stroke="#00e5ff" strokeWidth="1.5" fill="rgba(0,229,255,0.1)" />
+      <path d="M7 12l3 3 7-7" stroke="#00e5ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function ProIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="10" stroke="#a855f7" strokeWidth="1.5" fill="rgba(168,85,247,0.1)" />
+      <path d="M12 7v10M7 12h10" stroke="#a855f7" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 /* ──── Provider Icon Map ──── */
 export const PROVIDER_ICONS: Record<string, React.FC<{ size?: number }>> = {
   anthropic: AnthropicIcon,
