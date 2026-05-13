@@ -71,6 +71,7 @@ const INSTALL_METHODS = [
 ]
 
 const API_KEYS = [
+  { provider: 'OpenRouter ⭐', env: 'OPENROUTER_API_KEY', prefix: 'sk-or-', models: 'APEX Free (19 free) + APEX Pro (10 frontier)', link: 'https://openrouter.ai/keys' },
   { provider: 'Anthropic', env: 'ANTHROPIC_API_KEY', prefix: 'sk-ant-', models: 'Claude Sonnet 4.6, Opus 4.5, Claude 4.7', link: 'https://console.anthropic.com/' },
   { provider: 'OpenAI', env: 'OPENAI_API_KEY', prefix: 'sk-', models: 'GPT-5, GPT-5 mini, o3, o4-mini', link: 'https://platform.openai.com/api-keys' },
   { provider: 'Google', env: 'GEMINI_API_KEY', prefix: 'AI', models: 'Gemini 3, Gemini 2.5 Pro, Gemini 2.0 Flash', link: 'https://aistudio.google.com/apikey' },
@@ -87,7 +88,6 @@ const API_KEYS = [
   { provider: 'NVIDIA', env: 'NVIDIA_API_KEY', prefix: 'nvapi-', models: 'Llama NVIDIA, Mistral NVIDIA, Qwen NVIDIA', link: 'https://build.nvidia.com/' },
   { provider: 'Cloudflare', env: 'CLOUDFLARE_API_KEY', prefix: '', models: 'Llama CF, Mistral CF, Qwen CF', link: 'https://ai.cloudflare.com/' },
   { provider: 'Amazon Bedrock', env: 'AWS_ACCESS_KEY_ID', prefix: 'AKIA', models: 'Claude Bedrock, Llama Bedrock, Mistral Bedrock', link: 'https://console.aws.amazon.com/bedrock/' },
-  { provider: 'OpenRouter', env: 'OPENROUTER_API_KEY', prefix: '', models: '170+ models via OpenRouter', link: 'https://openrouter.ai/keys' },
 ]
 
 /* ──── MAIN ──── */
@@ -176,7 +176,13 @@ export default function InstallPage() {
         <section className="py-12 bg-card/30">
           <div className="max-w-4xl mx-auto px-4 sm:px-6">
             <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Key className="w-6 h-6 text-apex-cyan" /> API Key Setup</h2>
-            <p className="text-muted-foreground mb-6">APEX needs API keys for cloud models. Set them in <code className="text-apex-cyan">~/.apex/.env</code> (recommended), <code className="text-apex-cyan">./.env</code>, or <code className="text-apex-cyan">~/.env</code>.</p>
+            <p className="text-muted-foreground mb-6">APEX needs API keys for cloud models. Set them in <code className="text-apex-cyan">~/.apex/.env</code>, or use the quick setup:</p>
+            <div className="mb-6 p-4 rounded-lg border border-apex-cyan/20 bg-apex-cyan/5">
+              <h4 className="font-bold font-mono text-apex-cyan mb-2">⚡ Quick Setup — APEX Free</h4>
+              <p className="text-sm text-muted-foreground mb-2">Get free coding models with just one command:</p>
+              <code className="text-sm font-mono text-apex-green">apex key sk-or-v1-...</code>
+              <p className="text-xs text-muted-foreground mt-2">Get your key at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-apex-cyan hover:underline">openrouter.ai/keys</a> — no credit card needed. This single key unlocks 19 free models + 10 Pro models.</p>
+            </div>
             <CodeBlock code={`# ~/.apex/.env\nANTHROPIC_API_KEY=sk-ant-...\nOPENAI_API_KEY=sk-...\nGROQ_API_KEY=gsk_...\nMISTRAL_API_KEY=...\nDEEPSEEK_API_KEY=...\nGEMINI_API_KEY=...\nCOHERE_API_KEY=...\nCEREBRAS_API_KEY=...\nFIREWORKS_API_KEY=fw_...\nTOGETHER_API_KEY=...\nHF_API_KEY=hf_...\nPERPLEXITY_API_KEY=...\nNVIDIA_API_KEY=nvapi-...\nOPENROUTER_API_KEY=...`} />
             <div className="mt-8 grid gap-4">
               {API_KEYS.map(k => (

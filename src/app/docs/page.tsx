@@ -273,7 +273,7 @@ function DocOpenCode() {
   return (
     <div>
       <h1 className="text-3xl font-bold font-mono mb-2">OpenCode Architecture</h1>
-      <p className="text-muted-foreground text-lg mb-8 leading-relaxed">APEX v1.0.0 features the OpenCode architecture — structured messages, snapshots, custom commands, CLI subcommands, and a typed event bus.</p>
+      <p className="text-muted-foreground text-lg mb-8 leading-relaxed">APEX v1.0.0 features a modular architecture — structured messages, snapshots, custom commands, CLI subcommands, APEX Gateway proxy, and a typed event bus.</p>
       <DocsHeading id="parts">Structured Messages (Parts)</DocsHeading>
       <p className="text-muted-foreground text-sm leading-relaxed mb-4">Every message in APEX is composed of typed parts — text, file references, tool calls, tool results, images, and snapshots. This structured approach enables rich context management and precise message handling.</p>
       <DocsTable headers={['Part Type', 'Description']} rows={[
