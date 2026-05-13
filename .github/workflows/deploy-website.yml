@@ -7,7 +7,7 @@ on:
       - "src/**"
       - "public/**"
       - "package.json"
-      - "bun.lock"
+      - "package-lock.json"
       - "next.config.ts"
       - "tailwind.config.ts"
       - "postcss.config.mjs"
@@ -26,7 +26,7 @@ jobs:
     name: Build & Deploy Website
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -41,7 +41,10 @@ jobs:
       - name: Build Next.js (static export)
         run: npm run build
         env:
+          DATABASE_URL: "file:./test.db"
           NEXT_TELEMETRY_DISABLED: "1"
+          NEXTAUTH_SECRET: "build-time-dummy-secret"
+          NEXTAUTH_URL: "http://localhost:3000"
           NEXT_PUBLIC_BASE_PATH: "/APEX"
 
       - name: Deploy to GitHub Pages
@@ -54,3 +57,4 @@ jobs:
           user_name: "github-actions[bot]"
           user_email: "github-actions[bot]@users.noreply.github.com"
           commit_message: "Deploy website from ${{ github.sha }}"
+        continue-on-error: true

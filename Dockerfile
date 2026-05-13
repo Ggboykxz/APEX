@@ -1,5 +1,5 @@
 # ============================================
-# APEX v1.0.0 — Multi-stage Docker Image
+# APEX v1.4.0 — Multi-stage Docker Image
 # Universal AI coding agent. Every model. One terminal.
 # ============================================
 
@@ -17,13 +17,13 @@ COPY apex/ apex/
 
 RUN pip install --no-cache-dir .
 
-# ---- Stage 2: Bun + TUI frontend ----
-FROM oven/bun:1 AS tui-builder
+# ---- Stage 2: Node.js + TUI frontend ----
+FROM node:22-slim AS tui-builder
 
 WORKDIR /app/tui-frontend
 
-COPY tui-frontend/package.json tui-frontend/bun.lock ./
-RUN bun install
+COPY tui-frontend/package.json tui-frontend/package-lock.json ./
+RUN npm ci
 
 COPY tui-frontend/ ./
 
@@ -34,10 +34,11 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends git ca-certificates unzip && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Bun from official image
-COPY --from=tui-builder /usr/local/bin/bun /usr/local/bin/bun
-COPY --from=tui-builder /root/.bun /root/.bun
-RUN ln -sf /usr/local/bin/bun /usr/local/bin/bunx
+# Install Node.js from official image
+COPY --from=tui-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=tui-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sf /usr/local/lib/node_modules/npx/bin/npx-cli.js /usr/local/bin/npx
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -68,6 +69,6 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 
 USER apex
 
-# Default: run APEX CLI
+# Default: run APEX (TUI is default)
 ENTRYPOINT ["apex"]
-CMD ["--help"]
+CMD []

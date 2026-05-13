@@ -42,7 +42,6 @@ template: |
   ```bash
   export ANTHROPIC_API_KEY=sk-ant-...
   apex                          # Interactive mode
-  apex --tui                    # Terminal UI
   apex --model gpt-4o           # Start with GPT-4o
   apex --model ollama-llama3    # Local, no API key
   ```
