@@ -143,7 +143,7 @@ export default function RoadmapPage() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Roadmap</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">From <span className="animated-gradient-text">Foundation</span> to Enterprise</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.0.0 First Stable Release to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.0.0 First Production Release to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
             </motion.div>
           </div>
         </section>

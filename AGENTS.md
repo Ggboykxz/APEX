@@ -1,4 +1,4 @@
-# APEX — Agent for Programming EXecution v1.5.0
+# APEX — Agent for Programming EXecution v1.0.0
 
 *Built in Gabon 🇬🇦 for the world.*
 
@@ -49,7 +49,7 @@ APEX is an **autonomous agent** capable of:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                        APEX v1.5.0                       │
+│                        APEX v1.0.0                       │
 │                                                          │
 │   Frontend (TUI / REPL / API / Web)                     │
 │          ↕  HTTP / SSE / stdin                           │
@@ -1012,4 +1012,4 @@ apex -p "prompt" -f json   # CI/CD mode
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v1.5.0 — Inspired by OpenCode, built for everyone*
+*APEX v1.0.0 — Inspired by OpenCode, built for everyone*
