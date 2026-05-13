@@ -57,14 +57,17 @@ class GatewayServer:
         if tier not in self.config.tiers:
             return web.json_response({"error": f"Invalid tier: {tier}"}, status=400)
         api_key = self.auth.generate_key(tier, label)
+        t = self.config.tiers[tier]
         return web.json_response({
             "api_key": api_key,
             "tier": tier,
             "label": label,
             "limits": {
-                "daily_requests": self.config.tiers[tier].daily_requests,
-                "daily_tokens": self.config.tiers[tier].daily_tokens,
-                "rate_per_minute": self.config.tiers[tier].rate_per_minute,
+                "daily_requests": t.daily_requests,
+                "daily_tokens": t.daily_tokens,
+                "rate_per_minute": t.rate_per_minute,
+                "monthly_value_usd": t.monthly_value_usd,
+                "max_concurrent": t.max_concurrent,
             },
         })
 

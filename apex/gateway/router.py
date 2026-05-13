@@ -167,4 +167,6 @@ class RequestRouter:
             "tokens_today": tok,
             "tokens_limit": tier.daily_tokens,
             "rate_per_minute": tier.rate_per_minute,
+            "monthly_value_usd": tier.monthly_value_usd,
+            "max_concurrent": tier.max_concurrent,
         }

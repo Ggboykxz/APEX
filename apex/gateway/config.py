@@ -10,6 +10,8 @@ class TierConfig:
     daily_requests: int
     daily_tokens: int
     rate_per_minute: int
+    monthly_value_usd: float
+    max_concurrent: int
     models: list[str]
 
 
@@ -18,6 +20,8 @@ DEFAULT_TIERS: dict[str, TierConfig] = {
         daily_requests=50,
         daily_tokens=500_000,
         rate_per_minute=10,
+        monthly_value_usd=0,
+        max_concurrent=1,
         models=[
             "free-or-qwen3-235b",
             "free-or-qwen3-coder",
@@ -44,6 +48,8 @@ DEFAULT_TIERS: dict[str, TierConfig] = {
         daily_requests=500,
         daily_tokens=5_000_000,
         rate_per_minute=60,
+        monthly_value_usd=60,
+        max_concurrent=3,
         models=[
             "pro-glm-5",
             "pro-glm-5.1",
@@ -61,6 +67,8 @@ DEFAULT_TIERS: dict[str, TierConfig] = {
         daily_requests=999999,
         daily_tokens=100_000_000,
         rate_per_minute=300,
+        monthly_value_usd=999,
+        max_concurrent=10,
         models=["*"],
     ),
 }
