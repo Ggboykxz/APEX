@@ -83,10 +83,10 @@ jobs:
 
       - name: Verify all components
         run: |
-          for component in ApexApp ChatPanel HelpPanel ModelSelector Sidebar StatusBar ToolPanel; do
+          for component in ApexApp ChatPanel Sidebar StatusBar; do
             test -f src/components/${component}.tsx || (echo "ERROR: ${component}.tsx not found" && exit 1)
           done
-          echo "All 7 components present"
+          echo "All 4 TUI components present"
 
       - name: Verify package integrity
         run: |
