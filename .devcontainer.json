@@ -1,0 +1,21 @@
+{
+  "name": "APEX Development",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-extra/features/bun:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "oven-sh.bun"
+      ]
+    }
+  },
+  "postCreateCommand": "pip install -e '.[dev]' && cd tui-frontend && bun install",
+  "forwardPorts": [3000],
+  "portsToExpose": [3000]
+}

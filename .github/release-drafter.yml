@@ -1,0 +1,118 @@
+# Release Drafter configuration for APEX
+
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+template: |
+  ## APEX v$RESOLVED_VERSION
+
+  The universal AI coding agent. Every model. One terminal.
+
+  ### Changes
+
+  $CHANGES
+
+  ### Installation
+
+  ```bash
+  # pip (recommended)
+  pip install apex-ai==$RESOLVED_VERSION
+
+  # pipx (isolated)
+  pipx install apex-ai==$RESOLVED_VERSION
+
+  # uv (fastest)
+  uv tool install apex-ai==$RESOLVED_VERSION
+
+  # One-line install (macOS/Linux)
+  curl -fsSL https://apex-ai.dev/install.sh | bash
+
+  # PowerShell (Windows)
+  irm https://apex-ai.dev/install.ps1 | iex
+  ```
+
+  ### Docker
+
+  ```bash
+  docker pull ghcr.io/ggboykxz/apex:$RESOLVED_VERSION
+  docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex
+  ```
+
+  ### Quick Start
+
+  ```bash
+  export ANTHROPIC_API_KEY=sk-ant-...
+  apex                          # Interactive mode
+  apex --model gpt-4o           # Start with GPT-4o
+  apex --model ollama-llama3    # Local, no API key
+  ```
+
+  **Full Changelog**: https://github.com/Ggboykxz/APEX/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+categories:
+  - title: "🚀 Features"
+    labels:
+      - feature
+      - enhancement
+      - feat
+  - title: "🐛 Bug Fixes"
+    labels:
+      - bug
+      - fix
+      - bugfix
+  - title: "📚 Documentation"
+    labels:
+      - documentation
+      - docs
+  - title: "♻️ Refactoring"
+    labels:
+      - refactor
+      - refactoring
+  - title: "⚡ Performance"
+    labels:
+      - perf
+      - performance
+  - title: "🧪 Tests"
+    labels:
+      - test
+      - tests
+  - title: "🔧 CI/CD"
+    labels:
+      - ci
+      - build
+  - title: "🎫 Chores"
+    labels:
+      - chore
+      - dependencies
+  - title: "🔒 Security"
+    labels:
+      - security
+
+label-template: "$TITLE @$AUTHOR (#$NUMBER)"
+
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+change-title-escapes: '\<*_&'
+
+version-resolver:
+  major:
+    labels:
+      - breaking
+      - major
+  minor:
+    labels:
+      - feature
+      - enhancement
+      - feat
+  patch:
+    labels:
+      - bug
+      - fix
+      - bugfix
+      - security
+      - chore
+      - dependencies
+  default: patch
+
+exclude-labels:
+  - skip-changelog
+  - stale
+  - wontfix

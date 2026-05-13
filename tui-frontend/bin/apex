@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# APEX TUI - Launch script
+# Usage: ./bin/apex or bun run start
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/.."
+
+cd "$PROJECT_DIR" && bun run src/App.tsx "$@"

@@ -1,0 +1,636 @@
+"""Configuration system for APEX - models, API keys, and user config."""
+
+import json
+import os
+from pathlib import Path
+from typing import Any
+
+MODELS: dict[str, str] = {
+    # ── Anthropic Claude (2024-2026) ──
+    "claude-3.5-haiku": "anthropic/claude-3-5-haiku-20241022",
+    "claude-3.5-sonnet": "anthropic/claude-3-5-sonnet-20241022",
+    "claude-3.7-sonnet": "anthropic/claude-3-7-sonnet-20250219",
+    "claude-sonnet-4": "anthropic/claude-sonnet-4-20250514",
+    "claude-opus-4": "anthropic/claude-opus-4-20250514",
+    "claude-sonnet-4.5": "anthropic/claude-sonnet-4-5",
+    "claude-opus-4.5": "anthropic/claude-opus-4-5",
+    "claude-haiku-4.5": "anthropic/claude-haiku-4-5",
+    "claude-opus-4.7": "anthropic/claude-opus-4-7",
+    "claude-sonnet-4.6": "anthropic/claude-sonnet-4-6",
+    # ── OpenAI GPT / o-series (2020-2025) ──
+    "gpt-4o": "openai/gpt-4o",
+    "gpt-4o-mini": "openai/gpt-4o-mini",
+    "gpt-4-turbo": "openai/gpt-4-turbo",
+    "gpt-4.1": "openai/gpt-4.1",
+    "gpt-4.1-mini": "openai/gpt-4.1-mini",
+    "gpt-4.1-nano": "openai/gpt-4.1-nano",
+    "gpt-5": "openai/gpt-5",
+    "gpt-5-mini": "openai/gpt-5-mini",
+    "gpt-5-nano": "openai/gpt-5-nano",
+    "gpt-5-pro": "openai/gpt-5-pro",
+    "o1": "openai/o1",
+    "o1-mini": "openai/o1-mini",
+    "o3": "openai/o3",
+    "o3-mini": "openai/o3-mini",
+    "o3-pro": "openai/o3-pro",
+    "o4-mini": "openai/o4-mini",
+    # ── Google DeepMind Gemini / Gemma (2023-2025) ──
+    "gemini-1.5-flash": "google/gemini-1.5-flash",
+    "gemini-1.5-pro": "google/gemini-1.5-pro",
+    "gemini-2.0-flash": "google/gemini-2.0-flash",
+    "gemini-2.0-flash-lite": "google/gemini-2.0-flash-lite",
+    "gemini-2.5-flash": "google/gemini-2.5-flash",
+    "gemini-2.5-flash-lite": "google/gemini-2.5-flash-lite",
+    "gemini-2.5-pro": "google/gemini-2.5-pro",
+    "gemini-3-flash": "google/gemini-3-flash-preview",
+    "gemini-3-pro": "google/gemini-3-pro-preview",
+    "gemma-3-4b": "google/gemma-3-4b-it",
+    "gemma-3-12b": "google/gemma-3-12b-it",
+    "gemma-3-27b": "google/gemma-3-27b-it",
+    "gemma-4-26b": "google/gemma-4-26b-a4b-it",
+    "gemma-4-31b": "google/gemma-4-31b-it",
+    # ── xAI Grok (2023-2025) ──
+    "grok-2": "xai/grok-2",
+    "grok-3": "xai/grok-3",
+    "grok-3-mini": "xai/grok-3-mini",
+    "grok-4": "xai/grok-4",
+    "grok-4-fast": "xai/grok-4-fast",
+    # ── DeepSeek (2024-2025) ──
+    "deepseek-chat": "deepseek/deepseek-chat",
+    "deepseek-reasoner": "deepseek/deepseek-reasoner",
+    "deepseek-v4-flash": "deepseek/deepseek-v4-flash",
+    "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
+    # ── Mistral AI (2023-2025) ──
+    "mistral-small-latest": "mistral/mistral-small-latest",
+    "mistral-medium-latest": "mistral/mistral-medium-latest",
+    "mistral-large-latest": "mistral/mistral-large-latest",
+    "codestral": "mistral/codestral-latest",
+    "devstral": "mistral/devstral-medium-latest",
+    "devstral-small": "mistral/devstral-small-2507",
+    "ministral-8b": "mistral/ministral-8b-latest",
+    "ministral-3b": "mistral/ministral-3b-latest",
+    "mixtral-8x7b": "mistral/open-mixtral-8x7b",
+    "mixtral-8x22b": "mistral/open-mixtral-8x22b",
+    "mistral-7b": "mistral/open-mistral-7b",
+    "magistral-medium": "mistral/magistral-medium-latest",
+    "magistral-small": "mistral/magistral-small",
+    "pixtral-large": "mistral/pixtral-large-latest",
+    "pixtral-12b": "mistral/pixtral-12b",
+    # ── Alibaba Qwen (2024-2025) ──
+    "qwen-max": "alibaba/qwen-max",
+    "qwen-plus": "alibaba/qwen-plus",
+    "qwen-turbo": "alibaba/qwen-turbo",
+    "qwen3-8b": "alibaba/qwen3-8b",
+    "qwen3-32b": "alibaba/qwen3-32b",
+    "qwen3-235b": "alibaba/qwen3-235b-a22b",
+    "qwen3-coder-plus": "alibaba/qwen3-coder-plus",
+    "qwen3-coder-flash": "alibaba/qwen3-coder-flash",
+    "qwen3-max": "alibaba/qwen3-max",
+    "qwen3.5-plus": "alibaba/qwen3.5-plus",
+    "qwen3.6-plus": "alibaba/qwen3.6-plus",
+    "qwq-plus": "alibaba/qwq-plus",
+    # ── Meta Llama (2023-2025) — Llama API ──
+    "llama-3.3-70b": "llama/llama-3.3-70b-instruct",
+    "llama-3.3-8b": "llama/llama-3.3-8b-instruct",
+    "llama-4-scout": "llama/llama-4-scout-17b-16e-instruct-fp8",
+    "llama-4-maverick": "llama/llama-4-maverick-17b-128e-instruct-fp8",
+    # ── Amazon Bedrock Nova (2024-2025) ──
+    "nova-micro": "bedrock/amazon.nova-micro-v1:0",
+    "nova-lite": "bedrock/amazon.nova-lite-v1:0",
+    "nova-pro": "bedrock/amazon.nova-pro-v1:0",
+    "nova-2-lite": "bedrock/amazon.nova-2-lite-v1:0",
+    # ── Microsoft Phi (2023-2025) ──
+    "phi-3-mini": "microsoft/phi-3-mini-128k-instruct",
+    "phi-3-small": "microsoft/phi-3-small-128k-instruct",
+    "phi-3-medium": "microsoft/phi-3-medium-128k-instruct",
+    "phi-3.5-mini": "microsoft/phi-3.5-mini-instruct",
+    "phi-3.5-moe": "microsoft/phi-3.5-moe-instruct",
+    "phi-4": "microsoft/phi-4",
+    "phi-4-mini": "microsoft/phi-4-mini-instruct",
+    "phi-4-reasoning": "microsoft/phi-4-reasoning",
+    "phi-4-multimodal": "microsoft/phi-4-multimodal-instruct",
+    # ── Cohere (2023-2025) ──
+    "command-r": "cohere/command-r-08-2024",
+    "command-r-plus": "cohere/command-r-plus-08-2024",
+    "command-a": "cohere/command-a-03-2025",
+    "command-a-reasoning": "cohere/command-a-reasoning-08-2025",
+    "command-r7b": "cohere/command-r7b-12-2024",
+    # ── Groq hosted models ──
+    "llama-groq-3.3-70b": "groq/llama-3.3-70b-versatile",
+    "llama-groq-3.1-8b": "groq/llama-3.1-8b-instant",
+    "llama-groq-4-scout": "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-groq-4-maverick": "groq/meta-llama/llama-4-maverick-17b-128e-instruct",
+    "mixtral-groq-8x7b": "groq/mixtral-8x7b-32768",
+    "gemma2-groq-9b": "groq/gemma2-9b-it",
+    "qwq-groq-32b": "groq/qwen-qwq-32b",
+    "deepseek-r1-groq-70b": "groq/deepseek-r1-distill-llama-70b",
+    "qwen3-groq-32b": "groq/qwen/qwen3-32b",
+    # ── Ollama local models (no API key needed) ──
+    "ollama-llama3": "ollama/llama3",
+    "ollama-llama3.1": "ollama/llama3.1",
+    "ollama-llama3.2": "ollama/llama3.2",
+    "ollama-llama3.3": "ollama/llama3.3",
+    "ollama-codellama": "ollama/codellama",
+    "ollama-deepseek-coder": "ollama/deepseek-coder",
+    "ollama-deepseek-r1": "ollama/deepseek-r1",
+    "ollama-qwen2.5": "ollama/qwen2.5",
+    "ollama-qwen2.5-coder": "ollama/qwen2.5-coder",
+    "ollama-mistral": "ollama/mistral",
+    "ollama-gemma2": "ollama/gemma2",
+    "ollama-phi3": "ollama/phi3",
+    "ollama-phi4": "ollama/phi4",
+    # ── OpenRouter (use OPENROUTER_API_KEY) ──
+    "or-gpt4o": "openrouter/openai/gpt-4o",
+    "or-gpt4o-mini": "openrouter/openai/gpt-4o-mini",
+    "or-claude": "openrouter/anthropic/claude-sonnet-4",
+    "or-deepseek": "openrouter/deepseek/deepseek-chat",
+    "or-llama": "openrouter/meta-llama/llama-3.3-70b-instruct",
+    "or-gemini": "openrouter/google/gemini-2.5-pro-preview",
+    "or-mistral": "openrouter/mistralai/mistral-large-latest",
+    "free-router": "openrouter/openrouter/free",
+    "deepseek-r1-free": "openrouter/deepseek/deepseek-r1:free",
+    "llama-3.1-8b-free": "openrouter/meta-llama/llama-3.1-8b-instruct:free",
+    "qwen-2.5-7b-free": "openrouter/qwen/qwen2.5-7b-instruct:free",
+    # ── APEX Free (ALL OpenRouter free coding models) ──
+    "free-or-router": "openrouter/openrouter/free",
+    "free-or-qwen3-235b": "openrouter/qwen/qwen3-235b-a22b:free",
+    "free-or-qwen3-coder": "openrouter/qwen/qwen3-coder:free",
+    "free-or-qwen3-next-80b": "openrouter/qwen/qwen3-next-80b-a3b-instruct:free",
+    "free-or-nemotron-super": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+    "free-or-nemotron-nano": "openrouter/nvidia/nemotron-3-nano-30b-a3b:free",
+    "free-or-gemma-4-26b": "openrouter/google/gemma-4-26b-a4b-it:free",
+    "free-or-gemma-4-31b": "openrouter/google/gemma-4-31b-it:free",
+    "free-or-ring-2.6": "openrouter/inclusionai/ring-2.6-1t:free",
+    "free-or-deepseek-v3.2": "openrouter/deepseek/deepseek-chat-v3.2:free",
+    "free-or-deepseek-r1": "openrouter/deepseek/deepseek-r1:free",
+    "free-or-llama-3.3-70b": "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+    "free-or-minimax-m2.5": "openrouter/minimax/minimax-m2.5:free",
+    "free-or-glm-4.6": "openrouter/z-ai/glm-4.6:free",
+    "free-or-poolside-laguna-m": "openrouter/poolside/laguna-m.1:free",
+    "free-or-poolside-laguna-xs": "openrouter/poolside/laguna-xs.2:free",
+    "free-or-gpt-oss-120b": "openrouter/openai/gpt-oss-120b:free",
+    "free-or-gpt-oss-20b": "openrouter/openai/gpt-oss-20b:free",
+    "free-or-liquid-thinking": "openrouter/liquid/lfm-2.5-1.2b-thinking:free",
+    # ── Cerebras (ultra-fast inference) ──
+    "cerebras-llama3.1-8b": "cerebras/llama3.1-8b",
+    "cerebras-qwen3-235b": "cerebras/qwen-3-235b-a22b-instruct-2507",
+    "cerebras-gpt-oss-120b": "cerebras/gpt-oss-120b",
+    # ── Fireworks AI ──
+    "fireworks-deepseek-v3.1": "fireworks/accounts/fireworks/models/deepseek-v3p1",
+    "fireworks-deepseek-v3.2": "fireworks/accounts/fireworks/models/deepseek-v3p2",
+    "fireworks-deepseek-v4-pro": "fireworks/accounts/fireworks/models/deepseek-v4-pro",
+    "fireworks-qwen3.6-plus": "fireworks/accounts/fireworks/models/qwen3p6-plus",
+    "fireworks-kimi-k2": "fireworks/accounts/fireworks/models/kimi-k2-instruct",
+    "fireworks-glm-5": "fireworks/accounts/fireworks/models/glm-5",
+    "fireworks-gpt-oss-120b": "fireworks/accounts/fireworks/models/gpt-oss-120b",
+    # ── Together AI ──
+    "together-deepseek-v3": "together_ai/deepseek-ai/DeepSeek-V3",
+    "together-deepseek-r1": "together_ai/deepseek-ai/DeepSeek-R1",
+    "together-deepseek-v4-pro": "together_ai/deepseek-ai/DeepSeek-V4-Pro",
+    "together-llama-3.3-70b": "together_ai/meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "together-qwen3-coder": "together_ai/Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
+    "together-qwen3.5-397b": "together_ai/Qwen/Qwen3.5-397B-A17B",
+    "together-gemma-4-31b": "together_ai/google/gemma-4-31B-it",
+    # ── Hugging Face ──
+    "hf-deepseek-r1": "huggingface/deepseek-ai/DeepSeek-R1-0528",
+    "hf-deepseek-v3.2": "huggingface/deepseek-ai/DeepSeek-V3.2",
+    "hf-qwen3-coder": "huggingface/Qwen/Qwen3-Coder-480B-A35B-Instruct",
+    "hf-qwen3.5-397b": "huggingface/Qwen/Qwen3.5-397B-A17B",
+    "hf-glm-5.1": "huggingface/zai-org/GLM-5.1",
+    "hf-kimi-k2.6": "huggingface/moonshotai/Kimi-K2.6",
+    # ── Perplexity ──
+    "sonar": "perplexity/sonar",
+    "sonar-pro": "perplexity/sonar-pro",
+    "sonar-reasoning-pro": "perplexity/sonar-reasoning-pro",
+    "sonar-deep-research": "perplexity/sonar-deep-research",
+    # ── NVIDIA NIM ──
+    "nvidia-deepseek-r1": "nvidia/deepseek-ai/deepseek-r1",
+    "nvidia-deepseek-v3.2": "nvidia/deepseek-ai/deepseek-v3.2",
+    "nvidia-llama-3.3-70b": "nvidia/meta/llama-3.3-70b-instruct",
+    "nvidia-llama-4-scout": "nvidia/meta/llama-4-scout-17b-16e-instruct",
+    "nvidia-llama-4-maverick": "nvidia/meta/llama-4-maverick-17b-128e-instruct",
+    "nvidia-qwen3-235b": "nvidia/qwen/qwen3-235b-a22b",
+    "nvidia-phi-4-mini": "nvidia/microsoft/phi-4-mini-instruct",
+    "nvidia-nemotron-super": "nvidia/nvidia/nemotron-3-super-120b-a12b",
+    # ── Cloudflare Workers AI ──
+    "cf-gpt-oss-120b": "cloudflare/@cf/openai/gpt-oss-120b",
+    "cf-gpt-oss-20b": "cloudflare/@cf/openai/gpt-oss-20b",
+    "cf-llama-4-scout": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
+    "cf-gemma-4-26b": "cloudflare/@cf/google/gemma-4-26b-a4b-it",
+    "cf-kimi-k2.5": "cloudflare/@cf/moonshotai/kimi-k2.5",
+    "cf-glm-4.7-flash": "cloudflare/@cf/zai-org/glm-4.7-flash",
+    # ── APEX Pro (frontier models via OpenRouter — pay-as-you-go) ──
+    "pro-glm-5": "openrouter/z-ai/glm-5",
+    "pro-glm-5.1": "openrouter/z-ai/glm-5.1",
+    "pro-kimi-k2.5": "openrouter/moonshotai/kimi-k2.5",
+    "pro-kimi-k2.6": "openrouter/moonshotai/kimi-k2.6",
+    "pro-minimax-m2.5": "openrouter/minimax/minimax-m2.5",
+    "pro-minimax-m2.7": "openrouter/minimax/minimax-m2.7",
+    "pro-qwen3.5-plus": "openrouter/qwen/qwen3.5-plus",
+    "pro-qwen3.6-plus": "openrouter/qwen/qwen3.6-plus",
+    "pro-deepseek-v4-pro": "openrouter/deepseek/deepseek-v4-pro",
+    "pro-deepseek-v4-flash": "openrouter/deepseek/deepseek-v4-flash",
+}
+
+MODEL_PROVIDERS: dict[str, str | None] = {
+    # ── APEX Free (OpenRouter free models) ──
+    # ── Anthropic Claude (2024-2026) ──
+    "claude-3.5-haiku": "ANTHROPIC_API_KEY",
+    "claude-3.5-sonnet": "ANTHROPIC_API_KEY",
+    "claude-3.7-sonnet": "ANTHROPIC_API_KEY",
+    "claude-sonnet-4": "ANTHROPIC_API_KEY",
+    "claude-opus-4": "ANTHROPIC_API_KEY",
+    "claude-sonnet-4.5": "ANTHROPIC_API_KEY",
+    "claude-opus-4.5": "ANTHROPIC_API_KEY",
+    "claude-haiku-4.5": "ANTHROPIC_API_KEY",
+    "claude-opus-4.7": "ANTHROPIC_API_KEY",
+    "claude-sonnet-4.6": "ANTHROPIC_API_KEY",
+    # ── OpenAI GPT / o-series (2020-2025) ──
+    "gpt-4o": "OPENAI_API_KEY",
+    "gpt-4o-mini": "OPENAI_API_KEY",
+    "gpt-4-turbo": "OPENAI_API_KEY",
+    "gpt-4.1": "OPENAI_API_KEY",
+    "gpt-4.1-mini": "OPENAI_API_KEY",
+    "gpt-4.1-nano": "OPENAI_API_KEY",
+    "gpt-5": "OPENAI_API_KEY",
+    "gpt-5-mini": "OPENAI_API_KEY",
+    "gpt-5-nano": "OPENAI_API_KEY",
+    "gpt-5-pro": "OPENAI_API_KEY",
+    "o1": "OPENAI_API_KEY",
+    "o1-mini": "OPENAI_API_KEY",
+    "o3": "OPENAI_API_KEY",
+    "o3-mini": "OPENAI_API_KEY",
+    "o3-pro": "OPENAI_API_KEY",
+    "o4-mini": "OPENAI_API_KEY",
+    # ── Google DeepMind Gemini / Gemma (2023-2025) ──
+    "gemini-1.5-flash": "GEMINI_API_KEY",
+    "gemini-1.5-pro": "GEMINI_API_KEY",
+    "gemini-2.0-flash": "GEMINI_API_KEY",
+    "gemini-2.0-flash-lite": "GEMINI_API_KEY",
+    "gemini-2.5-flash": "GEMINI_API_KEY",
+    "gemini-2.5-flash-lite": "GEMINI_API_KEY",
+    "gemini-2.5-pro": "GEMINI_API_KEY",
+    "gemini-3-flash": "GEMINI_API_KEY",
+    "gemini-3-pro": "GEMINI_API_KEY",
+    "gemma-3-4b": "GEMINI_API_KEY",
+    "gemma-3-12b": "GEMINI_API_KEY",
+    "gemma-3-27b": "GEMINI_API_KEY",
+    "gemma-4-26b": "GEMINI_API_KEY",
+    "gemma-4-31b": "GEMINI_API_KEY",
+    # ── xAI Grok (2023-2025) ──
+    "grok-2": "XAI_API_KEY",
+    "grok-3": "XAI_API_KEY",
+    "grok-3-mini": "XAI_API_KEY",
+    "grok-4": "XAI_API_KEY",
+    "grok-4-fast": "XAI_API_KEY",
+    # ── DeepSeek (2024-2025) ──
+    "deepseek-chat": "DEEPSEEK_API_KEY",
+    "deepseek-reasoner": "DEEPSEEK_API_KEY",
+    "deepseek-v4-flash": "DEEPSEEK_API_KEY",
+    "deepseek-v4-pro": "DEEPSEEK_API_KEY",
+    # ── Mistral AI (2023-2025) ──
+    "mistral-small-latest": "MISTRAL_API_KEY",
+    "mistral-medium-latest": "MISTRAL_API_KEY",
+    "mistral-large-latest": "MISTRAL_API_KEY",
+    "codestral": "MISTRAL_API_KEY",
+    "devstral": "MISTRAL_API_KEY",
+    "devstral-small": "MISTRAL_API_KEY",
+    "ministral-8b": "MISTRAL_API_KEY",
+    "ministral-3b": "MISTRAL_API_KEY",
+    "mixtral-8x7b": "MISTRAL_API_KEY",
+    "mixtral-8x22b": "MISTRAL_API_KEY",
+    "mistral-7b": "MISTRAL_API_KEY",
+    "magistral-medium": "MISTRAL_API_KEY",
+    "magistral-small": "MISTRAL_API_KEY",
+    "pixtral-large": "MISTRAL_API_KEY",
+    "pixtral-12b": "MISTRAL_API_KEY",
+    # ── Alibaba Qwen (2024-2025) ──
+    "qwen-max": "DASHSCOPE_API_KEY",
+    "qwen-plus": "DASHSCOPE_API_KEY",
+    "qwen-turbo": "DASHSCOPE_API_KEY",
+    "qwen3-8b": "DASHSCOPE_API_KEY",
+    "qwen3-32b": "DASHSCOPE_API_KEY",
+    "qwen3-235b": "DASHSCOPE_API_KEY",
+    "qwen3-coder-plus": "DASHSCOPE_API_KEY",
+    "qwen3-coder-flash": "DASHSCOPE_API_KEY",
+    "qwen3-max": "DASHSCOPE_API_KEY",
+    "qwen3.5-plus": "DASHSCOPE_API_KEY",
+    "qwen3.6-plus": "DASHSCOPE_API_KEY",
+    "qwq-plus": "DASHSCOPE_API_KEY",
+    # ── Meta Llama (2023-2025) — Llama API ──
+    "llama-3.3-70b": "LLAMA_API_KEY",
+    "llama-3.3-8b": "LLAMA_API_KEY",
+    "llama-4-scout": "LLAMA_API_KEY",
+    "llama-4-maverick": "LLAMA_API_KEY",
+    # ── Amazon Bedrock Nova (2024-2025) ──
+    "nova-micro": "AWS_ACCESS_KEY_ID",
+    "nova-lite": "AWS_ACCESS_KEY_ID",
+    "nova-pro": "AWS_ACCESS_KEY_ID",
+    "nova-2-lite": "AWS_ACCESS_KEY_ID",
+    # ── Microsoft Phi (2023-2025) ──
+    "phi-3-mini": "GITHUB_TOKEN",
+    "phi-3-small": "GITHUB_TOKEN",
+    "phi-3-medium": "GITHUB_TOKEN",
+    "phi-3.5-mini": "GITHUB_TOKEN",
+    "phi-3.5-moe": "GITHUB_TOKEN",
+    "phi-4": "GITHUB_TOKEN",
+    "phi-4-mini": "GITHUB_TOKEN",
+    "phi-4-reasoning": "GITHUB_TOKEN",
+    "phi-4-multimodal": "GITHUB_TOKEN",
+    # ── Cohere (2023-2025) ──
+    "command-r": "COHERE_API_KEY",
+    "command-r-plus": "COHERE_API_KEY",
+    "command-a": "COHERE_API_KEY",
+    "command-a-reasoning": "COHERE_API_KEY",
+    "command-r7b": "COHERE_API_KEY",
+    # ── Groq hosted models ──
+    "llama-groq-3.3-70b": "GROQ_API_KEY",
+    "llama-groq-3.1-8b": "GROQ_API_KEY",
+    "llama-groq-4-scout": "GROQ_API_KEY",
+    "llama-groq-4-maverick": "GROQ_API_KEY",
+    "mixtral-groq-8x7b": "GROQ_API_KEY",
+    "gemma2-groq-9b": "GROQ_API_KEY",
+    "qwq-groq-32b": "GROQ_API_KEY",
+    "deepseek-r1-groq-70b": "GROQ_API_KEY",
+    "qwen3-groq-32b": "GROQ_API_KEY",
+    # ── Ollama local models (no API key needed) ──
+    "ollama-llama3": None,
+    "ollama-llama3.1": None,
+    "ollama-llama3.2": None,
+    "ollama-llama3.3": None,
+    "ollama-codellama": None,
+    "ollama-deepseek-coder": None,
+    "ollama-deepseek-r1": None,
+    "ollama-qwen2.5": None,
+    "ollama-qwen2.5-coder": None,
+    "ollama-mistral": None,
+    "ollama-gemma2": None,
+    "ollama-phi3": None,
+    "ollama-phi4": None,
+    # ── OpenRouter (use OPENROUTER_API_KEY) ──
+    "or-gpt4o": "OPENROUTER_API_KEY",
+    "or-gpt4o-mini": "OPENROUTER_API_KEY",
+    "or-claude": "OPENROUTER_API_KEY",
+    "or-deepseek": "OPENROUTER_API_KEY",
+    "or-llama": "OPENROUTER_API_KEY",
+    "or-gemini": "OPENROUTER_API_KEY",
+    "or-mistral": "OPENROUTER_API_KEY",
+    "free-router": "OPENROUTER_API_KEY",
+    "deepseek-r1-free": "OPENROUTER_API_KEY",
+    "llama-3.1-8b-free": "OPENROUTER_API_KEY",
+    "qwen-2.5-7b-free": "OPENROUTER_API_KEY",
+    # ── APEX Free (OpenRouter free coding models) ──
+    "free-or-router": "OPENROUTER_API_KEY",
+    "free-or-qwen3-235b": "OPENROUTER_API_KEY",
+    "free-or-qwen3-coder": "OPENROUTER_API_KEY",
+    "free-or-qwen3-next-80b": "OPENROUTER_API_KEY",
+    "free-or-nemotron-super": "OPENROUTER_API_KEY",
+    "free-or-nemotron-nano": "OPENROUTER_API_KEY",
+    "free-or-gemma-4-26b": "OPENROUTER_API_KEY",
+    "free-or-gemma-4-31b": "OPENROUTER_API_KEY",
+    "free-or-ring-2.6": "OPENROUTER_API_KEY",
+    "free-or-deepseek-v3.2": "OPENROUTER_API_KEY",
+    "free-or-deepseek-r1": "OPENROUTER_API_KEY",
+    "free-or-llama-3.3-70b": "OPENROUTER_API_KEY",
+    "free-or-minimax-m2.5": "OPENROUTER_API_KEY",
+    "free-or-glm-4.6": "OPENROUTER_API_KEY",
+    "free-or-poolside-laguna-m": "OPENROUTER_API_KEY",
+    "free-or-poolside-laguna-xs": "OPENROUTER_API_KEY",
+    "free-or-gpt-oss-120b": "OPENROUTER_API_KEY",
+    "free-or-gpt-oss-20b": "OPENROUTER_API_KEY",
+    "free-or-liquid-thinking": "OPENROUTER_API_KEY",
+    # ── APEX Pro (frontier models via OpenRouter) ──
+    "pro-glm-5": "OPENROUTER_API_KEY",
+    "pro-glm-5.1": "OPENROUTER_API_KEY",
+    "pro-kimi-k2.5": "OPENROUTER_API_KEY",
+    "pro-kimi-k2.6": "OPENROUTER_API_KEY",
+    "pro-minimax-m2.5": "OPENROUTER_API_KEY",
+    "pro-minimax-m2.7": "OPENROUTER_API_KEY",
+    "pro-qwen3.5-plus": "OPENROUTER_API_KEY",
+    "pro-qwen3.6-plus": "OPENROUTER_API_KEY",
+    "pro-deepseek-v4-pro": "OPENROUTER_API_KEY",
+    "pro-deepseek-v4-flash": "OPENROUTER_API_KEY",
+    # ── Cerebras (ultra-fast inference) ──
+    "cerebras-llama3.1-8b": "CEREBRAS_API_KEY",
+    "cerebras-qwen3-235b": "CEREBRAS_API_KEY",
+    "cerebras-gpt-oss-120b": "CEREBRAS_API_KEY",
+    # ── Fireworks AI ──
+    "fireworks-deepseek-v3.1": "FIREWORKS_API_KEY",
+    "fireworks-deepseek-v3.2": "FIREWORKS_API_KEY",
+    "fireworks-deepseek-v4-pro": "FIREWORKS_API_KEY",
+    "fireworks-qwen3.6-plus": "FIREWORKS_API_KEY",
+    "fireworks-kimi-k2": "FIREWORKS_API_KEY",
+    "fireworks-glm-5": "FIREWORKS_API_KEY",
+    "fireworks-gpt-oss-120b": "FIREWORKS_API_KEY",
+    # ── Together AI ──
+    "together-deepseek-v3": "TOGETHER_API_KEY",
+    "together-deepseek-r1": "TOGETHER_API_KEY",
+    "together-deepseek-v4-pro": "TOGETHER_API_KEY",
+    "together-llama-3.3-70b": "TOGETHER_API_KEY",
+    "together-qwen3-coder": "TOGETHER_API_KEY",
+    "together-qwen3.5-397b": "TOGETHER_API_KEY",
+    "together-gemma-4-31b": "TOGETHER_API_KEY",
+    # ── Hugging Face ──
+    "hf-deepseek-r1": "HF_TOKEN",
+    "hf-deepseek-v3.2": "HF_TOKEN",
+    "hf-qwen3-coder": "HF_TOKEN",
+    "hf-qwen3.5-397b": "HF_TOKEN",
+    "hf-glm-5.1": "HF_TOKEN",
+    "hf-kimi-k2.6": "HF_TOKEN",
+    # ── Perplexity ──
+    "sonar": "PERPLEXITY_API_KEY",
+    "sonar-pro": "PERPLEXITY_API_KEY",
+    "sonar-reasoning-pro": "PERPLEXITY_API_KEY",
+    "sonar-deep-research": "PERPLEXITY_API_KEY",
+    # ── NVIDIA NIM ──
+    "nvidia-deepseek-r1": "NVIDIA_API_KEY",
+    "nvidia-deepseek-v3.2": "NVIDIA_API_KEY",
+    "nvidia-llama-3.3-70b": "NVIDIA_API_KEY",
+    "nvidia-llama-4-scout": "NVIDIA_API_KEY",
+    "nvidia-llama-4-maverick": "NVIDIA_API_KEY",
+    "nvidia-qwen3-235b": "NVIDIA_API_KEY",
+    "nvidia-phi-4-mini": "NVIDIA_API_KEY",
+    "nvidia-nemotron-super": "NVIDIA_API_KEY",
+    # ── Cloudflare Workers AI ──
+    "cf-gpt-oss-120b": "CLOUDFLARE_API_KEY",
+    "cf-gpt-oss-20b": "CLOUDFLARE_API_KEY",
+    "cf-llama-4-scout": "CLOUDFLARE_API_KEY",
+    "cf-gemma-4-26b": "CLOUDFLARE_API_KEY",
+    "cf-kimi-k2.5": "CLOUDFLARE_API_KEY",
+    "cf-glm-4.7-flash": "CLOUDFLARE_API_KEY",
+}
+
+DEFAULT_MODEL = "or-gpt4o-mini"
+
+SYSTEM_PROMPT = """You are APEX, an expert coding agent built for the world.
+
+Your role is to act as a senior, opinionated developer who delivers complete, production-ready code.
+Never truncate code. Never use placeholders. Never leave TODOs.
+
+Key behaviors:
+- ALWAYS read files before editing them
+- ALWAYS verify your work by running tests, checking syntax, or running the code
+- Be language-agnostic (Python, JavaScript, Rust, Go, etc.)
+- Keep explanations concise — code speaks first
+- Return ERROR strings when tools fail, never silently continue
+
+You have access to tools: read_file, write_file, edit_file, run_command, list_files, search_in_files, delete_file, create_directory.
+
+Output complete solutions. When asked to write code, write the FULL code without truncation."""
+
+
+class Config:
+    def __init__(self, config_path: Path | None = None):
+        self._apex_dir = Path.home() / ".apex"
+        self._config_file = config_path or self._apex_dir / "config.json"
+        self._env_file = self._apex_dir / ".env"
+        self._data: dict[str, Any] = {}
+        self._load()
+
+    def _load(self) -> None:
+        self._apex_dir.mkdir(parents=True, exist_ok=True)
+        if self._config_file.exists():
+            try:
+                with open(self._config_file) as f:
+                    self._data = json.load(f)
+            except json.JSONDecodeError:
+                self._data = {}
+        self._load_env()
+
+    def _load_env(self) -> None:
+        env_paths = [self._env_file, Path.cwd() / ".env", Path.home() / ".env"]
+        for env_path in env_paths:
+            if env_path.exists():
+                with open(env_path) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            if "=" in line:
+                                key, value = line.split("=", 1)
+                                os.environ[key.strip()] = value.strip()
+                break
+
+    def save(self) -> None:
+        self._apex_dir.mkdir(parents=True, exist_ok=True)
+        with open(self._config_file, "w") as f:
+            json.dump(self._data, f, indent=2)
+
+    @property
+    def model(self) -> str:
+        return self._data.get("model", DEFAULT_MODEL)
+
+    @model.setter
+    def model(self, value: str) -> None:
+        self._data["model"] = value
+        self.save()
+
+    @property
+    def cwd(self) -> Path:
+        cwd = self._data.get("cwd", str(Path.cwd()))
+        return Path(cwd).expanduser().resolve()
+
+    @cwd.setter
+    def cwd(self, value: Path) -> None:
+        self._data["cwd"] = str(value)
+        self.save()
+
+    @property
+    def theme(self) -> str:
+        return self._data.get("theme", "monokai")
+
+    @theme.setter
+    def theme(self, value: str) -> None:
+        self._data["theme"] = value
+        self.save()
+
+    @property
+    def max_tool_rounds(self) -> int:
+        return self._data.get("max_tool_rounds", 20)
+
+    @max_tool_rounds.setter
+    def max_tool_rounds(self, value: int) -> None:
+        self._data["max_tool_rounds"] = value
+        self.save()
+
+    @property
+    def auto_commit(self) -> bool:
+        return self._data.get("auto_commit", False)
+
+    @auto_commit.setter
+    def auto_commit(self, value: bool) -> None:
+        self._data["auto_commit"] = value
+        self.save()
+
+    @property
+    def auto_model(self) -> bool:
+        return self._data.get("auto_model", False)
+
+    @auto_model.setter
+    def auto_model(self, value: bool) -> None:
+        self._data["auto_model"] = value
+        self.save()
+
+    @property
+    def reasoning_effort(self) -> str:
+        return self._data.get("reasoning_effort", "off")
+
+    @reasoning_effort.setter
+    def reasoning_effort(self, value: str) -> None:
+        if value not in ("off", "high", "max"):
+            value = "off"
+        self._data["reasoning_effort"] = value
+        self.save()
+
+    @property
+    def agent_mode(self) -> str:
+        return self._data.get("agent_mode", "agent")
+
+    @agent_mode.setter
+    def agent_mode(self, value: str) -> None:
+        if value not in ("plan", "agent", "yolo"):
+            value = "agent"
+        self._data["agent_mode"] = value
+        self.save()
+
+    @property
+    def context_max_tokens(self) -> int:
+        return self._data.get("context_max_tokens", 1000000)
+
+    @context_max_tokens.setter
+    def context_max_tokens(self, value: int) -> None:
+        self._data["context_max_tokens"] = value
+        self.save()
+
+    @property
+    def http_api(self) -> bool:
+        return self._data.get("http_api", False)
+
+    @http_api.setter
+    def http_api(self, value: bool) -> None:
+        self._data["http_api"] = value
+        self.save()
+
+    @property
+    def http_port(self) -> int:
+        return self._data.get("http_port", 8080)
+
+    @http_port.setter
+    def http_port(self, value: int) -> None:
+        self._data["http_port"] = value
+        self.save()
+
+    @property
+    def locale(self) -> str:
+        return self._data.get("locale", "auto")
+
+    @locale.setter
+    def locale(self, value: str) -> None:
+        self._data["locale"] = value
+        self.save()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    def set(self, key: str, value: Any) -> None:
+        self._data[key] = value
+        self.save()

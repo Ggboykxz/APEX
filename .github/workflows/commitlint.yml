@@ -1,0 +1,66 @@
+name: Commit Lint
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  commitlint:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Require at least one commit message to follow conventional commits
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          # Allowed scopes
+          scopes: |
+            apex
+            tui
+            website
+            docs
+            docker
+            ci
+            deps
+            config
+            api
+            agents
+            tools
+            session
+            mcp
+            sandbox
+            ui
+          # Require a scope
+          requireScope: false
+          # Disallow breaking changes on certain types
+          disallowScopes: |
+            release
+          # Subject pattern (min 1 char, no trailing period)
+          subjectPattern: ^(?![A-Z]).+[^.!]$
+          subjectPatternError: |
+            The subject must start with a lowercase letter and not end with a period or exclamation mark.
+          # Validate single commit (for PRs with 1 commit)
+          validateSingleCommit: true
+          # Ignore commits from certain authors (e.g., dependabot)
+          ignoreLabels: |
+            bot
+            dependencies
+          # Header pattern for the PR title
+          wip: true

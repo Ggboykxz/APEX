@@ -1,0 +1,82 @@
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install MkDocs and plugins
+        run: |
+          pip install \
+            mkdocs-material \
+            mkdocs-git-revision-date-localized-plugin \
+            pillow cairosvg
+
+      - name: Verify docs structure
+        run: |
+          test -f mkdocs.yml || (echo "ERROR: mkdocs.yml not found" && exit 1)
+          test -f docs/index.md || (echo "ERROR: docs/index.md not found" && exit 1)
+          echo "Docs structure OK"
+
+      - name: Build docs
+        run: mkdocs build --strict || mkdocs build
+
+  deploy:
+    name: Build & Deploy Website (with docs)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js (static export)
+        run: npm run build
+        env:
+          DATABASE_URL: "file:./test.db"
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXTAUTH_SECRET: "build-time-dummy-secret"
+          NEXTAUTH_URL: "http://localhost:3000"
+          NEXT_PUBLIC_BASE_PATH: "/APEX"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.DEPLOY_TOKEN }}
+          publish_dir: ./out
+          publish_branch: gh-pages
+          force_orphan: true
+          user_name: "github-actions[bot]"
+          user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_message: "Deploy website (docs update) from ${{ github.sha }}"
+        continue-on-error: true

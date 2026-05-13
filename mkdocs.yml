@@ -1,0 +1,107 @@
+site_name: APEX v1.5.0 Documentation
+site_url: https://apex-ai.dev/docs
+site_description: Universal AI coding agent — every model, one terminal. OpenCode-compatible UX.
+site_author: Ggboykxz
+repo_url: https://github.com/Ggboykxz/APEX
+repo_name: Ggboykxz/APEX
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: cyan
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: cyan
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  # logo: assets/apex.svg
+  # favicon: assets/favicon.ico
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.instant
+    - navigation.indexes
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.code.annotate
+    - toc.integrate
+
+plugins:
+  - search:
+      separator: '[\s\-\.]+'
+  # social plugin requires pillow + cairosvg + fonts
+  # - social:
+  #     cards_layout_options:
+  #       background_color: "#0d1117"
+  #       color: "#00e5ff"
+  - git-revision-date-localized:
+      enable_creation_date: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  # emoji plugin causes TypeError on newer Python
+  # - pymdownx.emoji:
+  #     emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+  - Agents:
+      - Overview: agents.md
+  - Commands:
+      - CLI & Shortcuts: commands.md
+  - Guides:
+      - Models: guides/models.md
+      - Using Tools: guides/tools.md
+      - TUI Interface: guides/tui.md
+      - Custom Commands: guides/custom-commands.md
+      - Custom Agents: guides/custom-agents.md
+      - Themes: guides/themes.md
+      - Tips & Tricks: guides/tips.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Config File: reference/config.md
+      - API: reference/api.md
+      - HTTP Endpoints: reference/http-api.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Ggboykxz/APEX
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/apex
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/apex_agent
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+  version:
+    provider: mike
+
+copyright: "© 2024-2026 APEX. Built with ❤️ in Gabon 🇬🇦"

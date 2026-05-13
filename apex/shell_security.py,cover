@@ -1,0 +1,310 @@
+> """Shell command security analysis for APEX."""
+  
+> import logging
+> import re
+> from dataclasses import dataclass
+> from enum import Enum
+> from typing import Optional
+  
+> logger = logging.getLogger(__name__)
+  
+  
+> class CommandCategory(Enum):
+>     WORKING_DIR = "working_dir"
+>     FILE_READ = "file_read"
+>     FILE_WRITE = "file_write"
+>     FILE_DELETE = "file_delete"
+>     NETWORK = "network"
+>     SYSTEM = "system"
+>     PROCESS = "process"
+>     GIT = "git"
+>     BUILD = "build"
+>     PACKAGE = "package"
+>     CONTAINER = "container"
+>     DANGEROUS = "dangerous"
+  
+  
+> @dataclass
+> class CommandAnalysis:
+>     safe: bool
+>     category: CommandCategory
+>     command: str
+>     args: list[str]
+>     warnings: list[str]
+>     requires_confirmation: bool
+>     description: Optional[str] = None
+  
+  
+> class ShellSecurityAnalyzer:
+>     DANGEROUS_PATTERNS = [
+>         (r"rm\s+-rf\s+/(?:--no-preserve-root)?", "Destructive system-wide deletion"),
+>         (r":\(\)\{\s*:\|:\s*&\s*\};:.*", "Fork bomb"),
+>         (r">\s*/dev/sd[a-z]", "Direct disk write detected"),
+>         (r"dd\s+if=.*of=/dev/", "Direct device write"),
+>         (r"mkfs\.", "Filesystem formatting"),
+>         (r"chattr\s+-i", "Immutable file removal"),
+>         (r"wget.*\||sh\b", "Pipe to shell (wget|sh)"),
+>         (r"curl.*\||sh\b", "Pipe to shell (curl|sh)"),
+>         (r"eval\s+\$\(", "Dynamic code execution"),
+>         (r"exec\s+\$\(", "Dynamic exec"),
+>         (r"\|\s*bash", "Pipe to bash"),
+>         (r"\|\s*sh\b", "Pipe to shell"),
+>         (r">\s*/etc/passwd", "System file modification"),
+>         (r">\s*/etc/shadow", "Shadow file modification"),
+>         (r"chmod\s+777\s+/(?:etc|var|usr)", "Overly permissive permissions"),
+>         (r"nc\s+-[el].*\binteger\b", "Netcat backdoor"),
+>         (r"openssl\s+rand\s+-hex", "Random data generation"),
+>         (r"curl.*\.sh\s*\|\s*(sudo\s+)?sh", "Download and execute"),
+>         (r"wget.*\.sh\s*\|\s*(sudo\s+)?sh", "Download and execute"),
+>     ]
+  
+>     NETWORK_PATTERNS = [
+>         r"\bcurl\b.*-X\s*(POST|PUT|PATCH|DELETE)",
+>         r"\bwget\b",
+>         r"\bnetcat\b",
+>         r"\bnc\b",
+>         r"\btelnet\b",
+>         r"\bssh\b.*@",
+>         r"\bscp\b",
+>         r"\brsync\b",
+>         r"\bftp\b",
+>         r"\bsftp\b",
+>     ]
+  
+>     SYSTEM_PATTERNS = [
+>         r"\bsudo\b",
+>         r"\bchmod\b",
+>         r"\bchown\b",
+>         r"\bsystemctl\b",
+>         r"\bservice\b",
+>         r"\bkillall\b",
+>         r"\bpkill\b",
+>         r"\breboot\b",
+>         r"\bshutdown\b",
+>         r"\binit\b",
+>         r"\bvisudo\b",
+>         r"\bpasswd\b",
+>     ]
+  
+>     FILE_DELETE_PATTERNS = [
+>         r"\brm\s+",
+>         r"\brmdir\b",
+>         r"\bunlink\b",
+>         r"\bdel\b",
+>     ]
+  
+>     FILE_WRITE_PATTERNS = [
+>         r"\btee\b",
+>         r">\s*[科教]?",
+>         r"\bcat\b.*>",
+>         r"\bnano\b",
+>         r"\bvim?\b",
+>         r"\bemacs\b",
+>         r"\bsed\s+-i\b",
+>     ]
+  
+>     PROCESS_PATTERNS = [
+>         r"\bkill\b",
+>         r"\bps\b",
+>         r"\btop\b",
+>         r"\bhtop\b",
+>         r"\bkillall\b",
+>         r"\bpkill\b",
+>         r"\bkill\b",
+>         r"\bexec\b",
+>         r"\bspawn\b",
+>     ]
+  
+>     GIT_PATTERNS = [
+>         r"\bgit\s+(?!init|status|diff|log|show|branch|checkout|add|commit|push|pull|clone|fetch|merge|rebase|config|remote|stash)\w+",
+>         r"\bgit\s+push\s+-f\b",
+>         r"\bgit\s+push\s+--force\b",
+>         r"\bgit\s+filter-branch\b",
+>         r"\bgit\s+push\s+--all\b",
+>     ]
+  
+>     BUILD_PATTERNS = [
+>         r"\bnpm\s+(?:run|build|test|start|dev)",
+>         r"\byarn\s+(?:run|build|start|dev)",
+>         r"\bpnpm\s+(?:run|build|start|dev)",
+>         r"\bmake\b",
+>         r"\bcmake\b",
+>         r"\bgradle\b",
+>         r"\bmvn\b",
+>         r"\bnpm\s+publish\b",
+>         r"\bpip\s+install\b",
+>         r"\bpip\s+upload\b",
+>         r"\bupload.*pypi\b",
+>     ]
+  
+>     CONTAINER_PATTERNS = [
+>         r"\bdocker\b",
+>         r"\bpodman\b",
+>         r"\bkubectl\b",
+>         r"\bdocker\s+run\b",
+>         r"\bdocker\s+exec\b",
+>         r"\bkubernetes\b",
+>     ]
+  
+>     SAFE_COMMANDS = [
+>         "ls",
+>         "pwd",
+>         "cd",
+>         "echo",
+>         "cat",
+>         "head",
+>         "tail",
+>         "grep",
+>         "find",
+>         "which",
+>         "whoami",
+>         "id",
+>         "uname",
+>         "date",
+>         "history",
+>         "man",
+>         "help",
+>         "env",
+>         "printenv",
+>         "type",
+>         "alias",
+>         "export",
+>         "source",
+>         "read",
+>         "printf",
+>         "test",
+>         "true",
+>         "false",
+>     ]
+  
+>     def __init__(self):
+>         self._compile_patterns()
+  
+>     def _compile_patterns(self) -> None:
+>         self._dangerous_re = [re.compile(p, re.IGNORECASE) for p, _ in self.DANGEROUS_PATTERNS]
+>         self._network_re = [re.compile(p, re.IGNORECASE) for p in self.NETWORK_PATTERNS]
+>         self._system_re = [re.compile(p, re.IGNORECASE) for p in self.SYSTEM_PATTERNS]
+>         self._file_delete_re = [re.compile(p, re.IGNORECASE) for p in self.FILE_DELETE_PATTERNS]
+>         self._file_write_re = [re.compile(p, re.IGNORECASE) for p in self.FILE_WRITE_PATTERNS]
+>         self._process_re = [re.compile(p, re.IGNORECASE) for p in self.PROCESS_PATTERNS]
+>         self._git_re = [re.compile(p, re.IGNORECASE) for p in self.GIT_PATTERNS]
+>         self._build_re = [re.compile(p, re.IGNORECASE) for p in self.BUILD_PATTERNS]
+>         self._container_re = [re.compile(p, re.IGNORECASE) for p in self.CONTAINER_PATTERNS]
+  
+>     def analyze(self, command: str) -> CommandAnalysis:
+!         command = command.strip()
+!         parts = command.split()
+!         cmd = parts[0] if parts else ""
+!         args = parts[1:] if len(parts) > 1 else []
+!         warnings = []
+!         requires_confirmation = False
+!         safe = True
+!         category = CommandCategory.WORKING_DIR
+!         description = None
+  
+!         for i, (pattern, warning) in enumerate(self.DANGEROUS_PATTERNS):
+!             if self._dangerous_re[i].search(command):
+!                 warnings.append(warning)
+!                 safe = False
+!                 category = CommandCategory.DANGEROUS
+!                 requires_confirmation = True
+!                 description = "DANGEROUS: " + warning
+  
+!         if safe:
+!             for pattern, re_obj in zip(self.NETWORK_PATTERNS, self._network_re):
+!                 if re_obj.search(command):
+!                     category = CommandCategory.NETWORK
+!                     requires_confirmation = True
+!                     warnings.append("Network operation")
+!                     break
+  
+!         if safe and category == CommandCategory.WORKING_DIR:
+!             for pattern, re_obj in zip(self.SYSTEM_PATTERNS, self._system_re):
+!                 if re_obj.search(command):
+!                     category = CommandCategory.SYSTEM
+!                     requires_confirmation = True
+!                     warnings.append("System modification")
+!                     break
+  
+!         if safe:
+!             for pattern, re_obj in zip(self.FILE_DELETE_PATTERNS, self._file_delete_re):
+!                 if re_obj.search(command):
+!                     if "node_modules" in command or ".git" in command:
+!                         warnings.append("Recursive deletion may affect dependencies")
+!                         category = CommandCategory.FILE_DELETE
+!                     else:
+!                         category = CommandCategory.FILE_DELETE
+!                         requires_confirmation = True
+!                     break
+  
+!         if safe:
+!             for pattern, re_obj in zip(self.FILE_WRITE_PATTERNS, self._file_write_re):
+!                 if re_obj.search(command):
+!                     category = CommandCategory.FILE_WRITE
+!                     break
+  
+!         if safe:
+!             for pattern, re_obj in zip(self.PROCESS_PATTERNS, self._process_re):
+!                 if re_obj.search(command):
+!                     category = CommandCategory.PROCESS
+!                     requires_confirmation = True
+!                     warnings.append("Process manipulation")
+!                     break
+  
+!         if safe:
+!             for pattern, re_obj in zip(self.GIT_PATTERNS, self._git_re):
+!                 if re_obj.search(command):
+!                     category = CommandCategory.GIT
+!                     warnings.append("Git operation")
+!                     if "push" in command:
+!                         requires_confirmation = True
+!                     break
+  
+!         if safe:
+!             for pattern, re_obj in zip(self.BUILD_PATTERNS, self._build_re):
+!                 if re_obj.search(command):
+!                     category = CommandCategory.BUILD
+!                     break
+  
+!         if safe:
+!             for pattern, re_obj in zip(self.CONTAINER_PATTERNS, self._container_re):
+!                 if re_obj.search(command):
+!                     category = CommandCategory.CONTAINER
+!                     requires_confirmation = True
+!                     warnings.append("Container operation")
+!                     break
+  
+!         if safe:
+!             if cmd in self.SAFE_COMMANDS:
+!                 category = CommandCategory.FILE_READ
+!             elif cmd in ["cd", "pushd", "popd"]:
+!                 category = CommandCategory.WORKING_DIR
+  
+!         if "sudo" in command:
+!             warnings.append("Requires elevated privileges")
+!             requires_confirmation = True
+  
+!         if "&&" in command or "||" in command or ";" in command:
+!             warnings.append("Multiple commands chained")
+  
+!         return CommandAnalysis(
+!             safe=safe,
+!             category=category,
+!             command=command,
+!             args=args,
+!             warnings=warnings,
+!             requires_confirmation=requires_confirmation,
+!             description=description,
+!         )
+  
+>     def is_safe(self, command: str) -> bool:
+!         analysis = self.analyze(command)
+!         return analysis.safe and not analysis.requires_confirmation
+  
+>     def get_allowed_commands(self) -> list[str]:
+!         return list(
+!             set(self.SAFE_COMMANDS + ["npm", "pip", "git", "make", "cargo", "go", "python", "node"])
+!         )
+  
+  
+> shell_analyzer = ShellSecurityAnalyzer()

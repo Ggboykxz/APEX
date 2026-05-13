@@ -1,0 +1,389 @@
+"""Code refactoring and AI-powered improvements."""
+
+import re
+from typing import Any
+from pathlib import Path
+
+
+class CodeRefactorer:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+
+    def refactor_function(
+        self, filepath: str, function_name: str, style: str = "modern"
+    ) -> dict[str, Any]:
+        path = self.cwd / filepath
+        if not path.exists():
+            return {"error": "File not found"}
+
+        try:
+            content = path.read_text()
+            lines = content.split("\n")
+
+            for i, line in enumerate(lines):
+                if f"def {function_name}" in line:
+                    if style == "async":
+                        lines[i] = line.replace("def ", "async def ")
+                    elif style == "type_hints":
+                        lines[i] = line.replace(")", ") -> Any ")
+                    elif style == "modern":
+                        lines[i] = (
+                            line.replace("def ", "async def ") if "async" not in lines[i] else line
+                        )
+
+                    new_content = "\n".join(lines)
+                    path.write_text(new_content)
+                    return {"success": True, "function": function_name, "style": style}
+
+            return {"error": "Function not found"}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def extract_method(
+        self, filepath: str, class_name: str, code: str, new_method: str
+    ) -> dict[str, Any]:
+        path = self.cwd / filepath
+        if not path.exists():
+            return {"error": "File not found"}
+
+        try:
+            content = path.read_text()
+
+            if class_name not in content:
+                return {"error": f"Class {class_name} not found"}
+
+            new_method_code = f"\n    def {new_method}(self):\n        {code}\n"
+            content = content.replace(
+                f"class {class_name}:", f"class {class_name}:{new_method_code}"
+            )
+
+            path.write_text(content)
+            return {"success": True, "method": new_method}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def convert_to_class(self, filepath: str, function_name: str) -> dict[str, Any]:
+        path = self.cwd / filepath
+        if not path.exists():
+            return {"error": "File not found"}
+
+        try:
+            content = path.read_text()
+
+            pattern = f"def {re.escape(function_name)}\\([^)]*\\):.*?(?=\n(?:def |class |$))"
+            match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
+
+            if not match:
+                return {"error": "Function not found"}
+
+            func_code = match.group(0)
+            class_code = f"""class {function_name.capitalize()}:
+    def {func_code}
+"""
+            content = content.replace(func_code, class_code)
+            path.write_text(content)
+
+            return {"success": True, "class": function_name.capitalize()}
+        except Exception as e:
+            return {"error": str(e)}
+
+    def add_type_hints(self, filepath: str) -> dict[str, Any]:
+        path = self.cwd / filepath
+        if not path.exists():
+            return {"error": "File not found"}
+
+        try:
+            content = path.read_text()
+
+            type_mappings = {
+                r"\bint\b": "int",
+                r"\bstr\b": "str",
+                r"\blist\b": "list",
+                r"\bdict\b": "dict",
+                r"\bbool\b": "bool",
+                r"\bfloat\b": "float",
+            }
+
+            for pattern, type_hint in type_mappings.items():
+                content = re.sub(f"def (\\w+)\\(({pattern} ", f"def \\1({type_hint} ", content)
+                content = re.sub("def (\\w+)\\(([^)]*)\\):", "def \\1(\\2) -> Any:", content)
+
+            path.write_text(content)
+            return {"success": True, "file": str(filepath)}
+        except Exception as e:
+            return {"error": str(e)}
+
+
+class DatabaseManager:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+
+    def get_connection_string(self, db_type: str) -> str:
+        strings = {
+            "sqlite": "sqlite:///db.sqlite",
+            "postgres": "postgresql://user:password@localhost:5432/db",
+            "mysql": "mysql://user:password@localhost:3306/db",
+            "mongodb": "mongodb://localhost:27017/db",
+        }
+        return strings.get(db_type, "")
+
+    def generate_model(self, table_name: str, columns: list[dict]) -> str:
+        lines = [f"class {table_name.capitalize()}:", ""]
+
+        for col in columns:
+            name = col.get("name", "field")
+            col_type = col.get("type", "str")
+            python_type = {
+                "int": "int",
+                "varchar": "str",
+                "text": "str",
+                "bool": "bool",
+                "date": "datetime",
+            }.get(col_type.lower(), "Any")
+
+            lines.append(f"    {name}: {python_type} = None")
+
+        lines.extend(
+            [
+                "",
+                "    def __init__(self, **kwargs):",
+                "        for key, value in kwargs.items():",
+                "            setattr(self, key, value)",
+            ]
+        )
+
+        return "\n".join(lines)
+
+    def generate_queries(self, table_name: str) -> dict[str, str]:
+        return {
+            "create": f"CREATE TABLE {table_name} (id INTEGER PRIMARY KEY);",
+            "insert": f"INSERT INTO {table_name} VALUES (:id);",
+            "select": f"SELECT * FROM {table_name} WHERE id = :id;",
+            "update": f"UPDATE {table_name} SET column = :value WHERE id = :id;",
+            "delete": f"DELETE FROM {table_name} WHERE id = :id;",
+        }
+
+
+class DockerManager:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+
+    def generate_dockerfile(self, language: str) -> str:
+        dockerfiles = {
+            "python": """FROM python:3.11-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python", "main.py"]
+""",
+            "node": """FROM node:20-slim
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+CMD ["node", "index.js"]
+""",
+            "go": """FROM golang:1.21-slim
+WORKDIR /app
+COPY . .
+RUN go build -o main .
+CMD ["./main"]
+""",
+            "rust": """FROM rust:1.75-slim
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+CMD ["./target/release/app"]
+""",
+            "java": """FROM eclipse-temurin:17-jdk
+WORKDIR /app
+COPY . .
+RUN ./mvnw package
+CMD ["java", "-jar", "target/app.jar"]
+""",
+        }
+        return dockerfiles.get(language, "# Unsupported language")
+
+    def generate_docker_compose(self, services: list[dict]) -> str:
+        lines = ["version: '3.8'", "", "services:"]
+
+        for svc in services:
+            name = svc.get("name", "service")
+            image = svc.get("image", "nginx")
+            ports = svc.get("ports", ["80:80"])
+
+            lines.append(f"  {name}:")
+            lines.append(f"    image: {image}")
+            lines.append("    ports:")
+            for p in ports:
+                lines.append(f"      - '{p}'")
+
+        return "\n".join(lines)
+
+    def build_image(self, tag: str) -> dict[str, Any]:
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ["docker", "build", "-t", tag, "."], cwd=self.cwd, capture_output=True, text=True
+            )
+            return {"success": result.returncode == 0, "output": result.stdout}
+        except Exception as e:
+            return {"error": str(e)}
+
+
+class APIClientGenerator:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+
+    def generate_from_openapi(self, spec_path: str) -> str:
+        import json
+
+        path = self.cwd / spec_path
+        if not path.exists():
+            return "ERROR: Spec file not found"
+
+        try:
+            spec = json.loads(path.read_text())
+            lines = ["import requests", "", "class APIClient:", ""]
+
+            base_url = spec.get("servers", [{}])[0].get("url", "http://localhost")
+
+            lines.append(f'    def __init__(self, base_url="{base_url}"):')
+            lines.append("        self.base_url = base_url")
+            lines.append("        self.session = requests.Session()")
+            lines.append("")
+
+            for path_name, methods in spec.get("paths", {}).items():
+                for method, details in methods.items():
+                    if method in ["get", "post", "put", "delete", "patch"]:
+                        func_name = f"{method}_{path_name.replace('/', '_').strip('_')}"
+                        lines.append(f"    def {func_name}(self, **kwargs):")
+                        lines.append(
+                            f'        return self.session.{method}(f"{{self.base_url}}{path_name}", **kwargs)'
+                        )
+                        lines.append("")
+
+            return "\n".join(lines)
+        except Exception as e:
+            return f"ERROR: {e}"
+
+    def generate_curl(self, method: str, url: str, headers: dict = None, data: Any = None) -> str:
+        parts = ["curl", f"-X {method.upper()}", f'"{url}"']
+
+        if headers:
+            for k, v in headers.items():
+                parts.append(f"-H '{k}: {v}'")
+
+        if data:
+            parts.append(f"-d '{data}'")
+
+        return " ".join(parts)
+
+
+class DocumentationGenerator:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+
+    def generate_readme(self) -> str:
+        files = list(self.cwd.glob("*.py"))
+        if not files:
+            return "# Project\n\nNo Python files found."
+
+        lines = [
+            "# Project\n",
+            "## Overview\n",
+            "## Installation\n",
+            "```bash\npip install -r requirements.txt\n```\n",
+            "## Usage\n",
+        ]
+
+        for f in sorted(files)[:5]:
+            lines.append(f"### {f.stem}\n")
+            lines.append(f"Run with: `python {f.name}`\n")
+
+        return "\n".join(lines)
+
+    def generate_api_docs(self, filepath: str) -> str:
+        path = self.cwd / filepath
+        if not path.exists():
+            return "ERROR: File not found"
+
+        content = path.read_text()
+        lines = [f"# API Documentation: {filepath}\n"]
+
+        funcs = re.findall(r"def (\w+)\((.*?)\):", content)
+        for name, args in funcs:
+            lines.append(f"## {name}\n")
+            lines.append(f"**Parameters:** {args or 'none'}\n")
+            lines.append("**Returns:** Any\n")
+
+        return "\n".join(lines)
+
+    def generate_markdoc(self) -> str:
+        py_files = list(self.cwd.glob("**/*.py"))
+        classes = []
+
+        for f in py_files:
+            content = f.read_text()
+            for match in re.finditer(r"class (\w+).*:", content):
+                classes.append({"file": str(f.relative_to(self.cwd)), "name": match.group(1)})
+
+        lines = ["# Documentation\n", "## Classes\n"]
+        for c in classes[:20]:
+            lines.append(f"- **{c['name']}** ({c['file']})")
+
+        return "\n".join(lines)
+
+
+class PerformanceProfiler:
+    def __init__(self, cwd: str):
+        self.cwd = Path(cwd)
+
+    def profile_file(self, filepath: str) -> dict[str, Any]:
+        path = self.cwd / filepath
+        if not path.exists():
+            return {"error": "File not found"}
+
+        content = path.read_text()
+        lines = content.split("\n")
+
+        analysis = {
+            "lines": len(lines),
+            "functions": len(re.findall(r"def \w+", content)),
+            "classes": len(re.findall(r"class \w+", content)),
+            "imports": len(re.findall(r"^import |^from ", content, re.MULTILINE)),
+            "complexity_score": 0,
+        }
+
+        loops = len(re.findall(r"\bfor\b|\bwhile\b", content))
+        conditionals = len(re.findall(r"\bif\b|\belif\b|\belse\b", content))
+
+        analysis["complexity_score"] = loops + conditionals
+
+        return analysis
+
+    def suggest_optimizations(self, filepath: str) -> list[str]:
+        path = self.cwd / filepath
+        if not path.exists():
+            return ["File not found"]
+
+        content = path.read_text()
+        suggestions = []
+
+        if "for i in range" in content:
+            suggestions.append("Use list comprehension instead of range loops")
+
+        if re.search(r"\.append\(", content):
+            suggestions.append("Consider using list comprehension or generator")
+
+        if "open(" in content and "with" not in content:
+            suggestions.append("Use 'with' statement for file operations")
+
+        if len(content) > 5000:
+            suggestions.append("Consider splitting into multiple modules")
+
+        if not suggestions:
+            suggestions.append("Code looks optimized")
+
+        return suggestions

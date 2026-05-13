@@ -1,0 +1,871 @@
+> """Theme system for APEX — inspired by OpenCode theme UX.
+  
+> Built-in themes, user overrides (~/.config/apex/themes/*.json),
+> and project-level overrides (.apex/themes/*.json).
+> """
+  
+! import json
+! import os
+! from pathlib import Path
+! from typing import Any
+  
+  # ─────────────────────────────────────────────────────────────
+  # Built-in theme definitions
+  # ─────────────────────────────────────────────────────────────
+  
+! BUILTIN_THEMES: dict[str, dict[str, Any]] = {
+!     "apex": {
+!         "defs": {
+!             "apex0": "#0a0e14",
+!             "apex1": "#0f1620",
+!             "apex2": "#142130",
+!             "apex3": "#1a2d40",
+!             "apex4": "#203a50",
+!             "apex5": "#264760",
+!             "apex6": "#00d4aa",
+!             "apex7": "#00e6b8",
+!             "apex8": "#00f5cc",
+!             "apex9": "#1affd4",
+!             "apex10": "#80ffe5",
+!             "apex11": "#b3fff0",
+!             "apex12": "#e6fffa",
+!             "fg": "#d4e6d4",
+!             "fg_muted": "#7a8a7a",
+!             "red": "#ff5c5c",
+!             "orange": "#ff9a4a",
+!             "yellow": "#f5d76e",
+!             "green": "#5cff7a",
+!             "cyan": "#5cd4ff",
+!             "blue": "#5c8aff",
+!             "purple": "#b87aff",
+!             "pink": "#ff7ab8",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "apex8", "light": "apex4"},
+!             "secondary": {"dark": "apex10", "light": "apex3"},
+!             "accent": {"dark": "apex7", "light": "apex5"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "orange", "light": "orange"},
+!             "success": {"dark": "green", "light": "green"},
+!             "info": {"dark": "blue", "light": "blue"},
+!             "text": {"dark": "fg", "light": "apex0"},
+!             "textMuted": {"dark": "fg_muted", "light": "apex3"},
+!             "background": {"dark": "apex0", "light": "apex12"},
+!             "backgroundPanel": {"dark": "apex1", "light": "apex11"},
+!             "backgroundElement": {"dark": "apex2", "light": "apex10"},
+!             "border": {"dark": "apex3", "light": "apex9"},
+!             "borderActive": {"dark": "apex8", "light": "apex4"},
+!             "diffAdded": {"dark": "green", "light": "green"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "apex3", "light": "apex9"},
+!             "markdownText": {"dark": "fg", "light": "apex0"},
+!             "markdownHeading": {"dark": "apex8", "light": "apex4"},
+!             "markdownLink": {"dark": "cyan", "light": "blue"},
+!             "markdownCode": {"dark": "apex10", "light": "apex3"},
+!             "markdownBlockQuote": {"dark": "fg_muted", "light": "apex3"},
+!             "syntaxComment": {"dark": "fg_muted", "light": "apex3"},
+!             "syntaxKeyword": {"dark": "apex8", "light": "apex4"},
+!             "syntaxFunction": {"dark": "yellow", "light": "orange"},
+!             "syntaxString": {"dark": "green", "light": "green"},
+!             "syntaxNumber": {"dark": "orange", "light": "orange"},
+!             "syntaxType": {"dark": "purple", "light": "purple"},
+!         },
+!     },
+!     "tokyonight": {
+!         "defs": {
+!             "bg": "#1a1b26",
+!             "bg_darker": "#16161e",
+!             "bg_highlight": "#292e42",
+!             "bg_statusline": "#1e2030",
+!             "bg_popup": "#1e2030",
+!             "bg_sidebar": "#16161e",
+!             "bg_float": "#1e2030",
+!             "bg_visual": "#2f3549",
+!             "fg": "#a9b1d6",
+!             "fg_muted": "#565f89",
+!             "fg_dark": "#414868",
+!             "fg_gutter": "#3b4261",
+!             "blue": "#7aa2f7",
+!             "blue_accent": "#89ddff",
+!             "cyan": "#7dcfff",
+!             "green": "#9ece6a",
+!             "green_accent": "#73daca",
+!             "yellow": "#e0af68",
+!             "yellow_accent": "#ff9e64",
+!             "orange": "#ff9e64",
+!             "red": "#f7768e",
+!             "red_accent": "#db4b4b",
+!             "purple": "#bb9af7",
+!             "pink": "#f7768e",
+!             "teal": "#73daca",
+!             "magenta": "#bb9af7",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "blue", "light": "blue"},
+!             "secondary": {"dark": "purple", "light": "purple"},
+!             "accent": {"dark": "cyan", "light": "cyan"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "orange", "light": "orange"},
+!             "success": {"dark": "green", "light": "green"},
+!             "info": {"dark": "blue", "light": "blue"},
+!             "text": {"dark": "fg", "light": "bg_darker"},
+!             "textMuted": {"dark": "fg_muted", "light": "fg_muted"},
+!             "background": {"dark": "bg", "light": "fg"},
+!             "backgroundPanel": {"dark": "bg_statusline", "light": "bg_highlight"},
+!             "backgroundElement": {"dark": "bg_highlight", "light": "bg_popup"},
+!             "border": {"dark": "fg_gutter", "light": "fg_muted"},
+!             "borderActive": {"dark": "blue", "light": "blue"},
+!             "diffAdded": {"dark": "green", "light": "green"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "fg_gutter", "light": "fg_muted"},
+!             "markdownText": {"dark": "fg", "light": "bg_darker"},
+!             "markdownHeading": {"dark": "purple", "light": "purple"},
+!             "markdownLink": {"dark": "blue", "light": "blue"},
+!             "markdownCode": {"dark": "teal", "light": "teal"},
+!             "markdownBlockQuote": {"dark": "fg_muted", "light": "fg_muted"},
+!             "syntaxComment": {"dark": "fg_muted", "light": "fg_muted"},
+!             "syntaxKeyword": {"dark": "red", "light": "red"},
+!             "syntaxFunction": {"dark": "blue", "light": "blue"},
+!             "syntaxString": {"dark": "green", "light": "green"},
+!             "syntaxNumber": {"dark": "orange", "light": "orange"},
+!             "syntaxType": {"dark": "yellow", "light": "yellow"},
+!         },
+!     },
+!     "everforest": {
+!         "defs": {
+!             "bg0": "#2d353b",
+!             "bg1": "#343f44",
+!             "bg2": "#3d484d",
+!             "bg3": "#475258",
+!             "bg4": "#4f585e",
+!             "bg5": "#56635f",
+!             "bg_visual": "#503946",
+!             "bg_red": "#4e3e43",
+!             "bg_green": "#3d484d",
+!             "bg_blue": "#3e424d",
+!             "bg_yellow": "#45433d",
+!             "fg": "#d3c6aa",
+!             "fg_muted": "#859289",
+!             "gray": "#7a8478",
+!             "red": "#e67e80",
+!             "orange": "#e69875",
+!             "yellow": "#dbbc7f",
+!             "green": "#a7c080",
+!             "blue": "#7fbbb3",
+!             "purple": "#d699b6",
+!             "aqua": "#83c092",
+!             "pink": "#d699b6",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "green", "light": "green"},
+!             "secondary": {"dark": "blue", "light": "blue"},
+!             "accent": {"dark": "aqua", "light": "aqua"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "orange", "light": "orange"},
+!             "success": {"dark": "green", "light": "green"},
+!             "info": {"dark": "blue", "light": "blue"},
+!             "text": {"dark": "fg", "light": "bg0"},
+!             "textMuted": {"dark": "gray", "light": "gray"},
+!             "background": {"dark": "bg0", "light": "fg"},
+!             "backgroundPanel": {"dark": "bg1", "light": "bg5"},
+!             "backgroundElement": {"dark": "bg2", "light": "bg4"},
+!             "border": {"dark": "bg3", "light": "bg3"},
+!             "borderActive": {"dark": "green", "light": "green"},
+!             "diffAdded": {"dark": "green", "light": "green"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "bg3", "light": "bg3"},
+!             "markdownText": {"dark": "fg", "light": "bg0"},
+!             "markdownHeading": {"dark": "orange", "light": "orange"},
+!             "markdownLink": {"dark": "blue", "light": "blue"},
+!             "markdownCode": {"dark": "aqua", "light": "aqua"},
+!             "markdownBlockQuote": {"dark": "gray", "light": "gray"},
+!             "syntaxComment": {"dark": "gray", "light": "gray"},
+!             "syntaxKeyword": {"dark": "red", "light": "red"},
+!             "syntaxFunction": {"dark": "green", "light": "green"},
+!             "syntaxString": {"dark": "yellow", "light": "yellow"},
+!             "syntaxNumber": {"dark": "orange", "light": "orange"},
+!             "syntaxType": {"dark": "blue", "light": "blue"},
+!         },
+!     },
+!     "ayu": {
+!         "defs": {
+!             "bg": "#0f1419",
+!             "bg_panel": "#11151c",
+!             "bg_highlight": "#141a22",
+!             "bg_float": "#11151c",
+!             "bg_visual": "#1a2029",
+!             "fg": "#e6e1cf",
+!             "fg_muted": "#5c6773",
+!             "fg_comment": "#5c6773",
+!             "red": "#f07178",
+!             "orange": "#ff8f40",
+!             "yellow": "#e6b450",
+!             "green": "#aad94c",
+!             "cyan": "#39bae6",
+!             "blue": "#59c2ff",
+!             "purple": "#d2a6ff",
+!             "magenta": "#d2a6ff",
+!             "pink": "#f07178",
+!             "accent": "#e6b450",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "accent", "light": "accent"},
+!             "secondary": {"dark": "cyan", "light": "cyan"},
+!             "accent": {"dark": "accent", "light": "accent"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "orange", "light": "orange"},
+!             "success": {"dark": "green", "light": "green"},
+!             "info": {"dark": "blue", "light": "blue"},
+!             "text": {"dark": "fg", "light": "bg"},
+!             "textMuted": {"dark": "fg_muted", "light": "fg_muted"},
+!             "background": {"dark": "bg", "light": "fg"},
+!             "backgroundPanel": {"dark": "bg_panel", "light": "bg_highlight"},
+!             "backgroundElement": {"dark": "bg_highlight", "light": "bg_panel"},
+!             "border": {"dark": "bg_visual", "light": "fg_muted"},
+!             "borderActive": {"dark": "accent", "light": "accent"},
+!             "diffAdded": {"dark": "green", "light": "green"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "bg_visual", "light": "fg_muted"},
+!             "markdownText": {"dark": "fg", "light": "bg"},
+!             "markdownHeading": {"dark": "accent", "light": "accent"},
+!             "markdownLink": {"dark": "blue", "light": "blue"},
+!             "markdownCode": {"dark": "green", "light": "green"},
+!             "markdownBlockQuote": {"dark": "fg_muted", "light": "fg_muted"},
+!             "syntaxComment": {"dark": "fg_comment", "light": "fg_comment"},
+!             "syntaxKeyword": {"dark": "orange", "light": "orange"},
+!             "syntaxFunction": {"dark": "yellow", "light": "yellow"},
+!             "syntaxString": {"dark": "green", "light": "green"},
+!             "syntaxNumber": {"dark": "orange", "light": "orange"},
+!             "syntaxType": {"dark": "blue", "light": "blue"},
+!         },
+!     },
+!     "catppuccin": {
+!         "defs": {
+!             "base": "#1e1e2e",
+!             "mantle": "#181825",
+!             "crust": "#11111b",
+!             "surface0": "#313244",
+!             "surface1": "#45475a",
+!             "surface2": "#585b70",
+!             "overlay0": "#6c7086",
+!             "overlay1": "#7f849c",
+!             "overlay2": "#9399b2",
+!             "text": "#cdd6f4",
+!             "subtext0": "#a6adc8",
+!             "subtext1": "#bac2de",
+!             "blue": "#89b4fa",
+!             "lavender": "#b4befe",
+!             "mauve": "#cba6f7",
+!             "pink": "#f5c2e7",
+!             "green": "#a6e3a1",
+!             "teal": "#94e2d5",
+!             "sky": "#89dceb",
+!             "yellow": "#f9e2af",
+!             "peach": "#fab387",
+!             "maroon": "#eba0ac",
+!             "red": "#f38ba8",
+!             "rosewater": "#f5e0dc",
+!             "flamingo": "#f2cdcd",
+!             "sapphire": "#74c7ec",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "mauve", "light": "mauve"},
+!             "secondary": {"dark": "teal", "light": "teal"},
+!             "accent": {"dark": "pink", "light": "pink"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "peach", "light": "peach"},
+!             "success": {"dark": "green", "light": "green"},
+!             "info": {"dark": "blue", "light": "blue"},
+!             "text": {"dark": "text", "light": "base"},
+!             "textMuted": {"dark": "overlay0", "light": "overlay0"},
+!             "background": {"dark": "base", "light": "text"},
+!             "backgroundPanel": {"dark": "mantle", "light": "subtext1"},
+!             "backgroundElement": {"dark": "surface0", "light": "subtext0"},
+!             "border": {"dark": "surface1", "light": "overlay1"},
+!             "borderActive": {"dark": "mauve", "light": "mauve"},
+!             "diffAdded": {"dark": "green", "light": "green"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "surface1", "light": "overlay1"},
+!             "markdownText": {"dark": "text", "light": "base"},
+!             "markdownHeading": {"dark": "mauve", "light": "mauve"},
+!             "markdownLink": {"dark": "blue", "light": "blue"},
+!             "markdownCode": {"dark": "teal", "light": "teal"},
+!             "markdownBlockQuote": {"dark": "overlay0", "light": "overlay0"},
+!             "syntaxComment": {"dark": "overlay0", "light": "overlay0"},
+!             "syntaxKeyword": {"dark": "mauve", "light": "mauve"},
+!             "syntaxFunction": {"dark": "blue", "light": "blue"},
+!             "syntaxString": {"dark": "green", "light": "green"},
+!             "syntaxNumber": {"dark": "peach", "light": "peach"},
+!             "syntaxType": {"dark": "yellow", "light": "yellow"},
+!         },
+!     },
+!     "catppuccin-macchiato": {
+!         "defs": {
+!             "base": "#24273a",
+!             "mantle": "#1e2030",
+!             "crust": "#181926",
+!             "surface0": "#363a4f",
+!             "surface1": "#494d64",
+!             "surface2": "#5b6078",
+!             "overlay0": "#6e738d",
+!             "overlay1": "#8087a2",
+!             "overlay2": "#939ab7",
+!             "text": "#cad3f5",
+!             "subtext0": "#a5adcb",
+!             "subtext1": "#b8c0e0",
+!             "blue": "#8aadf4",
+!             "lavender": "#b7bdf8",
+!             "mauve": "#c6a0f6",
+!             "pink": "#f5bde6",
+!             "green": "#a6da95",
+!             "teal": "#8bd5ca",
+!             "sky": "#91d7e3",
+!             "yellow": "#eed49f",
+!             "peach": "#f5a97f",
+!             "maroon": "#ee99a0",
+!             "red": "#ed8796",
+!             "rosewater": "#f4dbd6",
+!             "flamingo": "#f0c6c6",
+!             "sapphire": "#7dc4e4",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "mauve", "light": "mauve"},
+!             "secondary": {"dark": "teal", "light": "teal"},
+!             "accent": {"dark": "pink", "light": "pink"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "peach", "light": "peach"},
+!             "success": {"dark": "green", "light": "green"},
+!             "info": {"dark": "blue", "light": "blue"},
+!             "text": {"dark": "text", "light": "base"},
+!             "textMuted": {"dark": "overlay0", "light": "overlay0"},
+!             "background": {"dark": "base", "light": "text"},
+!             "backgroundPanel": {"dark": "mantle", "light": "subtext1"},
+!             "backgroundElement": {"dark": "surface0", "light": "subtext0"},
+!             "border": {"dark": "surface1", "light": "overlay1"},
+!             "borderActive": {"dark": "mauve", "light": "mauve"},
+!             "diffAdded": {"dark": "green", "light": "green"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "surface1", "light": "overlay1"},
+!             "markdownText": {"dark": "text", "light": "base"},
+!             "markdownHeading": {"dark": "mauve", "light": "mauve"},
+!             "markdownLink": {"dark": "blue", "light": "blue"},
+!             "markdownCode": {"dark": "teal", "light": "teal"},
+!             "markdownBlockQuote": {"dark": "overlay0", "light": "overlay0"},
+!             "syntaxComment": {"dark": "overlay0", "light": "overlay0"},
+!             "syntaxKeyword": {"dark": "mauve", "light": "mauve"},
+!             "syntaxFunction": {"dark": "blue", "light": "blue"},
+!             "syntaxString": {"dark": "green", "light": "green"},
+!             "syntaxNumber": {"dark": "peach", "light": "peach"},
+!             "syntaxType": {"dark": "yellow", "light": "yellow"},
+!         },
+!     },
+!     "gruvbox": {
+!         "defs": {
+!             "bg0": "#282828",
+!             "bg1": "#3c3836",
+!             "bg2": "#504945",
+!             "bg3": "#665c54",
+!             "bg4": "#7c6f64",
+!             "bg0_light": "#fbf1c7",
+!             "bg1_light": "#ebdbb2",
+!             "bg2_light": "#d5c4a1",
+!             "bg3_light": "#bdae93",
+!             "bg4_light": "#a89984",
+!             "fg0": "#fbf1c7",
+!             "fg1": "#ebdbb2",
+!             "fg2": "#d5c4a1",
+!             "fg3": "#bdae93",
+!             "fg4": "#a89984",
+!             "fg0_light": "#282828",
+!             "fg1_light": "#3c3836",
+!             "fg2_light": "#504945",
+!             "fg3_light": "#665c54",
+!             "gray": "#928374",
+!             "red": "#cc241d",
+!             "green": "#98971a",
+!             "yellow": "#d79921",
+!             "blue": "#458588",
+!             "purple": "#b16286",
+!             "aqua": "#689d6a",
+!             "orange": "#d65d0e",
+!             "bright_red": "#fb4934",
+!             "bright_green": "#b8bb26",
+!             "bright_yellow": "#fabd2f",
+!             "bright_blue": "#83a598",
+!             "bright_purple": "#d3869b",
+!             "bright_aqua": "#8ec07c",
+!             "bright_orange": "#fe8019",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "bright_green", "light": "green"},
+!             "secondary": {"dark": "bright_blue", "light": "blue"},
+!             "accent": {"dark": "bright_yellow", "light": "yellow"},
+!             "error": {"dark": "bright_red", "light": "red"},
+!             "warning": {"dark": "bright_orange", "light": "orange"},
+!             "success": {"dark": "bright_green", "light": "green"},
+!             "info": {"dark": "bright_blue", "light": "blue"},
+!             "text": {"dark": "fg0", "light": "fg0_light"},
+!             "textMuted": {"dark": "gray", "light": "gray"},
+!             "background": {"dark": "bg0", "light": "bg0_light"},
+!             "backgroundPanel": {"dark": "bg1", "light": "bg1_light"},
+!             "backgroundElement": {"dark": "bg2", "light": "bg2_light"},
+!             "border": {"dark": "bg3", "light": "bg3_light"},
+!             "borderActive": {"dark": "bright_green", "light": "green"},
+!             "diffAdded": {"dark": "bright_green", "light": "green"},
+!             "diffRemoved": {"dark": "bright_red", "light": "red"},
+!             "diffContext": {"dark": "bg3", "light": "bg3_light"},
+!             "markdownText": {"dark": "fg0", "light": "fg0_light"},
+!             "markdownHeading": {"dark": "bright_yellow", "light": "yellow"},
+!             "markdownLink": {"dark": "bright_blue", "light": "blue"},
+!             "markdownCode": {"dark": "bright_aqua", "light": "aqua"},
+!             "markdownBlockQuote": {"dark": "gray", "light": "gray"},
+!             "syntaxComment": {"dark": "gray", "light": "gray"},
+!             "syntaxKeyword": {"dark": "bright_red", "light": "red"},
+!             "syntaxFunction": {"dark": "bright_yellow", "light": "yellow"},
+!             "syntaxString": {"dark": "bright_green", "light": "green"},
+!             "syntaxNumber": {"dark": "bright_orange", "light": "orange"},
+!             "syntaxType": {"dark": "bright_purple", "light": "purple"},
+!         },
+!     },
+!     "kanagawa": {
+!         "defs": {
+!             "bg": "#1f1f28",
+!             "bg_dim": "#181820",
+!             "bg_float": "#1f1f28",
+!             "bg_popup": "#1f1f28",
+!             "bg_sidebar": "#181820",
+!             "bg_visual": "#2d2d3d",
+!             "bg_highlight": "#2d2d3d",
+!             "bg_statusline": "#181820",
+!             "fg": "#dcd7ba",
+!             "fg_muted": "#54546d",
+!             "fg_gutter": "#363646",
+!             "blue": "#7fb4ca",
+!             "cyan": "#7fb4ca",
+!             "green": "#98bb6c",
+!             "orange": "#ffa066",
+!             "pink": "#d27e99",
+!             "purple": "#938aa9",
+!             "red": "#e46e72",
+!             "yellow": "#dca561",
+!             "wave": "#b3b3c3",
+!             "wave_dim": "#8999a7",
+!             "violet": "#957fb8",
+!             "spring_violet": "#b3b3c3",
+!             "oni_violet": "#957fb8",
+!             "oni_orange": "#ffa066",
+!             "coral": "#e46e72",
+!             "lotus": "#dcd7ba",
+!             "lotus_light": "#e0dcc7",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "blue", "light": "blue"},
+!             "secondary": {"dark": "purple", "light": "purple"},
+!             "accent": {"dark": "orange", "light": "orange"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "orange", "light": "orange"},
+!             "success": {"dark": "green", "light": "green"},
+!             "info": {"dark": "blue", "light": "blue"},
+!             "text": {"dark": "fg", "light": "bg"},
+!             "textMuted": {"dark": "fg_muted", "light": "fg_muted"},
+!             "background": {"dark": "bg", "light": "lotus_light"},
+!             "backgroundPanel": {"dark": "bg_dim", "light": "lotus"},
+!             "backgroundElement": {"dark": "bg_highlight", "light": "fg_gutter"},
+!             "border": {"dark": "fg_gutter", "light": "fg_muted"},
+!             "borderActive": {"dark": "blue", "light": "blue"},
+!             "diffAdded": {"dark": "green", "light": "green"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "fg_gutter", "light": "fg_muted"},
+!             "markdownText": {"dark": "fg", "light": "bg"},
+!             "markdownHeading": {"dark": "violet", "light": "violet"},
+!             "markdownLink": {"dark": "blue", "light": "blue"},
+!             "markdownCode": {"dark": "green", "light": "green"},
+!             "markdownBlockQuote": {"dark": "fg_muted", "light": "fg_muted"},
+!             "syntaxComment": {"dark": "fg_muted", "light": "fg_muted"},
+!             "syntaxKeyword": {"dark": "red", "light": "red"},
+!             "syntaxFunction": {"dark": "blue", "light": "blue"},
+!             "syntaxString": {"dark": "green", "light": "green"},
+!             "syntaxNumber": {"dark": "orange", "light": "orange"},
+!             "syntaxType": {"dark": "yellow", "light": "yellow"},
+!         },
+!     },
+!     "nord": {
+!         "defs": {
+!             "nord0": "#2e3440",
+!             "nord1": "#3b4252",
+!             "nord2": "#434c5e",
+!             "nord3": "#4c566a",
+!             "nord4": "#d8dee9",
+!             "nord5": "#e5e9f0",
+!             "nord6": "#eceff4",
+!             "nord7": "#8fbcbb",
+!             "nord8": "#88c0d0",
+!             "nord9": "#81a1c1",
+!             "nord10": "#5e81ac",
+!             "nord11": "#bf616a",
+!             "nord12": "#d08770",
+!             "nord13": "#ebcb8b",
+!             "nord14": "#a3be8c",
+!             "nord15": "#b48ead",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "nord8", "light": "nord10"},
+!             "secondary": {"dark": "nord9", "light": "nord3"},
+!             "accent": {"dark": "nord7", "light": "nord10"},
+!             "error": {"dark": "nord11", "light": "nord11"},
+!             "warning": {"dark": "nord12", "light": "nord12"},
+!             "success": {"dark": "nord14", "light": "nord14"},
+!             "info": {"dark": "nord8", "light": "nord10"},
+!             "text": {"dark": "nord4", "light": "nord0"},
+!             "textMuted": {"dark": "nord3", "light": "nord3"},
+!             "background": {"dark": "nord0", "light": "nord6"},
+!             "backgroundPanel": {"dark": "nord1", "light": "nord5"},
+!             "backgroundElement": {"dark": "nord2", "light": "nord4"},
+!             "border": {"dark": "nord3", "light": "nord3"},
+!             "borderActive": {"dark": "nord8", "light": "nord10"},
+!             "diffAdded": {"dark": "nord14", "light": "nord14"},
+!             "diffRemoved": {"dark": "nord11", "light": "nord11"},
+!             "diffContext": {"dark": "nord3", "light": "nord3"},
+!             "markdownText": {"dark": "nord4", "light": "nord0"},
+!             "markdownHeading": {"dark": "nord8", "light": "nord10"},
+!             "markdownLink": {"dark": "nord9", "light": "nord10"},
+!             "markdownCode": {"dark": "nord7", "light": "nord10"},
+!             "markdownBlockQuote": {"dark": "nord3", "light": "nord3"},
+!             "syntaxComment": {"dark": "nord3", "light": "nord3"},
+!             "syntaxKeyword": {"dark": "nord9", "light": "nord10"},
+!             "syntaxFunction": {"dark": "nord8", "light": "nord9"},
+!             "syntaxString": {"dark": "nord14", "light": "nord14"},
+!             "syntaxNumber": {"dark": "nord13", "light": "nord13"},
+!             "syntaxType": {"dark": "nord15", "light": "nord15"},
+!         },
+!     },
+!     "matrix": {
+!         "defs": {
+!             "bg": "#000000",
+!             "fg": "#00ff00",
+!             "bright": "#33ff33",
+!             "dim": "#005500",
+!             "mid": "#00aa00",
+!             "highlight": "#00cc00",
+!             "glow": "#66ff66",
+!             "red": "#ff0000",
+!             "yellow": "#ffff00",
+!             "blue": "#0000ff",
+!             "cyan": "#00ffff",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "fg", "light": "fg"},
+!             "secondary": {"dark": "bright", "light": "bright"},
+!             "accent": {"dark": "glow", "light": "glow"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "yellow", "light": "yellow"},
+!             "success": {"dark": "fg", "light": "fg"},
+!             "info": {"dark": "cyan", "light": "cyan"},
+!             "text": {"dark": "fg", "light": "fg"},
+!             "textMuted": {"dark": "dim", "light": "dim"},
+!             "background": {"dark": "bg", "light": "bg"},
+!             "backgroundPanel": {"dark": "bg", "light": "bg"},
+!             "backgroundElement": {"dark": "bg", "light": "bg"},
+!             "border": {"dark": "dim", "light": "dim"},
+!             "borderActive": {"dark": "fg", "light": "fg"},
+!             "diffAdded": {"dark": "fg", "light": "fg"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "dim", "light": "dim"},
+!             "markdownText": {"dark": "fg", "light": "fg"},
+!             "markdownHeading": {"dark": "bright", "light": "bright"},
+!             "markdownLink": {"dark": "cyan", "light": "cyan"},
+!             "markdownCode": {"dark": "fg", "light": "fg"},
+!             "markdownBlockQuote": {"dark": "dim", "light": "dim"},
+!             "syntaxComment": {"dark": "dim", "light": "dim"},
+!             "syntaxKeyword": {"dark": "bright", "light": "bright"},
+!             "syntaxFunction": {"dark": "highlight", "light": "highlight"},
+!             "syntaxString": {"dark": "fg", "light": "fg"},
+!             "syntaxNumber": {"dark": "fg", "light": "fg"},
+!             "syntaxType": {"dark": "highlight", "light": "highlight"},
+!         },
+!     },
+!     "one-dark": {
+!         "defs": {
+!             "bg": "#282c34",
+!             "bg_light": "#abb2bf",
+!             "bg_dark": "#21252b",
+!             "fg": "#abb2bf",
+!             "fg_dark": "#5c6370",
+!             "red": "#e06c75",
+!             "green": "#98c379",
+!             "yellow": "#e5c07b",
+!             "blue": "#61afef",
+!             "purple": "#c678dd",
+!             "cyan": "#56b6c2",
+!             "orange": "#d19a66",
+!             "gray": "#5c6370",
+!             "comment": "#5c6370",
+!             "bright_red": "#be5046",
+!             "bright_green": "#98c379",
+!             "bright_yellow": "#d19a66",
+!             "bright_blue": "#61afef",
+!             "bright_purple": "#c678dd",
+!             "bright_cyan": "#56b6c2",
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "blue", "light": "blue"},
+!             "secondary": {"dark": "purple", "light": "purple"},
+!             "accent": {"dark": "cyan", "light": "cyan"},
+!             "error": {"dark": "red", "light": "red"},
+!             "warning": {"dark": "orange", "light": "orange"},
+!             "success": {"dark": "green", "light": "green"},
+!             "info": {"dark": "blue", "light": "blue"},
+!             "text": {"dark": "fg", "light": "bg"},
+!             "textMuted": {"dark": "gray", "light": "gray"},
+!             "background": {"dark": "bg", "light": "fg"},
+!             "backgroundPanel": {"dark": "bg_dark", "light": "fg_dark"},
+!             "backgroundElement": {"dark": "bg", "light": "fg"},
+!             "border": {"dark": "gray", "light": "gray"},
+!             "borderActive": {"dark": "blue", "light": "blue"},
+!             "diffAdded": {"dark": "green", "light": "green"},
+!             "diffRemoved": {"dark": "red", "light": "red"},
+!             "diffContext": {"dark": "gray", "light": "gray"},
+!             "markdownText": {"dark": "fg", "light": "bg"},
+!             "markdownHeading": {"dark": "purple", "light": "purple"},
+!             "markdownLink": {"dark": "blue", "light": "blue"},
+!             "markdownCode": {"dark": "cyan", "light": "cyan"},
+!             "markdownBlockQuote": {"dark": "gray", "light": "gray"},
+!             "syntaxComment": {"dark": "comment", "light": "comment"},
+!             "syntaxKeyword": {"dark": "purple", "light": "purple"},
+!             "syntaxFunction": {"dark": "blue", "light": "blue"},
+!             "syntaxString": {"dark": "green", "light": "green"},
+!             "syntaxNumber": {"dark": "orange", "light": "orange"},
+!             "syntaxType": {"dark": "yellow", "light": "yellow"},
+!         },
+!     },
+!     "system": {
+!         "defs": {
+!             "none": "none",
+!         },
+!         "theme": {
+!             "primary": {"dark": "none", "light": "none"},
+!             "secondary": {"dark": "none", "light": "none"},
+!             "accent": {"dark": "none", "light": "none"},
+!             "error": {"dark": "none", "light": "none"},
+!             "warning": {"dark": "none", "light": "none"},
+!             "success": {"dark": "none", "light": "none"},
+!             "info": {"dark": "none", "light": "none"},
+!             "text": {"dark": "none", "light": "none"},
+!             "textMuted": {"dark": "none", "light": "none"},
+!             "background": {"dark": "none", "light": "none"},
+!             "backgroundPanel": {"dark": "none", "light": "none"},
+!             "backgroundElement": {"dark": "none", "light": "none"},
+!             "border": {"dark": "none", "light": "none"},
+!             "borderActive": {"dark": "none", "light": "none"},
+!             "diffAdded": {"dark": "none", "light": "none"},
+!             "diffRemoved": {"dark": "none", "light": "none"},
+!             "diffContext": {"dark": "none", "light": "none"},
+!             "markdownText": {"dark": "none", "light": "none"},
+!             "markdownHeading": {"dark": "none", "light": "none"},
+!             "markdownLink": {"dark": "none", "light": "none"},
+!             "markdownCode": {"dark": "none", "light": "none"},
+!             "markdownBlockQuote": {"dark": "none", "light": "none"},
+!             "syntaxComment": {"dark": "none", "light": "none"},
+!             "syntaxKeyword": {"dark": "none", "light": "none"},
+!             "syntaxFunction": {"dark": "none", "light": "none"},
+!             "syntaxString": {"dark": "none", "light": "none"},
+!             "syntaxNumber": {"dark": "none", "light": "none"},
+!             "syntaxType": {"dark": "none", "light": "none"},
+!         },
+!     },
+! }
+  
+! REQUIRED_KEYS = frozenset({
+!     "primary", "secondary", "accent", "error", "warning", "success", "info",
+!     "text", "textMuted", "background", "backgroundPanel", "backgroundElement",
+!     "border", "borderActive", "diffAdded", "diffRemoved", "diffContext",
+!     "markdownText", "markdownHeading", "markdownLink", "markdownCode",
+!     "markdownBlockQuote", "syntaxComment", "syntaxKeyword", "syntaxFunction",
+!     "syntaxString", "syntaxNumber", "syntaxType",
+! })
+  
+  
+! def _resolve_ref(defs: dict[str, str], value: str) -> str:
+!     """Resolve a color reference like ``nord0`` to the hex in *defs*."""
+!     if value == "none" or value.startswith("#"):
+!         return value
+!     if value in defs:
+!         resolved = defs[value]
+!         if resolved.startswith("#"):
+!             return resolved
+!         if resolved == "none":
+!             return "none"
+!         return _resolve_ref(defs, resolved)
+!     return value
+  
+  
+! def _detect_terminal_mode() -> str:
+!     """Return ``"dark"`` or ``"light"`` based on terminal background heuristics."""
+!     colorfg = os.environ.get("COLORFGBG", "")
+!     if colorfg:
+!         parts = colorfg.split(";")
+!         if len(parts) >= 2:
+!             try:
+!                 bg = int(parts[-1])
+!                 if bg < 8:
+!                     return "dark"
+!                 return "light"
+!             except (ValueError, IndexError):
+!                 pass
+!     term = os.environ.get("TERM", "").lower()
+!     if "light" in term:
+!         return "light"
+!     return "dark"
+  
+  
+! def _load_theme_files(directory: Path) -> dict[str, dict[str, Any]]:
+!     """Load JSON theme files from *directory* and return a name-›data map."""
+!     themes: dict[str, dict[str, Any]] = {}
+!     if not directory.is_dir():
+!         return themes
+!     for fpath in sorted(directory.iterdir()):
+!         if fpath.suffix.lower() not in (".json",):
+!             continue
+!         try:
+!             data = json.loads(fpath.read_text(encoding="utf-8"))
+!             name = fpath.stem
+!             if "defs" in data and "theme" in data:
+!                 themes[name] = data
+!             elif isinstance(data, dict):
+!                 themes[name] = data
+!         except (json.JSONDecodeError, OSError):
+!             continue
+!     return themes
+  
+  
+! class ThemeManager:
+!     """Resolves and serves theme definitions.
+  
+!     Loading hierarchy (later wins):
+!       1. Built-in themes (*BUILTIN_THEMES*)
+!       2. User themes  ``~/.config/apex/themes/*.json``
+!       3. Project themes ``<cwd>/.apex/themes/*.json``
+!     """
+  
+!     def __init__(self) -> None:
+!         self._themes: dict[str, dict[str, Any]] = {}
+!         self._current_name: str = "apex"
+!         self._mode: str = "auto"
+!         self._reload()
+  
+!     def _reload(self) -> None:
+!         """(Re)load all themes from the three layers."""
+!         self._themes = {}
+!         self._themes.update(BUILTIN_THEMES)
+!         user_dir = Path.home() / ".config" / "apex" / "themes"
+!         self._themes.update(_load_theme_files(user_dir))
+!         project_dir = Path.cwd() / ".apex" / "themes"
+!         self._themes.update(_load_theme_files(project_dir))
+  
+      # ── public helpers ──────────────────────────────────────
+  
+!     def list_themes(self) -> list[str]:
+!         """Return sorted list of available theme names."""
+!         self._reload()
+!         return sorted(self._themes.keys())
+  
+!     def get_theme(self, name: str | None = None) -> dict[str, str]:
+!         """Return a fully resolved theme dict (hex strings only).
+  
+!         Every key in *REQUIRED_KEYS* is guaranteed to be present in the
+!         returned dict.  If a key is missing from the source definition the
+!         special value ``"none"`` is used.
+!         """
+!         raw = self._themes.get(name or self._current_name)
+!         if raw is None:
+!             raw = self._themes.get("apex", {})
+!         defs: dict[str, str] = raw.get("defs", {})
+!         theme_def: dict[str, dict[str, str]] = raw.get("theme", {})
+!         mode = self.theme_mode if self._mode == "auto" else self._mode
+!         resolved: dict[str, str] = {}
+!         for key in REQUIRED_KEYS:
+!             entry = theme_def.get(key, {"dark": "none", "light": "none"})
+!             if isinstance(entry, str):
+!                 ref = entry
+!             elif isinstance(entry, dict):
+!                 ref = entry.get(mode, entry.get("dark", "none"))
+!             else:
+!                 ref = "none"
+!             resolved[key] = _resolve_ref(defs, ref)
+!         return resolved
+  
+!     def resolve_color(self, theme: dict[str, str] | None = None,
+!                       key: str = "primary",
+!                       mode: str | None = None) -> str:
+!         """Get actual hex color for a theme key."""
+!         if theme is None:
+!             theme = self.current_theme
+!         return theme.get(key, "none")
+  
+!     def set_theme(self, name: str) -> None:
+!         """Persist the chosen theme name to the APEX config.
+  
+!         Falls back to ``"apex"`` if *name* is unknown.
+!         """
+!         self._reload()
+!         if name not in self._themes:
+!             name = "apex"
+!         self._current_name = name
+!         try:
+!             from .config import Config
+!             cfg = Config()
+!             cfg.theme = name
+!         except Exception:
+!             pass
+  
+!     @property
+!     def current_theme(self) -> dict[str, str]:
+!         """Fully resolved dict for the currently active theme."""
+!         return self.get_theme(self._current_name)
+  
+!     @current_theme.setter
+!     def current_theme(self, value: dict[str, str]) -> None:
+!         pass  # read-only property
+  
+!     @property
+!     def theme_mode(self) -> str:
+!         """Return ``"dark"`` or ``"light"``.
+  
+!         When mode is ``"auto"`` the value is derived from the terminal
+!         background.  When a specific mode was set via *theme_mode* setter
+!         that value is returned instead.
+!         """
+!         if self._mode == "auto":
+!             return _detect_terminal_mode()
+!         return self._mode
+  
+!     @theme_mode.setter
+!     def theme_mode(self, value: str) -> None:
+!         if value in ("dark", "light", "auto"):
+!             self._mode = value
+  
+!     @property
+!     def current_name(self) -> str:
+!         """Name of the currently active theme."""
+!         return self._current_name
+  
+!     @current_name.setter
+!     def current_name(self, value: str) -> None:
+!         self._reload()
+!         if value in self._themes:
+!             self._current_name = value
+  
+  
+  # ── singleton ──────────────────────────────────────────────
+! theme_manager = ThemeManager()

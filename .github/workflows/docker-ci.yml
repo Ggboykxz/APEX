@@ -1,0 +1,78 @@
+name: Docker CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - docker-compose*
+      - .dockerignore
+      - apex/**
+      - tui-frontend/**
+      - pyproject.toml
+      - requirements.txt
+
+concurrency:
+  group: docker-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Docker Build Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: apex-ai:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image starts
+        run: |
+          echo "=== Verifying Docker image ==="
+
+          # Test --help
+          docker run --rm apex-ai:test --help
+          echo "✅ --help command succeeded"
+
+      - name: Verify image structure
+        run: |
+          echo "=== Verifying image structure ==="
+
+          # Check apex binary is installed
+          docker run --rm --entrypoint /bin/bash apex-ai:test -c "which apex"
+          echo "✅ apex binary found"
+
+          # Check Python is available
+          docker run --rm --entrypoint /bin/bash apex-ai:test -c "python3 --version"
+          echo "✅ Python3 available"
+
+          # Check workspace directory exists
+          docker run --rm --entrypoint /bin/bash apex-ai:test -c "ls -la /workspace"
+          echo "✅ /workspace directory exists"
+
+      - name: Image size report
+        run: |
+          echo "### Docker Image Size" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          IMAGE_SIZE=$(docker image inspect apex-ai:test --format='{{.Size}}')
+          SIZE_MB=$((IMAGE_SIZE / 1024 / 1024))
+          echo "**Image size:** ${SIZE_MB} MB" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+          docker images apex-ai:test >> $GITHUB_STEP_SUMMARY
+          echo "```" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup
+        if: always()
+        run: docker rmi apex-ai:test || true

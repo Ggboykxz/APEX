@@ -1,0 +1,18 @@
+export const apexTheme = {
+  bg: "#0d1117",
+  fg: "#e6edf3",
+  cyan: "#00e5ff",
+  green: "#00ff88",
+  red: "#ff6b6b",
+  yellow: "#ffd93d",
+  purple: "#c084fc",
+  gray: "#484f58",
+  dimGray: "#30363d",
+  border: "#30363d",
+  accent: "#00e5ff",
+  titleBg: "#161b22",
+  inputBg: "#0d1117",
+  error: "#ff6b6b",
+  success: "#00ff88",
+  warning: "#ffd93d",
+}

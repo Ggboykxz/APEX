@@ -1,0 +1,124 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  conventional-commits:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR title follows Conventional Commits
+        run: |
+          PR_TITLE=$(jq -r '.pull_request.title' "$GITHUB_EVENT_PATH")
+          if echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+"; then
+            echo "PR title follows Conventional Commits: $PR_TITLE"
+          else
+            echo "::warning::PR title does not follow Conventional Commits format."
+            echo "Expected: type(scope): description"
+            echo "Example: feat(tui): add model selector overlay"
+            echo "Got: $PR_TITLE"
+          fi
+
+  pr-size:
+    name: PR Size Label
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get changed files count
+        id: changes
+        run: |
+          git fetch origin main
+          CHANGED=$(git diff --name-only origin/main...HEAD | wc -l)
+          echo "count=$CHANGED" >> $GITHUB_OUTPUT
+
+      - name: Label PR by size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const count = ${{ steps.changes.outputs.count }};
+            let label = '';
+            if (count <= 10) label = 'size/S';
+            else if (count <= 30) label = 'size/M';
+            else if (count <= 100) label = 'size/L';
+            else label = 'size/XL';
+
+            // Remove existing size labels
+            const existingLabels = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            for (const l of existingLabels.data) {
+              if (l.name.startsWith('size/')) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  name: l.name
+                });
+              }
+            }
+
+            // Add new size label
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: [label]
+            });
+            console.log(`Added label: ${label} (${count} files changed)`);
+
+  changed-paths:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      tui: ${{ steps.filter.outputs.tui }}
+      website: ${{ steps.filter.outputs.website }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'apex/**'
+              - 'tests/**'
+              - 'pyproject.toml'
+              - 'requirements.txt'
+            tui:
+              - 'tui-frontend/**'
+            website:
+              - 'src/**'
+              - 'public/**'
+              - 'package.json'
+              - 'prisma/**'
+            docs:
+              - 'docs/**'
+              - 'mkdocs.yml'
+
+      - name: Log changes
+        env:
+          PYTHON_CHANGED: ${{ steps.filter.outputs.python }}
+          TUI_CHANGED: ${{ steps.filter.outputs.tui }}
+          WEBSITE_CHANGED: ${{ steps.filter.outputs.website }}
+          DOCS_CHANGED: ${{ steps.filter.outputs.docs }}
+        run: |
+          echo "Python changed: $PYTHON_CHANGED"
+          echo "TUI changed: $TUI_CHANGED"
+          echo "Website changed: $WEBSITE_CHANGED"
+          echo "Docs changed: $DOCS_CHANGED"

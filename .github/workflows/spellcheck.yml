@@ -1,0 +1,30 @@
+name: Spellcheck
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: spellcheck-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spellcheck:
+    name: Check spelling
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check spelling with cspell
+        uses: streetsidesoftware/cspell-action@v8
+        with:
+          files: |
+            **/*.md
+            **/*.py
+          config: .cspell.json
+          inline: warning
+          strict: false
+          incremental_files_only: true
