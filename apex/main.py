@@ -69,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
               auth login        Interactive provider login
               auth list         List configured providers
               auth logout       Remove provider config
+              key               Set OpenRouter API key quickly
               agent create      Interactive agent creation wizard
               agent list        List all agents
               session list      List sessions
@@ -99,6 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
               /build            Switch to Build agent (full access)
               /plan             Switch to Plan agent (read-only)
               /connect          Configure a provider
+              /key              Set your OpenRouter API key
               /init             Initialize project (create AGENTS.md)
               /compact          Compact session context
               /undo             Undo last change
@@ -640,6 +642,10 @@ def handle_command(
 
         case "/connect":
             _interactive_provider_config(agent, ui)
+            return True
+
+        case "/key":
+            _cmd_key(argparse.Namespace(key_value=arg, model=None, auth_subcommand=None, auth_provider=None), ui)
             return True
 
         case "/init":
@@ -1186,10 +1192,39 @@ def _cmd_auth(args: argparse.Namespace, ui: UI) -> None:
     # login
     provider = args.auth_provider
     if not provider:
-        provider = ui.input("Provider name (e.g. anthropic, openai): ").strip()
+        provider = ui.input("Provider name (e.g. anthropic, openai, openrouter): ").strip()
     if not provider:
         ui.print_error("Provider name required")
         sys.exit(1)
+
+    # Quick setup for OpenRouter
+    if provider.lower() in ("openrouter", "or"):
+        key = ui.input("OpenRouter API key (sk-or-v1-...): ").strip()
+        if not key:
+            ui.print_error("API key required")
+            sys.exit(1)
+        data = {}
+        if auth_file.exists():
+            data = json.loads(auth_file.read_text())
+        data["openrouter"] = {"api_key": key, "configured_at": time.time()}
+        auth_file.write_text(json.dumps(data, indent=2))
+        os.environ["OPENROUTER_API_KEY"] = key
+        # Also write .env for persistence
+        env_path = Path.cwd() / ".env"
+        if not env_path.exists():
+            env_path.write_text(f"# APEX Configuration\nOPENROUTER_API_KEY={key}\n")
+            ui.print_success("OpenRouter configured! Key saved to .env")
+        else:
+            lines = env_path.read_text().splitlines()
+            for i, line in enumerate(lines):
+                if line.startswith("OPENROUTER_API_KEY="):
+                    lines[i] = f"OPENROUTER_API_KEY={key}"
+                    break
+            else:
+                lines.append(f"OPENROUTER_API_KEY={key}")
+            env_path.write_text("\n".join(lines) + "\n")
+            ui.print_success("OpenRouter configured! Key updated in .env")
+        return
 
     key = ui.input(f"API key for {provider}: ").strip()
     if not key:
@@ -1692,6 +1727,46 @@ def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
         sys.exit(1)
 
 
+def _cmd_key(args: argparse.Namespace, ui: UI) -> None:
+    """Quick setup: set OpenRouter API key."""
+    from pathlib import Path
+    import os, json, time
+    key = getattr(args, "key_value", None) or args.prompt or ""
+    if not key:
+        key = ui.input("OpenRouter API key (sk-or-v1-...): ").strip()
+    if not key:
+        ui.print_error("Usage: apex key <your-openrouter-key>")
+        sys.exit(1)
+
+    auth_dir = Path.home() / ".config" / "apex"
+    auth_dir.mkdir(parents=True, exist_ok=True)
+    auth_file = auth_dir / "auth.json"
+
+    data = {}
+    if auth_file.exists():
+        data = json.loads(auth_file.read_text())
+    data["openrouter"] = {"api_key": key, "configured_at": time.time()}
+    auth_file.write_text(json.dumps(data, indent=2))
+
+    os.environ["OPENROUTER_API_KEY"] = key
+
+    env_path = Path.cwd() / ".env"
+    lines = []
+    found = False
+    if env_path.exists():
+        lines = env_path.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if line.startswith("OPENROUTER_API_KEY="):
+                lines[i] = f"OPENROUTER_API_KEY={key}"
+                found = True
+                break
+    if not found:
+        lines.append(f"OPENROUTER_API_KEY={key}")
+    env_path.write_text("\n".join(lines) + "\n")
+    ui.print_success(f"✅ OpenRouter key configured!")
+    ui.print_info("   Stored in ~/.config/apex/auth.json and .env")
+
+
 def _cmd_attach(args: argparse.Namespace, ui: UI) -> None:
     if not args.url:
         ui.print_error("Usage: apex attach <url>")
@@ -2023,7 +2098,7 @@ def main() -> None:
     # Direct-verb subcommands (routed to _dispatch_verb)
     known_verbs = {"serve", "web", "connect", "init", "compact", "details", "thinking",
                    "stats", "export", "import", "upgrade", "uninstall", "pr", "attach", "debug",
-                   "github", "plugin", "gateway"}
+                   "github", "plugin", "gateway", "key"}
     if verb in known_verbs:
         parsed = argparse.Namespace()
         parsed.prompt = None
@@ -2188,6 +2263,8 @@ def _dispatch_verb(verb: str, parsed: argparse.Namespace) -> None:
             _cmd_attach(parsed, ui)
         case "connect":
             _cmd_connect(parsed, ui)
+        case "key":
+            _cmd_key(parsed, ui)
         case "init":
             _cmd_init(ui)
         case "compact":
