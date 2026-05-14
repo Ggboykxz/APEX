@@ -133,7 +133,7 @@ class TestSlashCommandManager:
         assert "cleared" in result
 
     def test_execute_agent(self, manager):
-        result = manager.execute("/agent coder")
+        result = manager.execute("/agent build")
         assert "build" in result
 
     def test_execute_model(self, manager):

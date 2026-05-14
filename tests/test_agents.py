@@ -49,15 +49,15 @@ class TestPermissionConstants:
 class TestAgentPrompts:
     """Test that each agent prompt is a non-empty string."""
 
-    def test_coder_prompt(self):
+    def test_build_prompt(self):
         assert isinstance(AGENT_CODER_PROMPT, str)
         assert len(AGENT_CODER_PROMPT) > 0
-        assert "Coder" in AGENT_CODER_PROMPT
+        assert "Build" in AGENT_CODER_PROMPT
 
-    def test_architect_prompt(self):
+    def test_plan_prompt(self):
         assert isinstance(AGENT_ARCHITECT_PROMPT, str)
         assert len(AGENT_ARCHITECT_PROMPT) > 0
-        assert "Architect" in AGENT_ARCHITECT_PROMPT
+        assert "Plan" in AGENT_ARCHITECT_PROMPT
 
     def test_planner_prompt(self):
         assert isinstance(AGENT_PLANNER_PROMPT, str)
@@ -254,10 +254,10 @@ class TestBuiltinAgents:
     def test_all_builtin_agents_exist(self):
         assert set(BUILTIN_AGENTS.keys()) == self.EXPECTED_NAMES
 
-    def test_coder_mode_primary(self):
+    def test_build_mode_primary(self):
         assert BUILTIN_AGENTS["build"].mode == "primary"
 
-    def test_architect_mode_primary(self):
+    def test_plan_mode_primary(self):
         assert BUILTIN_AGENTS["plan"].mode == "primary"
 
     def test_planner_mode_primary(self):
@@ -269,7 +269,7 @@ class TestBuiltinAgents:
     def test_shell_mode_primary(self):
         assert BUILTIN_AGENTS["shell"].mode == "primary"
 
-    def test_coder_permissions_full_access(self):
+    def test_build_permissions_full_access(self):
         p = BUILTIN_AGENTS["build"].permission
         assert p["read"] == PERMISSION_ALLOW
         assert p["edit"] == PERMISSION_ALLOW
@@ -281,7 +281,7 @@ class TestBuiltinAgents:
         assert p["webfetch"] == PERMISSION_ALLOW
         assert p["websearch"] == PERMISSION_ALLOW
 
-    def test_architect_readonly_permissions(self):
+    def test_plan_readonly_permissions(self):
         p = BUILTIN_AGENTS["plan"].permission
         assert p["read"] == PERMISSION_ALLOW
         assert p["edit"] == PERMISSION_DENY
@@ -309,10 +309,10 @@ class TestBuiltinAgents:
         assert p["bash"] == PERMISSION_ASK
         assert p["task"] == PERMISSION_ALLOW
 
-    def test_coder_color(self):
+    def test_build_color(self):
         assert BUILTIN_AGENTS["build"].color == "#00e5ff"
 
-    def test_architect_color(self):
+    def test_plan_color(self):
         assert BUILTIN_AGENTS["plan"].color == "#a855f7"
 
     def test_planner_color(self):
@@ -324,10 +324,10 @@ class TestBuiltinAgents:
     def test_shell_color(self):
         assert BUILTIN_AGENTS["shell"].color == "#ff6b35"
 
-    def test_coder_uses_coder_prompt(self):
+    def test_build_uses_build_prompt(self):
         assert BUILTIN_AGENTS["build"].system_prompt is AGENT_CODER_PROMPT
 
-    def test_architect_uses_architect_prompt(self):
+    def test_plan_uses_plan_prompt(self):
         assert BUILTIN_AGENTS["plan"].system_prompt is AGENT_ARCHITECT_PROMPT
 
     def test_planner_uses_planner_prompt(self):
@@ -339,7 +339,7 @@ class TestBuiltinAgents:
     def test_shell_uses_shell_prompt(self):
         assert BUILTIN_AGENTS["shell"].system_prompt is AGENT_SHELL_PROMPT
 
-    def test_coder_description(self):
+    def test_build_description(self):
         assert "full tool access" in BUILTIN_AGENTS["build"].description.lower()
 
     def test_reviewer_description(self):
@@ -413,11 +413,11 @@ class TestAgentManagerRegister:
         mgr = AgentManager()
         new_coder = AgentConfig(
             name="build",
-            description="Overwritten coder",
+            description="Overwritten build",
             system_prompt="New prompt",
         )
         mgr.register(new_coder)
-        assert mgr.get("build").description == "Overwritten coder"
+        assert mgr.get("build").description == "Overwritten build"
 
 
 class TestAgentManagerGetByMention:
@@ -1158,7 +1158,7 @@ class TestGlobalAgentManager:
         for name in ("build", "plan", "planner", "reviewer", "shell"):
             assert agent_manager.get(name) is not None
 
-    def test_coder_permissions_via_global(self):
+    def test_build_permissions_via_global(self):
         allowed, msg = agent_manager.can_execute_tool("build", "read_file")
         assert allowed is True
 
@@ -1191,7 +1191,7 @@ class TestGlobalAgentManager:
         perm = agent_manager.check_permission("shell", "bash")
         assert perm == PERMISSION_ASK
 
-    def test_architect_edit_denied(self):
+    def test_plan_edit_denied(self):
         allowed, msg = agent_manager.can_execute_tool("plan", "write_file")
         assert allowed is False
 
@@ -1207,7 +1207,7 @@ class TestGlobalAgentManager:
         allowed, msg = agent_manager.can_execute_tool("general", "write_file")
         assert allowed is True
 
-    def test_coder_full_access(self):
+    def test_build_full_access(self):
         allowed, msg = agent_manager.can_execute_tool("build", "edit_file")
         assert allowed is True
 

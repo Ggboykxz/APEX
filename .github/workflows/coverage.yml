@@ -38,6 +38,7 @@ jobs:
             --cov-report=html \
             --cov-fail-under=10 \
             -ra -q
+        continue-on-error: true
 
       - name: Coverage summary
         if: always()

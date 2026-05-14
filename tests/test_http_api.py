@@ -151,13 +151,13 @@ class TestHTTPServerInit:
     def test_custom_init(self, tmp_path):
         cfg = RateLimitConfig(requests_per_minute=10, requests_per_hour=100, requests_per_day=500)
         server = HTTPServer(
-            host="0.0.0.0",
+            host="127.0.0.1",
             port=9999,
             require_auth=False,
             rate_limit_config=cfg,
             use_sqlite_storage=False,
         )
-        assert server.host == "0.0.0.0"
+        assert server.host == "127.0.0.1"
         assert server.port == 9999
         assert server.require_auth is False
 
@@ -169,7 +169,7 @@ class TestHTTPServerInit:
 
     def test_apex_http_server_default_host(self, tmp_path):
         server = APEXHTTPServer()
-        assert server.host == "0.0.0.0"
+        assert server.host == "127.0.0.1"
         assert server.port == 8080
 
     def test_setup_routes(self, tmp_path):
