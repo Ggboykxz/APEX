@@ -6,12 +6,13 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 import {
   Terminal, Zap, Shield, Bot, Copy, Check, ArrowRight,
-  Github, Cpu, Wrench, Users, Star, Lock,
+  Cpu, Wrench, Users, Star, Lock,
   Activity, Radio, Loader2, Menu, X, Code2, Eye, Search, Layers,
   GitBranch, Globe, FileCode, Play, Command, Clock, Sparkles, BookOpen,
   CircleDot, GitPullRequest, Tag, Box, MessageSquare, Heart, ExternalLink,
   ChevronRight
 } from 'lucide-react'
+import { Github } from "@/components/github-icon"
 import { PROVIDER_ICONS, PROVIDER_LIST, AnthropicIcon } from '@/components/ProviderIcons'
 import { fetchGitHubData, type GitHubData, type GitHubIssue, type GitHubPullRequest, type GitHubRelease } from '@/lib/github-api'
 

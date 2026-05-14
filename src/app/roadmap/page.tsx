@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Terminal, Github, Menu, X, GitBranch, Check, ArrowRight,
+  Terminal, Menu, X, GitBranch, Check, ArrowRight,
   Zap, Shield, Cpu, Eye, Bot, Wrench, BookOpen, Code2,
   Globe, Lock, Activity, Layers, Sparkles, Users
 } from 'lucide-react'
+import { Github } from "@/components/github-icon"
 
 function NavBar() {
   const [open, setOpen] = useState(false)

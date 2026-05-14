@@ -4,10 +4,11 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Terminal, Zap, Shield, Bot, Copy, Check, ArrowRight,
-  Github, Cpu, Wrench, Users, BookOpen, Box, Settings,
+  Cpu, Wrench, Users, BookOpen, Box, Settings,
   Puzzle, AlertCircle, Layers, Code2, Hash, Menu, X,
   ChevronRight, Activity, GitBranch, Lock
 } from 'lucide-react'
+import { Github } from "@/components/github-icon"
 
 /* ──── SHARED NAV ──── */
 function NavBar() {

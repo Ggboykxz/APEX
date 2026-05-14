@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Terminal, Github, Menu, X, Copy, Check, ArrowRight,
+  Terminal, Menu, X, Copy, Check, ArrowRight,
   Cpu, Bot, Wrench, BookOpen, Activity, GitBranch, Users,
   Shield, DollarSign, Zap, Globe, Home
 } from 'lucide-react'
+import { Github } from "@/components/github-icon"
 import { PROVIDER_ICONS } from '@/components/ProviderIcons'
 
 function NavBar() {

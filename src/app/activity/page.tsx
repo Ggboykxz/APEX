@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Terminal, Github, Menu, X, Activity, Radio, Loader2,
+  Terminal, Menu, X, Activity, Radio, Loader2,
   CircleDot, GitPullRequest, Tag, GitCommit, Star, Users,
   GitBranch, Zap, Clock, MessageSquare, Megaphone, BookOpen,
   Cpu, Wrench, Bot, Shield, Filter, ChevronRight, Heart, ExternalLink,
   ArrowRight, Check, Box
 } from 'lucide-react'
+import { Github } from "@/components/github-icon"
 
 import { fetchGitHubData, type GitHubData, type GitHubIssue, type GitHubPullRequest, type GitHubRelease } from '@/lib/github-api'
 
