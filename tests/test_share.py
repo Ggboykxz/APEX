@@ -437,7 +437,7 @@ class TestExportSession:
     def test_returns_export_dict(self, share_mgr, session_data):
         result = share_mgr.export_session("test-session-1")
         assert result["session_id"] == "test-session-1"
-        assert result["apex_version"] == "1.0.0"
+        assert result["apex_version"] == "2.0.0"
         assert "exported_at" in result
         assert "data" in result
         assert result["data"]["model"] == "gpt-4"

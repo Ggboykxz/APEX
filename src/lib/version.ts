@@ -1,4 +1,4 @@
-export const APP_VERSION = "1.0.0"
+export const APP_VERSION = "2.0.0"
 export const APP_VERSION_TAG = `v${APP_VERSION}`
 export const APP_NAME = "APEX"
 export const APP_DESCRIPTION = "Universal AI coding agent — every model, one terminal"
