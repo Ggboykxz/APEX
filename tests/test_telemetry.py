@@ -69,10 +69,10 @@ class TestLogger:
         assert log._events[0].duration_ms == 50.0
 
     def test_log_agent_start(self, log):
-        log.log_agent_start("gpt-4o", "coder")
+        log.log_agent_start("gpt-4o", "build")
         assert len(log._events) == 1
         assert log._events[0].data["model"] == "gpt-4o"
-        assert log._events[0].data["agent"] == "coder"
+        assert log._events[0].data["agent"] == "build"
 
     def test_log_tool_call(self, log):
         log.log_tool_call("read_file", {"path": "test.py"})
@@ -99,9 +99,9 @@ class TestLogger:
         assert log._events[0].data["new"] == "claude-4-opus"
 
     def test_log_agent_switch(self, log):
-        log.log_agent_switch("coder", "architect")
-        assert log._events[0].data["old"] == "coder"
-        assert log._events[0].data["new"] == "architect"
+        log.log_agent_switch("build", "plan")
+        assert log._events[0].data["old"] == "build"
+        assert log._events[0].data["new"] == "plan"
 
     def test_log_error(self, log):
         log.log_error("timeout", "Request timed out", {"url": "http://api"})

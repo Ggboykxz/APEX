@@ -89,7 +89,8 @@ class GatewayConfig:
 
     @classmethod
     def from_env(cls) -> "GatewayConfig":
-        import os, json
+        import json
+        import os
         c = cls()
         c.host = os.environ.get("APEX_GATEWAY_HOST", c.host)
         c.port = int(os.environ.get("APEX_GATEWAY_PORT", str(c.port)))

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from .auth import AuthManager
 from .config import GatewayConfig, TierConfig
@@ -15,23 +14,6 @@ from .config import GatewayConfig, TierConfig
 if TYPE_CHECKING:
     import aiohttp
     from aiohttp import web
-
-logger = logging.getLogger(__name__)
-
-
-class RateLimiter:
-    def __init__(self):
-        self._buckets: dict[str, list[float]] = {}
-
-    def check(self, key: str, max_per_minute: int) -> bool:
-        now = time.time()
-        if key not in self._buckets:
-            self._buckets[key] = []
-        self._buckets[key] = [t for t in self._buckets[key] if now - t < 60]
-        if len(self._buckets[key]) >= max_per_minute:
-            return False
-        self._buckets[key].append(now)
-        return True
 
 logger = logging.getLogger(__name__)
 

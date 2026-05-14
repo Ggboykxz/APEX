@@ -123,8 +123,8 @@ class GatewayServer:
         await site.start()
         logger.info(f"Gateway started on http://{self.config.host}:{self.config.port}")
         print(f"APEX Gateway running on http://{self.config.host}:{self.config.port}")
-        print(f"Register: POST /v1/register")
-        print(f"Chat:     POST /v1/chat/completions")
+        print("Register: POST /v1/register")
+        print("Chat:     POST /v1/chat/completions")
 
     async def stop(self):
         await self.router.close()

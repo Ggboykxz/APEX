@@ -21,7 +21,10 @@ class AgentMention:
 
 
 class MentionParser:
-    ALL_MENTIONS = re.compile(r"@(\S+?)(?:\s|$)")
+    # Match @mention only when preceded by start-of-string or whitespace
+    # Also match @ in middle of word if followed by something with a dot (file extension)
+    _MENTION_AT_BOUNDARY = re.compile(r"(?:^|(?<=\s))@(\S+)")
+    _MENTION_IN_WORD_WITH_DOT = re.compile(r"(?<=\S)@(\S+\.\S+)")
     AGENT_NAMES = {"build", "plan", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
 
     def __init__(self, cwd: str):
@@ -31,15 +34,47 @@ class MentionParser:
         file_mentions = []
         agent_mentions = []
         seen_agents = set()
+        seen_positions = set()
 
-        for match in self.ALL_MENTIONS.finditer(text):
-            name = match.group(1).lower()
-            if name in self.AGENT_NAMES and name not in seen_agents:
-                seen_agents.add(name)
-                agent_mentions.append(AgentMention(name, match.start(), match.end()))
+        # Collect all matches from both patterns
+        matches = []
+
+        for match in self._MENTION_AT_BOUNDARY.finditer(text):
+            name = match.group(1)
+            at_pos = match.start()
+            # Handle @@ cases: if name starts with @, strip it and adjust position
+            if name.startswith('@'):
+                name = name[1:]  # @@test.py → test.py
+                at_pos += 1      # The real @ is the second one
+                if not name:
+                    continue  # bare @@ → skip
+            matches.append((name, at_pos))
+
+        for match in self._MENTION_IN_WORD_WITH_DOT.finditer(text):
+            name = match.group(1)
+            # Find the @ position within the match
+            at_pos = match.start()
+            while at_pos < len(text) and text[at_pos] != '@':
+                at_pos += 1
+            # Skip if already covered by boundary pattern (dedup by @ position)
+            if at_pos in {m[1] for m in matches}:
+                continue
+            matches.append((name, at_pos))
+
+        for name, at_pos in matches:
+            if at_pos in seen_positions:
+                continue
+            seen_positions.add(at_pos)
+
+            mention_start = at_pos
+            mention_end = at_pos + 1 + len(name)
+
+            name_lower = name.lower()
+            if name_lower in self.AGENT_NAMES and name_lower not in seen_agents:
+                seen_agents.add(name_lower)
+                agent_mentions.append(AgentMention(name_lower, mention_start, mention_end))
             else:
-                path = match.group(1)
-                file_mentions.append(FileMention(path, match.start(), match.end()))
+                file_mentions.append(FileMention(name, mention_start, mention_end))
 
         return file_mentions, agent_mentions
 

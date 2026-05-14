@@ -161,12 +161,12 @@ class TestUIPrintMethods:
 
     def test_show_banner(self):
         ui = self._make_ui_with_capture()
-        ui.show_banner(model="gpt-4o", cwd="/tmp", agent="coder")
+        ui.show_banner(model="gpt-4o", cwd="/tmp", agent="build")
         output = ui.console.file.getvalue()
         assert "APEX" in output
 
     def test_show_banner_different_agents(self):
-        for agent in ["coder", "architect", "reviewer", "shell", "planner"]:
+        for agent in ["build", "plan", "reviewer", "shell", "planner"]:
             ui = self._make_ui_with_capture()
             ui.show_banner(model="gpt-4o", cwd="/tmp", agent=agent)
             output = ui.console.file.getvalue()

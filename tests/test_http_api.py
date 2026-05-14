@@ -819,7 +819,7 @@ class TestV1Endpoints:
             resp = await client.get("/api/v1/agents/coder")
             assert resp.status == 200
             data = await resp.json()
-            assert data["name"] == "coder"
+            assert data["name"] == "build"
 
     @pytest.mark.asyncio
     async def test_v1_agents_not_found(self, server):

@@ -1,7 +1,6 @@
 """Session sharing system for APEX."""
 
 import json
-import os
 import re
 import uuid
 from datetime import datetime, timezone

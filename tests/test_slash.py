@@ -134,7 +134,7 @@ class TestSlashCommandManager:
 
     def test_execute_agent(self, manager):
         result = manager.execute("/agent coder")
-        assert "coder" in result
+        assert "build" in result
 
     def test_execute_model(self, manager):
         result = manager.execute("/model gpt-4o")

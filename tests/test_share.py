@@ -43,7 +43,7 @@ def session_data(home):
         "session_id": "test-session-1",
         "name": "Test Session",
         "model": "gpt-4",
-        "agent": "coder",
+        "agent": "build",
         "created_at": "2025-01-01T00:00:00",
         "cwd": "/home/user/project",
         "messages": [

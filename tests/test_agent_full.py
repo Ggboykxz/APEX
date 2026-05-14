@@ -388,10 +388,10 @@ class TestChatErrorHandling:
 
     def test_chat_as_subagent_restores_agent(self, agent):
         """_chat_as_subagent must restore the original agent even on error."""
-        agent.switch_agent("coder")
+        agent.switch_agent("build")
         agent._chat_as_subagent("reviewer", "check this", max_rounds=1)
         # Original agent should be restored
-        assert agent.current_agent == "coder"
+        assert agent.current_agent == "build"
 
     def test_chat_as_subagent_returns_prefixed_result(self, agent):
         """_chat_as_subagent should prefix result with [@agentname]."""
@@ -431,12 +431,12 @@ class TestChatStreamingErrorHandling:
     @pytest.mark.asyncio
     async def test_streaming_restores_agent(self, agent):
         """chat_streaming() should restore original agent after subagent."""
-        agent.switch_agent("coder")
+        agent.switch_agent("build")
         chunks = []
         async for chunk in agent.chat_streaming("@reviewer check", max_rounds=1):
             chunks.append(chunk)
         # Agent should be restored
-        assert agent.current_agent == "coder"
+        assert agent.current_agent == "build"
 
 
 # ---------------------------------------------------------------------------

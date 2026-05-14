@@ -467,11 +467,11 @@ class TestAPEXServerHandleMessage:
         client = APEXClient("c1")
         server.clients["c1"] = client
         await server._handle_message(
-            "c1", json.dumps({"type": "switch_agent", "agent": "architect"}), ws
+            "c1", json.dumps({"type": "switch_agent", "agent": "plan"}), ws
         )
         assert len(ws.sent) == 1
         assert ws.sent[0]["type"] == "success"
-        assert client.agent_mode == "architect"
+        assert client.agent_mode == "plan"
 
     @pytest.mark.asyncio
     async def test_switch_agent_with_agent(self):
@@ -480,11 +480,11 @@ class TestAPEXServerHandleMessage:
         server._agent = MagicMock()
         server.clients["c1"] = APEXClient("c1")
         await server._handle_message(
-            "c1", json.dumps({"type": "switch_agent", "agent": "architect"}), ws
+            "c1", json.dumps({"type": "switch_agent", "agent": "plan"}), ws
         )
-        server._agent.switch_agent.assert_called_once_with("architect")
+        server._agent.switch_agent.assert_called_once_with("plan")
         ws.send_json.assert_called_once_with({"type": "success", "message": "Agent: architect"})
-        assert server.clients["c1"].agent_mode == "architect"
+        assert server.clients["c1"].agent_mode == "plan"
 
     @pytest.mark.asyncio
     async def test_execute_message(self):

@@ -309,7 +309,7 @@ class TestLoadAll:
             "mycmd": {
                 "template": "run {{task}}",
                 "description": "Config cmd",
-                "agent": "coder",
+                "agent": "build",
                 "model": "gpt-4",
                 "subtask": True,
             }
@@ -318,7 +318,7 @@ class TestLoadAll:
         cmd = mgr.get("mycmd")
         assert cmd is not None
         assert cmd.description == "Config cmd"
-        assert cmd.agent == "coder"
+        assert cmd.agent == "build"
         assert cmd.model == "gpt-4"
         assert cmd.subtask is True
 
@@ -576,7 +576,7 @@ class TestExecute:
 
     def test_execute_no_switch_agent_if_no_attr(self):
         mgr = CustomCommandManager()
-        mgr.add(CommandConfig(name="y", template="t", agent="coder"))
+        mgr.add(CommandConfig(name="y", template="t", agent="build"))
         agent = MagicMock(spec=["chat", "cwd"])
         agent.chat.return_value = ""
         agent.cwd = "/tmp"

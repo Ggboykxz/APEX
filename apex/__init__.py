@@ -99,7 +99,6 @@ def __getattr__(name):
         "ShareManager": (".share", "ShareManager"),
         "formatter_manager": (".formatter", "formatter_manager"),
         "FormatterManager": (".formatter", "FormatterManager"),
-        "FileWatcher": (".watcher", "FileWatcher"),
         "watcher": (".watcher", "watcher"),
         "commands_manager": (".commands_manager", "commands_manager"),
         "CustomCommandManager": (".commands_manager", "CustomCommandManager"),

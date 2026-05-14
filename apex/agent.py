@@ -2,7 +2,6 @@
 
 import json
 import re
-import fnmatch
 import logging
 from pathlib import Path
 from typing import Any, AsyncGenerator

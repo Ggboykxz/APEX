@@ -28,13 +28,8 @@ from .memory import Memory
 from .session import SessionManager
 from .context import get_repo_map, get_language_stats
 from .http_api import start_tui_server, stop_tui_server
-from .config_v2 import apex_config, tui_config
+from .config_v2 import apex_config
 from .commands_manager import commands_manager
-from .theme_manager import theme_manager
-from .share import share_manager
-from .formatter import formatter_manager
-from .watcher import watcher
-from .agents import agent_manager
 from rich.panel import Panel
 from rich.table import Table
 
@@ -671,7 +666,7 @@ def handle_command(
             return True
 
         case "/editor":
-            import subprocess, tempfile
+            import tempfile
             editor = os.environ.get("EDITOR", "vim")
             prompt_file = tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False)
             prompt_file.write("# Enter your prompt\n\n")
@@ -679,7 +674,7 @@ def handle_command(
             try:
                 subprocess.call([editor, prompt_file.name])
                 content = Path(prompt_file.name).read_text()
-                lines = [l for l in content.split("\n") if not l.startswith("#")]
+                lines = [line for line in content.split("\n") if not line.startswith("#")]
                 prompt = "\n".join(lines).strip()
                 if prompt:
                     ui.print_user(prompt)
@@ -740,6 +735,11 @@ def handle_command(
 
 
 def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
+    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.styles import Style
+    from prompt_toolkit import PromptSession
+    from prompt_toolkit.history import FileHistory
+
     history_file = Path.home() / ".apex" / "history"
     history_file.parent.mkdir(parents=True, exist_ok=True)
     bindings = KeyBindings()
@@ -960,7 +960,7 @@ def _try_run_tui_process(tui_dir: Path, runtime_cmd: list[str], ui: UI,
         stdout_thread.start()
         time.sleep(2.0)
         if proc.poll() is not None:
-            stderr_output = "\n".join(stderr_lines)
+            _stderr_output = "\n".join(stderr_lines)
             if proc.returncode != 0:
                 ui.print_error(f"{runtime_name} exited with code {proc.returncode}")
                 return False
@@ -1057,7 +1057,7 @@ def run_apex_tui(agent: Agent, ui: UI, resume: bool = False,
     finally:
         stop_tui_server(server)
 
-    ui.print_error(f"TUI failed. Run: apex install-tui")
+    ui.print_error("TUI failed. Run: apex install-tui")
     sys.exit(1)
 
 
@@ -1127,7 +1127,7 @@ def _cmd_serve(args: argparse.Namespace, ui: UI) -> None:
         host = args.hostname or apex_config.server.get("hostname", "127.0.0.1")
         port = args.port or apex_config.server.get("port", 8080)
         ui.print_info(f"Starting APEX HTTP API server on {host}:{port}...")
-        agent = Agent(apex_config)
+        _agent = Agent(apex_config)
         server = HTTPServer(host=host, port=port)
         ui.print_success(f"Server running at http://{host}:{port}")
         server.run()
@@ -1142,7 +1142,7 @@ def _cmd_web(args: argparse.Namespace, ui: UI) -> None:
         host = args.hostname or apex_config.server.get("hostname", "127.0.0.1")
         port = args.port or apex_config.server.get("port", 8080)
         ui.print_info(f"Starting APEX web server on {host}:{port}...")
-        agent = Agent(apex_config)
+        _agent = Agent(apex_config)
         server = HTTPServer(host=host, port=port)
         url = f"http://{host}:{port}"
         ui.print_success(f"Opening {url} in browser...")
@@ -1240,7 +1240,7 @@ def _cmd_auth(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_agent(args: argparse.Namespace, ui: UI) -> None:
-    from .agents import agent_manager, AgentConfig
+    from .agents import agent_manager
 
     if args.agent_subcommand == "list":
         agents = agent_manager.list_agents()
@@ -1388,7 +1388,7 @@ def _cmd_session(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_stats(args: argparse.Namespace, ui: UI) -> None:
-    from .cost_local import cost_tracker, MODEL_PRICING
+    from .cost_local import MODEL_PRICING
     sm = SessionManager()
     sessions = sm.list_sessions()
 
@@ -1630,7 +1630,7 @@ def _cmd_mcp(args: argparse.Namespace, ui: UI) -> None:
         if not command:
             ui.print_error("Command required")
             sys.exit(1)
-        args_input = ui.input("Arguments (comma-separated, optional): ").strip()
+        _args_input = ui.input("Arguments (comma-separated, optional): ").strip()
         env_vars = ui.input("Environment variables (KEY=VAL, comma-separated, optional): ").strip()
 
         mcp_config = MCPServerConfig(
@@ -1730,7 +1730,6 @@ def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
 def _cmd_key(args: argparse.Namespace, ui: UI) -> None:
     """Quick setup: set OpenRouter API key."""
     from pathlib import Path
-    import os, json, time
     key = getattr(args, "key_value", None) or args.prompt or ""
     if not key:
         key = ui.input("OpenRouter API key (sk-or-v1-...): ").strip()
@@ -1763,7 +1762,7 @@ def _cmd_key(args: argparse.Namespace, ui: UI) -> None:
     if not found:
         lines.append(f"OPENROUTER_API_KEY={key}")
     env_path.write_text("\n".join(lines) + "\n")
-    ui.print_success(f"✅ OpenRouter key configured!")
+    ui.print_success("✅ OpenRouter key configured!")
     ui.print_info("   Stored in ~/.config/apex/auth.json and .env")
 
 
@@ -2082,7 +2081,7 @@ def main() -> None:
             modified = ["db", "path"]
         elif verb in ("auth", "agent", "session", "mcp"):
             # If sub_val is a flag (--something), treat as the verb action
-            idx = 1
+            _idx = 1
             if len(raw_args) > 1 and not raw_args[1].startswith("-"):
                 modified.append(raw_args[1])
             else:

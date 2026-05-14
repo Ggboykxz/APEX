@@ -235,16 +235,16 @@ class TestAgentConfig:
 class TestBuiltinAgents:
     """Test the five built-in agents exist and have correct attributes."""
 
-    EXPECTED_NAMES = {"coder", "architect", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
+    EXPECTED_NAMES = {"build", "plan", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
 
     def test_all_builtin_agents_exist(self):
         assert set(BUILTIN_AGENTS.keys()) == self.EXPECTED_NAMES
 
     def test_coder_mode_primary(self):
-        assert BUILTIN_AGENTS["coder"].mode == "primary"
+        assert BUILTIN_AGENTS["build"].mode == "primary"
 
     def test_architect_mode_primary(self):
-        assert BUILTIN_AGENTS["architect"].mode == "primary"
+        assert BUILTIN_AGENTS["plan"].mode == "primary"
 
     def test_planner_mode_primary(self):
         assert BUILTIN_AGENTS["planner"].mode == "primary"
@@ -256,7 +256,7 @@ class TestBuiltinAgents:
         assert BUILTIN_AGENTS["shell"].mode == "primary"
 
     def test_coder_permissions_full_access(self):
-        p = BUILTIN_AGENTS["coder"].permission
+        p = BUILTIN_AGENTS["build"].permission
         assert p["read"] == PERMISSION_ALLOW
         assert p["edit"] == PERMISSION_ALLOW
         assert p["glob"] == PERMISSION_ALLOW
@@ -268,7 +268,7 @@ class TestBuiltinAgents:
         assert p["websearch"] == PERMISSION_ALLOW
 
     def test_architect_readonly_permissions(self):
-        p = BUILTIN_AGENTS["architect"].permission
+        p = BUILTIN_AGENTS["plan"].permission
         assert p["read"] == PERMISSION_ALLOW
         assert p["edit"] == PERMISSION_DENY
         assert p["bash"] == PERMISSION_DENY
@@ -296,10 +296,10 @@ class TestBuiltinAgents:
         assert p["task"] == PERMISSION_ALLOW
 
     def test_coder_color(self):
-        assert BUILTIN_AGENTS["coder"].color == "#00e5ff"
+        assert BUILTIN_AGENTS["build"].color == "#00e5ff"
 
     def test_architect_color(self):
-        assert BUILTIN_AGENTS["architect"].color == "#a855f7"
+        assert BUILTIN_AGENTS["plan"].color == "#a855f7"
 
     def test_planner_color(self):
         assert BUILTIN_AGENTS["planner"].color == "#ffaa00"
@@ -311,10 +311,10 @@ class TestBuiltinAgents:
         assert BUILTIN_AGENTS["shell"].color == "#ff6b35"
 
     def test_coder_uses_coder_prompt(self):
-        assert BUILTIN_AGENTS["coder"].system_prompt is AGENT_CODER_PROMPT
+        assert BUILTIN_AGENTS["build"].system_prompt is AGENT_CODER_PROMPT
 
     def test_architect_uses_architect_prompt(self):
-        assert BUILTIN_AGENTS["architect"].system_prompt is AGENT_ARCHITECT_PROMPT
+        assert BUILTIN_AGENTS["plan"].system_prompt is AGENT_ARCHITECT_PROMPT
 
     def test_planner_uses_planner_prompt(self):
         assert BUILTIN_AGENTS["planner"].system_prompt is AGENT_PLANNER_PROMPT
@@ -326,7 +326,7 @@ class TestBuiltinAgents:
         assert BUILTIN_AGENTS["shell"].system_prompt is AGENT_SHELL_PROMPT
 
     def test_coder_description(self):
-        assert "full tool access" in BUILTIN_AGENTS["coder"].description.lower()
+        assert "full tool access" in BUILTIN_AGENTS["build"].description.lower()
 
     def test_reviewer_description(self):
         assert "review" in BUILTIN_AGENTS["reviewer"].description.lower()
@@ -342,8 +342,8 @@ class TestAgentManagerInit:
 
     def test_init_copies_builtin_agents(self):
         mgr = AgentManager()
-        assert "coder" in mgr.agents
-        assert "architect" in mgr.agents
+        assert "build" in mgr.agents
+        assert "plan" in mgr.agents
         assert "planner" in mgr.agents
         assert "reviewer" in mgr.agents
         assert "shell" in mgr.agents
@@ -364,9 +364,9 @@ class TestAgentManagerGet:
 
     def test_get_existing_agent(self):
         mgr = AgentManager()
-        cfg = mgr.get("coder")
+        cfg = mgr.get("build")
         assert cfg is not None
-        assert cfg.name == "coder"
+        assert cfg.name == "build"
 
     def test_get_nonexistent_agent(self):
         mgr = AgentManager()
@@ -374,7 +374,7 @@ class TestAgentManagerGet:
 
     def test_get_returns_agentconfig(self):
         mgr = AgentManager()
-        cfg = mgr.get("architect")
+        cfg = mgr.get("plan")
         assert isinstance(cfg, AgentConfig)
 
 
@@ -398,12 +398,12 @@ class TestAgentManagerRegister:
     def test_register_overwrites_existing(self):
         mgr = AgentManager()
         new_coder = AgentConfig(
-            name="coder",
+            name="build",
             description="Overwritten coder",
             system_prompt="New prompt",
         )
         mgr.register(new_coder)
-        assert mgr.get("coder").description == "Overwritten coder"
+        assert mgr.get("build").description == "Overwritten coder"
 
 
 class TestAgentManagerGetByMention:
@@ -411,15 +411,15 @@ class TestAgentManagerGetByMention:
 
     def test_get_by_mention_existing(self):
         mgr = AgentManager()
-        agent = mgr.get_by_mention("coder")
+        agent = mgr.get_by_mention("build")
         assert agent is not None
-        assert agent.name == "coder"
+        assert agent.name == "build"
 
     def test_get_by_mention_with_at_symbol(self):
         mgr = AgentManager()
-        agent = mgr.get_by_mention("@coder")
+        agent = mgr.get_by_mention("@build")
         assert agent is not None
-        assert agent.name == "coder"
+        assert agent.name == "build"
 
     def test_get_by_mention_missing(self):
         mgr = AgentManager()
@@ -435,7 +435,7 @@ class TestAgentManagerListAgents:
         all_agents = mgr.list_agents()
         assert len(all_agents) == 11
         names = {a.name for a in all_agents}
-        assert names == {"coder", "architect", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
+        assert names == {"build", "plan", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
 
     def test_list_all_agents_no_mode_arg(self):
         """list_agents() without mode returns all agents."""
@@ -447,8 +447,8 @@ class TestAgentManagerListAgents:
         mgr = AgentManager()
         primary = mgr.list_agents("primary")
         names = {a.name for a in primary}
-        assert "coder" in names
-        assert "architect" in names
+        assert "build" in names
+        assert "plan" in names
         assert "planner" in names
         assert "shell" in names
         assert "reviewer" not in names
@@ -458,7 +458,7 @@ class TestAgentManagerListAgents:
         subagents = mgr.list_agents("subagent")
         names = {a.name for a in subagents}
         assert "reviewer" in names
-        assert "coder" not in names
+        assert "build" not in names
 
     def test_list_agents_with_all_mode(self):
         """Agents with mode='all' should appear in any mode filter (covers line 258)."""
@@ -502,7 +502,7 @@ class TestAgentManagerListPrimary:
         primary = mgr.list_primary()
         names = {a.name for a in primary}
         assert "all-mode-agent" in names
-        assert "coder" in names
+        assert "build" in names
 
     def test_list_primary_excludes_subagent(self):
         mgr = AgentManager()
@@ -525,7 +525,7 @@ class TestAgentManagerListSubagents:
         mgr = AgentManager()
         subagents = mgr.list_subagents()
         names = {a.name for a in subagents}
-        assert "coder" not in names
+        assert "build" not in names
 
 
 class TestAgentManagerListVisible:
@@ -543,7 +543,7 @@ class TestAgentManagerListVisible:
         mgr = AgentManager()
         visible = mgr.list_visible()
         visible_names = {a.name for a in visible}
-        assert "coder" in visible_names
+        assert "build" in visible_names
         assert "reviewer" in visible_names
 
 
@@ -552,7 +552,7 @@ class TestAgentManagerCheckPermission:
 
     def test_check_permission_allowed(self):
         mgr = AgentManager()
-        assert mgr.check_permission("coder", "read") == PERMISSION_ALLOW
+        assert mgr.check_permission("build", "read") == PERMISSION_ALLOW
 
     def test_check_permission_denied(self):
         mgr = AgentManager()
@@ -565,7 +565,7 @@ class TestAgentManagerCheckPermission:
     def test_check_permission_missing_category_defaults_deny(self):
         mgr = AgentManager()
         # Coder doesn't have "custom_category" in its permission dict
-        assert mgr.check_permission("coder", "custom_category") == PERMISSION_DENY
+        assert mgr.check_permission("build", "custom_category") == PERMISSION_DENY
 
     def test_check_permission_nonexistent_agent_returns_deny(self):
         """check_permission for non-existent agent returns DENY (covers line 264)."""
@@ -636,7 +636,7 @@ class TestAgentManagerCanExecuteTool:
 
     def test_allowed_tool(self):
         mgr = AgentManager()
-        allowed, msg = mgr.can_execute_tool("coder", "read_file")
+        allowed, msg = mgr.can_execute_tool("build", "read_file")
         assert allowed is True
         assert msg == ""
 
@@ -1095,11 +1095,11 @@ class TestGlobalAgentManager:
         assert isinstance(agent_manager, AgentManager)
 
     def test_has_all_builtin_agents(self):
-        for name in ("coder", "architect", "planner", "reviewer", "shell"):
+        for name in ("build", "plan", "planner", "reviewer", "shell"):
             assert agent_manager.get(name) is not None
 
     def test_coder_permissions_via_global(self):
-        allowed, msg = agent_manager.can_execute_tool("coder", "read_file")
+        allowed, msg = agent_manager.can_execute_tool("build", "read_file")
         assert allowed is True
 
     def test_subagent_mention_resolution(self):
@@ -1117,7 +1117,7 @@ class TestGlobalAgentManager:
     def test_primary_agents_list(self):
         primary = agent_manager.list_primary()
         names = {a.name for a in primary}
-        assert names == {"coder", "architect", "planner", "shell"}
+        assert names == {"build", "plan", "planner", "shell"}
 
     def test_subagents_list(self):
         subagents = agent_manager.list_subagents()
@@ -1132,7 +1132,7 @@ class TestGlobalAgentManager:
         assert perm == PERMISSION_ASK
 
     def test_architect_edit_denied(self):
-        allowed, msg = agent_manager.can_execute_tool("architect", "write_file")
+        allowed, msg = agent_manager.can_execute_tool("plan", "write_file")
         assert allowed is False
 
     def test_explore_edit_denied(self):
@@ -1148,7 +1148,7 @@ class TestGlobalAgentManager:
         assert allowed is True
 
     def test_coder_full_access(self):
-        allowed, msg = agent_manager.can_execute_tool("coder", "edit_file")
+        allowed, msg = agent_manager.can_execute_tool("build", "edit_file")
         assert allowed is True
 
     def test_shell_edit_requires_ask(self):

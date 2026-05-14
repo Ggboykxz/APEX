@@ -1,6 +1,5 @@
 """API key generation, storage, and validation for the gateway."""
 
-import json
 import logging
 import secrets
 import sqlite3

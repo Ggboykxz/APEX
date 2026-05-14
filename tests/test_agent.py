@@ -52,8 +52,8 @@ class TestAgentInit:
         assert isinstance(agent.model, str)
         assert agent.model == agent.config.model
 
-    def test_default_agent_is_coder(self, agent):
-        assert agent.current_agent == "coder"
+    def test_default_agent_is_build(self, agent):
+        assert agent.current_agent == "build"
 
     def test_history_starts_empty(self, agent):
         assert agent.history == []
@@ -85,7 +85,7 @@ class TestAgentInit:
         agent = agent_with_config
         assert agent.config is not None
 
-    def test_system_message_contains_coder_prompt(self, agent):
+    def test_system_message_contains_build_prompt(self, agent):
         from apex.agents import AGENT_CODER_PROMPT
 
         assert agent._system_message["content"] == AGENT_CODER_PROMPT
@@ -101,7 +101,7 @@ class TestAgentProperties:
 
     def test_current_agent_property(self, agent):
         assert isinstance(agent.current_agent, str)
-        assert agent.current_agent == "coder"
+        assert agent.current_agent == "build"
 
     def test_cwd_property_returns_path(self, agent):
         assert isinstance(agent.cwd, Path)
@@ -168,10 +168,10 @@ class TestAgentSwitchAgent:
         assert result is True
         assert agent.current_agent == "planner"
 
-    def test_switch_to_architect(self, agent):
-        result = agent.switch_agent("architect")
+    def test_switch_to_plan(self, agent):
+        result = agent.switch_agent("plan")
         assert result is True
-        assert agent.current_agent == "architect"
+        assert agent.current_agent == "plan"
 
     def test_switch_to_reviewer(self, agent):
         result = agent.switch_agent("reviewer")
@@ -183,11 +183,11 @@ class TestAgentSwitchAgent:
         assert result is True
         assert agent.current_agent == "shell"
 
-    def test_switch_back_to_coder(self, agent):
+    def test_switch_back_to_build(self, agent):
         agent.switch_agent("planner")
-        result = agent.switch_agent("coder")
+        result = agent.switch_agent("build")
         assert result is True
-        assert agent.current_agent == "coder"
+        assert agent.current_agent == "build"
 
     def test_switch_to_invalid_agent(self, agent):
         result = agent.switch_agent("nonexistent-agent-xyz")
@@ -208,10 +208,10 @@ class TestAgentSwitchAgent:
 class TestAgentCycleAgent:
     """Test Agent.cycle_agent()."""
 
-    def test_cycle_from_coder(self, agent):
+    def test_cycle_from_build(self, agent):
         next_agent = agent.cycle_agent()
         assert isinstance(next_agent, str)
-        assert next_agent != "coder"
+        assert next_agent != "build"
 
     def test_cycle_cycles_through_primary_agents(self, agent):
         seen = set()
@@ -226,11 +226,11 @@ class TestAgentCycleAgent:
         agent._current_agent = "reviewer"  # subagent, not primary
         next_agent = agent.cycle_agent()
         # Should start from index 0 of primary list
-        assert next_agent in {"architect", "coder", "planner", "shell"}
+        assert next_agent in {"build", "plan", "planner", "shell"}
 
     def test_cycle_restores_after_all(self, agent):
         """Cycling through all primary agents returns to start."""
-        agent.switch_agent("coder")
+        agent.switch_agent("build")
         agent.cycle_agent()
         # Cycle through remaining
         len(

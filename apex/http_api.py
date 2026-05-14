@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import time
-import uuid
 from pathlib import Path
 from typing import Any, Optional
 
@@ -26,11 +25,11 @@ from .api_key import (
 from .billing import (
     billing_manager,
 )
-from .config_v2 import apex_config, ApexConfig
+from .config_v2 import apex_config
 from .share import share_manager, SENSITIVE_PATTERNS
 from .theme_manager import theme_manager
 from .formatter import formatter_manager
-from .commands_manager import commands_manager, CommandConfig
+from .commands_manager import commands_manager
 from .agents import agent_manager
 from .session import SessionManager, UndoManager
 from .project import ProjectInitializer
@@ -1089,7 +1088,6 @@ class HTTPServer:
         if auth_error:
             return auth_error
 
-        import fnmatch
         files: list[str] = []
         cwd = self.agent.cwd
         ignore_patterns = {
@@ -1131,7 +1129,6 @@ class HTTPServer:
         if not query:
             return web.json_response([])
 
-        import fnmatch
         query_lower = query.lower()
         results: list[str] = []
         cwd = self.agent.cwd
@@ -1305,9 +1302,7 @@ class HTTPServer:
 
             from .main import handle_command
             from .ui import UI
-            import io, sys
-
-            ui = UI()
+            _ui = UI()
             result_holder = {}
 
             class CaptureUI:

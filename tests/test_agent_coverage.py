@@ -169,7 +169,7 @@ class TestCycleAgent:
     def test_cycle_when_not_in_primary(self, agent):
         agent._current_agent = "reviewer"
         result = agent.cycle_agent()
-        assert result in {"coder", "architect", "planner", "shell"}
+        assert result in {"build", "plan", "planner", "shell"}
 
     def test_cycle_wraps_around(self, agent):
         first = agent.current_agent
@@ -384,11 +384,11 @@ class TestChatSync:
 
 class TestChatAsSubagent:
     def test_subagent_chat_preserves_original_agent(self, agent):
-        assert agent.current_agent == "coder"
+        assert agent.current_agent == "build"
         with patch.object(agent, "_chat_internal", return_value="done"):
             result = agent._chat_as_subagent("reviewer", "review this")
             assert result == "[@reviewer]: done"
-        assert agent.current_agent == "coder"
+        assert agent.current_agent == "build"
 
     def test_subagent_chat_restores_on_error(self, agent):
         class CustomError(Exception):
@@ -397,7 +397,7 @@ class TestChatAsSubagent:
         with patch.object(agent, "_chat_internal", side_effect=CustomError("boom")):
             with pytest.raises(CustomError):
                 agent._chat_as_subagent("reviewer", "review this")
-        assert agent.current_agent == "coder"
+        assert agent.current_agent == "build"
 
 
 # ---------------------------------------------------------------------------

@@ -328,10 +328,10 @@ class TestParseArgs:
     def test_agent_flag(self):
         saved = sys.argv
         try:
-            sys.argv = ["apex", "--agent", "architect"]
+            sys.argv = ["apex", "--agent", "plan"]
             from apex.main import parse_args
             args = parse_args()
-            assert args.agent_name == "architect"
+            assert args.agent_name == "plan"
         finally:
             sys.argv = saved
 

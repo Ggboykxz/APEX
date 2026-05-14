@@ -139,7 +139,7 @@ class TestSwitchAgentEdgeCases:
         assert agent.current_agent == "planner"
 
     def test_switch_agent_to_each_builtin(self, agent):
-        for name in ("coder", "architect", "planner", "reviewer", "shell"):
+        for name in ("build", "plan", "planner", "reviewer", "shell"):
             result = agent.switch_agent(name)
             assert result is True
             assert agent.current_agent == name
@@ -159,7 +159,7 @@ class TestCycleAgentEdgeCases:
 
     def test_cycle_agent_full_cycle(self, agent):
         """Cycling through all primary agents should return to start."""
-        agent.switch_agent("coder")
+        agent.switch_agent("build")
         primary = agent_manager.list_agents("primary")
         start = agent.current_agent
         for _ in range(len(primary)):
@@ -175,7 +175,7 @@ class TestCycleAgentEdgeCases:
             assert agent.current_agent != prev
 
     def test_cycle_agent_updates_system_prompt(self, agent):
-        agent.switch_agent("coder")
+        agent.switch_agent("build")
         agent.cycle_agent()
         assert len(agent._system_message["content"]) > 0
 
@@ -464,9 +464,9 @@ class TestAgentWorkflow:
 
     def test_subagent_invocation_restores_on_error(self, agent):
         """Calling @reviewer should restore coder even when LLM fails."""
-        agent.switch_agent("coder")
+        agent.switch_agent("build")
         result = agent.chat("@reviewer review this", max_rounds=1)
-        assert agent.current_agent == "coder"
+        assert agent.current_agent == "build"
         assert isinstance(result, str)
 
     def test_multiple_permission_requests(self, agent):

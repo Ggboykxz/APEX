@@ -561,8 +561,8 @@ class TestApexConfigProperties:
         assert cfg.enabled_providers == []
 
     def test_default_agent(self):
-        cfg = self._make({"default_agent": "architect"})
-        assert cfg.default_agent == "architect"
+        cfg = self._make({"default_agent": "plan"})
+        assert cfg.default_agent == "plan"
         cfg.default_agent = "planner"
         assert cfg.default_agent == "planner"
 
