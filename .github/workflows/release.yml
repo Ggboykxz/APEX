@@ -51,6 +51,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@v1.14.0
         with:
           skip-existing: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
 
   build-docker:
     name: Build & Push Docker Image
