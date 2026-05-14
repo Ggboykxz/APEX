@@ -140,10 +140,13 @@ class TestStorageBackendAbstractLines:
             def get_counts(self, key):
                 super().get_counts(key)
                 return {}
+
             def increment(self, key, window):
                 super().increment(key, window)
+
             def cleanup_expired(self):
                 super().cleanup_expired()
+
         s = Sub()
         assert s.get_counts("x") == {}
         s.increment("x", "m")

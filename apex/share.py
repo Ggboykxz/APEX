@@ -18,7 +18,9 @@ SENSITIVE_PATTERNS: list[re.Pattern] = [
     re.compile(r"gho_[a-zA-Z0-9]{36,}"),
     re.compile(r"xox[bpras]-[a-zA-Z0-9-]{10,}"),
     re.compile(r"(?i)(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{20,}"),
-    re.compile(r"(?i)(ANTHROPIC|OPENAI|GEMINI|DEEPSEEK|MISTRAL|COHERE|GROQ|XAI|TOGETHER|FIREWORKS|CEREBRAS|PERPLEXITY|HF|NVIDIA|CLOUDFLARE|DASHSCOPE|LLAMA|OPENROUTER)_API_KEY"),
+    re.compile(
+        r"(?i)(ANTHROPIC|OPENAI|GEMINI|DEEPSEEK|MISTRAL|COHERE|GROQ|XAI|TOGETHER|FIREWORKS|CEREBRAS|PERPLEXITY|HF|NVIDIA|CLOUDFLARE|DASHSCOPE|LLAMA|OPENROUTER)_API_KEY"
+    ),
 ]
 
 ENVVAR_PATTERNS: list[re.Pattern] = [
@@ -69,8 +71,10 @@ class ShareManager:
                 sanitized[key] = ShareManager.sanitize_session_data(value)
             elif isinstance(value, list):
                 sanitized[key] = [
-                    ShareManager.sanitize_session_data(item) if isinstance(item, dict)
-                    else ShareManager._sanitize_string(item) if isinstance(item, str)
+                    ShareManager.sanitize_session_data(item)
+                    if isinstance(item, dict)
+                    else ShareManager._sanitize_string(item)
+                    if isinstance(item, str)
                     else item
                     for item in value
                 ]
@@ -106,9 +110,7 @@ class ShareManager:
         safe_data = self.sanitize_session_data(session_data) if session_data else {}
         messages = safe_data.get("history", safe_data.get("messages", []))
         metadata = {
-            k: safe_data.get(k)
-            for k in ("model", "agent", "created_at", "cwd")
-            if k in safe_data
+            k: safe_data.get(k) for k in ("model", "agent", "created_at", "cwd") if k in safe_data
         }
 
         share = {
@@ -141,14 +143,16 @@ class ShareManager:
             try:
                 with open(filepath) as f:
                     data = json.load(f)
-                results.append({
-                    "id": data.get("id"),
-                    "session_id": data.get("session_id"),
-                    "title": data.get("title", ""),
-                    "created_at": data.get("created_at"),
-                    "url": data.get("url"),
-                    "messages_count": data.get("messages_count", 0),
-                })
+                results.append(
+                    {
+                        "id": data.get("id"),
+                        "session_id": data.get("session_id"),
+                        "title": data.get("title", ""),
+                        "created_at": data.get("created_at"),
+                        "url": data.get("url"),
+                        "messages_count": data.get("messages_count", 0),
+                    }
+                )
             except Exception:
                 continue
         return results

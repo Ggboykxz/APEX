@@ -305,8 +305,10 @@ class TestContextEdgeCases:
         """Hit line 66-67 — PermissionError returns ERROR string."""
         # Patch Path.iterdir to raise PermissionError
         type(tmp_path).iterdir
+
         def broken_iterdir(self):
             raise PermissionError("Access denied")
+
         monkeypatch.setattr(type(tmp_path), "iterdir", broken_iterdir)
         result = get_repo_map(tmp_path)
         assert result == "ERROR: Permission denied"
@@ -314,8 +316,10 @@ class TestContextEdgeCases:
     def test_get_language_stats_permission_error(self, tmp_path, monkeypatch):
         """Hit lines 149-150 — PermissionError in os.walk is silently caught."""
         import os
+
         def broken_walk(*a, **kw):
             raise PermissionError("Access denied")
+
         monkeypatch.setattr(os, "walk", broken_walk)
         result = get_language_stats(tmp_path)
         assert result == {}
@@ -325,8 +329,10 @@ class TestContextEdgeCases:
         git_dir = tmp_path / ".git"
         git_dir.mkdir()
         import subprocess
+
         def broken_run(*a, **kw):
             raise RuntimeError("subprocess failed")
+
         monkeypatch.setattr(subprocess, "run", broken_run)
         result = generate_ctags(tmp_path)
         assert "ERROR" in result

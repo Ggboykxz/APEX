@@ -686,14 +686,38 @@ BUILTIN_THEMES: dict[str, dict[str, Any]] = {
     },
 }
 
-REQUIRED_KEYS = frozenset({
-    "primary", "secondary", "accent", "error", "warning", "success", "info",
-    "text", "textMuted", "background", "backgroundPanel", "backgroundElement",
-    "border", "borderActive", "diffAdded", "diffRemoved", "diffContext",
-    "markdownText", "markdownHeading", "markdownLink", "markdownCode",
-    "markdownBlockQuote", "syntaxComment", "syntaxKeyword", "syntaxFunction",
-    "syntaxString", "syntaxNumber", "syntaxType",
-})
+REQUIRED_KEYS = frozenset(
+    {
+        "primary",
+        "secondary",
+        "accent",
+        "error",
+        "warning",
+        "success",
+        "info",
+        "text",
+        "textMuted",
+        "background",
+        "backgroundPanel",
+        "backgroundElement",
+        "border",
+        "borderActive",
+        "diffAdded",
+        "diffRemoved",
+        "diffContext",
+        "markdownText",
+        "markdownHeading",
+        "markdownLink",
+        "markdownCode",
+        "markdownBlockQuote",
+        "syntaxComment",
+        "syntaxKeyword",
+        "syntaxFunction",
+        "syntaxString",
+        "syntaxNumber",
+        "syntaxType",
+    }
+)
 
 
 def _resolve_ref(defs: dict[str, str], value: str) -> str:
@@ -805,9 +829,9 @@ class ThemeManager:
             resolved[key] = _resolve_ref(defs, ref)
         return resolved
 
-    def resolve_color(self, theme: dict[str, str] | None = None,
-                      key: str = "primary",
-                      mode: str | None = None) -> str:
+    def resolve_color(
+        self, theme: dict[str, str] | None = None, key: str = "primary", mode: str | None = None
+    ) -> str:
         """Get actual hex color for a theme key."""
         if theme is None:
             theme = self.current_theme
@@ -824,6 +848,7 @@ class ThemeManager:
         self._current_name = name
         try:
             from .config import Config
+
             cfg = Config()
             cfg.theme = name
         except Exception:

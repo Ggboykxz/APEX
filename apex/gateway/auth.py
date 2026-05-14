@@ -69,7 +69,14 @@ class AuthManager:
                 "SELECT key_id, tier, label, created_at, last_used_at, is_active FROM keys ORDER BY created_at DESC"
             ).fetchall()
         return [
-            {"key_id": r[0], "tier": r[1], "label": r[2], "created_at": r[3], "last_used_at": r[4], "is_active": bool(r[5])}
+            {
+                "key_id": r[0],
+                "tier": r[1],
+                "label": r[2],
+                "created_at": r[3],
+                "last_used_at": r[4],
+                "is_active": bool(r[5]),
+            }
             for r in rows
         ]
 

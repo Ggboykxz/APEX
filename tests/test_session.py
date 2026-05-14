@@ -179,6 +179,7 @@ class TestSessionManagerSave:
         filepath = session_mgr.save(agent, "test_contents")
         # Read encrypted file and decrypt
         from apex.session import _decrypt
+
         raw = filepath.read_bytes()
         nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
         data = json.loads(_decrypt(nonce, ciphertext, tag))
@@ -305,6 +306,7 @@ class TestSessionManagerSessionDataIntegrity:
         symlink = session_mgr._sessions_dir / "latest_test_usage.json"
         target = session_mgr._sessions_dir / symlink.readlink()
         from apex.session import _decrypt
+
         raw = target.read_bytes()
         nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
         data = json.loads(_decrypt(nonce, ciphertext, tag))
@@ -316,6 +318,7 @@ class TestSessionManagerSessionDataIntegrity:
         symlink = session_mgr._sessions_dir / "latest_test_cwd.json"
         target = session_mgr._sessions_dir / symlink.readlink()
         from apex.session import _decrypt
+
         raw = target.read_bytes()
         nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
         data = json.loads(_decrypt(nonce, ciphertext, tag))

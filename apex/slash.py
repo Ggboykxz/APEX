@@ -198,6 +198,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from pathlib import Path
+
             try:
                 new_cwd = Path(path).expanduser().resolve()
                 if new_cwd.exists() and new_cwd.is_dir():
@@ -218,6 +219,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .session import SessionManager
+
             SessionManager().save(agent, name)
             return f"Session saved as '{name}'"
         return f"[SAVE] Session saved as '{name}'"
@@ -227,6 +229,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .session import SessionManager
+
             if SessionManager().load(name, agent):
                 return f"Session loaded: {name}"
             return f"Session not found: {name}"
@@ -236,6 +239,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .share import share_manager
+
             url = share_manager.share_session("default")
             if url:
                 return f"Session shared: {url}"
@@ -246,6 +250,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .git_undo import GitUndoManager
+
             gum = GitUndoManager(agent.cwd)
             if gum.can_undo():
                 gum.undo()
@@ -257,6 +262,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .git_undo import GitUndoManager
+
             gum = GitUndoManager(agent.cwd)
             if gum.can_redo():
                 gum.redo()
@@ -268,9 +274,9 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             import subprocess
+
             result = subprocess.run(
-                ["git", "status", "--short"],
-                cwd=agent.cwd, capture_output=True, text=True
+                ["git", "status", "--short"], cwd=agent.cwd, capture_output=True, text=True
             )
             if result.stdout.strip():
                 return f"Git status:\n{result.stdout}"
@@ -281,6 +287,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .context import get_repo_map
+
             return get_repo_map(agent.cwd)
         return "[MAP] Repository map:\nsrc/\ntests/\nconfig/"
 
@@ -295,10 +302,14 @@ class SlashCommandManager:
         if agent:
             usage = agent.usage
             from .cost_local import cost_tracker
+
             cost_info = cost_tracker.get_session_cost()
-            lines = ["Token usage:", f"  Input: {usage.get('prompt_tokens', 0)}",
-                     f"  Output: {usage.get('completion_tokens', 0)}",
-                     f"  Total tokens: {usage.get('total_tokens', 0)}"]
+            lines = [
+                "Token usage:",
+                f"  Input: {usage.get('prompt_tokens', 0)}",
+                f"  Output: {usage.get('completion_tokens', 0)}",
+                f"  Total tokens: {usage.get('total_tokens', 0)}",
+            ]
             lines.append(f"  Cost: ${cost_info.get('total_cost', 0):.6f}")
             return "\n".join(lines)
         return "[COST] Token usage:\nInput: 0\nOutput: 0\nTotal: $0.00"
@@ -307,6 +318,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .agents import agent_manager
+
             lines = []
             for a in agent_manager.list_agents():
                 marker = "*" if a.name == agent.current_agent else " "
@@ -319,6 +331,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .agents import agent_manager
+
             lines = []
             for a in agent_manager.list_agents("subagent"):
                 lines.append(f"  {a.name} - {a.description}")
@@ -327,6 +340,7 @@ class SlashCommandManager:
 
     def _cmd_models(self, args: list[str], context: dict) -> str:
         from .config import MODELS
+
         lines = ["Available models:"]
         for alias in sorted(MODELS.keys())[:20]:
             lines.append(f"  {alias}")
@@ -337,6 +351,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .project import ProjectInitializer
+
             pi = ProjectInitializer(str(agent.cwd))
             try:
                 path = pi.create_context_file()
@@ -349,12 +364,15 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .project import ProjectInitializer
+
             pi = ProjectInitializer(str(agent.cwd))
             analysis = pi.analyze()
-            lines = [f"Language: {analysis.get('language', 'unknown')}",
-                     f"PM: {analysis.get('package_manager', 'unknown')}",
-                     f"Test: {analysis.get('test_framework', 'unknown')}",
-                     f"Deps: {len(analysis.get('dependencies', []))}"]
+            lines = [
+                f"Language: {analysis.get('language', 'unknown')}",
+                f"PM: {analysis.get('package_manager', 'unknown')}",
+                f"Test: {analysis.get('test_framework', 'unknown')}",
+                f"Deps: {len(analysis.get('dependencies', []))}",
+            ]
             return "\n".join(lines)
         return "[ANALYZE] Analyzing project..."
 
@@ -370,6 +388,7 @@ class SlashCommandManager:
         agent = context.get("agent")
         if agent:
             from .sandbox import ShellSession
+
             session = ShellSession(cwd=str(agent.cwd))
             if session.start(shell=shell):
                 return f"{shell} shell session started"
@@ -377,6 +396,7 @@ class SlashCommandManager:
 
     def _cmd_commands(self, args: list[str], context: dict) -> str:
         from .commands_manager import commands_manager
+
         cmds = commands_manager.list()
         if cmds:
             lines = ["Custom commands:"]

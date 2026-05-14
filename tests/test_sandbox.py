@@ -1,4 +1,5 @@
 """Tests for apex/sandbox.py — CodeSandbox, ShellSession."""
+
 import os
 import subprocess
 import time as time_module
@@ -128,9 +129,7 @@ class TestCodeSandbox:
                 "apex.sandbox.subprocess.run",
                 side_effect=[mock_compile, mock_run],
             ):
-                result = sb.run_code(
-                    'fn main() { println!("hello rust"); }', language="rust"
-                )
+                result = sb.run_code('fn main() { println!("hello rust"); }', language="rust")
                 assert "hello rust" in result
 
     def test_run_code_rust_compile_error(self, tmp_path):

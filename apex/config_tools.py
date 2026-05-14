@@ -138,6 +138,7 @@ def load_tools_from_dirs() -> None:
                 continue
             try:
                 import importlib.util
+
                 spec = importlib.util.spec_from_file_location(f"apex_custom_tool_{name}", py_file)
                 if spec is None or spec.loader is None:
                     continue

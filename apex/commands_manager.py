@@ -89,7 +89,7 @@ def _parse_yaml_frontmatter(text: str) -> tuple[dict[str, Any], str]:
         return {}, text
 
     frontmatter_lines = lines[1:end]
-    body = "\n".join(lines[end + 1:]).strip()
+    body = "\n".join(lines[end + 1 :]).strip()
 
     result: dict[str, Any] = {}
     for line in frontmatter_lines:

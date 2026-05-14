@@ -475,19 +475,28 @@ class TestChatInternal:
         assert result == "permission handled"
 
     def test_authentication_error(self, agent):
-        with patch("apex.agent.litellm.completion", side_effect=_make_litellm_exception(litellm.AuthenticationError)):
+        with patch(
+            "apex.agent.litellm.completion",
+            side_effect=_make_litellm_exception(litellm.AuthenticationError),
+        ):
             result = agent.chat("hi")
         assert "Authentication failed" in result
         assert agent.history == []
 
     def test_rate_limit_error(self, agent):
-        with patch("apex.agent.litellm.completion", side_effect=_make_litellm_exception(litellm.RateLimitError)):
+        with patch(
+            "apex.agent.litellm.completion",
+            side_effect=_make_litellm_exception(litellm.RateLimitError),
+        ):
             result = agent.chat("hi")
         assert "Rate limit exceeded" in result
 
     def test_bad_request_error(self, agent, caplog):
         caplog.set_level(logging.ERROR)
-        with patch("apex.agent.litellm.completion", side_effect=_make_litellm_exception(litellm.BadRequestError)):
+        with patch(
+            "apex.agent.litellm.completion",
+            side_effect=_make_litellm_exception(litellm.BadRequestError),
+        ):
             result = agent.chat("hi")
         assert "Bad request" in result
         assert any("BadRequestError" in msg for msg in caplog.messages)
@@ -542,9 +551,11 @@ class TestChatStreaming:
     @pytest.mark.asyncio
     async def test_streaming_subagent(self, agent):
         with patch.object(agent, "_chat_internal_streaming") as mock_stream:
+
             async def _gen():
                 yield "hello"
                 yield "world"
+
             mock_stream.return_value = _gen()
 
             chunks = []
@@ -555,9 +566,11 @@ class TestChatStreaming:
     @pytest.mark.asyncio
     async def test_streaming_normal(self, agent):
         with patch.object(agent, "_chat_internal_streaming") as mock_stream:
+
             async def _gen():
                 yield "chunk1"
                 yield "chunk2"
+
             mock_stream.return_value = _gen()
 
             chunks = []
@@ -569,9 +582,11 @@ class TestChatStreaming:
     async def test_streaming_subagent_restores_agent_on_error(self, agent):
         agent.switch_agent("planner")
         with patch.object(agent, "_chat_internal_streaming") as mock_stream:
+
             async def _gen():
                 yield "hello"
                 raise ValueError("boom")
+
             mock_stream.return_value = _gen()
 
             with pytest.raises(ValueError):
@@ -777,7 +792,9 @@ class TestExecuteToolsParallelAsync:
     @pytest.mark.asyncio
     async def test_async_execute(self, agent):
         data = [("tc_1", "read_file", {"path": "a.txt"}), ("tc_2", "read_file", {"path": "b.txt"})]
-        with patch.object(agent._async_executor, "execute_all_parallel", return_value=["content_a", "content_b"]):
+        with patch.object(
+            agent._async_executor, "execute_all_parallel", return_value=["content_a", "content_b"]
+        ):
             results = await agent._execute_tools_parallel_async(data)
         assert results == [("tc_1", "content_a"), ("tc_2", "content_b")]
 

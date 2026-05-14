@@ -223,10 +223,13 @@ class TestGitUndoEdgeCases:
     def test_run_git_file_not_found(self, monkeypatch):
         """Hit line 41-42 — FileNotFoundError in _run_git."""
         import subprocess
+
         def broken_run(*a, **kw):
             raise FileNotFoundError("git not found")
+
         monkeypatch.setattr(subprocess, "run", broken_run)
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmp:
             mgr = GitUndoManager(cwd=Path(tmp))
             code, stdout, stderr = mgr._run_git("status")
@@ -247,8 +250,10 @@ class TestGitUndoEdgeCases:
     def test_get_current_files_git_fails(self, monkeypatch, git_repo):
         """Hit line 73 — return [] when git command fails."""
         import subprocess
+
         def fail_run(*a, **kw):
             return type("R", (), {"returncode": 1, "stdout": "", "stderr": "error"})()
+
         monkeypatch.setattr(subprocess, "run", fail_run)
         mgr = GitUndoManager(cwd=git_repo)
         files = mgr._get_current_files()
@@ -257,12 +262,15 @@ class TestGitUndoEdgeCases:
     def test_create_snapshot_git_add_fails(self, monkeypatch, git_repo):
         """Hit line 96 — git_commit = parent_commit when git add fails."""
         import subprocess
+
         original_run = subprocess.run
+
         def selective_fail(*a, **kw):
             args_str = " ".join(str(x) for x in a[0]) if a else ""
             if "add" in args_str and "." in args_str:
                 return type("R", (), {"returncode": 1, "stdout": "", "stderr": "add failed"})()
             return original_run(*a, **kw)
+
         monkeypatch.setattr(subprocess, "run", selective_fail)
         mgr = GitUndoManager(cwd=git_repo)
         mgr.create_snapshot("test")

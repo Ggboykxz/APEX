@@ -37,18 +37,41 @@ from .config import MODELS, MODEL_PROVIDERS
 
 logger = logging.getLogger(__name__)
 
-SENSITIVE_CONFIG_KEYS = frozenset({
-    "api_key", "apikey", "token", "secret", "password", "credential",
-    "auth_token", "access_key", "secret_key", "private_key",
-})
+SENSITIVE_CONFIG_KEYS = frozenset(
+    {
+        "api_key",
+        "apikey",
+        "token",
+        "secret",
+        "password",
+        "credential",
+        "auth_token",
+        "access_key",
+        "secret_key",
+        "private_key",
+    }
+)
 
 _API_KEY_ENV_VARS = {
-    "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY",
-    "DEEPSEEK_API_KEY", "MISTRAL_API_KEY", "DASHSCOPE_API_KEY",
-    "LLAMA_API_KEY", "GROQ_API_KEY", "OPENROUTER_API_KEY",
-    "CEREBRAS_API_KEY", "FIREWORKS_API_KEY", "TOGETHER_API_KEY",
-    "HF_TOKEN", "PERPLEXITY_API_KEY", "NVIDIA_API_KEY",
-    "CLOUDFLARE_API_KEY", "COHERE_API_KEY", "GITHUB_TOKEN",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "XAI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "MISTRAL_API_KEY",
+    "DASHSCOPE_API_KEY",
+    "LLAMA_API_KEY",
+    "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+    "CEREBRAS_API_KEY",
+    "FIREWORKS_API_KEY",
+    "TOGETHER_API_KEY",
+    "HF_TOKEN",
+    "PERPLEXITY_API_KEY",
+    "NVIDIA_API_KEY",
+    "CLOUDFLARE_API_KEY",
+    "COHERE_API_KEY",
+    "GITHUB_TOKEN",
 }
 
 
@@ -64,8 +87,10 @@ def _sanitize_config(data: dict, _depth: int = 0) -> dict:
             sanitized[key] = _sanitize_config(value, _depth + 1)
         elif isinstance(value, list):
             sanitized[key] = [
-                _sanitize_config(item, _depth + 1) if isinstance(item, dict)
-                else _sanitize_string(item) if isinstance(item, str)
+                _sanitize_config(item, _depth + 1)
+                if isinstance(item, dict)
+                else _sanitize_string(item)
+                if isinstance(item, str)
                 else item
                 for item in value
             ]
@@ -99,15 +124,17 @@ def _get_configured_providers() -> list[dict]:
         if env_key in seen:
             continue
         seen.add(env_key)
-        provider_name = env_key.replace("_API_KEY", "").replace("_TOKEN", "").replace("_", " ").title().strip()
-        configured.append({
-            "name": provider_name,
-            "env_var": env_key,
-            "configured": _check_provider_configured(env_key),
-            "models": [
-                a for a, e in MODEL_PROVIDERS.items() if e == env_key
-            ],
-        })
+        provider_name = (
+            env_key.replace("_API_KEY", "").replace("_TOKEN", "").replace("_", " ").title().strip()
+        )
+        configured.append(
+            {
+                "name": provider_name,
+                "env_var": env_key,
+                "configured": _check_provider_configured(env_key),
+                "models": [a for a, e in MODEL_PROVIDERS.items() if e == env_key],
+            }
+        )
     return configured
 
 
@@ -318,6 +345,7 @@ class HTTPServer:
     async def health(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
         from apex import __version__
+
         return web.json_response(
             {
                 "status": "ok",
@@ -330,10 +358,13 @@ class HTTPServer:
     async def api_global_health(self, request: web.Request) -> web.Response:
         """OpenCode-compatible global health endpoint."""
         from apex import __version__
-        return web.json_response({
-            "healthy": True,
-            "version": __version__,
-        })
+
+        return web.json_response(
+            {
+                "healthy": True,
+                "version": __version__,
+            }
+        )
 
     async def chat(self, request: web.Request) -> web.Response:
         """Standard chat endpoint."""
@@ -552,16 +583,18 @@ class HTTPServer:
 
         agents = []
         for agent_cfg in agent_manager.agents.values():
-            agents.append({
-                "name": agent_cfg.name,
-                "description": agent_cfg.description,
-                "mode": agent_cfg.mode,
-                "model": agent_cfg.model,
-                "hidden": agent_cfg.hidden,
-                "disabled": agent_cfg.disabled,
-                "color": agent_cfg.color,
-                "permission": dict(agent_cfg.permission),
-            })
+            agents.append(
+                {
+                    "name": agent_cfg.name,
+                    "description": agent_cfg.description,
+                    "mode": agent_cfg.mode,
+                    "model": agent_cfg.model,
+                    "hidden": agent_cfg.hidden,
+                    "disabled": agent_cfg.disabled,
+                    "color": agent_cfg.color,
+                    "permission": dict(agent_cfg.permission),
+                }
+            )
         return web.json_response({"agents": agents})
 
     async def api_agents_get(self, request: web.Request) -> web.Response:
@@ -575,20 +608,22 @@ class HTTPServer:
         if not agent_cfg:
             return web.json_response({"error": f"Agent '{name}' not found"}, status=404)
 
-        return web.json_response({
-            "name": agent_cfg.name,
-            "description": agent_cfg.description,
-            "system_prompt": agent_cfg.system_prompt,
-            "mode": agent_cfg.mode,
-            "model": agent_cfg.model,
-            "temperature": agent_cfg.temperature,
-            "top_p": agent_cfg.top_p,
-            "max_steps": agent_cfg.max_steps,
-            "hidden": agent_cfg.hidden,
-            "disabled": agent_cfg.disabled,
-            "color": agent_cfg.color,
-            "permission": dict(agent_cfg.permission),
-        })
+        return web.json_response(
+            {
+                "name": agent_cfg.name,
+                "description": agent_cfg.description,
+                "system_prompt": agent_cfg.system_prompt,
+                "mode": agent_cfg.mode,
+                "model": agent_cfg.model,
+                "temperature": agent_cfg.temperature,
+                "top_p": agent_cfg.top_p,
+                "max_steps": agent_cfg.max_steps,
+                "hidden": agent_cfg.hidden,
+                "disabled": agent_cfg.disabled,
+                "color": agent_cfg.color,
+                "permission": dict(agent_cfg.permission),
+            }
+        )
 
     # ── API v1: Sessions ───────────────────────────────────
 
@@ -685,10 +720,12 @@ class HTTPServer:
 
         themes = theme_manager.list_themes()
         current = theme_manager.current_name
-        return web.json_response({
-            "themes": themes,
-            "current": current,
-        })
+        return web.json_response(
+            {
+                "themes": themes,
+                "current": current,
+            }
+        )
 
     async def api_themes_set(self, request: web.Request) -> web.Response:
         """Set theme."""
@@ -702,10 +739,12 @@ class HTTPServer:
             if not name:
                 return web.json_response({"error": "theme name required"}, status=400)
             theme_manager.set_theme(name)
-            return web.json_response({
-                "theme": theme_manager.current_name,
-                "resolved": theme_manager.current_theme,
-            })
+            return web.json_response(
+                {
+                    "theme": theme_manager.current_name,
+                    "resolved": theme_manager.current_theme,
+                }
+            )
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -771,7 +810,9 @@ class HTTPServer:
                 success = formatter_manager.format_file(file_path)
                 if success:
                     return web.json_response({"formatted": True, "file": file_path})
-                return web.json_response({"error": "no formatter available for this file"}, status=400)
+                return web.json_response(
+                    {"error": "no formatter available for this file"}, status=400
+                )
 
             if code:
                 formatted = formatter_manager.format_code(code, extension)
@@ -794,6 +835,7 @@ class HTTPServer:
             strategy = data.get("strategy", "summarize")
 
             from .context_tracking import ContextManager
+
             ctx = ContextManager()
             for msg in self.agent.history:
                 ctx.add_message(msg.get("role", "user"), msg.get("content", ""))
@@ -801,12 +843,14 @@ class HTTPServer:
             saved = ctx.compact(strategy=strategy)
             self.agent.history = ctx.get_messages()
 
-            return web.json_response({
-                "compacted": True,
-                "strategy": strategy,
-                "tokens_saved": saved,
-                "history_length": len(self.agent.history),
-            })
+            return web.json_response(
+                {
+                    "compacted": True,
+                    "strategy": strategy,
+                    "tokens_saved": saved,
+                    "history_length": len(self.agent.history),
+                }
+            )
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -835,10 +879,28 @@ class HTTPServer:
     # ── API v1: Auth ───────────────────────────────────────
 
     _VALID_PROVIDERS = {
-        "ANTHROPIC", "OPENAI", "GEMINI", "DEEPSEEK", "MISTRAL", "COHERE",
-        "GROQ", "XAI", "TOGETHER", "FIREWORKS", "CEREBRAS", "PERPLEXITY",
-        "HF", "GITHUB", "NVIDIA", "CLOUDFLARE", "DASHSCOPE", "LLAMA",
-        "OPENROUTER", "HUGGINGFACE", "BEDROCK", "AZURE",
+        "ANTHROPIC",
+        "OPENAI",
+        "GEMINI",
+        "DEEPSEEK",
+        "MISTRAL",
+        "COHERE",
+        "GROQ",
+        "XAI",
+        "TOGETHER",
+        "FIREWORKS",
+        "CEREBRAS",
+        "PERPLEXITY",
+        "HF",
+        "GITHUB",
+        "NVIDIA",
+        "CLOUDFLARE",
+        "DASHSCOPE",
+        "LLAMA",
+        "OPENROUTER",
+        "HUGGINGFACE",
+        "BEDROCK",
+        "AZURE",
     }
 
     async def api_auth_login(self, request: web.Request) -> web.Response:
@@ -866,11 +928,13 @@ class HTTPServer:
 
             os.environ[env_var] = api_key_value
 
-            return web.json_response({
-                "configured": True,
-                "provider": provider,
-                "env_var": env_var,
-            })
+            return web.json_response(
+                {
+                    "configured": True,
+                    "provider": provider,
+                    "env_var": env_var,
+                }
+            )
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -912,11 +976,13 @@ class HTTPServer:
 
         providers = _get_configured_providers()
         configured = [p for p in providers if p["configured"]]
-        return web.json_response({
-            "providers": providers,
-            "configured_count": len(configured),
-            "any_configured": len(configured) > 0,
-        })
+        return web.json_response(
+            {
+                "providers": providers,
+                "configured_count": len(configured),
+                "any_configured": len(configured) > 0,
+            }
+        )
 
     # ── API v1: Commands ───────────────────────────────────
 
@@ -964,11 +1030,13 @@ class HTTPServer:
                 return web.json_response({"error": f"Unknown command: {name}"}, status=404)
 
             response = commands_manager.execute(name, args, self.agent)
-            return web.json_response({
-                "command": name,
-                "response": response,
-                "executed": True,
-            })
+            return web.json_response(
+                {
+                    "command": name,
+                    "response": response,
+                    "executed": True,
+                }
+            )
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -982,11 +1050,13 @@ class HTTPServer:
 
         action = self.undo_manager.undo()
         if action:
-            return web.json_response({
-                "undone": True,
-                "action": action.get("type"),
-                "details": action.get("details"),
-            })
+            return web.json_response(
+                {
+                    "undone": True,
+                    "action": action.get("type"),
+                    "details": action.get("details"),
+                }
+            )
         return web.json_response({"error": "nothing to undo"}, status=400)
 
     async def api_redo(self, request: web.Request) -> web.Response:
@@ -997,11 +1067,13 @@ class HTTPServer:
 
         action = self.undo_manager.redo()
         if action:
-            return web.json_response({
-                "redone": True,
-                "action": action.get("type"),
-                "details": action.get("details"),
-            })
+            return web.json_response(
+                {
+                    "redone": True,
+                    "action": action.get("type"),
+                    "details": action.get("details"),
+                }
+            )
         return web.json_response({"error": "nothing to redo"}, status=400)
 
     # ── API v1: Init ───────────────────────────────────────
@@ -1020,11 +1092,13 @@ class HTTPServer:
             analysis = initializer.analyze()
             path = initializer.create_context_file()
 
-            return web.json_response({
-                "initialized": True,
-                "path": path,
-                "analysis": analysis,
-            })
+            return web.json_response(
+                {
+                    "initialized": True,
+                    "path": path,
+                    "analysis": analysis,
+                }
+            )
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -1091,9 +1165,21 @@ class HTTPServer:
         files: list[str] = []
         cwd = self.agent.cwd
         ignore_patterns = {
-            "node_modules", ".git", "__pycache__", ".venv", "venv",
-            "dist", "build", ".next", "target", ".tox", "coverage",
-            ".apex", ".opencode", ".gitignore", ".gitattributes",
+            "node_modules",
+            ".git",
+            "__pycache__",
+            ".venv",
+            "venv",
+            "dist",
+            "build",
+            ".next",
+            "target",
+            ".tox",
+            "coverage",
+            ".apex",
+            ".opencode",
+            ".gitignore",
+            ".gitattributes",
         }
         try:
             for entry in cwd.rglob("*"):
@@ -1133,9 +1219,19 @@ class HTTPServer:
         results: list[str] = []
         cwd = self.agent.cwd
         ignore_patterns = {
-            "node_modules", ".git", "__pycache__", ".venv", "venv",
-            "dist", "build", ".next", "target", ".tox", "coverage",
-            ".apex", ".opencode",
+            "node_modules",
+            ".git",
+            "__pycache__",
+            ".venv",
+            "venv",
+            "dist",
+            "build",
+            ".next",
+            "target",
+            ".tox",
+            "coverage",
+            ".apex",
+            ".opencode",
         }
 
         def fuzzy_match(name: str, q: str) -> bool:
@@ -1178,6 +1274,7 @@ class HTTPServer:
             return auth_error
 
         from .tools import ToolExecutor
+
         try:
             data = await request.json()
             command = data.get("command", "")
@@ -1206,7 +1303,10 @@ class HTTPServer:
         self._sse_clients.append(response)
         try:
             from apex import __version__
-            await response.write(f"data: {{\"event\": \"connected\", \"version\": \"{__version__}\"}}\n\n".encode())
+
+            await response.write(
+                f'data: {{"event": "connected", "version": "{__version__}"}}\n\n'.encode()
+            )
             while True:
                 await asyncio.sleep(30)
                 await response.write(": keepalive\n\n".encode())
@@ -1229,13 +1329,20 @@ class HTTPServer:
         session_id = request.match_info.get("session_id", "")
         try:
             import subprocess
-            stat = subprocess.run(["git", "diff", "--stat"], cwd=self.agent.cwd, capture_output=True, text=True)
-            diff = subprocess.run(["git", "diff"], cwd=self.agent.cwd, capture_output=True, text=True)
-            return web.json_response({
-                "files": stat.stdout.strip() or "(clean)",
-                "diff": diff.stdout or "",
-                "session_id": session_id,
-            })
+
+            stat = subprocess.run(
+                ["git", "diff", "--stat"], cwd=self.agent.cwd, capture_output=True, text=True
+            )
+            diff = subprocess.run(
+                ["git", "diff"], cwd=self.agent.cwd, capture_output=True, text=True
+            )
+            return web.json_response(
+                {
+                    "files": stat.stdout.strip() or "(clean)",
+                    "diff": diff.stdout or "",
+                    "session_id": session_id,
+                }
+            )
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -1245,7 +1352,9 @@ class HTTPServer:
         if auth_error:
             return auth_error
         self.agent.reset_history()
-        return web.json_response({"forked": True, "session_id": request.match_info.get("session_id", "")})
+        return web.json_response(
+            {"forked": True, "session_id": request.match_info.get("session_id", "")}
+        )
 
     async def api_session_abort(self, request: web.Request) -> web.Response:
         """Abort running session."""
@@ -1269,11 +1378,11 @@ class HTTPServer:
         if auth_error:
             return auth_error
         from .formatter import formatter_manager
+
         available = formatter_manager.list_available()
-        return web.json_response([
-            {"name": f.name, "available": True, "extensions": f.extensions}
-            for f in available
-        ])
+        return web.json_response(
+            [{"name": f.name, "available": True, "extensions": f.extensions} for f in available]
+        )
 
     async def api_mcp_status(self, request: web.Request) -> web.Response:
         """MCP server status (OpenCode /mcp compat)."""
@@ -1281,10 +1390,11 @@ class HTTPServer:
         if auth_error:
             return auth_error
         from .mcp import mcp_manager
+
         servers = mcp_manager.list_servers() if hasattr(mcp_manager, "list_servers") else []
-        return web.json_response({
-            s.name: {"enabled": getattr(s, "enabled", True)} for s in servers
-        })
+        return web.json_response(
+            {s.name: {"enabled": getattr(s, "enabled", True)} for s in servers}
+        )
 
     # ── API v1: Command ───────────────────────────────────
 
@@ -1302,24 +1412,35 @@ class HTTPServer:
 
             from .main import handle_command
             from .ui import UI
+
             _ui = UI()
             result_holder = {}
 
             class CaptureUI:
-                def print_success(self, msg): result_holder["output"] = msg
-                def print_error(self, msg): result_holder["output"] = f"ERROR: {msg}"
-                def print_info(self, msg): result_holder["output"] = msg
+                def print_success(self, msg):
+                    result_holder["output"] = msg
+
+                def print_error(self, msg):
+                    result_holder["output"] = f"ERROR: {msg}"
+
+                def print_info(self, msg):
+                    result_holder["output"] = msg
+
                 def console(self):
                     class C:
-                        def print(self, *a, **k): pass
+                        def print(self, *a, **k):
+                            pass
+
                     return C()
 
             capture_ui = CaptureUI()
             handled = handle_command(command, self.agent, capture_ui)
-            return web.json_response({
-                "handled": handled,
-                "output": result_holder.get("output", ""),
-            })
+            return web.json_response(
+                {
+                    "handled": handled,
+                    "output": result_holder.get("output", ""),
+                }
+            )
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
 
@@ -1328,15 +1449,18 @@ class HTTPServer:
     async def api_tui_config(self, request: web.Request) -> web.Response:
         """Return the merged TUI config for frontend customization."""
         from .config_v2 import tui_config as tc
-        return web.json_response({
-            "keybinds": tc.keybinds,
-            "theme": tc.theme,
-            "scroll_speed": tc.scroll_speed,
-            "scroll_acceleration": tc.scroll_acceleration,
-            "diff_style": tc.diff_style,
-            "mouse": tc.mouse,
-            "leader_timeout": tc.leader_timeout,
-        })
+
+        return web.json_response(
+            {
+                "keybinds": tc.keybinds,
+                "theme": tc.theme,
+                "scroll_speed": tc.scroll_speed,
+                "scroll_acceleration": tc.scroll_acceleration,
+                "diff_style": tc.diff_style,
+                "mouse": tc.mouse,
+                "leader_timeout": tc.leader_timeout,
+            }
+        )
 
     # ── Server lifecycle ───────────────────────────────────
 

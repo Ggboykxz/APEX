@@ -219,7 +219,7 @@ class TestMentionParser:
 
     def test_read_mentioned_binary_file(self, parser, tmp_path):
         f = tmp_path / "binary.bin"
-        f.write_bytes(b'\xff\xfe\x00\x01')
+        f.write_bytes(b"\xff\xfe\x00\x01")
         result = parser.read_mentioned_files("read @binary.bin")
         assert result == {}
 

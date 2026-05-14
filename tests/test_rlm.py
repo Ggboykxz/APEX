@@ -13,6 +13,7 @@ from apex.rlm import RLM, RLMConfig, RLMQuery, rlm_query
 # Fixtures
 # ===========================================================================
 
+
 @pytest.fixture
 def mock_completion():
     with patch("apex.rlm.litellm.completion") as mock:
@@ -49,6 +50,7 @@ def mock_acompletion_error():
 # RLMConfig
 # ===========================================================================
 
+
 class TestRLMConfig:
     """Test RLMConfig dataclass."""
 
@@ -79,6 +81,7 @@ class TestRLMConfig:
 # RLM (Rate Limit Manager)
 # ===========================================================================
 
+
 class TestRLMInit:
     """Test RLM initialization."""
 
@@ -90,9 +93,7 @@ class TestRLMInit:
         assert rlm._counts == {}
 
     def test_custom_config(self):
-        config = RLMConfig(
-            requests_per_minute=5, requests_per_hour=20, requests_per_day=100
-        )
+        config = RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
         rlm = RLM(config=config)
         assert rlm.config is config
 
@@ -101,7 +102,9 @@ class TestRLMCheckRateLimit:
     """Test rate limit checking."""
 
     def test_first_request_allowed(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         result = rlm.check_rate_limit("user1")
         assert result["allowed"] is True
         assert result["remaining_minute"] == 5
@@ -109,7 +112,9 @@ class TestRLMCheckRateLimit:
         assert result["remaining_day"] == 100
 
     def test_after_increments(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         rlm.increment("user1")
         rlm.increment("user1")
         result = rlm.check_rate_limit("user1")
@@ -117,7 +122,9 @@ class TestRLMCheckRateLimit:
         assert result["remaining_minute"] == 3
 
     def test_minute_limit_exceeded(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=2, requests_per_hour=100, requests_per_day=500))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=2, requests_per_hour=100, requests_per_day=500)
+        )
         rlm.increment("user1")
         rlm.increment("user1")
         result = rlm.check_rate_limit("user1")
@@ -126,7 +133,9 @@ class TestRLMCheckRateLimit:
         assert result["retry_after"] > 0
 
     def test_hour_limit_exceeded(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=100, requests_per_hour=2, requests_per_day=500))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=100, requests_per_hour=2, requests_per_day=500)
+        )
         now = time.time()
         rlm._counts["user1"] = {
             "minute": (1, now),
@@ -139,7 +148,9 @@ class TestRLMCheckRateLimit:
         assert result["remaining_minute"] == 99
 
     def test_day_limit_exceeded(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=100, requests_per_hour=100, requests_per_day=2))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=100, requests_per_hour=100, requests_per_day=2)
+        )
         now = time.time()
         rlm._counts["user1"] = {
             "minute": (1, now),
@@ -152,7 +163,9 @@ class TestRLMCheckRateLimit:
         assert result["retry_after"] > 0
 
     def test_different_keys_independent(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         rlm.increment("user1")
         r1 = rlm.check_rate_limit("user1")
         r2 = rlm.check_rate_limit("user2")
@@ -160,7 +173,9 @@ class TestRLMCheckRateLimit:
         assert r2["remaining_minute"] == 5
 
     def test_expired_window_returns_full_limit(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         old_time = time.time() - 120
         rlm._counts["user1"] = {
             "minute": (5, old_time),
@@ -176,21 +191,27 @@ class TestRLMIncrement:
     """Test rate limit incrementing."""
 
     def test_increment_increases_count(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         r1 = rlm.increment("user1")
         assert r1["remaining_minute"] == 4
         r2 = rlm.increment("user1")
         assert r2["remaining_minute"] == 3
 
     def test_increment_updates_all_windows(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         result = rlm.increment("user1")
         assert result["remaining_minute"] == 4
         assert result["remaining_hour"] == 19
         assert result["remaining_day"] == 99
 
     def test_increment_resets_expired_window(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         old_time = time.time() - 120
         rlm._counts["user1"] = {
             "minute": (5, old_time),
@@ -201,7 +222,9 @@ class TestRLMIncrement:
         assert result["remaining_minute"] == 4
 
     def test_increment_creates_entry_for_new_key(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         result = rlm.increment("new_user")
         assert result["allowed"] is True
         assert "new_user" in rlm._counts
@@ -212,7 +235,9 @@ class TestRLMReset:
     """Test rate limit reset."""
 
     def test_reset_clears_existing_key(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=5, requests_per_hour=20, requests_per_day=100)
+        )
         rlm.increment("user1")
         assert "user1" in rlm._counts
         rlm.reset("user1")
@@ -228,7 +253,9 @@ class TestRLMTimeWindows:
     """Test different time windows (minute, hour, day) expiry."""
 
     def test_minute_window_expiry(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=2, requests_per_hour=100, requests_per_day=500))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=2, requests_per_hour=100, requests_per_day=500)
+        )
         with patch.object(time, "time") as mock_time:
             mock_time.return_value = 1000.0
             rlm.increment("user1")
@@ -241,7 +268,9 @@ class TestRLMTimeWindows:
             assert result["remaining_minute"] == 2
 
     def test_hour_window_expiry(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=100, requests_per_hour=2, requests_per_day=500))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=100, requests_per_hour=2, requests_per_day=500)
+        )
         with patch.object(time, "time") as mock_time:
             mock_time.return_value = 1000.0
             rlm.increment("user1")
@@ -253,7 +282,9 @@ class TestRLMTimeWindows:
             assert result["remaining_hour"] == 2
 
     def test_day_window_expiry(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=100, requests_per_hour=100, requests_per_day=2))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=100, requests_per_hour=100, requests_per_day=2)
+        )
         with patch.object(time, "time") as mock_time:
             mock_time.return_value = 1000.0
             rlm.increment("user1")
@@ -279,7 +310,9 @@ class TestRLMTimeWindows:
         assert result["remaining_day"] == 0
 
     def test_mixed_windows_partial_exceeded(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=3, requests_per_hour=100, requests_per_day=500))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=3, requests_per_hour=100, requests_per_day=500)
+        )
         with patch.object(time, "time") as mock_time:
             mock_time.return_value = 1000.0
             rlm.increment("user1")
@@ -296,7 +329,9 @@ class TestRLMSerialization:
     """Test serialization and deserialization (to_dict / from_dict)."""
 
     def test_to_dict(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=10, requests_per_hour=50, requests_per_day=200))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=10, requests_per_hour=50, requests_per_day=200)
+        )
         rlm.increment("user1")
         data = rlm.to_dict()
         assert data["config"]["requests_per_minute"] == 10
@@ -338,7 +373,9 @@ class TestRLMSerialization:
         assert rlm._counts == {}
 
     def test_roundtrip_json(self):
-        rlm = RLM(config=RLMConfig(requests_per_minute=10, requests_per_hour=50, requests_per_day=200))
+        rlm = RLM(
+            config=RLMConfig(requests_per_minute=10, requests_per_hour=50, requests_per_day=200)
+        )
         rlm.increment("user1")
         rlm.increment("user1")
         rlm.increment("user1")
@@ -354,6 +391,7 @@ class TestRLMSerialization:
 # ===========================================================================
 # RLMQuery
 # ===========================================================================
+
 
 class TestRLMQueryInit:
     def test_defaults(self):

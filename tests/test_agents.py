@@ -161,7 +161,9 @@ class TestAgentConfig:
         assert cfg.is_hidden is False
 
     def test_repr(self):
-        cfg = AgentConfig(name="my-agent", description="x", system_prompt="x", mode="subagent", hidden=True)
+        cfg = AgentConfig(
+            name="my-agent", description="x", system_prompt="x", mode="subagent", hidden=True
+        )
         assert repr(cfg) == "AgentConfig(name='my-agent', mode='subagent', hidden=True)"
 
     def test_check_bash_permission_direct_bash_key(self):
@@ -235,7 +237,19 @@ class TestAgentConfig:
 class TestBuiltinAgents:
     """Test the five built-in agents exist and have correct attributes."""
 
-    EXPECTED_NAMES = {"build", "plan", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
+    EXPECTED_NAMES = {
+        "build",
+        "plan",
+        "planner",
+        "reviewer",
+        "shell",
+        "general",
+        "explore",
+        "scout",
+        "compaction",
+        "title",
+        "summary",
+    }
 
     def test_all_builtin_agents_exist(self):
         assert set(BUILTIN_AGENTS.keys()) == self.EXPECTED_NAMES
@@ -435,7 +449,19 @@ class TestAgentManagerListAgents:
         all_agents = mgr.list_agents()
         assert len(all_agents) == 11
         names = {a.name for a in all_agents}
-        assert names == {"build", "plan", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
+        assert names == {
+            "build",
+            "plan",
+            "planner",
+            "reviewer",
+            "shell",
+            "general",
+            "explore",
+            "scout",
+            "compaction",
+            "title",
+            "summary",
+        }
 
     def test_list_all_agents_no_mode_arg(self):
         """list_agents() without mode returns all agents."""
@@ -498,7 +524,9 @@ class TestAgentManagerListPrimary:
 
     def test_list_primary_includes_all_mode(self):
         mgr = AgentManager()
-        mgr.register(AgentConfig(name="all-mode-agent", description="x", system_prompt="x", mode="all"))
+        mgr.register(
+            AgentConfig(name="all-mode-agent", description="x", system_prompt="x", mode="all")
+        )
         primary = mgr.list_primary()
         names = {a.name for a in primary}
         assert "all-mode-agent" in names
@@ -516,7 +544,9 @@ class TestAgentManagerListSubagents:
 
     def test_list_subagents_includes_all_mode(self):
         mgr = AgentManager()
-        mgr.register(AgentConfig(name="all-mode-agent", description="x", system_prompt="x", mode="all"))
+        mgr.register(
+            AgentConfig(name="all-mode-agent", description="x", system_prompt="x", mode="all")
+        )
         subagents = mgr.list_subagents()
         names = {a.name for a in subagents}
         assert "all-mode-agent" in names
@@ -959,14 +989,20 @@ class TestAgentManagerLoadJsonAgents:
     """Test AgentManager.load_json_agents()."""
 
     def test_load_json_agent(self, monkeypatch):
-        monkeypatch.setattr(apex_config, "_data", {"agent": {
-            "my-agent": {
-                "description": "JSON loaded agent",
-                "mode": "primary",
-                "system_prompt": "You are a JSON agent.",
-                "permission": {"read": "allow"},
-            }
-        }})
+        monkeypatch.setattr(
+            apex_config,
+            "_data",
+            {
+                "agent": {
+                    "my-agent": {
+                        "description": "JSON loaded agent",
+                        "mode": "primary",
+                        "system_prompt": "You are a JSON agent.",
+                        "permission": {"read": "allow"},
+                    }
+                }
+            },
+        )
         mgr = AgentManager()
         mgr.load_json_agents()
         agent = mgr.get("my-agent")
@@ -977,9 +1013,15 @@ class TestAgentManagerLoadJsonAgents:
         assert agent.permission == {"read": "allow"}
 
     def test_load_json_agent_skip_non_dict(self, monkeypatch):
-        monkeypatch.setattr(apex_config, "_data", {"agent": {
-            "my-agent": "not a dict",
-        }})
+        monkeypatch.setattr(
+            apex_config,
+            "_data",
+            {
+                "agent": {
+                    "my-agent": "not a dict",
+                }
+            },
+        )
         mgr = AgentManager()
         mgr.load_json_agents()
         assert mgr.get("my-agent") is None
@@ -992,23 +1034,29 @@ class TestAgentManagerLoadJsonAgents:
         assert len(mgr.agents) == initial_count
 
     def test_load_json_agent_all_fields(self, monkeypatch):
-        monkeypatch.setattr(apex_config, "_data", {"agent": {
-            "custom-agent": {
-                "name": "custom-agent",
-                "description": "Fully specified agent",
-                "system_prompt": "You are custom.",
-                "prompt": "Should be ignored if system_prompt set",
-                "mode": "primary",
-                "model": "gpt-4o",
-                "temperature": 0.7,
-                "top_p": 0.9,
-                "max_steps": 10,
-                "hidden": True,
-                "disabled": False,
-                "color": "#ff0000",
-                "permission": {"read": "allow", "edit": "deny"},
-            }
-        }})
+        monkeypatch.setattr(
+            apex_config,
+            "_data",
+            {
+                "agent": {
+                    "custom-agent": {
+                        "name": "custom-agent",
+                        "description": "Fully specified agent",
+                        "system_prompt": "You are custom.",
+                        "prompt": "Should be ignored if system_prompt set",
+                        "mode": "primary",
+                        "model": "gpt-4o",
+                        "temperature": 0.7,
+                        "top_p": 0.9,
+                        "max_steps": 10,
+                        "hidden": True,
+                        "disabled": False,
+                        "color": "#ff0000",
+                        "permission": {"read": "allow", "edit": "deny"},
+                    }
+                }
+            },
+        )
         mgr = AgentManager()
         mgr.load_json_agents()
         agent = mgr.get("custom-agent")
@@ -1025,12 +1073,18 @@ class TestAgentManagerLoadJsonAgents:
         assert agent.system_prompt == "You are custom."
 
     def test_load_json_agent_uses_prompt_fallback(self, monkeypatch):
-        monkeypatch.setattr(apex_config, "_data", {"agent": {
-            "fallback-agent": {
-                "description": "Uses prompt key",
-                "prompt": "Fallback prompt.",
-            }
-        }})
+        monkeypatch.setattr(
+            apex_config,
+            "_data",
+            {
+                "agent": {
+                    "fallback-agent": {
+                        "description": "Uses prompt key",
+                        "prompt": "Fallback prompt.",
+                    }
+                }
+            },
+        )
         mgr = AgentManager()
         mgr.load_json_agents()
         agent = mgr.get("fallback-agent")
@@ -1059,13 +1113,19 @@ From markdown.
 """)
         monkeypatch.setattr(pathlib.Path, "home", lambda: home_dir)
         monkeypatch.setattr(pathlib.Path, "cwd", lambda: tmp_path)
-        monkeypatch.setattr(apex_config, "_data", {"agent": {
-            "json-agent": {
-                "description": "From JSON",
-                "mode": "primary",
-                "system_prompt": "From JSON.",
-            }
-        }})
+        monkeypatch.setattr(
+            apex_config,
+            "_data",
+            {
+                "agent": {
+                    "json-agent": {
+                        "description": "From JSON",
+                        "mode": "primary",
+                        "system_prompt": "From JSON.",
+                    }
+                }
+            },
+        )
 
         mgr = AgentManager()
         mgr.load_all_custom()

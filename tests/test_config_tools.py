@@ -174,9 +174,7 @@ class TestLoadCustomTools:
 
     def test_explicit_description(self, tmp_path):
         p = tmp_path / "config.yaml"
-        p.write_text(
-            "custom_tools:\n  withdesc:\n    description: My Tool\n    command: echo hi\n"
-        )
+        p.write_text("custom_tools:\n  withdesc:\n    description: My Tool\n    command: echo hi\n")
         load_custom_tools(p)
         tool = custom_tool_manager.get("withdesc")
         assert tool is not None
@@ -251,20 +249,14 @@ class TestLoadCustomTools:
 
     def test_no_output(self, tmp_path):
         p = tmp_path / "config.yaml"
-        p.write_text(
-            "custom_tools:\n  silent:\n"
-            "    command: python3 -c \"import sys\"\n"
-        )
+        p.write_text('custom_tools:\n  silent:\n    command: python3 -c "import sys"\n')
         load_custom_tools(p)
         result = custom_tool_manager.execute("silent", {})
         assert result == "[no output]"
 
     def test_handler_format_key_error(self, tmp_path):
         p = tmp_path / "config.yaml"
-        p.write_text(
-            "custom_tools:\n  missing_key:\n"
-            "    command: echo {nonexistent}\n"
-        )
+        p.write_text("custom_tools:\n  missing_key:\n    command: echo {nonexistent}\n")
         load_custom_tools(p)
         result = custom_tool_manager.execute("missing_key", {})
         assert "ERROR" in result
@@ -352,9 +344,7 @@ class TestLoadCustomTools:
     def test_multiple_tools_loaded(self, tmp_path):
         p = tmp_path / "config.yaml"
         p.write_text(
-            "custom_tools:\n"
-            "  tool_a:\n    command: echo A\n"
-            "  tool_b:\n    command: echo B\n"
+            "custom_tools:\n  tool_a:\n    command: echo A\n  tool_b:\n    command: echo B\n"
         )
         load_custom_tools(p)
         assert custom_tool_manager.get("tool_a") is not None

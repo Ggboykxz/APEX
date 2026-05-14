@@ -43,9 +43,7 @@ class TestFormatterConfig:
         assert cfg.disabled is False
 
     def test_repr_and_str(self):
-        cfg = FormatterConfig(
-            name="rfmt", command=["rfmt", "$FILE"], extensions=[".r"]
-        )
+        cfg = FormatterConfig(name="rfmt", command=["rfmt", "$FILE"], extensions=[".r"])
         assert "rfmt" in repr(cfg)
 
 
@@ -249,9 +247,7 @@ class TestFormatCode:
         def _mock_run(cmd, **kwargs):
             file_path = cmd[-1]
             Path(file_path).write_text("# formatted by ruff\nx = 1\n")
-            return subprocess.CompletedProcess(
-                args=cmd, returncode=0, stdout=b"", stderr=b""
-            )
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=b"", stderr=b"")
 
         with patch("apex.formatter.subprocess.run", side_effect=_mock_run):
             result = manager.format_code("x=1\n", ".py")
@@ -299,9 +295,7 @@ class TestFormatCode:
         def _mock_run(cmd, **kwargs):
             file_path = cmd[-1]
             Path(file_path).write_text("# formatted\nx = 1\n")
-            return subprocess.CompletedProcess(
-                args=cmd, returncode=0, stdout=b"", stderr=b""
-            )
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=b"", stderr=b"")
 
         with patch("apex.formatter.subprocess.run", side_effect=_mock_run):
             result = manager.format_code("x=1\n", "py")
@@ -314,9 +308,7 @@ class TestFormatCode:
         def _mock_run(cmd, **kwargs):
             file_path = cmd[-1]
             Path(file_path).write_text("formatted_code")
-            return subprocess.CompletedProcess(
-                args=cmd, returncode=0, stdout=b"", stderr=b""
-            )
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=b"", stderr=b"")
 
         with patch("apex.formatter.subprocess.run", side_effect=_mock_run):
             with patch("apex.formatter.os.unlink", side_effect=OSError("permission denied")):
@@ -347,9 +339,7 @@ class TestFormatFile:
 
         with patch(
             "apex.formatter.subprocess.run",
-            return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout=b"", stderr=b""
-            ),
+            return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout=b"", stderr=b""),
         ):
             assert manager.format_file(str(f)) is True
 
@@ -367,9 +357,7 @@ class TestFormatFile:
 
         with patch(
             "apex.formatter.subprocess.run",
-            return_value=subprocess.CompletedProcess(
-                args=[], returncode=1, stdout=b"", stderr=b""
-            ),
+            return_value=subprocess.CompletedProcess(args=[], returncode=1, stdout=b"", stderr=b""),
         ):
             assert manager.format_file(str(f)) is False
 
@@ -436,9 +424,7 @@ class TestFormatFiles:
 
         with patch(
             "apex.formatter.subprocess.run",
-            return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout=b"", stderr=b""
-            ),
+            return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout=b"", stderr=b""),
         ):
             results = manager.format_files([str(py_file), str(js_file)])
 
@@ -456,9 +442,7 @@ class TestFormatFiles:
 
         with patch(
             "apex.formatter.subprocess.run",
-            return_value=subprocess.CompletedProcess(
-                args=[], returncode=0, stdout=b"", stderr=b""
-            ),
+            return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout=b"", stderr=b""),
         ):
             results = manager.format_files([str(py_file), str(unknown_file)])
 
@@ -532,9 +516,7 @@ class TestLoadFromConfig:
             m = FormatterManager()
             m.load_from_config()
 
-        custom = next(
-            (f for f in m._formatters if f.name == "mini-fmt"), None
-        )
+        custom = next((f for f in m._formatters if f.name == "mini-fmt"), None)
         assert custom is not None
         assert custom.environment == {}
         assert custom.disabled is False

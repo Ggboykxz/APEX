@@ -59,10 +59,18 @@ class TestBuiltinThemes:
 
     def test_names(self):
         assert set(BUILTIN_THEMES) == {
-            "apex", "tokyonight", "everforest", "ayu",
-            "catppuccin", "catppuccin-macchiato",
-            "gruvbox", "kanagawa", "nord", "matrix",
-            "one-dark", "system",
+            "apex",
+            "tokyonight",
+            "everforest",
+            "ayu",
+            "catppuccin",
+            "catppuccin-macchiato",
+            "gruvbox",
+            "kanagawa",
+            "nord",
+            "matrix",
+            "one-dark",
+            "system",
         }
 
     def test_each_has_defs_and_theme(self):
@@ -276,10 +284,14 @@ class TestThemeManagerCore:
         home, _ = mock_paths
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "flat.json").write_text(json.dumps({
-            "defs": {"c": "#ff00ff"},
-            "theme": {"primary": "c", "secondary": "c"},
-        }))
+        (user_dir / "flat.json").write_text(
+            json.dumps(
+                {
+                    "defs": {"c": "#ff00ff"},
+                    "theme": {"primary": "c", "secondary": "c"},
+                }
+            )
+        )
         mgr = ThemeManager()
         theme = mgr.get_theme("flat")
         assert theme["primary"] == "#ff00ff"
@@ -289,10 +301,14 @@ class TestThemeManagerCore:
         home, _ = mock_paths
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "weird.json").write_text(json.dumps({
-            "defs": {},
-            "theme": {"primary": ["not", "valid"]},
-        }))
+        (user_dir / "weird.json").write_text(
+            json.dumps(
+                {
+                    "defs": {},
+                    "theme": {"primary": ["not", "valid"]},
+                }
+            )
+        )
         mgr = ThemeManager()
         theme = mgr.get_theme("weird")
         assert theme["primary"] == "none"
@@ -301,10 +317,14 @@ class TestThemeManagerCore:
         home, _ = mock_paths
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "partial.json").write_text(json.dumps({
-            "defs": {},
-            "theme": {},
-        }))
+        (user_dir / "partial.json").write_text(
+            json.dumps(
+                {
+                    "defs": {},
+                    "theme": {},
+                }
+            )
+        )
         mgr = ThemeManager()
         theme = mgr.get_theme("partial")
         for key in REQUIRED_KEYS:
@@ -314,10 +334,14 @@ class TestThemeManagerCore:
         home, _ = mock_paths
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "onlydark.json").write_text(json.dumps({
-            "defs": {"a": "#ff0000", "b": "#00ff00"},
-            "theme": {"primary": {"dark": "a"}, "secondary": {"dark": "b"}},
-        }))
+        (user_dir / "onlydark.json").write_text(
+            json.dumps(
+                {
+                    "defs": {"a": "#ff0000", "b": "#00ff00"},
+                    "theme": {"primary": {"dark": "a"}, "secondary": {"dark": "b"}},
+                }
+            )
+        )
         mgr = ThemeManager()
         mgr.theme_mode = "light"
         theme = mgr.get_theme("onlydark")
@@ -407,10 +431,14 @@ class TestThemeHierarchy:
         monkeypatch.setattr(Path, "cwd", lambda: tmp_path / "cwd")
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "custom.json").write_text(json.dumps({
-            "defs": {"a": "#123456"},
-            "theme": {"primary": {"dark": "a", "light": "a"}},
-        }))
+        (user_dir / "custom.json").write_text(
+            json.dumps(
+                {
+                    "defs": {"a": "#123456"},
+                    "theme": {"primary": {"dark": "a", "light": "a"}},
+                }
+            )
+        )
         mgr = ThemeManager()
         assert "custom" in mgr.list_themes()
         theme = mgr.get_theme("custom")
@@ -425,10 +453,14 @@ class TestThemeHierarchy:
         monkeypatch.setattr(Path, "cwd", lambda: cwd_dir)
         proj_dir = cwd_dir / ".apex" / "themes"
         proj_dir.mkdir(parents=True)
-        (proj_dir / "proj.json").write_text(json.dumps({
-            "defs": {"b": "#654321"},
-            "theme": {"primary": {"dark": "b", "light": "b"}},
-        }))
+        (proj_dir / "proj.json").write_text(
+            json.dumps(
+                {
+                    "defs": {"b": "#654321"},
+                    "theme": {"primary": {"dark": "b", "light": "b"}},
+                }
+            )
+        )
         mgr = ThemeManager()
         assert "proj" in mgr.list_themes()
         theme = mgr.get_theme("proj")
@@ -443,16 +475,24 @@ class TestThemeHierarchy:
         monkeypatch.setattr(Path, "cwd", lambda: cwd_dir)
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "shared.json").write_text(json.dumps({
-            "defs": {"c": "#111111"},
-            "theme": {"primary": {"dark": "c", "light": "c"}},
-        }))
+        (user_dir / "shared.json").write_text(
+            json.dumps(
+                {
+                    "defs": {"c": "#111111"},
+                    "theme": {"primary": {"dark": "c", "light": "c"}},
+                }
+            )
+        )
         proj_dir = cwd_dir / ".apex" / "themes"
         proj_dir.mkdir(parents=True)
-        (proj_dir / "shared.json").write_text(json.dumps({
-            "defs": {"c": "#222222"},
-            "theme": {"primary": {"dark": "c", "light": "c"}},
-        }))
+        (proj_dir / "shared.json").write_text(
+            json.dumps(
+                {
+                    "defs": {"c": "#222222"},
+                    "theme": {"primary": {"dark": "c", "light": "c"}},
+                }
+            )
+        )
         mgr = ThemeManager()
         theme = mgr.get_theme("shared")
         assert theme["primary"] == "#222222"
@@ -464,10 +504,14 @@ class TestThemeHierarchy:
         monkeypatch.setattr(Path, "cwd", lambda: tmp_path / "cwd")
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "apex.json").write_text(json.dumps({
-            "defs": {"z": "#ffffff"},
-            "theme": {"primary": {"dark": "z", "light": "z"}},
-        }))
+        (user_dir / "apex.json").write_text(
+            json.dumps(
+                {
+                    "defs": {"z": "#ffffff"},
+                    "theme": {"primary": {"dark": "z", "light": "z"}},
+                }
+            )
+        )
         mgr = ThemeManager()
         theme = mgr.get_theme("apex")
         assert theme["primary"] == "#ffffff"
@@ -476,9 +520,13 @@ class TestThemeHierarchy:
         home, _ = mock_paths
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "minimal.json").write_text(json.dumps({
-            "theme": {"primary": {"dark": "#ff0000", "light": "#00ff00"}},
-        }))
+        (user_dir / "minimal.json").write_text(
+            json.dumps(
+                {
+                    "theme": {"primary": {"dark": "#ff0000", "light": "#00ff00"}},
+                }
+            )
+        )
         mgr = ThemeManager()
         theme = mgr.get_theme("minimal")
         assert theme["primary"] == "#ff0000"
@@ -508,10 +556,14 @@ class TestEdgeCases:
         names_before = mgr.list_themes()
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "late.json").write_text(json.dumps({
-            "defs": {},
-            "theme": {"primary": {"dark": "#f00", "light": "#f00"}},
-        }))
+        (user_dir / "late.json").write_text(
+            json.dumps(
+                {
+                    "defs": {},
+                    "theme": {"primary": {"dark": "#f00", "light": "#f00"}},
+                }
+            )
+        )
         names_after = mgr.list_themes()
         assert len(names_after) == len(names_before) + 1
         assert "late" in names_after
@@ -522,10 +574,14 @@ class TestEdgeCases:
         assert "later" not in mgr.list_themes()
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "later.json").write_text(json.dumps({
-            "defs": {},
-            "theme": {"primary": {"dark": "#f00", "light": "#f00"}},
-        }))
+        (user_dir / "later.json").write_text(
+            json.dumps(
+                {
+                    "defs": {},
+                    "theme": {"primary": {"dark": "#f00", "light": "#f00"}},
+                }
+            )
+        )
         mgr._reload()
         assert "later" in mgr.list_themes()
 
@@ -534,20 +590,28 @@ class TestEdgeCases:
         mgr = ThemeManager()
         user_dir = home / ".config" / "apex" / "themes"
         user_dir.mkdir(parents=True)
-        (user_dir / "fresh.json").write_text(json.dumps({
-            "defs": {"x": "#abc"},
-            "theme": {"primary": {"dark": "x", "light": "x"}},
-        }))
+        (user_dir / "fresh.json").write_text(
+            json.dumps(
+                {
+                    "defs": {"x": "#abc"},
+                    "theme": {"primary": {"dark": "x", "light": "x"}},
+                }
+            )
+        )
         mgr.current_name = "fresh"
         assert mgr.current_name == "fresh"
 
     def test_set_theme_persists_to_config(self, manager):
         manager.set_theme("nord")
         from apex.config import Config
+
         cfg = Config()
         assert cfg.theme == "nord"
 
     def test_set_theme_config_failure_caught(self, manager, monkeypatch):
-        monkeypatch.setattr("apex.config.Config.__init__", lambda self: (_ for _ in ()).throw(Exception("config fail")))
+        monkeypatch.setattr(
+            "apex.config.Config.__init__",
+            lambda self: (_ for _ in ()).throw(Exception("config fail")),
+        )
         manager.set_theme("nord")
         assert manager.current_name == "nord"

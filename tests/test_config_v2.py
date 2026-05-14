@@ -137,7 +137,9 @@ class TestSubstituteVars:
     def test_env_var_missing_returns_empty(self, mod, monkeypatch, tmp_path):
         monkeypatch.delenv("APEX_TEST_MODEL_MISSING", raising=False)
         monkeypatch.delenv("apex_test_model_missing", raising=False)
-        _write(tmp_path / ".config" / "apex" / "apex.json", {"model": "{env:APEX_TEST_MODEL_MISSING}"})
+        _write(
+            tmp_path / ".config" / "apex" / "apex.json", {"model": "{env:APEX_TEST_MODEL_MISSING}"}
+        )
         cfg = mod.ApexConfig()
         assert cfg.model == ""
 
@@ -163,10 +165,13 @@ class TestSubstituteVars:
     def test_circular_file_reference_returns_empty(self, mod, tmp_path):
         shared = tmp_path / "shared.txt"
         shared.write_text("real-content", encoding="utf-8")
-        _write(tmp_path / ".config" / "apex" / "apex.json", {
-            "shell": "{file:" + str(shared) + "}",
-            "theme": "{file:" + str(shared) + "}",
-        })
+        _write(
+            tmp_path / ".config" / "apex" / "apex.json",
+            {
+                "shell": "{file:" + str(shared) + "}",
+                "theme": "{file:" + str(shared) + "}",
+            },
+        )
         cfg = mod.ApexConfig()
         assert cfg.shell == "real-content"
         assert cfg.theme == ""
@@ -631,16 +636,22 @@ class TestProviderHelpers:
     """provider_option, all_provider_options."""
 
     def test_provider_option_found(self, cfg, mod, tmp_path):
-        _write(tmp_path / ".config" / "apex" / "apex.json", {
-            "provider": {"anthropic": {"timeout": 600}},
-        })
+        _write(
+            tmp_path / ".config" / "apex" / "apex.json",
+            {
+                "provider": {"anthropic": {"timeout": 600}},
+            },
+        )
         cfg2 = mod.ApexConfig()
         assert cfg2.provider_option("anthropic", "timeout") == 600
 
     def test_provider_option_default(self, cfg, mod, tmp_path):
-        _write(tmp_path / ".config" / "apex" / "apex.json", {
-            "provider": {"anthropic": {"timeout": 600}},
-        })
+        _write(
+            tmp_path / ".config" / "apex" / "apex.json",
+            {
+                "provider": {"anthropic": {"timeout": 600}},
+            },
+        )
         cfg2 = mod.ApexConfig()
         assert cfg2.provider_option("anthropic", "nonexistent", "fallback") == "fallback"
 
@@ -648,9 +659,14 @@ class TestProviderHelpers:
         assert cfg.provider_option("nonexistent", "key") is None
 
     def test_all_provider_options(self, cfg, mod, tmp_path):
-        _write(tmp_path / ".config" / "apex" / "apex.json", {
-            "provider": {"anthropic": {"timeout": 600, "base_url": "https://api.anthropic.com"}},
-        })
+        _write(
+            tmp_path / ".config" / "apex" / "apex.json",
+            {
+                "provider": {
+                    "anthropic": {"timeout": 600, "base_url": "https://api.anthropic.com"}
+                },
+            },
+        )
         cfg2 = mod.ApexConfig()
         opts = cfg2.all_provider_options("anthropic")
         assert opts == {"timeout": 600, "base_url": "https://api.anthropic.com"}
@@ -659,9 +675,12 @@ class TestProviderHelpers:
         assert cfg.all_provider_options("nonexistent") == {}
 
     def test_provider_option_non_dict_provider(self, cfg, mod, tmp_path):
-        _write(tmp_path / ".config" / "apex" / "apex.json", {
-            "provider": {"bad": "not-a-dict"},
-        })
+        _write(
+            tmp_path / ".config" / "apex" / "apex.json",
+            {
+                "provider": {"bad": "not-a-dict"},
+            },
+        )
         cfg2 = mod.ApexConfig()
         assert cfg2.provider_option("bad", "key") is None
         assert cfg2.all_provider_options("bad") == {}
@@ -809,7 +828,7 @@ class TestEdgeCases:
         orig = Path.cwd()
         try:
             os.chdir(str(tmp_path))
-            importlib.reload(mod)   # ensure module picks up patched home/env
+            importlib.reload(mod)  # ensure module picks up patched home/env
             cfg = mod.ApexConfig()
             assert cfg.model == "cwd-project"
         finally:
@@ -850,11 +869,14 @@ class TestTuiConfig:
         assert tui.leader_timeout == 2000
 
     def test_loads_from_file(self, mod, tmp_path, monkeypatch):
-        _write(tmp_path / ".config" / "apex" / "tui.json", {
-            "theme": "nord",
-            "scroll_speed": 5,
-            "mouse": False,
-        })
+        _write(
+            tmp_path / ".config" / "apex" / "tui.json",
+            {
+                "theme": "nord",
+                "scroll_speed": 5,
+                "mouse": False,
+            },
+        )
         tui = mod.TuiConfig()
         assert tui.theme == "nord"
         assert tui.scroll_speed == 5
@@ -953,9 +975,17 @@ class TestSingletons:
 
     def test_module_all_exports(self, mod):
         expected = [
-            "ApexConfig", "TuiConfig", "apex_config", "tui_config",
-            "CONFIG_DIR", "GLOBAL_JSON", "GLOBAL_JSONC", "TUI_JSON",
-            "strip_jsonc_comments", "parse_jsonc", "read_jsonc",
+            "ApexConfig",
+            "TuiConfig",
+            "apex_config",
+            "tui_config",
+            "CONFIG_DIR",
+            "GLOBAL_JSON",
+            "GLOBAL_JSONC",
+            "TUI_JSON",
+            "strip_jsonc_comments",
+            "parse_jsonc",
+            "read_jsonc",
         ]
         for name in expected:
             assert name in mod.__all__, f"{name!r} missing from __all__"

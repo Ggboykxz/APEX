@@ -134,10 +134,13 @@ class TestPluginBasePassLines:
     def test_initialize_cleanup_pass(self):
         class Sub(PluginBase):
             info = PluginInfo(name="sub", version="1.0")
+
             def initialize(self, app):
                 super().initialize(app)
+
             def cleanup(self):
                 super().cleanup()
+
         s = Sub()
         s.initialize(None)
         s.cleanup()
@@ -468,8 +471,13 @@ class TestPluginManager:
 
         class BrokenToolPlugin(PluginBase):
             info = PluginInfo(name="broken", version="1.0")
-            def initialize(self, app): pass
-            def cleanup(self): pass
+
+            def initialize(self, app):
+                pass
+
+            def cleanup(self):
+                pass
+
             def get_tools(self):
                 raise RuntimeError("broken")
 
@@ -494,7 +502,10 @@ class TestPluginManager:
 
         class BrokenCleanup(PluginBase):
             info = PluginInfo(name="broken", version="1.0")
-            def initialize(self, app): pass
+
+            def initialize(self, app):
+                pass
+
             def cleanup(self):
                 raise RuntimeError("cleanup failed")
 

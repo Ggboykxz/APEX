@@ -91,10 +91,13 @@ class GatewayConfig:
     def from_env(cls) -> "GatewayConfig":
         import json
         import os
+
         c = cls()
         c.host = os.environ.get("APEX_GATEWAY_HOST", c.host)
         c.port = int(os.environ.get("APEX_GATEWAY_PORT", str(c.port)))
-        c.upstream_api_key = os.environ.get("APEX_GATEWAY_KEY") or os.environ.get("OPENROUTER_API_KEY")
+        c.upstream_api_key = os.environ.get("APEX_GATEWAY_KEY") or os.environ.get(
+            "OPENROUTER_API_KEY"
+        )
         c.admin_key = os.environ.get("APEX_GATEWAY_ADMIN_KEY")
 
         # Fallback: read from auth.json

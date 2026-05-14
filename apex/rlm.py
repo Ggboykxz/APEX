@@ -80,8 +80,7 @@ class RLM:
         return {
             "config": asdict(self.config),
             "counts": {
-                k: {w: list(v) for w, v in wins.items()}
-                for k, wins in self._counts.items()
+                k: {w: list(v) for w, v in wins.items()} for k, wins in self._counts.items()
             },
         }
 
@@ -90,8 +89,7 @@ class RLM:
         config = RLMConfig(**data["config"])
         rlm = cls(config=config)
         rlm._counts = {
-            k: {w: tuple(v) for w, v in wins.items()}
-            for k, wins in data.get("counts", {}).items()
+            k: {w: tuple(v) for w, v in wins.items()} for k, wins in data.get("counts", {}).items()
         }
         return rlm
 

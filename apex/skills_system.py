@@ -145,7 +145,7 @@ class SkillsManager:
         if end == -1:
             return {}, text
         frontmatter_lines = lines[1:end]
-        body = "\n".join(lines[end + 1:]).strip()
+        body = "\n".join(lines[end + 1 :]).strip()
         result = {}
         for line in frontmatter_lines:
             stripped = line.strip()

@@ -25,7 +25,19 @@ class MentionParser:
     # Also match @ in middle of word if followed by something with a dot (file extension)
     _MENTION_AT_BOUNDARY = re.compile(r"(?:^|(?<=\s))@(\S+)")
     _MENTION_IN_WORD_WITH_DOT = re.compile(r"(?<=\S)@(\S+\.\S+)")
-    AGENT_NAMES = {"build", "plan", "planner", "reviewer", "shell", "general", "explore", "scout", "compaction", "title", "summary"}
+    AGENT_NAMES = {
+        "build",
+        "plan",
+        "planner",
+        "reviewer",
+        "shell",
+        "general",
+        "explore",
+        "scout",
+        "compaction",
+        "title",
+        "summary",
+    }
 
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
@@ -43,9 +55,9 @@ class MentionParser:
             name = match.group(1)
             at_pos = match.start()
             # Handle @@ cases: if name starts with @, strip it and adjust position
-            if name.startswith('@'):
+            if name.startswith("@"):
                 name = name[1:]  # @@test.py → test.py
-                at_pos += 1      # The real @ is the second one
+                at_pos += 1  # The real @ is the second one
                 if not name:
                     continue  # bare @@ → skip
             matches.append((name, at_pos))
@@ -54,7 +66,7 @@ class MentionParser:
             name = match.group(1)
             # Find the @ position within the match
             at_pos = match.start()
-            while at_pos < len(text) and text[at_pos] != '@':
+            while at_pos < len(text) and text[at_pos] != "@":
                 at_pos += 1
             # Skip if already covered by boundary pattern (dedup by @ position)
             if at_pos in {m[1] for m in matches}:

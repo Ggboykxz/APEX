@@ -268,14 +268,14 @@ class TestSlashExecuteException:
 
     def test_execute_handler_raises(self, manager):
         """Register a handler that raises and verify error is caught."""
+
         def crash_handler(args, ctx):
             raise ValueError("boom")
+
         cmd = Command(name="crash", description="crashes", handler=crash_handler)
         manager.register(cmd)
         result = manager.execute("/crash")
         assert "ERROR" in result
-
-
 
 
 class TestGetSlashCommandManager:

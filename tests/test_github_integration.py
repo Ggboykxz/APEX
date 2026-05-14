@@ -196,11 +196,13 @@ class TestGitHubIntegrationEdgeCases:
     def test_run_gh_success(self, monkeypatch):
         """Hit line 55 — successful _run_gh execution."""
         import subprocess
+
         called_with = []
 
         def mock_run(*a, **kw):
             called_with.append(a)
             return type("R", (), {"returncode": 0, "stdout": "ok", "stderr": ""})()
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         client = GitHubClient()
         code, out, err = client._run_gh("repo", "view")
@@ -215,11 +217,16 @@ class TestGitHubIntegrationEdgeCases:
         class FakeResponse:
             def read(self):
                 return json.dumps({"login": "owner"}).encode()
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
 
         def mock_urlopen(req):
             return FakeResponse()
+
         monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
         client = GitHubClient(token="test")
         result = client._api_request("GET", "/user")
@@ -234,6 +241,7 @@ class TestGitHubIntegrationEdgeCases:
         def mock_run(*a, **kw):
             data = json.dumps({"owner": {"login": "myorg"}, "name": "myrepo"})
             return type("R", (), {"returncode": 0, "stdout": data, "stderr": ""})()
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         client = GitHubClient()
         result = client.detect_repo()
@@ -242,8 +250,10 @@ class TestGitHubIntegrationEdgeCases:
     def test_detect_repo_invalid_json(self, monkeypatch):
         """Hit line 91 — JSONDecodeError caught."""
         import subprocess
+
         def mock_run(*a, **kw):
             return type("R", (), {"returncode": 0, "stdout": "not json", "stderr": ""})()
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         client = GitHubClient()
         result = client.detect_repo()
@@ -253,9 +263,11 @@ class TestGitHubIntegrationEdgeCases:
         """detect_repo with missing keys returns (None, None)."""
         import json
         import subprocess
+
         def mock_run(*a, **kw):
             data = json.dumps({"no_owner": {}})
             return type("R", (), {"returncode": 0, "stdout": data, "stderr": ""})()
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         client = GitHubClient()
         result = client.detect_repo()
@@ -267,9 +279,14 @@ class TestGitHubIntegrationEdgeCases:
         import urllib.request
 
         class FakeResponse:
-            def read(self): return b'{"id": 1}'
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+            def read(self):
+                return b'{"id": 1}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
 
         called_data = [None]
 
@@ -283,6 +300,7 @@ class TestGitHubIntegrationEdgeCases:
         # Should include labels in the request data
         if called_data[0] is not None:
             import json
+
             data = json.loads(called_data[0])
             assert data.get("labels") == ["bug"]
 
@@ -294,6 +312,7 @@ class TestGitHubIntegrationEdgeCases:
         def mock_run(*a, **kw):
             data = json.dumps({"owner": {"login": "org"}, "name": "repo"})
             return type("R", (), {"returncode": 0, "stdout": data, "stderr": ""})()
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         auto = GitHubAutomation(token="test")
         assert auto.client.owner == "org"
@@ -308,12 +327,19 @@ class TestGitHubIntegrationEdgeCases:
         def mock_run(*a, **kw):
             data = json.dumps({"owner": {"login": "org"}, "name": "repo"})
             return type("R", (), {"returncode": 0, "stdout": data, "stderr": ""})()
+
         monkeypatch.setattr(subprocess, "run", mock_run)
 
         class FakeResponse:
-            def read(self): return b'{"id": 1, "html_url": "https://pr"}'
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+            def read(self):
+                return b'{"id": 1, "html_url": "https://pr"}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
         monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: FakeResponse())
 
         auto = GitHubAutomation(token="test")
@@ -333,9 +359,15 @@ class TestGitHubIntegrationEdgeCases:
         monkeypatch.setattr(subprocess, "run", mock_run)
 
         class FakeResponse:
-            def read(self): return b'{"id": 1}'
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+            def read(self):
+                return b'{"id": 1}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
         monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: FakeResponse())
 
         auto = GitHubAutomation(token="test")
@@ -355,9 +387,15 @@ class TestGitHubIntegrationEdgeCases:
         monkeypatch.setattr(subprocess, "run", mock_run)
 
         class FakeResponse:
-            def read(self): return b'{"id": 1}'
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+            def read(self):
+                return b'{"id": 1}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
         monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: FakeResponse())
 
         auto = GitHubAutomation(token="test")
@@ -377,9 +415,15 @@ class TestGitHubIntegrationEdgeCases:
         monkeypatch.setattr(subprocess, "run", mock_run)
 
         class FakeResponse:
-            def read(self): return b'{"id": 1}'
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+            def read(self):
+                return b'{"id": 1}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
         monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: FakeResponse())
 
         auto = GitHubAutomation(token="test")
@@ -395,14 +439,21 @@ class TestGitHubIntegrationEdgeCases:
         def mock_run(*a, **kw):
             data = json.dumps({"owner": {"login": "o"}, "name": "r"})
             return type("R", (), {"returncode": 0, "stdout": data, "stderr": ""})()
+
         monkeypatch.setattr(subprocess, "run", mock_run)
 
         import urllib.request
+
         class FakeResponse:
             def read(self):
                 return json.dumps([{"number": 1, "merged_at": "2024-01-01"}]).encode()
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
         monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **kw: FakeResponse())
 
         auto = GitHubAutomation(token="test")

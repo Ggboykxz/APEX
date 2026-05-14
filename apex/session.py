@@ -34,6 +34,7 @@ def _get_encryption_key() -> bytes:
 def _encrypt(data: bytes) -> tuple[bytes, bytes, bytes]:
     key = _get_encryption_key()
     import hashlib as _h
+
     nonce = os.urandom(12)
     cipher = _h.shake_256(key + nonce)
     stream = cipher.digest(len(data))
@@ -225,7 +226,7 @@ class SessionManager:
 
         encrypted_payload = b""
         for i in range(0, len(payload), 32):
-            chunk = payload[i:i + 32]
+            chunk = payload[i : i + 32]
             nonce, ciphertext, tag = _encrypt(chunk)
             encrypted_payload += nonce + tag + ciphertext
 
@@ -255,6 +256,7 @@ class SessionManager:
             raw = filepath.read_bytes()
             if filepath.suffix == ".json":
                 import base64
+
                 wrapper = json.loads(raw)
                 compressed = wrapper.get("data", "")
                 json_str = base64.b64decode(compressed.encode()).decode()
@@ -263,10 +265,10 @@ class SessionManager:
                 chunks = []
                 pos = 0
                 while pos < len(raw):
-                    nonce = raw[pos:pos + 12]
-                    tag = raw[pos + 12:pos + 28]
+                    nonce = raw[pos : pos + 12]
+                    tag = raw[pos + 12 : pos + 28]
                     ct_len = min(32, len(raw) - pos - 28)
-                    ciphertext = raw[pos + 28:pos + 28 + ct_len]
+                    ciphertext = raw[pos + 28 : pos + 28 + ct_len]
                     if len(ciphertext) < 1:
                         break
                     chunks.append(_decrypt(nonce, ciphertext, tag))

@@ -203,16 +203,14 @@ class TestProjectEdgeCases:
 
     def test_detect_test_pyproject_pytest_config(self, tmp_path):
         """Lines 88-90 — pyproject.toml with pytest config."""
-        (tmp_path / "pyproject.toml").write_text('[tool.pytest]\nini_options = {}\n')
+        (tmp_path / "pyproject.toml").write_text("[tool.pytest]\nini_options = {}\n")
         pi = ProjectInitializer(str(tmp_path))
         result = pi.analyze()
         assert result["test_framework"] == "pytest"
 
     def test_detect_test_vitest(self, tmp_path):
         """Line 95 — vitest detection."""
-        (tmp_path / "package.json").write_text(
-            '{"name":"x","devDependencies":{"vitest":"^1.0"}}'
-        )
+        (tmp_path / "package.json").write_text('{"name":"x","devDependencies":{"vitest":"^1.0"}}')
         pi = ProjectInitializer(str(tmp_path))
         result = pi.analyze()
         assert result["test_framework"] == "vitest"
@@ -257,28 +255,31 @@ class TestProjectEdgeCases:
         # Monkeypatch _detect_test_framework to avoid its own json.loads
         pi = ProjectInitializer(str(tmp_path))
         _original_dtf = pi._detect_test_framework
+
         def safe_dtf(result):
             result["language"] = "javascript"
             result["test_framework"] = "jest"
+
         monkeypatch.setattr(pi, "_detect_test_framework", safe_dtf)
         # Now monkeypatch json.loads to raise for _extract_info
         import json
+
         original_loads = json.loads
         call_count = [0]
+
         def failing_loads(s):
             call_count[0] += 1
             if call_count[0] >= 2:  # second call is from _extract_info
                 raise ValueError("parse error")
             return original_loads(s)
+
         monkeypatch.setattr(json, "loads", failing_loads)
         result = pi.analyze()
         assert "language" in result
 
     def test_create_context_file_with_scripts(self, tmp_path):
         """Line 233 — scripts in create_context_file."""
-        (tmp_path / "pyproject.toml").write_text(
-            '[project]\nname="test"\n'
-        )
+        (tmp_path / "pyproject.toml").write_text('[project]\nname="test"\n')
         pi = ProjectInitializer(str(tmp_path))
         content = pi.create_context_file()
         assert "AGENTS.md" in content
@@ -344,6 +345,7 @@ class TestFileWatcher:
         obs2 = fw2.watch(["*.py"])
         if obs2 is not None:
             import time
+
             # Write to a file to trigger a real event
             (tmp_path / "trigger.py").write_text("x=1")
             time.sleep(0.3)
@@ -355,6 +357,7 @@ class TestFileWatcher:
     def test_watch_no_watchdog(self, tmp_path, monkeypatch):
         """Hit line 292-293 — ImportError path."""
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *a, **kw):
@@ -380,8 +383,7 @@ class TestFileWatcher:
     def test_create_context_file_with_scripts_python(self, tmp_path):
         """Hit line 233 — scripts output in create_context_file for python."""
         (tmp_path / "pyproject.toml").write_text(
-            'scripts = {test = "pytest", start = "python main.py"}\n'
-            '[project]\nname="test"\n'
+            'scripts = {test = "pytest", start = "python main.py"}\n[project]\nname="test"\n'
         )
         pi = ProjectInitializer(str(tmp_path))
         content = pi.create_context_file()
@@ -390,11 +392,14 @@ class TestFileWatcher:
     def test_create_context_file_with_scripts_javascript(self, tmp_path):
         """Hit line 233 — scripts output in create_context_file for JS."""
         import json
+
         (tmp_path / "package.json").write_text(
-            json.dumps({
-                "name": "test-js",
-                "scripts": {"build": "webpack", "test": "jest"},
-            })
+            json.dumps(
+                {
+                    "name": "test-js",
+                    "scripts": {"build": "webpack", "test": "jest"},
+                }
+            )
         )
         pi = ProjectInitializer(str(tmp_path))
         content = pi.create_context_file()

@@ -9,6 +9,7 @@ from typing import Any, AsyncGenerator
 try:
     import litellm
     from litellm import BadRequestError, RateLimitError, AuthenticationError
+
     _LITELLM_AVAILABLE = True
 except ImportError:
     _LITELLM_AVAILABLE = False
@@ -66,6 +67,7 @@ class Agent:
                 try:
                     import ssl
                     import urllib.request
+
                     ctx = ssl.create_default_context()
                     req = urllib.request.Request(instr, headers={"User-Agent": "APEX/1.0"})
                     resp = urllib.request.urlopen(req, timeout=5, context=ctx)
@@ -179,7 +181,9 @@ class Agent:
         self.history = []
         self._usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
-    def _check_tool_permission(self, tool_name: str, tool_args: dict | None = None) -> tuple[bool, str]:
+    def _check_tool_permission(
+        self, tool_name: str, tool_args: dict | None = None
+    ) -> tuple[bool, str]:
         can_execute, reason = permission_manager.can_execute_tool(tool_name)
         if not can_execute:
             return can_execute, reason
@@ -192,7 +196,10 @@ class Agent:
             if bash_perm == "deny":
                 return False, f"Agent '{self._current_agent}' denies this bash command"
             if bash_perm == "ask":
-                return False, f"Agent '{self._current_agent}' requires approval for this bash command"
+                return (
+                    False,
+                    f"Agent '{self._current_agent}' requires approval for this bash command",
+                )
         return True, reason
 
     def _request_permission(self, tool_name: str, tool_args: dict, tc_id: str) -> str:
@@ -452,7 +459,11 @@ class Agent:
         for round_num in range(max_rounds):
             try:
                 response = await litellm.acompletion(
-                    model=model_str, messages=messages, tools=get_all_tool_schemas(), stream=True, timeout=120
+                    model=model_str,
+                    messages=messages,
+                    tools=get_all_tool_schemas(),
+                    stream=True,
+                    timeout=120,
                 )
 
                 full_content = ""
@@ -485,7 +496,9 @@ class Agent:
                                 if tc_delta.function.name:
                                     tool_call_deltas[idx]["name"] = tc_delta.function.name
                                 if tc_delta.function.arguments:
-                                    tool_call_deltas[idx]["arguments"] += tc_delta.function.arguments
+                                    tool_call_deltas[idx]["arguments"] += (
+                                        tc_delta.function.arguments
+                                    )
 
                 self._update_usage(usage_data)
 
@@ -609,7 +622,10 @@ class Agent:
                         messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
 
                     follow_up = await litellm.acompletion(
-                        model=model_str, messages=messages, tools=get_all_tool_schemas(), timeout=120
+                        model=model_str,
+                        messages=messages,
+                        tools=get_all_tool_schemas(),
+                        timeout=120,
                     )
                     self._update_usage(follow_up.usage)
 
@@ -639,9 +655,7 @@ class Agent:
 
         yield "ERROR: Max tool rounds reached."
 
-    def _execute_tools(
-        self, tool_calls_data: list[tuple[str, str, dict]]
-    ) -> list[tuple[str, str]]:
+    def _execute_tools(self, tool_calls_data: list[tuple[str, str, dict]]) -> list[tuple[str, str]]:
         results = []
         for tc_id, tool_name, tool_args in tool_calls_data:
             result = self._executor.execute(tool_name, tool_args)

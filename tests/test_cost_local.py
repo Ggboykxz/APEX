@@ -354,11 +354,18 @@ class TestLocalExecutionManagerCoverage:
     def test_check_provider_available_success(self, monkeypatch):
         """Mock urlopen to return status 200 to hit line 209."""
         import urllib.request
+
         class FakeResponse:
             status = 200
-            def read(self): return b""
-            def __enter__(self): return self
-            def __exit__(self, *a): pass
+
+            def read(self):
+                return b""
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
 
         def mock_urlopen(req, timeout=2):
             return FakeResponse()

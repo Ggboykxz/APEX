@@ -337,6 +337,7 @@ def test_read_file_binary_error(executor, tmp_path):
 
 # ─── run_command ───────────────────────────────────────────────────────────
 
+
 def test_run_command_success(executor, tmp_path):
     result = executor.execute("run_command", {"command": "echo hello"})
     assert "hello" in result
@@ -373,19 +374,23 @@ def test_run_command_exception(executor, monkeypatch):
 
 # ─── edit_file exceptions ──────────────────────────────────────────────────
 
+
 def test_edit_file_exception(executor, tmp_path):
     """Cover exception handler line 1468-1469."""
     f = tmp_path / "edit_exc.txt"
     f.write_text("hello")
     f.chmod(0o444)
     try:
-        result = executor.execute("edit_file", {"path": str(f), "old_string": "hello", "new_string": "world"})
+        result = executor.execute(
+            "edit_file", {"path": str(f), "old_string": "hello", "new_string": "world"}
+        )
         assert "ERROR" in result
     finally:
         f.chmod(0o644)
 
 
 # ─── list_files exceptions ────────────────────────────────────────────────
+
 
 def test_list_files_stat_exception(executor, tmp_path):
     """Cover stat exception handler line 1518-1519."""
@@ -404,6 +409,7 @@ def test_list_files_outer_exception(executor, tmp_path):
 
 
 # ─── search_in_files exceptions ────────────────────────────────────────────
+
 
 def test_search_in_files_success(executor, tmp_path):
     d = tmp_path / "project" / "searchdir"
@@ -454,6 +460,7 @@ def test_search_in_files_outer_exception(executor, tmp_path):
 
 # ─── delete_file exception ────────────────────────────────────────────────
 
+
 def test_delete_file_path_not_found(executor):
     result = executor.execute("delete_file", {"path": "/nonexistent"})
     assert "ERROR" in result
@@ -477,6 +484,7 @@ def test_delete_file_exception(executor, tmp_path):
 
 # ─── create_directory exception ──────────────────────────────────────────
 
+
 def test_create_directory_already_exists_subdir(executor, tmp_path):
     d = tmp_path / "project" / "exist"
     d.mkdir(parents=True)
@@ -486,11 +494,14 @@ def test_create_directory_already_exists_subdir(executor, tmp_path):
 
 def test_create_directory_exception(executor, tmp_path):
     """Cover exception handler line 1568-1569."""
-    result = executor.execute("create_directory", {"path": str(tmp_path / "project" / "newdir" / "")})
+    result = executor.execute(
+        "create_directory", {"path": str(tmp_path / "project" / "newdir" / "")}
+    )
     assert isinstance(result, str)
 
 
 # ─── glob_search ──────────────────────────────────────────────────────────
+
 
 def test_glob_search_success(executor, tmp_path):
     d = tmp_path / "project"
@@ -502,7 +513,9 @@ def test_glob_search_success(executor, tmp_path):
 
 
 def test_glob_search_no_matches(executor, tmp_path):
-    result = executor.execute("glob_search", {"pattern": "*.xyz", "directory": str(tmp_path / "project")})
+    result = executor.execute(
+        "glob_search", {"pattern": "*.xyz", "directory": str(tmp_path / "project")}
+    )
     assert "no files match" in result
 
 
@@ -522,6 +535,7 @@ def test_glob_search_exception(executor, tmp_path):
 
 # ─── get_file_tree ─────────────────────────────────────────────────────────
 
+
 def test_get_file_tree_success(executor, tmp_path):
     d = tmp_path / "project" / "mytree"
     d.mkdir(parents=True)
@@ -536,6 +550,7 @@ def test_get_file_tree_not_found(executor):
 
 
 # ─── diff_files ────────────────────────────────────────────────────────────
+
 
 def test_diff_files_identical(executor, tmp_path):
     a = tmp_path / "a.txt"
@@ -585,6 +600,7 @@ def test_diff_files_exception(executor, tmp_path):
 
 # ─── git commands ──────────────────────────────────────────────────────────
 
+
 def test_git_status_not_a_repo(executor):
     result = executor.execute("get_git_status", {})
     assert "ERROR" in result
@@ -603,7 +619,10 @@ def test_git_diff_not_a_repo(executor):
 def test_git_create_branch_exception(executor, monkeypatch):
     """Cover exception handler line 2336-2337."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error"))
+    )
     result = executor.execute("git_create_branch", {"name": "test-branch"})
     assert "ERROR" in result
 
@@ -611,7 +630,10 @@ def test_git_create_branch_exception(executor, monkeypatch):
 def test_git_switch_branch_exception(executor, monkeypatch):
     """Cover exception handler line 2344-2345."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error"))
+    )
     result = executor.execute("git_switch_branch", {"name": "main"})
     assert "ERROR" in result
 
@@ -619,7 +641,10 @@ def test_git_switch_branch_exception(executor, monkeypatch):
 def test_git_delete_branch_exception(executor, monkeypatch):
     """Cover exception handler line 2354-2355."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error"))
+    )
     result = executor.execute("git_delete_branch", {"name": "test"})
     assert "ERROR" in result
 
@@ -627,7 +652,10 @@ def test_git_delete_branch_exception(executor, monkeypatch):
 def test_git_list_branches_exception(executor, monkeypatch):
     """Cover exception handler line 2363-2364."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error"))
+    )
     result = executor.execute("git_list_branches", {})
     assert "ERROR" in result
 
@@ -635,7 +663,10 @@ def test_git_list_branches_exception(executor, monkeypatch):
 def test_git_stage_exception(executor, monkeypatch):
     """Cover exception handler line 2444-2445."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error"))
+    )
     result = executor.execute("git_stage", {"files": ["test.txt"]})
     assert "ERROR" in result
 
@@ -643,7 +674,10 @@ def test_git_stage_exception(executor, monkeypatch):
 def test_git_unstage_exception(executor, monkeypatch):
     """Cover exception handler lines 2455-2456."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error"))
+    )
     result = executor.execute("git_unstage", {})
     assert "ERROR" in result
 
@@ -656,7 +690,10 @@ def test_git_commit_not_a_repo(executor):
 def test_git_commit_exception(executor, monkeypatch):
     """Cover exception handler lines 2469-2471."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error"))
+    )
     result = executor.execute("git_commit", {"message": "test"})
     assert "ERROR" in result
 
@@ -664,13 +701,18 @@ def test_git_commit_exception(executor, monkeypatch):
 def test_git_pre_commit_exception(executor, monkeypatch):
     """Cover exception handler line 2609-2610."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("git error"))
+    )
     result = executor.execute("git_pre_commit", {})
     assert "ERROR" in result
 
 
 def test_git_create_pr(executor):
-    result = executor.execute("git_create_pr", {"title": "PR title", "body": "body", "base": "main"})
+    result = executor.execute(
+        "git_create_pr", {"title": "PR title", "body": "body", "base": "main"}
+    )
     assert "PR" in result
 
 
@@ -686,6 +728,7 @@ def test_git_commit_no_message(executor):
 
 # ─── web_search ────────────────────────────────────────────────────────────
 
+
 def test_web_search_no_results(executor, monkeypatch):
     """Cover snippet fallback line 1703 and no results line 1705."""
     import subprocess
@@ -695,6 +738,7 @@ def test_web_search_no_results(executor, monkeypatch):
             stdout = "<html>no results here</html>"
             stderr = ""
             returncode = 0
+
         return FakeResult()
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -706,12 +750,15 @@ def test_web_search_exception(executor, monkeypatch):
     """Cover exception handler line 1706-1707."""
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("no net")))
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("no net"))
+    )
     result = executor.execute("web_search", {"query": "test"})
     assert "ERROR" in result
 
 
 # ─── fetch_url ─────────────────────────────────────────────────────────────
+
 
 def test_fetch_url_success(executor, monkeypatch):
     import subprocess
@@ -721,6 +768,7 @@ def test_fetch_url_success(executor, monkeypatch):
             stdout = "<html><body>Hello World</body></html>"
             stderr = ""
             returncode = 0
+
         return FakeResult()
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -732,21 +780,28 @@ def test_fetch_url_exception(executor, monkeypatch):
     """Cover exception handler line 1727-1728."""
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("curl fail")))
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("curl fail"))
+    )
     result = executor.execute("fetch_url", {"url": "http://example.com"})
     assert "ERROR" in result
 
 
 # ─── get_repo_map ──────────────────────────────────────────────────────────
 
+
 def test_get_repo_map_success(executor, monkeypatch):
     """Cover the active _execute_get_repo_map (line 2228-2232) that calls get_repo_map()."""
-    monkeypatch.setattr("apex.context.get_repo_map", lambda path: "Repository: test\n==========\n[SOURCE]\n  main.py")
+    monkeypatch.setattr(
+        "apex.context.get_repo_map",
+        lambda path: "Repository: test\n==========\n[SOURCE]\n  main.py",
+    )
     result = executor.execute("get_repo_map", {})
     assert "Repository" in result or "main.py" in result
 
 
 # ─── read_image ────────────────────────────────────────────────────────────
+
 
 def test_read_image_not_found(executor):
     result = executor.execute("read_image", {"path": "/nonexistent.png"})
@@ -767,6 +822,7 @@ def test_read_image_exception(executor, tmp_path):
 
 # ─── run_test ──────────────────────────────────────────────────────────────
 
+
 def test_run_test_unknown_framework(executor):
     result = executor.execute("run_test", {"framework": "unknown_fw", "path": "test.py"})
     assert "ERROR" in result
@@ -775,7 +831,9 @@ def test_run_test_unknown_framework(executor):
 def test_run_test_framework_not_found(executor, monkeypatch):
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError())
+    )
     result = executor.execute("run_test", {"framework": "pytest", "path": "test.py"})
     assert "ERROR" in result or "not found" in result
 
@@ -784,7 +842,11 @@ def test_run_test_timeout(executor, monkeypatch):
     """Cover line 1833."""
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(subprocess.TimeoutExpired("pytest", 300)))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **kw: (_ for _ in ()).throw(subprocess.TimeoutExpired("pytest", 300)),
+    )
     result = executor.execute("run_test", {"framework": "pytest", "path": "test.py"})
     assert "timed out" in result.lower()
 
@@ -793,12 +855,15 @@ def test_run_test_exception(executor, monkeypatch):
     """Cover lines 1836-1837."""
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("boom")))
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("boom"))
+    )
     result = executor.execute("run_test", {"framework": "pytest", "path": "test.py"})
     assert "ERROR" in result
 
 
 # ─── format_file ───────────────────────────────────────────────────────────
+
 
 def test_format_file_not_found(executor):
     result = executor.execute("format_file", {"path": "/nonexistent.py"})
@@ -814,6 +879,7 @@ def test_format_file_no_formatter(executor, tmp_path):
 
 def test_format_file_not_installed(executor, tmp_path, monkeypatch):
     import subprocess
+
     f = tmp_path / "file.rs"
     f.write_text("fn main() {}")
 
@@ -828,15 +894,19 @@ def test_format_file_not_installed(executor, tmp_path, monkeypatch):
 def test_format_file_exception(executor, tmp_path, monkeypatch):
     """Cover lines 1877-1878."""
     import subprocess
+
     f = tmp_path / "file.rs"
     f.write_text("fn main() {}")
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("fmt fail")))
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("fmt fail"))
+    )
     result = executor.execute("format_file", {"path": str(f)})
     assert "ERROR" in result
 
 
 # ─── install_package ──────────────────────────────────────────────────────
+
 
 def test_install_package_unknown_manager(executor):
     result = executor.execute("install_package", {"manager": "bogus", "package": "x"})
@@ -846,7 +916,9 @@ def test_install_package_unknown_manager(executor):
 def test_install_package_not_found(executor, monkeypatch):
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError())
+    )
     result = executor.execute("install_package", {"manager": "pip", "package": "nonexistent"})
     assert "ERROR" in result or "not found" in result
 
@@ -854,7 +926,11 @@ def test_install_package_not_found(executor, monkeypatch):
 def test_install_package_timeout(executor, monkeypatch):
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(subprocess.TimeoutExpired("pip", 300)))
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *a, **kw: (_ for _ in ()).throw(subprocess.TimeoutExpired("pip", 300)),
+    )
     result = executor.execute("install_package", {"manager": "pip", "package": "numpy"})
     assert "timed out" in result.lower()
 
@@ -863,29 +939,38 @@ def test_install_package_exception(executor, monkeypatch):
     """Cover lines 1905-1906."""
     import subprocess
 
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("install fail")))
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("install fail"))
+    )
     result = executor.execute("install_package", {"manager": "pip", "package": "numpy"})
     assert "ERROR" in result
 
 
 # ─── preview_edit / apply_edit ────────────────────────────────────────────
 
+
 def test_preview_edit_success(executor, tmp_path):
     f = tmp_path / "preview.txt"
     f.write_text("hello world")
-    result = executor.execute("preview_edit", {"path": str(f), "old_string": "world", "new_string": "there"})
+    result = executor.execute(
+        "preview_edit", {"path": str(f), "old_string": "world", "new_string": "there"}
+    )
     assert "PREVIEW" in result
 
 
 def test_preview_edit_not_found(executor):
-    result = executor.execute("preview_edit", {"path": "/nonexistent", "old_string": "a", "new_string": "b"})
+    result = executor.execute(
+        "preview_edit", {"path": "/nonexistent", "old_string": "a", "new_string": "b"}
+    )
     assert "ERROR" in result
 
 
 def test_preview_edit_string_not_found(executor, tmp_path):
     f = tmp_path / "preview_no_string.txt"
     f.write_text("hello")
-    result = executor.execute("preview_edit", {"path": str(f), "old_string": "zzz", "new_string": "yyy"})
+    result = executor.execute(
+        "preview_edit", {"path": str(f), "old_string": "zzz", "new_string": "yyy"}
+    )
     assert "ERROR" in result
 
 
@@ -895,7 +980,9 @@ def test_preview_edit_exception(executor, tmp_path):
     f.write_text("hello")
     f.chmod(0o222)
     try:
-        result = executor.execute("preview_edit", {"path": str(f), "old_string": "hello", "new_string": "world"})
+        result = executor.execute(
+            "preview_edit", {"path": str(f), "old_string": "hello", "new_string": "world"}
+        )
         assert "ERROR" in result
     finally:
         f.chmod(0o644)
@@ -910,10 +997,11 @@ def test_apply_edit_success(executor, tmp_path):
     """Full preview -> apply workflow."""
     f = tmp_path / "apply_test.txt"
     f.write_text("original text")
-    preview_result = executor.execute("preview_edit", {
-        "path": str(f), "old_string": "original", "new_string": "modified"
-    })
+    preview_result = executor.execute(
+        "preview_edit", {"path": str(f), "old_string": "original", "new_string": "modified"}
+    )
     import re
+
     m = re.search(r"PREVIEW (\w+)", preview_result)
     assert m, f"Could not find preview_id in: {preview_result}"
     preview_id = m.group(1)
@@ -926,10 +1014,11 @@ def test_apply_edit_content_changed(executor, tmp_path):
     """When file content changes between preview and apply."""
     f = tmp_path / "apply_changed.txt"
     f.write_text("original text")
-    preview_result = executor.execute("preview_edit", {
-        "path": str(f), "old_string": "original", "new_string": "modified"
-    })
+    preview_result = executor.execute(
+        "preview_edit", {"path": str(f), "old_string": "original", "new_string": "modified"}
+    )
     import re
+
     m = re.search(r"PREVIEW (\w+)", preview_result)
     assert m
     preview_id = m.group(1)
@@ -943,10 +1032,11 @@ def test_apply_edit_exception(executor, tmp_path):
     f = tmp_path / "apply_exc.txt"
     f.write_text("data")
     # First create a preview
-    preview_result = executor.execute("preview_edit", {
-        "path": str(f), "old_string": "data", "new_string": "changed"
-    })
+    preview_result = executor.execute(
+        "preview_edit", {"path": str(f), "old_string": "data", "new_string": "changed"}
+    )
     import re
+
     m = re.search(r"PREVIEW (\w+)", preview_result)
     assert m
     preview_id = m.group(1)
@@ -961,6 +1051,7 @@ def test_apply_edit_exception(executor, tmp_path):
 
 # ─── clipboard_read ────────────────────────────────────────────────────────
 
+
 def test_clipboard_read_pyperclip(executor, monkeypatch):
     """Cover pyperclip path."""
     # Test that read works (will hit xclip fallback since pyperclip likely missing)
@@ -971,12 +1062,16 @@ def test_clipboard_read_pyperclip(executor, monkeypatch):
 def test_clipboard_read_exception(executor, monkeypatch):
     """Cover main exception handler line 1995-1996."""
     import subprocess
+
     _original_run = subprocess.run
+
     def fake_run(*a, **kw):
         raise Exception("xclip fail")
+
     monkeypatch.setattr(subprocess, "run", fake_run)
     # Make pyperclip import fail
     import sys
+
     if "pyperclip" in sys.modules:
         del sys.modules["pyperclip"]
     result = executor.execute("clipboard_read", {})
@@ -984,6 +1079,7 @@ def test_clipboard_read_exception(executor, monkeypatch):
 
 
 # ─── clipboard_write ──────────────────────────────────────────────────────
+
 
 def test_clipboard_write_success_pyperclip(executor, monkeypatch):
     """Cover pyperclip path lines 2000-2004."""
@@ -995,10 +1091,13 @@ def test_clipboard_write_success_pyperclip(executor, monkeypatch):
 def test_clipboard_write_exception(executor, monkeypatch):
     """Cover exception handler line 2014-2015."""
     import subprocess
+
     def fake_run(*a, **kw):
         raise Exception("xclip fail")
+
     monkeypatch.setattr(subprocess, "run", fake_run)
     import sys
+
     if "pyperclip" in sys.modules:
         del sys.modules["pyperclip"]
     result = executor.execute("clipboard_write", {"text": "test"})
@@ -1006,6 +1105,7 @@ def test_clipboard_write_exception(executor, monkeypatch):
 
 
 # ─── ask_user / run_code / bookmark / restore_bookmark ────────────────────
+
 
 def test_ask_user(executor):
     result = executor.execute("ask_user", {"question": "Are you sure?"})
@@ -1026,11 +1126,14 @@ def test_run_code(executor, monkeypatch):
 
 def test_bookmark_session(executor, monkeypatch):
     """Test bookmark_session (lines 2031-2041) and restore_bookmark (lines 2043-2052)."""
+
     class FakeConvManager:
         def __init__(self):
             pass
+
         def bookmark(self, name):
             pass
+
         def restore_bookmark(self, name):
             return ["msg1", "msg2"] if name == "my_bm" else None
 
@@ -1044,11 +1147,14 @@ def test_bookmark_session(executor, monkeypatch):
 
 def test_restore_bookmark_not_found(executor, monkeypatch):
     """Cover line 2051."""
+
     class FakeConvManager:
         def __init__(self):
             pass
+
         def bookmark(self, name):
             pass
+
         def restore_bookmark(self, name):
             return None
 
@@ -1069,6 +1175,7 @@ def test_get_conversation_stats_no_conversation(executor):
 
 def test_get_conversation_stats_with_data(executor, monkeypatch):
     """Cover lines 2078-2079."""
+
     class FakeConvManager:
         def get_stats(self):
             return {"message_count": 5, "bookmarks": 2, "roles": {"user": 3, "assistant": 2}}
@@ -1082,6 +1189,7 @@ def test_get_conversation_stats_with_data(executor, monkeypatch):
 
 # ─── undo / redo ──────────────────────────────────────────────────────────
 
+
 def test_undo_not_available(executor):
     result = executor.execute("undo", {})
     assert "ERROR" in result
@@ -1089,6 +1197,7 @@ def test_undo_not_available(executor):
 
 def test_undo_success(executor, monkeypatch):
     """Cover lines 2085-2088."""
+
     class FakeUndo:
         def undo(self):
             return {"type": "edit_file", "details": {"path": "test.txt"}}
@@ -1097,6 +1206,7 @@ def test_undo_success(executor, monkeypatch):
     class UM:
         def undo(self):
             return {"type": "edit_file", "details": {"path": "test.txt"}}
+
     executor._undo_manager = UM()
     result = executor.execute("undo", {})
     assert "UNDONE" in result or "ERROR" in result
@@ -1104,9 +1214,11 @@ def test_undo_success(executor, monkeypatch):
 
 def test_undo_nothing(executor, monkeypatch):
     """Cover line 2086-2087."""
+
     class UM:
         def undo(self):
             return None
+
     executor._undo_manager = UM()
     result = executor.execute("undo", {})
     assert "ERROR" in result or "Nothing" in result
@@ -1124,11 +1236,14 @@ def test_undo_info_not_available(executor):
 
 def test_undo_info_available(executor, monkeypatch):
     """Cover lines 2103-2105."""
+
     class UM:
         def can_undo(self):
             return True
+
         def get_undo_description(self):
             return "Edited test.txt"
+
     executor._undo_manager = UM()
     result = executor.execute("undo_info", {})
     assert "True" in result or "undo" in result.lower()
@@ -1141,17 +1256,21 @@ def test_redo_info_not_available(executor):
 
 def test_redo_info_available(executor, monkeypatch):
     """Cover lines 2111-2113."""
+
     class UM:
         def can_redo(self):
             return True
+
         def get_redo_description(self):
             return "Redo edit"
+
     executor._undo_manager = UM()
     result = executor.execute("redo_info", {})
     assert "True" in result or "redo" in result.lower()
 
 
 # ─── share_session ────────────────────────────────────────────────────────
+
 
 def test_share_session_no_agent(executor):
     result = executor.execute("share_session", {})
@@ -1175,10 +1294,14 @@ def test_share_session_success(executor, monkeypatch):
 
 # ─── apply_patch ──────────────────────────────────────────────────────────
 
+
 def test_apply_patch_not_installed(executor, monkeypatch):
     """Cover FileNotFoundError line 2141-2142."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError())
+    )
     result = executor.execute("apply_patch", {"patch": "diff"})
     assert "ERROR" in result or "not found" in result
 
@@ -1186,15 +1309,20 @@ def test_apply_patch_not_installed(executor, monkeypatch):
 def test_apply_patch_exception(executor, monkeypatch):
     """Cover lines 2143-2144."""
     import subprocess
-    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("patch fail")))
+
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(Exception("patch fail"))
+    )
     result = executor.execute("apply_patch", {"patch": "diff"})
     assert "ERROR" in result
 
 
 # ─── list_commands / run_command_custom ──────────────────────────────────
 
+
 def test_list_commands_empty(executor, monkeypatch):
     """When no commands available (no .apex/commands dir)."""
+
     class FakeCM:
         def list_commands(self):
             return []
@@ -1206,6 +1334,7 @@ def test_list_commands_empty(executor, monkeypatch):
 
 def test_list_commands_with_cmds(executor, monkeypatch):
     """Cover lines 2149-2156."""
+
     class FakeCM:
         def list_commands(self):
             return [{"name": "test", "description": "A test command"}]
@@ -1217,6 +1346,7 @@ def test_list_commands_with_cmds(executor, monkeypatch):
 
 def test_run_command_custom_not_found(executor, monkeypatch):
     """Cover line 2166."""
+
     class FakeCM:
         def execute(self, name, **args):
             return None
@@ -1228,6 +1358,7 @@ def test_run_command_custom_not_found(executor, monkeypatch):
 
 def test_run_command_custom_success(executor, monkeypatch):
     """Cover lines 2161-2167."""
+
     class FakeCM:
         def execute(self, name, **args):
             return "Command executed successfully"
@@ -1239,6 +1370,7 @@ def test_run_command_custom_success(executor, monkeypatch):
 
 # ─── plan_approve / plan_reject ──────────────────────────────────────────
 
+
 def test_plan_approve_no_plan(executor):
     result = executor.execute("plan_approve", {})
     assert "ERROR" in result
@@ -1246,9 +1378,11 @@ def test_plan_approve_no_plan(executor):
 
 def test_plan_approve_success(executor):
     """Cover lines 2217-2218."""
+
     class FakePlan:
         def approve(self):
             pass
+
     executor._plan_approval = FakePlan()
     result = executor.execute("plan_approve", {})
     assert "APPROVED" in result
@@ -1261,9 +1395,11 @@ def test_plan_reject_no_plan(executor):
 
 def test_plan_reject_success(executor):
     """Cover lines 2224-2226."""
+
     class FakePlan:
         def reject(self):
             pass
+
     executor._plan_approval = FakePlan()
     result = executor.execute("plan_reject", {"reason": "bad plan"})
     assert "REJECTED" in result
@@ -1271,8 +1407,10 @@ def test_plan_reject_success(executor):
 
 # ─── init_project ─────────────────────────────────────────────────────────
 
+
 def test_init_project_exception(executor, monkeypatch):
     """Cover lines 2241-2242."""
+
     class FakePI:
         def create_context_file(self):
             raise Exception("init failed")
@@ -1284,8 +1422,10 @@ def test_init_project_exception(executor, monkeypatch):
 
 # ─── get_code_actions ────────────────────────────────────────────────────
 
+
 def test_get_code_actions_no_diagnostics(executor, monkeypatch):
     """When LSP returns no diagnostics."""
+
     class FakeLSP:
         def call_tool(self, name, args):
             return {}
@@ -1297,6 +1437,7 @@ def test_get_code_actions_no_diagnostics(executor, monkeypatch):
 
 def test_get_code_actions_with_diagnostics(executor, monkeypatch):
     """Cover lines 2271-2275."""
+
     class FakeLSP:
         def call_tool(self, name, args):
             return {"diagnostics": [{"message": "Type mismatch"}, {"message": "Unused var"}]}
@@ -1313,13 +1454,17 @@ def test_apply_code_action(executor):
 
 # ─── start_shell / run_shell / close_shell ──────────────────────────────
 
+
 def test_start_shell_not_available(executor, monkeypatch):
     """Cover line 2289-2290 (ShellSession fails to start)."""
+
     class FakeShell:
         def start(self, shell="bash"):
             return False
+
         def run(self, cmd):
             return "output"
+
         def close(self):
             pass
 
@@ -1335,11 +1480,14 @@ def test_run_shell_no_session(executor):
 
 def test_run_shell_success(executor, monkeypatch):
     """Cover lines 2297-2300."""
+
     class FakeShell:
         def start(self, shell="bash"):
             return True
+
         def run(self, cmd):
             return "ran: " + cmd
+
         def close(self):
             pass
 
@@ -1351,11 +1499,14 @@ def test_run_shell_success(executor, monkeypatch):
 
 def test_run_shell_exception(executor, monkeypatch):
     """Cover line 2299-2300 exception handler."""
+
     class FakeShell:
         def start(self, shell="bash"):
             return True
+
         def run(self, cmd):
             raise Exception("shell error")
+
         def close(self):
             pass
 
@@ -1372,11 +1523,14 @@ def test_close_shell_no_session(executor):
 
 def test_close_shell_success(executor, monkeypatch):
     """Cover lines 2304-2306."""
+
     class FakeShell:
         def start(self, shell="bash"):
             return True
+
         def run(self, cmd):
             return "x"
+
         def close(self):
             pass
 
@@ -1387,6 +1541,7 @@ def test_close_shell_success(executor, monkeypatch):
 
 
 # ─── select_files ─────────────────────────────────────────────────────────
+
 
 def test_select_files_no_patterns(executor):
     result = executor.execute("select_files", {})
@@ -1408,6 +1563,7 @@ def test_select_files_matches(executor, tmp_path):
 
 # ─── get_completions ─────────────────────────────────────────────────────
 
+
 def test_get_completions_type_agent(executor):
     """Cover line 2390."""
     result = executor.execute("get_completions", {"type": "agent", "prefix": ""})
@@ -1428,6 +1584,7 @@ def test_get_completions_unknown(executor):
 
 # ─── read_image_data ────────────────────────────────────────────────────
 
+
 def test_read_image_data_not_found(executor):
     result = executor.execute("read_image_data", {"path": "/nonexistent"})
     assert "ERROR" in result
@@ -1447,6 +1604,7 @@ def test_read_image_data_exception(executor, tmp_path):
 
 # ─── inline_edit ─────────────────────────────────────────────────────────
 
+
 def test_inline_edit_not_found(executor):
     result = executor.execute("inline_edit", {"path": "/nonexistent", "line": 1, "content": "new"})
     assert "ERROR" in result
@@ -1463,7 +1621,9 @@ def test_inline_edit_success(executor, tmp_path):
 def test_inline_edit_replace_multiple(executor, tmp_path):
     f = tmp_path / "inline_multi.txt"
     f.write_text("a\nb\nc\nd")
-    result = executor.execute("inline_edit", {"path": str(f), "line": 2, "content": "X\nY", "replace": 2})
+    result = executor.execute(
+        "inline_edit", {"path": str(f), "line": 2, "content": "X\nY", "replace": 2}
+    )
     assert "SUCCESS" in result
     assert f.read_text() == "a\nX\nY\nd"
 
@@ -1482,6 +1642,7 @@ def test_inline_edit_exception(executor, tmp_path):
 
 # ─── retry_last ──────────────────────────────────────────────────────────
 
+
 def test_retry_last_no_previous(executor):
     result = executor.execute("retry_last", {})
     assert "ERROR" in result
@@ -1491,7 +1652,9 @@ def test_retry_last_success(executor, tmp_path):
     """Cover line 2434."""
     f = tmp_path / "retry.txt"
     f.write_text("original")
-    executor.execute("edit_file", {"path": str(f), "old_string": "original", "new_string": "changed"})
+    executor.execute(
+        "edit_file", {"path": str(f), "old_string": "original", "new_string": "changed"}
+    )
     executor._last_tool = "edit_file"
     executor._last_args = {"path": str(f), "old_string": "changed", "new_string": "final"}
     result = executor.execute("retry_last", {})
@@ -1499,6 +1662,7 @@ def test_retry_last_success(executor, tmp_path):
 
 
 # ─── list_skills / use_skill ──────────────────────────────────────────────
+
 
 def test_list_skills_empty(executor, monkeypatch):
     class FakeSM:
@@ -1512,6 +1676,7 @@ def test_list_skills_empty(executor, monkeypatch):
 
 def test_list_skills_with_skills(executor, monkeypatch):
     """Cover lines 2480-2483."""
+
     class FakeSM:
         def list_skills(self):
             return [{"name": "test-skill", "description": "A test"}]
@@ -1523,6 +1688,7 @@ def test_list_skills_with_skills(executor, monkeypatch):
 
 def test_use_skill_not_found(executor, monkeypatch):
     """Cover line 2493-2494."""
+
     class FakeSM:
         def render(self, name, **args):
             return None
@@ -1534,6 +1700,7 @@ def test_use_skill_not_found(executor, monkeypatch):
 
 def test_use_skill_success(executor, monkeypatch):
     """Cover line 2494."""
+
     class FakeSM:
         def render(self, name, **args):
             return "Skill output"
@@ -1545,45 +1712,58 @@ def test_use_skill_success(executor, monkeypatch):
 
 # ─── replace_in_files ────────────────────────────────────────────────────
 
+
 def test_replace_in_files_error(executor, monkeypatch):
     """Cover line 2506-2507."""
+
     class FakeSR:
         def replace_in_files(self, pattern, replacement, files, dry_run):
             return {"error": "Pattern not found"}
 
     monkeypatch.setattr("apex.skills.SearchReplace", lambda cwd: FakeSR())
-    result = executor.execute("replace_in_files", {"pattern": "old", "replacement": "new", "files": ["*.txt"]})
+    result = executor.execute(
+        "replace_in_files", {"pattern": "old", "replacement": "new", "files": ["*.txt"]}
+    )
     assert "Pattern not found" in result
 
 
 def test_replace_in_files_dry_run(executor, monkeypatch):
     """Cover lines 2506-2515."""
+
     class FakeSR:
         def replace_in_files(self, pattern, replacement, files, dry_run):
             return {"replacements": 3, "files_modified": ["a.txt", "b.txt"]}
 
     monkeypatch.setattr("apex.skills.SearchReplace", lambda cwd: FakeSR())
-    result = executor.execute("replace_in_files", {"pattern": "old", "replacement": "new", "files": ["*.txt"]})
+    result = executor.execute(
+        "replace_in_files", {"pattern": "old", "replacement": "new", "files": ["*.txt"]}
+    )
     assert "3 replacements" in result
     assert "DRY RUN" in result
 
 
 def test_replace_in_files_apply(executor, monkeypatch):
     """Cover non-dry-run path."""
+
     class FakeSR:
         def replace_in_files(self, pattern, replacement, files, dry_run):
             return {"replacements": 1, "files_modified": ["a.txt"]}
 
     monkeypatch.setattr("apex.skills.SearchReplace", lambda cwd: FakeSR())
-    result = executor.execute("replace_in_files", {"pattern": "old", "replacement": "new", "files": ["*.txt"], "dry_run": False})
+    result = executor.execute(
+        "replace_in_files",
+        {"pattern": "old", "replacement": "new", "files": ["*.txt"], "dry_run": False},
+    )
     assert "1 replacements" in result
     assert "DRY RUN" not in result
 
 
 # ─── analyze_code ────────────────────────────────────────────────────────
 
+
 def test_analyze_code_error(executor, monkeypatch):
     """Cover line 2525."""
+
     class FakeCA:
         def analyze_file(self, path):
             return {"error": "File not found"}
@@ -1594,6 +1774,7 @@ def test_analyze_code_error(executor, monkeypatch):
 
 
 # ─── explain_code ────────────────────────────────────────────────────────
+
 
 def test_explain_code(executor, monkeypatch):
     class FakeCA:
@@ -1607,8 +1788,10 @@ def test_explain_code(executor, monkeypatch):
 
 # ─── generate_tests ──────────────────────────────────────────────────────
 
+
 def test_generate_tests_error(executor, monkeypatch):
     """Cover line 2565."""
+
     class FakeCA:
         def analyze_file(self, path):
             return {"error": "File not found"}
@@ -1620,6 +1803,7 @@ def test_generate_tests_error(executor, monkeypatch):
 
 def test_generate_tests_no_functions(executor, monkeypatch):
     """Cover line 2569."""
+
     class FakeCA:
         def analyze_file(self, path):
             return {"functions": []}
@@ -1631,6 +1815,7 @@ def test_generate_tests_no_functions(executor, monkeypatch):
 
 def test_generate_tests_pytest(executor, monkeypatch):
     """Cover pytest path."""
+
     class FakeCA:
         def analyze_file(self, path):
             return {"functions": [{"name": "foo"}, {"name": "bar"}]}
@@ -1643,6 +1828,7 @@ def test_generate_tests_pytest(executor, monkeypatch):
 
 def test_generate_tests_jest(executor, monkeypatch):
     """Cover jest/framework path."""
+
     class FakeCA:
         def analyze_file(self, path):
             return {"functions": [{"name": "foo"}]}
@@ -1653,6 +1839,7 @@ def test_generate_tests_jest(executor, monkeypatch):
 
 
 # ─── get_keybindings / set_theme ─────────────────────────────────────────
+
 
 def test_get_keybindings(executor):
     result = executor.execute("get_keybindings", {})
@@ -1671,12 +1858,14 @@ def test_set_theme_valid(executor):
 
 # ─── add_git_hook ────────────────────────────────────────────────────────
 
+
 def test_add_git_hook_not_repo(executor):
     result = executor.execute("add_git_hook", {"hook": "pre-commit", "command": "echo test"})
     assert "ERROR" in result
 
 
 # ─── batch_read / batch_write ───────────────────────────────────────────
+
 
 def test_batch_read_no_paths(executor):
     result = executor.execute("batch_read", {"paths": []})
@@ -1690,10 +1879,14 @@ def test_batch_write_no_operations(executor):
 
 def test_batch_write_success(executor, monkeypatch):
     """Cover lines 2674-2678."""
+
     class FakeBO:
         @staticmethod
         def batch_write(operations, cwd):
-            return {"success": ["a.txt", "b.txt"], "failed": [{"path": "c.txt", "error": "perm denied"}]}
+            return {
+                "success": ["a.txt", "b.txt"],
+                "failed": [{"path": "c.txt", "error": "perm denied"}],
+            }
 
     monkeypatch.setattr("apex.advanced.BatchOperation", FakeBO)
     result = executor.execute("batch_write", {"operations": [{"path": "a.txt", "content": "x"}]})
@@ -1703,20 +1896,26 @@ def test_batch_write_success(executor, monkeypatch):
 
 # ─── retry_tool ─────────────────────────────────────────────────────────
 
+
 def test_retry_tool_error(executor, monkeypatch):
     """Cover lines 2695-2696."""
+
     class FakeRH:
         class config:
             max_retries = 3
+
         def execute(self, fn, name, args):
             raise Exception("retry exhausted")
 
     monkeypatch.setattr("apex.advanced.get_retry_handler", lambda: FakeRH())
-    result = executor.execute("retry_tool", {"tool": "read_file", "args": {"path": "/nonexistent"}, "retries": 2})
+    result = executor.execute(
+        "retry_tool", {"tool": "read_file", "args": {"path": "/nonexistent"}, "retries": 2}
+    )
     assert "ERROR" in result
 
 
 # ─── get_tool_timeout / set_tool_timeout / clear_file_cache ────────────
+
 
 def test_get_tool_timeout(executor, monkeypatch):
     class FakeTT:
@@ -1731,6 +1930,7 @@ def test_get_tool_timeout(executor, monkeypatch):
 
 def test_set_tool_timeout(executor, monkeypatch):
     calls = []
+
     class FakeTT:
         @staticmethod
         def set_timeout(tool, timeout):
@@ -1744,6 +1944,7 @@ def test_set_tool_timeout(executor, monkeypatch):
 
 def test_clear_file_cache(executor, monkeypatch):
     cleared = []
+
     class FakeCache:
         def clear(self):
             cleared.append(True)
@@ -1756,6 +1957,7 @@ def test_clear_file_cache(executor, monkeypatch):
 
 # ─── get_context_info ───────────────────────────────────────────────────
 
+
 def test_get_context_info_no_agent(executor):
     result = executor.execute("get_context_info", {})
     assert "No agent" in result or isinstance(result, str)
@@ -1763,6 +1965,7 @@ def test_get_context_info_no_agent(executor):
 
 def test_get_context_info_success(executor, monkeypatch):
     """Cover lines 2727-2735."""
+
     class FakeCO:
         @staticmethod
         def extract_key_info(messages):
@@ -1770,9 +1973,11 @@ def test_get_context_info_success(executor, monkeypatch):
 
     monkeypatch.setattr("apex.advanced.ContextOptimizer", FakeCO)
     executor._agent = lambda: None
+
     # Need agent with history
     class FakeAgent:
         history = ["msg1", "msg2"]
+
     executor._agent = FakeAgent()
     result = executor.execute("get_context_info", {})
     assert "a.py" in result
@@ -1781,13 +1986,17 @@ def test_get_context_info_success(executor, monkeypatch):
 
 # ─── start_file_watch / stop_file_watch ─────────────────────────────────
 
+
 def test_start_file_watch_fail(executor, monkeypatch):
     """Cover line 2748."""
+
     class FakeFW:
         def __init__(self, cwd):
             pass
+
         def watch(self, patterns=None):
             return None
+
         def stop(self):
             pass
 
@@ -1803,13 +2012,17 @@ def test_stop_file_watch_not_running(executor):
 
 def test_stop_file_watch_success(executor, monkeypatch):
     stopped = []
+
     class FakeFW:
         def __init__(self, cwd):
             pass
+
         def watch(self, patterns=None):
             return object()
+
         def stop(self):
             stopped.append(True)
+
     monkeypatch.setattr("apex.project.FileWatcher", FakeFW)
     executor.execute("start_file_watch", {})
     result = executor.execute("stop_file_watch", {})
@@ -1818,6 +2031,7 @@ def test_stop_file_watch_success(executor, monkeypatch):
 
 
 # ─── expand_vars / get_env / set_env / list_env ─────────────────────────
+
 
 def test_expand_vars(executor, monkeypatch):
     class FakeSE:
@@ -1834,6 +2048,7 @@ def test_get_env_not_found(executor, monkeypatch):
     class FakeEM:
         def get(self, key):
             return None
+
     monkeypatch.setattr("apex.extras.get_env_manager", lambda cwd: FakeEM())
     result = executor.execute("get_env", {"key": "NONEXISTENT"})
     assert "ERROR" in result
@@ -1843,6 +2058,7 @@ def test_get_env_found(executor, monkeypatch):
     class FakeEM:
         def get(self, key):
             return "value123"
+
     monkeypatch.setattr("apex.extras.get_env_manager", lambda cwd: FakeEM())
     result = executor.execute("get_env", {"key": "MY_VAR"})
     assert "MY_VAR=value123" in result
@@ -1853,6 +2069,7 @@ def test_set_env(executor, monkeypatch):
         def set(self, key, value):
             self._key = key
             self._value = value
+
     monkeypatch.setattr("apex.extras.get_env_manager", lambda cwd: FakeEM())
     result = executor.execute("set_env", {"key": "FOO", "value": "bar"})
     assert "SUCCESS" in result
@@ -1862,6 +2079,7 @@ def test_list_env(executor, monkeypatch):
     class FakeEM:
         def list(self):
             return {"A": "1", "B": "2"}
+
     monkeypatch.setattr("apex.extras.get_env_manager", lambda cwd: FakeEM())
     result = executor.execute("list_env", {})
     assert "A=1" in result
@@ -1870,9 +2088,11 @@ def test_list_env(executor, monkeypatch):
 
 # ─── submit_task / list_tasks / get_task ────────────────────────────────
 
+
 def test_submit_task(executor, monkeypatch):
     """Cover lines 2791-2809."""
     tasks = []
+
     class FakeQueue:
         async def add(self, name, coro):
             tasks.append(name)
@@ -1887,6 +2107,7 @@ def test_list_tasks_empty(executor, monkeypatch):
     class FakeQueue:
         def list(self):
             return []
+
     monkeypatch.setattr("apex.extras.get_task_queue", lambda: FakeQueue())
     result = executor.execute("list_tasks", {})
     assert "No tasks" in result
@@ -1894,9 +2115,11 @@ def test_list_tasks_empty(executor, monkeypatch):
 
 def test_list_tasks_with_tasks(executor, monkeypatch):
     """Cover lines 2818-2821."""
+
     class FakeQueue:
         def list(self):
             return [{"id": "t1", "name": "build", "status": "running"}]
+
     monkeypatch.setattr("apex.extras.get_task_queue", lambda: FakeQueue())
     result = executor.execute("list_tasks", {})
     assert "t1" in result
@@ -1905,9 +2128,11 @@ def test_list_tasks_with_tasks(executor, monkeypatch):
 
 def test_get_task_not_found(executor, monkeypatch):
     """Cover line 2830."""
+
     class FakeQueue:
         def get(self, task_id):
             return None
+
     monkeypatch.setattr("apex.extras.get_task_queue", lambda: FakeQueue())
     result = executor.execute("get_task", {"task_id": "nonexistent"})
     assert "ERROR" in result
@@ -1915,14 +2140,17 @@ def test_get_task_not_found(executor, monkeypatch):
 
 def test_get_task_found(executor, monkeypatch):
     """Cover line 2831."""
+
     class FakeTask:
         name = "build"
         status = "done"
         result = "success"
         error = None
+
     class FakeQueue:
         def get(self, task_id):
             return FakeTask()
+
     monkeypatch.setattr("apex.extras.get_task_queue", lambda: FakeQueue())
     result = executor.execute("get_task", {"task_id": "t1"})
     assert "build" in result
@@ -1931,12 +2159,15 @@ def test_get_task_found(executor, monkeypatch):
 
 # ─── validate_workspace ────────────────────────────────────────────────
 
+
 def test_validate_workspace(executor, monkeypatch):
     class FakeWV:
         def __init__(self, cwd):
             pass
+
         def validate_config(self):
             return {"valid": True, "issues": []}
+
     monkeypatch.setattr("apex.extras.WorkspaceValidator", FakeWV)
     result = executor.execute("validate_workspace", {})
     assert "Valid: True" in result
@@ -1946,8 +2177,10 @@ def test_validate_workspace_with_issues(executor, monkeypatch):
     class FakeWV:
         def __init__(self, cwd):
             pass
+
         def validate_config(self):
             return {"valid": False, "issues": ["Missing config.json"]}
+
     monkeypatch.setattr("apex.extras.WorkspaceValidator", FakeWV)
     result = executor.execute("validate_workspace", {})
     assert "Valid: False" in result
@@ -1956,19 +2189,26 @@ def test_validate_workspace_with_issues(executor, monkeypatch):
 
 # ─── security_audit ─────────────────────────────────────────────────────
 
+
 def test_security_audit_project(executor, monkeypatch):
     """Cover lines 2875-2884."""
     _issues_captured = []
+
     class FakeSA:
         def __init__(self, cwd):
             pass
+
         def audit_project(self):
             return {
                 "files": [{"path": "main.py", "issues": [{"message": "Hardcoded secret"}]}],
-                "total_issues": 1
+                "total_issues": 1,
             }
+
         def audit_file(self, path):
-            return {"files": [{"path": str(path), "issues": [{"message": "Injection risk"}]}], "total_issues": 1}
+            return {
+                "files": [{"path": str(path), "issues": [{"message": "Injection risk"}]}],
+                "total_issues": 1,
+            }
 
     monkeypatch.setattr("apex.extras.SecurityAuditor", FakeSA)
     result = executor.execute("security_audit", {})
@@ -1978,11 +2218,14 @@ def test_security_audit_project(executor, monkeypatch):
 
 def test_security_audit_file_path(executor, monkeypatch):
     """Cover audit_file path (line 2871)."""
+
     class FakeSA:
         def __init__(self, cwd):
             pass
+
         def audit_file(self, path):
             return {"issues": "Found 2 issues"}
+
         def audit_project(self):
             return {"files": [], "total_issues": 0}
 
@@ -1993,11 +2236,14 @@ def test_security_audit_file_path(executor, monkeypatch):
 
 # ─── refactor_code ──────────────────────────────────────────────────────
 
+
 def test_refactor_code_error(executor, monkeypatch):
     """Cover error path."""
+
     class FakeCR:
         def __init__(self, cwd):
             pass
+
         def refactor_function(self, path, function, style):
             return {"error": "Function not found"}
 
@@ -2008,28 +2254,36 @@ def test_refactor_code_error(executor, monkeypatch):
 
 def test_refactor_code_success(executor, monkeypatch):
     """Cover line 2898."""
+
     class FakeCR:
         def __init__(self, cwd):
             pass
+
         def refactor_function(self, path, function, style):
             return {"success": True}
 
     monkeypatch.setattr("apex.codegen.CodeRefactorer", FakeCR)
-    result = executor.execute("refactor_code", {"path": "test.py", "function": "foo", "style": "async"})
+    result = executor.execute(
+        "refactor_code", {"path": "test.py", "function": "foo", "style": "async"}
+    )
     assert "SUCCESS" in result
 
 
 # ─── generate_db_model / generate_dockerfile / etc ──────────────────────
 
+
 def test_generate_db_model(executor, monkeypatch):
     class FakeDM:
         def __init__(self, cwd):
             pass
+
         def generate_model(self, table, columns):
             return "class User: pass"
 
     monkeypatch.setattr("apex.codegen.DatabaseManager", FakeDM)
-    result = executor.execute("generate_db_model", {"table": "users", "columns": [{"name": "id", "type": "int"}]})
+    result = executor.execute(
+        "generate_db_model", {"table": "users", "columns": [{"name": "id", "type": "int"}]}
+    )
     assert "class User" in result or "Generated" in result
 
 
@@ -2037,8 +2291,10 @@ def test_generate_dockerfile(executor, monkeypatch):
     class FakeDM:
         def __init__(self, cwd):
             pass
+
         def generate_dockerfile(self, language):
             return "FROM python:3.11"
+
         def generate_docker_compose(self, services):
             return "services:"
 
@@ -2051,13 +2307,17 @@ def test_generate_docker_compose(executor, monkeypatch):
     class FakeDM:
         def __init__(self, cwd):
             pass
+
         def generate_dockerfile(self, language):
             return ""
+
         def generate_docker_compose(self, services):
             return "services:\n  web:"
 
     monkeypatch.setattr("apex.codegen.DockerManager", FakeDM)
-    result = executor.execute("generate_docker_compose", {"services": [{"name": "web", "image": "nginx"}]})
+    result = executor.execute(
+        "generate_docker_compose", {"services": [{"name": "web", "image": "nginx"}]}
+    )
     assert "services" in result
 
 
@@ -2065,6 +2325,7 @@ def test_generate_api_client(executor, monkeypatch):
     class FakeACG:
         def __init__(self, cwd):
             pass
+
         def generate_from_openapi(self, spec):
             return "import requests"
 
@@ -2077,10 +2338,13 @@ def test_generate_docs_readme(executor, monkeypatch):
     class FakeDG:
         def __init__(self, cwd):
             pass
+
         def generate_readme(self):
             return "# My Project"
+
         def generate_api_docs(self, path):
             return "## API"
+
         def generate_markdoc(self):
             return "markdoc"
 
@@ -2091,13 +2355,17 @@ def test_generate_docs_readme(executor, monkeypatch):
 
 def test_generate_docs_api(executor, monkeypatch):
     """Cover line 2948."""
+
     class FakeDG:
         def __init__(self, cwd):
             pass
+
         def generate_readme(self):
             return ""
+
         def generate_api_docs(self, path):
             return "## API Docs"
+
         def generate_markdoc(self):
             return ""
 
@@ -2110,6 +2378,7 @@ def test_generate_docs_invalid(executor, monkeypatch):
     class FakeDG:
         def __init__(self, cwd):
             pass
+
     monkeypatch.setattr("apex.codegen.DocumentationGenerator", lambda cwd: FakeDG())
     result = executor.execute("generate_docs", {"type": "invalid_type"})
     assert "ERROR" in result
@@ -2117,13 +2386,17 @@ def test_generate_docs_invalid(executor, monkeypatch):
 
 # ─── profile_code ───────────────────────────────────────────────────────
 
+
 def test_profile_code_error(executor, monkeypatch):
     """Cover line 2963."""
+
     class FakePP:
         def __init__(self, cwd):
             pass
+
         def profile_file(self, path):
             return {"error": "File not found"}
+
         def suggest_optimizations(self, path):
             return []
 
@@ -2136,8 +2409,16 @@ def test_profile_code_success(executor, monkeypatch):
     class FakePP:
         def __init__(self, cwd):
             pass
+
         def profile_file(self, path):
-            return {"lines": 50, "functions": 3, "classes": 1, "imports": 5, "complexity_score": 2.5}
+            return {
+                "lines": 50,
+                "functions": 3,
+                "classes": 1,
+                "imports": 5,
+                "complexity_score": 2.5,
+            }
+
         def suggest_optimizations(self, path):
             return []
 
@@ -2151,8 +2432,10 @@ def test_optimize_code(executor, monkeypatch):
     class FakePP:
         def __init__(self, cwd):
             pass
+
         def profile_file(self, path):
             return {}
+
         def suggest_optimizations(self, path):
             return ["Use list comprehension", "Add type hints"]
 
@@ -2163,10 +2446,12 @@ def test_optimize_code(executor, monkeypatch):
 
 # ─── search_history (second definition in extras) ───────────────────────
 
+
 def test_search_history_extras_no_results(executor, monkeypatch):
     class FakeHS:
         def search(self, query, fuzzy=True):
             return []
+
         def fuzzy_match(self, query):
             return []
 
@@ -2177,9 +2462,11 @@ def test_search_history_extras_no_results(executor, monkeypatch):
 
 def test_search_history_extras_with_results(executor, monkeypatch):
     """Cover lines 2844-2848."""
+
     class FakeHS:
         def search(self, query, fuzzy=True):
             return [{"query": "how to write tests", "similarity": 0.95}]
+
         def fuzzy_match(self, query):
             return []
 
@@ -2190,10 +2477,12 @@ def test_search_history_extras_with_results(executor, monkeypatch):
 
 # ─── AsyncToolExecutor ──────────────────────────────────────────────────
 
+
 def test_async_executor_unknown_tool():
     """Test AsyncToolExecutor.execute_async with unknown tool (line ~2991)."""
     e = __import__("apex.tools", fromlist=["AsyncToolExecutor"]).AsyncToolExecutor()
     import asyncio
+
     result = asyncio.run(e.execute_async("nonexistent_tool", {}))
     assert "ERROR" in result
 
@@ -2202,6 +2491,7 @@ def test_async_executor_sync_method():
     """Cover line 2995 - sync method path."""
     e = __import__("apex.tools", fromlist=["AsyncToolExecutor"]).AsyncToolExecutor()
     import asyncio
+
     result = asyncio.run(e.execute_async("get_keybindings", {}))
     assert "Tab" in result
 
@@ -2210,11 +2500,13 @@ def test_async_executor_exception():
     """Cover lines 2996-2997 - exception handler."""
     e = __import__("apex.tools", fromlist=["AsyncToolExecutor"]).AsyncToolExecutor()
     import asyncio
+
     result = asyncio.run(e.execute_async("read_file", {"path": str(Path.cwd())}))
     assert "ERROR" in result or "Is a directory" in result or "Permission" in result
 
 
 # ─── Task tool delegating ───────────────────────────────────────────────
+
 
 def test_task_unknown_agent(executor):
     result = executor.execute("task", {"agent": "nonexistent_agent", "task": "do something"})

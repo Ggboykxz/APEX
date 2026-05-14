@@ -276,9 +276,7 @@ class TestLoadAll:
         _pop_cfg()
         mock_file = MagicMock(spec=Path)
         mock_file.stem = "global-cmd"
-        mock_file.read_text.return_value = (
-            "---\ndescription: global\n---\ndo global stuff"
-        )
+        mock_file.read_text.return_value = "---\ndescription: global\n---\ndo global stuff"
         mock_glob.return_value = [mock_file]
         mgr = self._mgr()
         mgr.load_all("/some/project")
@@ -292,9 +290,7 @@ class TestLoadAll:
         _pop_cfg()
         mock_file = MagicMock(spec=Path)
         mock_file.stem = "proj-cmd"
-        mock_file.read_text.return_value = (
-            "---\ndescription: project\n---\ndo project stuff"
-        )
+        mock_file.read_text.return_value = "---\ndescription: project\n---\ndo project stuff"
         mock_glob.return_value = [mock_file]
         mgr = self._mgr()
         mgr.load_all("/some/project")
@@ -305,15 +301,17 @@ class TestLoadAll:
     @patch("apex.commands_manager.Path.is_dir", return_value=False)
     def test_load_all_from_config(self, mock_isdir):
         mgr = self._mgr()
-        _set_cfg({
-            "mycmd": {
-                "template": "run {{task}}",
-                "description": "Config cmd",
-                "agent": "build",
-                "model": "gpt-4",
-                "subtask": True,
+        _set_cfg(
+            {
+                "mycmd": {
+                    "template": "run {{task}}",
+                    "description": "Config cmd",
+                    "agent": "build",
+                    "model": "gpt-4",
+                    "subtask": True,
+                }
             }
-        })
+        )
         mgr.load_all("/some/project")
         cmd = mgr.get("mycmd")
         assert cmd is not None
@@ -325,11 +323,13 @@ class TestLoadAll:
     @patch("apex.commands_manager.Path.is_dir", return_value=False)
     def test_load_from_config_minimal_dict(self, mock_isdir):
         mgr = self._mgr()
-        _set_cfg({
-            "minimal": {
-                "template": "do it",
+        _set_cfg(
+            {
+                "minimal": {
+                    "template": "do it",
+                }
             }
-        })
+        )
         mgr.load_all("/p")
         cmd = mgr.get("minimal")
         assert cmd is not None
@@ -345,9 +345,7 @@ class TestLoadAll:
         _pop_cfg()
         mock_global = MagicMock(spec=Path)
         mock_global.stem = "test"
-        mock_global.read_text.return_value = (
-            "---\ndescription: from global\n---\nglobal template"
-        )
+        mock_global.read_text.return_value = "---\ndescription: from global\n---\nglobal template"
         mock_project = MagicMock(spec=Path)
         mock_project.stem = "test"
         mock_project.read_text.return_value = (
@@ -373,17 +371,17 @@ class TestLoadAll:
     def test_config_overrides_markdown(self, mock_glob, mock_isdir):
         mock_file = MagicMock(spec=Path)
         mock_file.stem = "override-me"
-        mock_file.read_text.return_value = (
-            "---\ndescription: from md\n---\nmd template"
-        )
+        mock_file.read_text.return_value = "---\ndescription: from md\n---\nmd template"
         mock_glob.return_value = [mock_file]
         mgr = self._mgr()
-        _set_cfg({
-            "override-me": {
-                "template": "from config",
-                "description": "from config",
+        _set_cfg(
+            {
+                "override-me": {
+                    "template": "from config",
+                    "description": "from config",
+                }
             }
-        })
+        )
         mgr.load_all("/some/project")
         cmd = mgr.get("override-me")
         assert cmd.description == "from config"
@@ -461,9 +459,7 @@ class TestManagerCRUD:
 
     def test_add_overrides(self):
         mgr = CustomCommandManager()
-        override = CommandConfig(
-            name="test", template="overridden", description="overridden"
-        )
+        override = CommandConfig(name="test", template="overridden", description="overridden")
         mgr.add(override)
         cmd = mgr.get("test")
         assert cmd.description == "overridden"
@@ -503,9 +499,7 @@ class TestExecute:
 
     def test_execute_template_renders_args(self):
         mgr = CustomCommandManager()
-        mgr.add(
-            CommandConfig(name="echo", template="say $1", description="Echo")
-        )
+        mgr.add(CommandConfig(name="echo", template="say $1", description="Echo"))
         agent = MagicMock()
         agent.chat.return_value = "done"
         agent.cwd = "/tmp"
@@ -554,11 +548,7 @@ class TestExecute:
 
     def test_execute_no_switch_agent_when_no_agent(self):
         mgr = CustomCommandManager()
-        mgr.add(
-            CommandConfig(
-                name="noagent", template="just do it", description="no agent"
-            )
-        )
+        mgr.add(CommandConfig(name="noagent", template="just do it", description="no agent"))
         agent = MagicMock()
         agent.chat.return_value = ""
         agent.cwd = "/tmp"
@@ -642,8 +632,7 @@ class TestLoadFromRealMarkdown:
         cmd_dir = proj_dir / ".apex" / "commands"
         cmd_dir.mkdir(parents=True)
         (cmd_dir / "build.md").write_text(
-            "---\ndescription: Build project\n---\n"
-            "Build the project using $ARGUMENTS."
+            "---\ndescription: Build project\n---\nBuild the project using $ARGUMENTS."
         )
         mgr = CustomCommandManager()
         mgr.load_all(str(proj_dir))
@@ -657,16 +646,12 @@ class TestLoadFromRealMarkdown:
         home_dir.mkdir()
         global_dir = home_dir / ".config" / "apex" / "commands"
         global_dir.mkdir(parents=True)
-        (global_dir / "shared.md").write_text(
-            "---\ndescription: Global cmd\n---\nglobal"
-        )
+        (global_dir / "shared.md").write_text("---\ndescription: Global cmd\n---\nglobal")
         proj_dir = tmp_path / "proj"
         proj_dir.mkdir()
         proj_cmd_dir = proj_dir / ".apex" / "commands"
         proj_cmd_dir.mkdir(parents=True)
-        (proj_cmd_dir / "shared.md").write_text(
-            "---\ndescription: Project override\n---\nproject"
-        )
+        (proj_cmd_dir / "shared.md").write_text("---\ndescription: Project override\n---\nproject")
         mgr = CustomCommandManager()
         with patch.object(Path, "home", return_value=home_dir):
             mgr.load_all(str(proj_dir))

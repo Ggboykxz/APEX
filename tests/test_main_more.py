@@ -197,6 +197,7 @@ class TestRunRepl:
 
     def test_tui_is_default(self):
         from apex.main import build_parser
+
         parser = build_parser()
         assert parser is not None
 

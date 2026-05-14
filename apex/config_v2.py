@@ -782,7 +782,9 @@ class TuiConfig:
 
     @property
     def scroll_acceleration(self) -> dict[str, Any]:
-        return dict(self._data.get("scroll_acceleration", dict(TUI_DEFAULTS["scroll_acceleration"])))
+        return dict(
+            self._data.get("scroll_acceleration", dict(TUI_DEFAULTS["scroll_acceleration"]))
+        )
 
     @scroll_acceleration.setter
     def scroll_acceleration(self, value: dict[str, Any]) -> None:

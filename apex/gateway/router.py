@@ -43,6 +43,7 @@ class RequestRouter:
     async def _get_session(self):
         if self._session is None:
             import aiohttp as _ahttp
+
             self._session = _ahttp.ClientSession(
                 headers={"Content-Type": "application/json"},
                 timeout=_ahttp.ClientTimeout(total=120),
@@ -60,7 +61,9 @@ class RequestRouter:
     async def proxy_request(self, request: web.Request) -> web.StreamResponse:
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            return web.json_response({"error": "Missing or invalid Authorization header"}, status=401)
+            return web.json_response(
+                {"error": "Missing or invalid Authorization header"}, status=401
+            )
 
         api_key = auth_header[7:]
         key_info = self.auth.validate_key(api_key)
@@ -96,7 +99,9 @@ class RequestRouter:
         response = await self._proxy_to_upstream(model, body, tier, rate_key)
         return response
 
-    async def _proxy_to_upstream(self, model: str, body: dict, tier: TierConfig, rate_key: str) -> web.StreamResponse:
+    async def _proxy_to_upstream(
+        self, model: str, body: dict, tier: TierConfig, rate_key: str
+    ) -> web.StreamResponse:
         session = await self._get_session()
         headers = {
             "Authorization": f"Bearer {self.config.upstream_api_key}",

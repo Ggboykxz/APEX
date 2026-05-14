@@ -274,8 +274,10 @@ class TestDockerManager:
     def test_build_image_success(self, docker, monkeypatch):
         """Hit line 230 — build_image success path via mock."""
         import subprocess
+
         def mock_run(*a, **kw):
             return type("R", (), {"returncode": 0, "stdout": "success"})()
+
         monkeypatch.setattr(subprocess, "run", mock_run)
         result = docker.build_image("test:latest")
         assert result.get("success") is True

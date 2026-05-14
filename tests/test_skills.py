@@ -222,8 +222,10 @@ class TestSkillEdgeCases:
     def test_diff_subprocess_exception(self, tmp_path, monkeypatch):
         """Hit lines 109-110 — subprocess exception in diff."""
         import subprocess
+
         def broken_run(*a, **kw):
             raise RuntimeError("diff failed")
+
         monkeypatch.setattr(subprocess, "run", broken_run)
         dt = DiffTool(str(tmp_path))
         (tmp_path / "a.txt").write_text("a")
@@ -234,8 +236,10 @@ class TestSkillEdgeCases:
     def test_three_way_diff_exception(self, tmp_path, monkeypatch):
         """Hit lines 129-130 — subprocess exception in three_way_diff."""
         import subprocess
+
         def broken_run(*a, **kw):
             raise RuntimeError("diff3 failed")
+
         monkeypatch.setattr(subprocess, "run", broken_run)
         dt = DiffTool(str(tmp_path))
         for f in ("base.txt", "local.txt", "remote.txt"):

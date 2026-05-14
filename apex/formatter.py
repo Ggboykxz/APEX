@@ -11,7 +11,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-
 @dataclass
 class FormatterConfig:
     name: str
@@ -222,7 +221,9 @@ class FormatterManager:
     def list_available(self) -> list[FormatterConfig]:
         if not self._loaded:
             self.load_from_config()
-        return [f for f in self._formatters if not f.disabled and self._available.get(f.name, False)]
+        return [
+            f for f in self._formatters if not f.disabled and self._available.get(f.name, False)
+        ]
 
     def get_formatter_for(self, file_path: str) -> FormatterConfig | None:
         if not self._loaded:

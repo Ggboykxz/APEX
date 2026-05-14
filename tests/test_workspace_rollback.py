@@ -196,8 +196,10 @@ class TestWorkspaceRollbackEdgeCases:
     def test_run_git_file_not_found(self, tmp_path, monkeypatch):
         """Lines 26-27 — FileNotFoundError in _run_git."""
         import subprocess
+
         def broken_run(*a, **kw):
             raise FileNotFoundError("git not found")
+
         monkeypatch.setattr(subprocess, "run", broken_run)
         rb = WorkspaceRollback(cwd=tmp_path)
         code, out, err = rb._run_git("status")
@@ -209,9 +211,12 @@ class TestWorkspaceRollbackEdgeCases:
         rb = WorkspaceRollback(cwd=git_repo)
         # Create and commit an initial file, then modify it
         import subprocess
+
         (git_repo / "tracked.txt").write_text("original")
         subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "add tracked.txt"], cwd=git_repo, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "add tracked.txt"], cwd=git_repo, capture_output=True
+        )
         # Now modify the tracked file
         (git_repo / "tracked.txt").write_text("modified")
         name = rb.create_snapshot("with_changes")
@@ -223,6 +228,7 @@ class TestWorkspaceRollbackEdgeCases:
         """Lines 81-86 — restoring files from snapshot."""
         rb = WorkspaceRollback(cwd=git_repo)
         import subprocess
+
         (git_repo / "tracked_restore.txt").write_text("original")
         subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True)
         subprocess.run(["git", "commit", "-m", "add file"], cwd=git_repo, capture_output=True)

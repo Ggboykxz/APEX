@@ -375,6 +375,7 @@ class TestShowModelsFreeAndActive:
 
     def test_show_models_with_free_model(self, monkeypatch):
         import apex.config as cfg
+
         # Add a free model early in MODELS so it appears in first 25
         original = dict(cfg.MODELS)
         cfg.MODELS["aaa-free-test"] = "test/free-model"

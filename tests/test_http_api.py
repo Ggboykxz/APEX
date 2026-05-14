@@ -254,7 +254,9 @@ class TestChatHandler:
     async def test_chat_invalid_json_returns_500(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/chat", data=b"not json", headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/chat", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
 
@@ -264,9 +266,11 @@ class TestStreamHandler:
     @pytest.mark.asyncio
     async def test_stream_returns_sse(self):
         server = HTTPServer(require_auth=False)
+
         async def mock_stream(msg):
             yield "chunk1"
             yield "chunk2"
+
         with patch.object(server.agent, "chat_streaming", mock_stream):
             async with TestClient(TestServer(server.app)) as client:
                 resp = await client.get("/stream")
@@ -282,9 +286,11 @@ class TestChatStreamHandler:
     @pytest.mark.asyncio
     async def test_chat_stream_success(self):
         server = HTTPServer(require_auth=False)
+
         async def mock_stream(msg):
             yield "token1"
             yield "token2"
+
         with patch.object(server.agent, "chat_streaming", mock_stream):
             async with TestClient(TestServer(server.app)) as client:
                 resp = await client.post("/chat/stream", json={"message": "hi"})
@@ -297,8 +303,10 @@ class TestChatStreamHandler:
     @pytest.mark.asyncio
     async def test_chat_stream_model_switch(self):
         server = HTTPServer(require_auth=False)
+
         async def mock_stream(msg):
             yield "t"
+
         with patch.object(server.agent, "chat_streaming", mock_stream):
             async with TestClient(TestServer(server.app)) as client:
                 resp = await client.post("/chat/stream", json={"message": "hi", "model": "gpt-4o"})
@@ -318,8 +326,9 @@ class TestChatStreamHandler:
     async def test_chat_stream_invalid_json_returns_500(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/chat/stream", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/chat/stream", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
 
@@ -385,8 +394,9 @@ class TestSessionSaveHandler:
     async def test_session_save_invalid_json_returns_500(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/session/save", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/session/save", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
 
@@ -415,8 +425,9 @@ class TestSessionLoadHandler:
     async def test_session_load_invalid_json_returns_500(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/session/load", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/session/load", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
 
@@ -800,8 +811,9 @@ class TestV1Endpoints:
     @pytest.mark.asyncio
     async def test_v1_config_set_error(self, server):
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/config", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/api/v1/config", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
     @pytest.mark.asyncio
@@ -866,8 +878,9 @@ class TestV1Endpoints:
     @pytest.mark.asyncio
     async def test_v1_themes_set_error(self, server):
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/themes", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/api/v1/themes", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
     @pytest.mark.asyncio
@@ -899,7 +912,9 @@ class TestV1Endpoints:
     @pytest.mark.asyncio
     async def test_v1_auth_login(self, server):
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/auth/login", json={"provider": "anthropic", "api_key": "sk-test"})
+            resp = await client.post(
+                "/api/v1/auth/login", json={"provider": "anthropic", "api_key": "sk-test"}
+            )
             assert resp.status in (200, 400)
 
     @pytest.mark.asyncio
@@ -1024,7 +1039,9 @@ class TestV1FormatEndpoint:
         server = HTTPServer(require_auth=False)
         with patch("apex.http_api.formatter_manager.format_code", return_value="formatted code"):
             async with TestClient(TestServer(server.app)) as client:
-                resp = await client.post("/api/v1/format", json={"code": "print(1)", "extension": ".py"})
+                resp = await client.post(
+                    "/api/v1/format", json={"code": "print(1)", "extension": ".py"}
+                )
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["formatted"] is True
@@ -1059,8 +1076,9 @@ class TestV1FormatEndpoint:
     async def test_format_exception(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/format", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/api/v1/format", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
 
@@ -1071,8 +1089,9 @@ class TestV1CompactEndpoint:
     async def test_compact_exception(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/compact", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/api/v1/compact", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
 
@@ -1092,7 +1111,9 @@ class TestV1AuthLoginDetailed:
     async def test_login_missing_provider(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/auth/login", json={"provider": "", "api_key": "key123"})
+            resp = await client.post(
+                "/api/v1/auth/login", json={"provider": "", "api_key": "key123"}
+            )
             assert resp.status == 400
 
     @pytest.mark.asyncio
@@ -1100,7 +1121,9 @@ class TestV1AuthLoginDetailed:
         server = HTTPServer(require_auth=False)
         with patch.dict(os.environ, {}, clear=True):
             async with TestClient(TestServer(server.app)) as client:
-                resp = await client.post("/api/v1/auth/login", json={"provider": "hf", "api_key": "hf_test"})
+                resp = await client.post(
+                    "/api/v1/auth/login", json={"provider": "hf", "api_key": "hf_test"}
+                )
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["env_var"] == "HF_TOKEN"
@@ -1110,7 +1133,9 @@ class TestV1AuthLoginDetailed:
         server = HTTPServer(require_auth=False)
         with patch.dict(os.environ, {}, clear=True):
             async with TestClient(TestServer(server.app)) as client:
-                resp = await client.post("/api/v1/auth/login", json={"provider": "github", "api_key": "gh_test"})
+                resp = await client.post(
+                    "/api/v1/auth/login", json={"provider": "github", "api_key": "gh_test"}
+                )
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["env_var"] == "GITHUB_TOKEN"
@@ -1119,8 +1144,9 @@ class TestV1AuthLoginDetailed:
     async def test_login_exception(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/auth/login", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/api/v1/auth/login", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
 
@@ -1159,7 +1185,11 @@ class TestV1AuthLogoutDetailed:
     @pytest.mark.asyncio
     async def test_logout_all_providers(self):
         server = HTTPServer(require_auth=False)
-        with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "ANTHROPIC_API_KEY": "sk-ant-test"}, clear=True):
+        with patch.dict(
+            os.environ,
+            {"OPENAI_API_KEY": "sk-test", "ANTHROPIC_API_KEY": "sk-ant-test"},
+            clear=True,
+        ):
             async with TestClient(TestServer(server.app)) as client:
                 resp = await client.post("/api/v1/auth/logout", json={})
                 assert resp.status == 200
@@ -1171,8 +1201,11 @@ class TestV1AuthLogoutDetailed:
     async def test_logout_exception(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/auth/logout", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/api/v1/auth/logout",
+                data=b"not json",
+                headers={"Content-Type": "application/json"},
+            )
             assert resp.status == 500
 
 
@@ -1208,7 +1241,9 @@ class TestV1CommandsExecute:
         server = HTTPServer(require_auth=False)
         with patch.object(server.agent, "chat", return_value="done"):
             async with TestClient(TestServer(server.app)) as client:
-                resp = await client.post("/api/v1/commands/execute", json={"name": "test", "args": ["a"]})
+                resp = await client.post(
+                    "/api/v1/commands/execute", json={"name": "test", "args": ["a"]}
+                )
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["executed"] is True
@@ -1217,8 +1252,11 @@ class TestV1CommandsExecute:
     async def test_execute_exception(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/commands/execute", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/api/v1/commands/execute",
+                data=b"not json",
+                headers={"Content-Type": "application/json"},
+            )
             assert resp.status == 500
 
 
@@ -1257,8 +1295,9 @@ class TestV1InitDetailed:
         server = HTTPServer(require_auth=False)
         with patch("apex.http_api.ProjectInitializer", side_effect=ValueError("fail")):
             async with TestClient(TestServer(server.app)) as client:
-                resp = await client.post("/api/v1/init", data=b"not json",
-                                          headers={"Content-Type": "application/json"})
+                resp = await client.post(
+                    "/api/v1/init", data=b"not json", headers={"Content-Type": "application/json"}
+                )
                 assert resp.status == 500
 
 
@@ -1300,7 +1339,9 @@ class TestV1ExportImport:
         server = HTTPServer(require_auth=False)
         with patch("apex.http_api.share_manager.import_session", return_value=None):
             async with TestClient(TestServer(server.app)) as client:
-                resp = await client.post("/api/v1/import", json={"file_path": "/tmp/nonexistent.json"})
+                resp = await client.post(
+                    "/api/v1/import", json={"file_path": "/tmp/nonexistent.json"}
+                )
                 assert resp.status == 400
 
     @pytest.mark.asyncio
@@ -1308,7 +1349,9 @@ class TestV1ExportImport:
         server = HTTPServer(require_auth=False)
         with patch.object(Path, "home", return_value=Path("/tmp")):
             async with TestClient(TestServer(server.app)) as client:
-                resp = await client.post("/api/v1/import", json={"data": {"session_id": "abc123", "history": []}})
+                resp = await client.post(
+                    "/api/v1/import", json={"data": {"session_id": "abc123", "history": []}}
+                )
                 assert resp.status == 200
                 data = await resp.json()
                 assert data["imported"] is True
@@ -1324,8 +1367,9 @@ class TestV1ExportImport:
     async def test_import_exception(self):
         server = HTTPServer(require_auth=False)
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.post("/api/v1/import", data=b"not json",
-                                      headers={"Content-Type": "application/json"})
+            resp = await client.post(
+                "/api/v1/import", data=b"not json", headers={"Content-Type": "application/json"}
+            )
             assert resp.status == 500
 
 
@@ -1341,8 +1385,9 @@ class TestMetricsWithKeyInfo:
     async def test_metrics_with_key_info(self):
         server = HTTPServer(require_auth=False)
         key_info = {"key_id": "test123", "workspace_id": "ws1"}
-        with patch.object(server.auth_middleware, "authenticate",
-                          return_value=(True, "test-key", key_info)):
+        with patch.object(
+            server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+        ):
             async with TestClient(TestServer(server.app)) as client:
                 resp = await client.get("/metrics")
                 assert resp.status == 200
@@ -1358,8 +1403,9 @@ class TestStatsWithKeyInfo:
     async def test_stats_with_key_info(self):
         server = HTTPServer(require_auth=False)
         key_info = {"key_id": "test123", "workspace_id": "ws1"}
-        with patch.object(server.auth_middleware, "authenticate",
-                          return_value=(True, "test-key", key_info)):
+        with patch.object(
+            server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+        ):
             async with TestClient(TestServer(server.app)) as client:
                 resp = await client.get("/api/v1/stats")
                 assert resp.status == 200
@@ -1410,6 +1456,7 @@ class TestRunServer:
                 await task
             except asyncio.CancelledError:
                 pass
+
         await do_test()
 
 
@@ -1547,8 +1594,10 @@ class TestTuiServerCleanup:
     def test_cleanup_inner_exception_caught(self):
         loop = asyncio.SelectorEventLoop()
         loop.run_forever = MagicMock()
+
         async def broken_shutdown():
             raise RuntimeError("shutdown failed")
+
         loop.shutdown_asyncgens = broken_shutdown
         loop.close = MagicMock()
 
@@ -1596,13 +1645,15 @@ class TestChatBilling:
     async def test_chat_with_billing(self):
         server = HTTPServer(require_auth=True)
         key_info = {"key_id": "test123", "workspace_id": "ws1"}
-        with patch.object(server.auth_middleware, "authenticate",
-                          return_value=(True, "test-key", key_info)):
+        with patch.object(
+            server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+        ):
             with patch.object(server.agent, "chat", return_value="response"):
                 with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
                     async with TestClient(TestServer(server.app)) as client:
                         resp = await client.post(
-                            "/chat", json={"message": "hi"},
+                            "/chat",
+                            json={"message": "hi"},
                             headers={"Authorization": "Bearer test-key"},
                         )
                         assert resp.status == 200
@@ -1616,15 +1667,19 @@ class TestChatStreamBilling:
     async def test_chat_stream_with_billing(self):
         server = HTTPServer(require_auth=True)
         key_info = {"key_id": "test123", "workspace_id": "ws1"}
+
         async def mock_stream(msg):
             yield "token"
-        with patch.object(server.auth_middleware, "authenticate",
-                          return_value=(True, "test-key", key_info)):
+
+        with patch.object(
+            server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+        ):
             with patch.object(server.agent, "chat_streaming", mock_stream):
                 with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
                     async with TestClient(TestServer(server.app)) as client:
                         resp = await client.post(
-                            "/chat/stream", json={"message": "hi"},
+                            "/chat/stream",
+                            json={"message": "hi"},
                             headers={"Authorization": "Bearer test-key"},
                         )
                         assert resp.status == 200
@@ -1682,12 +1737,14 @@ class TestV1SessionsDeleteDetailedFull:
             sessions_dir.mkdir(parents=True)
             real_read_text = Path.read_text
             call_count = 0
+
             def mock_read_text(self_inst):
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
                     return "{{{not valid json"
                 return real_read_text(self_inst)
+
             with patch.object(Path, "read_text", mock_read_text):
                 bad = sessions_dir / "aaa_bad.json"
                 bad.write_text("{invalid}")
@@ -1722,10 +1779,14 @@ class TestV1AuthLogoutLowercase:
     @pytest.mark.asyncio
     async def test_logout_lowercase_env_var(self):
         server = HTTPServer(require_auth=False)
-        with patch.dict(os.environ, {
-            "OPENAI_API_KEY": "sk-test",
-            "openai_api_key": "sk-test-lower",
-        }, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "OPENAI_API_KEY": "sk-test",
+                "openai_api_key": "sk-test-lower",
+            },
+            clear=True,
+        ):
             async with TestClient(TestServer(server.app)) as client:
                 resp = await client.post("/api/v1/auth/logout", json={})
                 assert resp.status == 200

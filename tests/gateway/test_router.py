@@ -62,6 +62,7 @@ class TestModelValidation:
 
         from apex.gateway.router import RequestRouter
         from apex.gateway.auth import AuthManager
+
         with tempfile.TemporaryDirectory() as tmp:
             db_path = Path(tmp) / "test.db"
             auth = AuthManager(db_path)
@@ -85,6 +86,7 @@ class TestAuthzIntegration:
 
             cfg = GatewayConfig()
             from apex.gateway.router import RequestRouter
+
             router = RequestRouter(cfg, auth)
             tier = router._get_tier("pro")
             assert tier.daily_requests == 500
@@ -96,6 +98,7 @@ class TestAuthzIntegration:
             cfg = GatewayConfig()
 
             from apex.gateway.router import RequestRouter
+
             router = RequestRouter(cfg, auth)
 
             key = auth.generate_key("free")

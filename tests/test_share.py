@@ -315,10 +315,14 @@ class TestShareSession:
     def test_uses_history_key_fallback(self, home, share_mgr):
         sess_dir = home / ".apex" / "sessions"
         sess_dir.mkdir(parents=True, exist_ok=True)
-        (sess_dir / "hist-session.json").write_text(json.dumps({
-            "session_id": "hist-session",
-            "history": [{"role": "user", "content": "test"}],
-        }))
+        (sess_dir / "hist-session.json").write_text(
+            json.dumps(
+                {
+                    "session_id": "hist-session",
+                    "history": [{"role": "user", "content": "test"}],
+                }
+            )
+        )
         url = share_mgr.share_session("hist-session")
         share_id = url.split("/")[-1]
         content = json.loads((share_mgr._shares_dir / f"{share_id}.json").read_text())
@@ -354,10 +358,15 @@ class TestListShared:
     def test_returns_multiple_shares(self, share_mgr, session_data, home):
         share_mgr.share_session("test-session-1", title="First")
         sess_dir = home / ".apex" / "sessions"
-        (sess_dir / "session-2.json").write_text(json.dumps({
-            "session_id": "session-2", "name": "Second",
-            "messages": [{"role": "user", "content": "test"}],
-        }))
+        (sess_dir / "session-2.json").write_text(
+            json.dumps(
+                {
+                    "session_id": "session-2",
+                    "name": "Second",
+                    "messages": [{"role": "user", "content": "test"}],
+                }
+            )
+        )
         share_mgr.share_session("session-2", title="Second")
         listed = share_mgr.list_shared()
         assert len(listed) == 2
@@ -440,9 +449,15 @@ class TestExportSession:
     def test_sanitizes_sensitive_fields(self, share_mgr, home):
         sess_dir = home / ".apex" / "sessions"
         sess_dir.mkdir(parents=True, exist_ok=True)
-        (sess_dir / "secret-sess.json").write_text(json.dumps({
-            "session_id": "secret-sess", "api_key": "sk-abc", "name": "test",
-        }))
+        (sess_dir / "secret-sess.json").write_text(
+            json.dumps(
+                {
+                    "session_id": "secret-sess",
+                    "api_key": "sk-abc",
+                    "name": "test",
+                }
+            )
+        )
         result = share_mgr.export_session("secret-sess")
         assert "api_key" not in result["data"]
 
@@ -455,12 +470,16 @@ class TestExportSession:
 class TestImportSession:
     def test_import_export_format(self, share_mgr, home):
         path = home / "export.json"
-        path.write_text(json.dumps({
-            "exported_at": "2025-01-01T00:00:00",
-            "session_id": "imported-sess",
-            "apex_version": "1.3.0",
-            "data": {"session_id": "imported-sess", "model": "gpt-4", "messages": []},
-        }))
+        path.write_text(
+            json.dumps(
+                {
+                    "exported_at": "2025-01-01T00:00:00",
+                    "session_id": "imported-sess",
+                    "apex_version": "1.3.0",
+                    "data": {"session_id": "imported-sess", "model": "gpt-4", "messages": []},
+                }
+            )
+        )
         result = share_mgr.import_session(str(path))
         assert result == "imported-sess"
 
@@ -495,11 +514,15 @@ class TestImportSession:
 
     def test_import_sanitizes_data(self, share_mgr, home):
         path = home / "tainted.json"
-        path.write_text(json.dumps({
-            "session_id": "clean-me",
-            "api_key": "sk-abc",
-            "messages": [{"content": "Bearer token12345abcdefghij"}],
-        }))
+        path.write_text(
+            json.dumps(
+                {
+                    "session_id": "clean-me",
+                    "api_key": "sk-abc",
+                    "messages": [{"content": "Bearer token12345abcdefghij"}],
+                }
+            )
+        )
         result = share_mgr.import_session(str(path))
         assert result == "clean-me"
         sess_dir = home / ".apex" / "sessions"
@@ -528,9 +551,14 @@ class TestLoadSessionData:
     def test_load_from_config_sessions_dir(self, share_mgr, home):
         config_sess = home / ".config" / "apex" / "sessions"
         config_sess.mkdir(parents=True, exist_ok=True)
-        (config_sess / "cfg-sess.json").write_text(json.dumps({
-            "session_id": "cfg-sess", "name": "Config session",
-        }))
+        (config_sess / "cfg-sess.json").write_text(
+            json.dumps(
+                {
+                    "session_id": "cfg-sess",
+                    "name": "Config session",
+                }
+            )
+        )
         result = share_mgr._load_session_data("cfg-sess")
         assert result["session_id"] == "cfg-sess"
 

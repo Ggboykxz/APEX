@@ -58,18 +58,20 @@ class GatewayServer:
             return web.json_response({"error": f"Invalid tier: {tier}"}, status=400)
         api_key = self.auth.generate_key(tier, label)
         t = self.config.tiers[tier]
-        return web.json_response({
-            "api_key": api_key,
-            "tier": tier,
-            "label": label,
-            "limits": {
-                "daily_requests": t.daily_requests,
-                "daily_tokens": t.daily_tokens,
-                "rate_per_minute": t.rate_per_minute,
-                "monthly_value_usd": t.monthly_value_usd,
-                "max_concurrent": t.max_concurrent,
-            },
-        })
+        return web.json_response(
+            {
+                "api_key": api_key,
+                "tier": tier,
+                "label": label,
+                "limits": {
+                    "daily_requests": t.daily_requests,
+                    "daily_tokens": t.daily_tokens,
+                    "rate_per_minute": t.rate_per_minute,
+                    "monthly_value_usd": t.monthly_value_usd,
+                    "max_concurrent": t.max_concurrent,
+                },
+            }
+        )
 
     async def handle_status(self, request: web.Request) -> web.Response:
         auth = request.headers.get("Authorization", "")
@@ -86,11 +88,17 @@ class GatewayServer:
 
     async def handle_models(self, request: web.Request) -> web.Response:
         from ..config import MODELS
-        free_models = {k: v for k, v in MODELS.items() if k.startswith("free-") or k.startswith("pro-")}
-        return web.json_response({"models": [
-            {"id": k, "provider": v.split("/")[0]}
-            for k, v in sorted(free_models.items())
-        ]})
+
+        free_models = {
+            k: v for k, v in MODELS.items() if k.startswith("free-") or k.startswith("pro-")
+        }
+        return web.json_response(
+            {
+                "models": [
+                    {"id": k, "provider": v.split("/")[0]} for k, v in sorted(free_models.items())
+                ]
+            }
+        )
 
     async def admin_list_keys(self, request: web.Request) -> web.Response:
         if not self._check_admin(request):

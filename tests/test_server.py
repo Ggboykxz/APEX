@@ -15,8 +15,10 @@ from apex.server import APEXClient, APEXServer, APIKeyManager, run_server
 # Helper: async-iterable mock WebSocket for handle_websocket tests
 # =========================================================================
 
+
 class _AsyncIterableWS:
     """Mock WebSocket that acts as an async iterable of messages."""
+
     def __init__(self, messages=None):
         self.messages = messages or []
         self.sent = []
@@ -42,6 +44,7 @@ class _AsyncIterableWS:
 
 class _BrokenWS:
     """WebSocket that raises on send_json."""
+
     def __aiter__(self):
         return self
 
@@ -58,6 +61,7 @@ class _BrokenWS:
 # =========================================================================
 # APEXClient tests
 # =========================================================================
+
 
 class TestAPEXClientInit:
     def test_init_defaults(self):
@@ -128,6 +132,7 @@ class TestAPEXClientToDict:
 # APIKeyManager tests
 # =========================================================================
 
+
 class TestAPIKeyManager:
     def test_no_auth_by_default(self):
         km = APIKeyManager()
@@ -174,6 +179,7 @@ class TestAPIKeyManager:
 # =========================================================================
 # APEXServer tests
 # =========================================================================
+
 
 class TestAPEXServerInit:
     def test_defaults(self):
@@ -297,8 +303,7 @@ class TestAPEXServerHandleWebSocket:
             server = APEXServer()
             await server.handle_websocket(ws)
             assert any(
-                s.get("type") == "error" and "Rate limit" in s.get("message", "")
-                for s in ws.sent
+                s.get("type") == "error" and "Rate limit" in s.get("message", "") for s in ws.sent
             )
             assert len(server.clients) == 0
         finally:
@@ -395,6 +400,7 @@ class TestAPEXServerHandleMessage:
         class FakeWS:
             def __init__(self):
                 self.sent = []
+
             async def send_json(self, data):
                 self.sent.append(data)
 
@@ -411,6 +417,7 @@ class TestAPEXServerHandleMessage:
         class FakeWS:
             def __init__(self):
                 self.sent = []
+
             async def send_json(self, data):
                 self.sent.append(data)
 
@@ -427,6 +434,7 @@ class TestAPEXServerHandleMessage:
         class FakeWS:
             def __init__(self):
                 self.sent = []
+
             async def send_json(self, data):
                 self.sent.append(data)
 
@@ -459,6 +467,7 @@ class TestAPEXServerHandleMessage:
         class FakeWS:
             def __init__(self):
                 self.sent = []
+
             async def send_json(self, data):
                 self.sent.append(data)
 
@@ -491,6 +500,7 @@ class TestAPEXServerHandleMessage:
         class FakeWS:
             def __init__(self):
                 self.sent = []
+
             async def send_json(self, data):
                 self.sent.append(data)
 
@@ -511,6 +521,7 @@ class TestAPEXServerHandleMessage:
         class FakeWS:
             def __init__(self):
                 self.sent = []
+
             async def send_json(self, data):
                 self.sent.append(data)
 
@@ -529,17 +540,17 @@ class TestAPEXServerHandleMessage:
         server = APEXServer()
         server.clients["c1"] = APEXClient("c1")
         with patch.object(server, "_process_chat", side_effect=ValueError("boom")):
-            await server._handle_message(
-                "c1", json.dumps({"type": "chat", "message": "hi"}), ws
-            )
+            await server._handle_message("c1", json.dumps({"type": "chat", "message": "hi"}), ws)
         ws.send_json.assert_called_with({"type": "error", "message": "boom"})
 
     @pytest.mark.asyncio
     async def test_last_activity_key_error(self):
         """Missing client in clients dict triggers generic Exception handler."""
+
         class FakeWS:
             def __init__(self):
                 self.sent = []
+
             async def send_json(self, data):
                 self.sent.append(data)
 
@@ -578,6 +589,7 @@ class TestAPEXServerBroadcast:
         class GoodWS:
             def __init__(self):
                 self.sent = []
+
             async def send_json(self, data):
                 self.sent.append(data)
 
@@ -605,19 +617,25 @@ class TestAPEXServerBroadcast:
 # run_server tests — fully mocked aiohttp
 # =========================================================================
 
+
 class TestRunServer:
     """Test the standalone run_server entry point."""
 
     @pytest.mark.asyncio
-    async def _run_with_mocks(self, mock_web, mock_server_cls,
-                              server_agent=None):
+    async def _run_with_mocks(self, mock_web, mock_server_cls, server_agent=None):
         """Helper: capture handlers, run server, trigger KeyboardInterrupt."""
         mock_server = MagicMock()
         mock_server._agent = server_agent
-        mock_server.get_status = AsyncMock(return_value={
-            "host": "127.0.0.1", "port": 9999, "clients": 0,
-            "client_list": [], "agent_model": None, "agent_mode": None,
-        })
+        mock_server.get_status = AsyncMock(
+            return_value={
+                "host": "127.0.0.1",
+                "port": 9999,
+                "clients": 0,
+                "client_list": [],
+                "agent_model": None,
+                "agent_mode": None,
+            }
+        )
         mock_server.handle_websocket = AsyncMock()
         mock_server_cls.return_value = mock_server
 
@@ -659,8 +677,8 @@ class TestRunServer:
             patch("aiohttp.web", create=True) as mock_web,
             patch("apex.server.APEXServer") as mock_server_cls,
         ):
-            mock_server, mock_runner, mock_site, _, _, _ = (
-                await self._run_with_mocks(mock_web, mock_server_cls)
+            mock_server, mock_runner, mock_site, _, _, _ = await self._run_with_mocks(
+                mock_web, mock_server_cls
             )
 
         mock_server_cls.assert_called_once_with("127.0.0.1", 9999)
@@ -677,8 +695,8 @@ class TestRunServer:
             patch("aiohttp.web", create=True) as mock_web,
             patch("apex.server.APEXServer") as mock_server_cls,
         ):
-            _, _, _, _, get_routes, post_routes = (
-                await self._run_with_mocks(mock_web, mock_server_cls)
+            _, _, _, _, get_routes, post_routes = await self._run_with_mocks(
+                mock_web, mock_server_cls
             )
 
         assert "/" in get_routes
@@ -692,9 +710,7 @@ class TestRunServer:
             patch("aiohttp.web", create=True) as mock_web,
             patch("apex.server.APEXServer") as mock_server_cls,
         ):
-            _, _, _, _, get_routes, _ = (
-                await self._run_with_mocks(mock_web, mock_server_cls)
-            )
+            _, _, _, _, get_routes, _ = await self._run_with_mocks(mock_web, mock_server_cls)
 
             _resp = await get_routes["/"](MagicMock())
             mock_web.Response.assert_called_once()
@@ -708,8 +724,8 @@ class TestRunServer:
             patch("aiohttp.web", create=True) as mock_web,
             patch("apex.server.APEXServer") as mock_server_cls,
         ):
-            mock_server, _, _, mock_ws_resp, get_routes, _ = (
-                await self._run_with_mocks(mock_web, mock_server_cls)
+            mock_server, _, _, mock_ws_resp, get_routes, _ = await self._run_with_mocks(
+                mock_web, mock_server_cls
             )
 
             req = MagicMock()
@@ -724,8 +740,8 @@ class TestRunServer:
             patch("aiohttp.web", create=True) as mock_web,
             patch("apex.server.APEXServer") as mock_server_cls,
         ):
-            mock_server, _, _, _, get_routes, _ = (
-                await self._run_with_mocks(mock_web, mock_server_cls)
+            mock_server, _, _, _, get_routes, _ = await self._run_with_mocks(
+                mock_web, mock_server_cls
             )
 
             mock_web.json_response = MagicMock(return_value={"status": "ok"})
@@ -740,8 +756,8 @@ class TestRunServer:
             patch("aiohttp.web", create=True) as mock_web,
             patch("apex.server.APEXServer") as mock_server_cls,
         ):
-            _, _, _, _, _, post_routes = (
-                await self._run_with_mocks(mock_web, mock_server_cls, server_agent=None)
+            _, _, _, _, _, post_routes = await self._run_with_mocks(
+                mock_web, mock_server_cls, server_agent=None
             )
 
             req = AsyncMock()
@@ -763,8 +779,8 @@ class TestRunServer:
             mock_agent.chat.return_value = "agent reply"
             mock_agent.usage = {"total_tokens": 42}
 
-            _, _, _, _, _, post_routes = (
-                await self._run_with_mocks(mock_web, mock_server_cls, server_agent=mock_agent)
+            _, _, _, _, _, post_routes = await self._run_with_mocks(
+                mock_web, mock_server_cls, server_agent=mock_agent
             )
 
             req = AsyncMock()

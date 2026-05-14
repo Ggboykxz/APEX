@@ -486,12 +486,14 @@ class TestKeyManagerValidateError:
     def test_validate_key_db_error(self, monkeypatch, tmp_path):
         """Force a DB error to hit the except Exception handler."""
         import sqlite3
+
         manager = KeyManager(str(tmp_path / "keys.db"))
         ws = manager.create_workspace("WS", "user-1")
         key, info = manager.create_key(ws.workspace_id, "k")
 
         def broken_connect(*a, **kw):
             raise RuntimeError("DB connection failed")
+
         monkeypatch.setattr(sqlite3, "connect", broken_connect)
         with pytest.raises(InvalidKeyError):
             manager.validate_key(key)
