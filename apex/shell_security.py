@@ -37,25 +37,24 @@ class CommandAnalysis:
 
 class ShellSecurityAnalyzer:
     DANGEROUS_PATTERNS = [
-        (r"rm\s+-rf\s+/(?:--no-preserve-root)?", "Destructive system-wide deletion"),
+        (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?", "Destructive system-wide deletion"),
         (r":\(\)\{\s*:\|:\s*&\s*\};:.*", "Fork bomb"),
         (r">\s*/dev/sd[a-z]", "Direct disk write detected"),
         (r"dd\s+if=.*of=/dev/", "Direct device write"),
         (r"mkfs\.", "Filesystem formatting"),
         (r"chattr\s+-i", "Immutable file removal"),
-        (r"wget.*\||sh\b", "Pipe to shell (wget|sh)"),
-        (r"curl.*\||sh\b", "Pipe to shell (curl|sh)"),
+        (r"wget\b.*\|\s*(sudo\s+)?(?:ba)?sh\b", "Download and pipe to shell (wget)"),
+        (r"curl\b.*\|\s*(sudo\s+)?(?:ba)?sh\b", "Download and pipe to shell (curl)"),
         (r"eval\s+\$\(", "Dynamic code execution"),
         (r"exec\s+\$\(", "Dynamic exec"),
-        (r"\|\s*bash", "Pipe to bash"),
-        (r"\|\s*sh\b", "Pipe to shell"),
-        (r">\s*/etc/passwd", "System file modification"),
-        (r">\s*/etc/shadow", "Shadow file modification"),
+        (r"\|\s*(?:sudo\s+)?bash\b", "Pipe to bash"),
+        (r"\|\s*(?:sudo\s+)?sh\b", "Pipe to shell"),
+        (r">\s*/etc/(?:passwd|shadow|ssh|ssl|gshadow|hosts|sudoers)", "System file modification"),
+        (r">\s*/etc/ssl/private/", "SSL private key modification"),
         (r"chmod\s+777\s+/(?:etc|var|usr)", "Overly permissive permissions"),
-        (r"nc\s+-[el].*\binteger\b", "Netcat backdoor"),
-        (r"openssl\s+rand\s+-hex", "Random data generation"),
-        (r"curl.*\.sh\s*\|\s*(sudo\s+)?sh", "Download and execute"),
-        (r"wget.*\.sh\s*\|\s*(sudo\s+)?sh", "Download and execute"),
+        (r"nc\s+-[el].*\d+", "Netcat listener (potential backdoor)"),
+        (r"curl.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh", "Download and execute script"),
+        (r"wget.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh", "Download and execute script"),
     ]
 
     NETWORK_PATTERNS = [

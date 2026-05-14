@@ -1,10 +1,10 @@
 """Session persistence for APEX - save and load conversation sessions."""
 
 import json
-import re
-import hashlib
 import os
+import re
 import logging
+import base64
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -13,44 +13,50 @@ from .agent import Agent
 
 logger = logging.getLogger(__name__)
 
-_ENCRYPTION_KEY: Optional[bytes] = None
+_FERNET_KEY: Optional[bytes] = None
 
 
-def _get_encryption_key() -> bytes:
-    global _ENCRYPTION_KEY
-    if _ENCRYPTION_KEY is not None:
-        return _ENCRYPTION_KEY
+def _get_fernet() -> "Fernet":
+    """Get or create a Fernet cipher using a key stored in the user's home directory.
+
+    Uses cryptography.fernet (AES-128-CBC with HMAC-SHA256) for authenticated
+    encryption instead of a custom XOR stream cipher.
+    """
+    global _FERNET_KEY
+    from cryptography.fernet import Fernet
+
+    if _FERNET_KEY is not None:
+        return Fernet(_FERNET_KEY)
+
     key_file = Path.home() / ".apex" / ".session_key"
     if key_file.exists():
-        _ENCRYPTION_KEY = key_file.read_bytes()
+        raw = key_file.read_bytes()
+        # If the old key was a raw 32-byte SHA-256 hash, derive a proper Fernet key from it
+        if len(raw) == 32:
+            import hashlib
+            _FERNET_KEY = base64.urlsafe_b64encode(hashlib.sha256(raw + b":fernet").digest())
+        else:
+            # Already a valid Fernet key (url-safe base64 of 32 bytes)
+            _FERNET_KEY = raw
     else:
         key_file.parent.mkdir(parents=True, exist_ok=True)
-        _ENCRYPTION_KEY = hashlib.sha256(os.urandom(64)).digest()
-        key_file.write_bytes(_ENCRYPTION_KEY)
+        _FERNET_KEY = Fernet.generate_key()
+        key_file.write_bytes(_FERNET_KEY)
         key_file.chmod(0o600)
-    return _ENCRYPTION_KEY
+
+    return Fernet(_FERNET_KEY)
 
 
-def _encrypt(data: bytes) -> tuple[bytes, bytes, bytes]:
-    key = _get_encryption_key()
-    import hashlib as _h
-
-    nonce = os.urandom(12)
-    cipher = _h.shake_256(key + nonce)
-    stream = cipher.digest(len(data))
-    ciphertext = bytes(a ^ b for a, b in zip(data, stream))
-    tag = hashlib.sha256(nonce + ciphertext + key).digest()[:16]
-    return nonce, ciphertext, tag
+def _encrypt(data: bytes) -> bytes:
+    """Encrypt data using Fernet (AES-128-CBC + HMAC-SHA256 authenticated encryption)."""
+    f = _get_fernet()
+    return f.encrypt(data)
 
 
-def _decrypt(nonce: bytes, ciphertext: bytes, tag: bytes) -> bytes:
-    key = _get_encryption_key()
-    expected_tag = hashlib.sha256(nonce + ciphertext + key).digest()[:16]
-    if tag != expected_tag:
-        raise ValueError("Decryption failed: data integrity check failed")
-    cipher = hashlib.shake_256(key + nonce)
-    stream = cipher.digest(len(ciphertext))
-    return bytes(a ^ b for a, b in zip(ciphertext, stream))
+def _decrypt(token: bytes) -> bytes:
+    """Decrypt data using Fernet. Raises InvalidToken if tampered."""
+    f = _get_fernet()
+    return f.decrypt(token)
 
 
 class UndoManager:
@@ -133,15 +139,19 @@ class SessionManager:
         }
 
         payload = json.dumps(session_data, separators=(",", ":")).encode()
-        nonce, ciphertext, tag = _encrypt(payload)
+        encrypted = _encrypt(payload)
 
         with open(filepath, "wb") as f:
-            f.write(nonce + tag + ciphertext)
+            f.write(encrypted)
 
+        # Atomically update the "latest" symlink using temp-link + rename
         latest_link = self._sessions_dir / f"latest_{name}.json"
-        if latest_link.exists():
-            latest_link.unlink()
-        latest_link.symlink_to(filepath.name)
+        tmp_link = self._sessions_dir / f".latest_{name}.tmp"
+        # Remove stale temp link if it exists
+        if tmp_link.exists() or tmp_link.is_symlink():
+            tmp_link.unlink()
+        tmp_link.symlink_to(filepath.name)
+        os.replace(str(tmp_link), str(latest_link))
 
         return filepath
 
@@ -165,8 +175,7 @@ class SessionManager:
             if filepath.suffix == ".json":
                 session_data = json.loads(raw)
             else:
-                nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
-                session_data = json.loads(_decrypt(nonce, ciphertext, tag))
+                session_data = json.loads(_decrypt(raw))
 
             agent.switch_model(session_data.get("model", "claude-sonnet"))
             agent.cwd = Path(session_data.get("cwd", "."))
@@ -199,8 +208,7 @@ class SessionManager:
                 continue
             try:
                 raw = filepath.read_bytes()
-                nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
-                data = json.loads(_decrypt(nonce, ciphertext, tag))
+                data = json.loads(_decrypt(raw))
                 sessions.append(
                     {
                         "name": data.get("name", "unknown"),
@@ -223,14 +231,10 @@ class SessionManager:
             "usage": agent.usage,
         }
         payload = json.dumps(session_data, separators=(",", ":")).encode()
+        encrypted_payload = _encrypt(payload)
 
-        encrypted_payload = b""
-        for i in range(0, len(payload), 32):
-            chunk = payload[i : i + 32]
-            nonce, ciphertext, tag = _encrypt(chunk)
-            encrypted_payload += nonce + tag + ciphertext
-
-        encoded = hashlib.sha256(payload + os.urandom(16)).hexdigest()[:16]
+        import hashlib as _hl
+        encoded = _hl.sha256(payload + os.urandom(16)).hexdigest()[:16]
         share_id = encoded
 
         share_dir = self._sessions_dir / "shared"
@@ -256,24 +260,13 @@ class SessionManager:
             raw = filepath.read_bytes()
             if filepath.suffix == ".json":
                 import base64
-
                 wrapper = json.loads(raw)
                 compressed = wrapper.get("data", "")
                 json_str = base64.b64decode(compressed.encode()).decode()
                 session_data = json.loads(json_str)
             else:
-                chunks = []
-                pos = 0
-                while pos < len(raw):
-                    nonce = raw[pos : pos + 12]
-                    tag = raw[pos + 12 : pos + 28]
-                    ct_len = min(32, len(raw) - pos - 28)
-                    ciphertext = raw[pos + 28 : pos + 28 + ct_len]
-                    if len(ciphertext) < 1:
-                        break
-                    chunks.append(_decrypt(nonce, ciphertext, tag))
-                    pos += 28 + ct_len
-                session_data = json.loads(b"".join(chunks))
+                # Fernet-encrypted: single token, decrypt directly
+                session_data = json.loads(_decrypt(raw))
 
             agent.switch_model(session_data.get("model", "claude-sonnet"))
             agent.cwd = Path(session_data.get("cwd", "."))

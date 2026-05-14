@@ -1400,7 +1400,6 @@ class ToolExecutor:
         method = getattr(self, f"_execute_{tool_name}", None)
         if not method:
             from .config_tools import custom_tool_manager, ensure_tools_loaded
-
             ensure_tools_loaded()
             result = custom_tool_manager.execute(tool_name, args)
             if not result.startswith("ERROR: Unknown custom tool"):
@@ -1426,42 +1425,24 @@ class ToolExecutor:
             return f"ERROR: File not found: {path}"
         name = path.name.lower()
         blocked = {
-            ".env",
-            ".env.local",
-            ".env.production",
-            ".env.development",
-            "id_rsa",
-            "id_dsa",
-            "id_ecdsa",
-            "id_ed25519",
-            "credentials.json",
-            "credentials.yaml",
-            "credentials.yml",
-            "service-account.json",
-            "service-account.key",
-            ".netrc",
-            ".pgp",
-            ".gpg",
-            ".asc",
-            ".key",
-            ".p12",
-            ".pfx",
-            "config.json",
-            "config.yaml",
-            "config.yml",
-            ".dockerconfigjson",
-            "dockercfg",
-            "kubeconfig",
-            "kubeconfig.yaml",
-            ".npmrc",
-            ".yarnrc",
-            ".gemrc",
-            "authorized_keys",
-            "known_hosts",
-            ".htpasswd",
-            ".pgpass",
+            ".env", ".env.local", ".env.production", ".env.development",
+            "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
+            "credentials.json", "credentials.yaml", "credentials.yml",
+            "service-account.json", "service-account.key",
+            ".netrc", ".pgp", ".gpg", ".asc", ".key", ".p12", ".pfx",
+            ".dockerconfigjson", "dockercfg",
+            "kubeconfig", "kubeconfig.yaml",
+            ".npmrc", ".yarnrc", ".gemrc",
+            "authorized_keys", "known_hosts",
+            ".htpasswd", ".pgpass",
         }
-        if name in blocked or (name.startswith(".env.") and not name.endswith(".example")):
+        # Only block config files in known secret locations (home dir, .ssh, .aws, etc.)
+        secret_config_dirs = {".ssh", ".aws", ".kube", ".gnupg", ".config"}
+        is_secret_config = (
+            name in {"config.json", "config.yaml", "config.yml"}
+            and any(part in secret_config_dirs for part in path.parts)
+        )
+        if name in blocked or is_secret_config or (name.startswith(".env.") and not name.endswith(".example")):
             return f"ERROR: Reading {name} is blocked by default (contains secrets)."
         try:
             lines = path.read_text().splitlines()
@@ -1602,13 +1583,20 @@ class ToolExecutor:
         directory = self._resolve(args.get("directory", "."))
         if not directory.exists():
             return f"ERROR: Directory not found: {directory}"
+        # Block path traversal patterns that could escape the workspace
+        if ".." in pattern:
+            return f"ERROR: Pattern contains path traversal ('..'): {pattern}"
         try:
             matches = list(directory.glob(pattern))
             if not matches:
                 return f"[no files match pattern '{pattern}']"
             results = []
             for m in matches:
-                rel = m.relative_to(directory.parent) if directory.parent != m.parent else m.name
+                try:
+                    rel = m.relative_to(directory)
+                except ValueError:
+                    # m is not under directory (shouldn't happen, but handle gracefully)
+                    rel = m
                 results.append(str(rel))
             return "\n".join(sorted(results))
         except Exception as e:
@@ -1807,7 +1795,6 @@ class ToolExecutor:
             return f"ERROR: File not found: {path}"
 
         from .formatter import formatter_manager
-
         success = formatter_manager.format_file(str(path))
         if success:
             return f"SUCCESS: Formatted {path}"
@@ -2495,7 +2482,6 @@ class ToolExecutor:
             for f in funcs[:5]:
                 lines.append(f"def test_{f['name']}():")
                 lines.append("    pass")
-                lines.append("    pass")
         else:
             lines = ["// Tests for " + path]
             lines.append("")
@@ -2551,27 +2537,13 @@ Ctrl+R     - Search history
         command = args["command"]
 
         valid_hooks = {
-            "applypatch-msg",
-            "pre-applypatch",
-            "post-applypatch",
-            "pre-commit",
-            "pre-merge-commit",
-            "prepare-commit-msg",
-            "commit-msg",
-            "post-commit",
-            "pre-rebase",
-            "post-checkout",
-            "post-merge",
-            "pre-push",
-            "pre-receive",
-            "update",
-            "post-receive",
-            "post-update",
-            "push-to-checkout",
-            "pre-auto-gc",
-            "post-rewrite",
-            "sendemail-validate",
-            "fsmonitor-watchman",
+            "applypatch-msg", "pre-applypatch", "post-applypatch",
+            "pre-commit", "pre-merge-commit", "prepare-commit-msg",
+            "commit-msg", "post-commit", "pre-rebase",
+            "post-checkout", "post-merge", "pre-push",
+            "pre-receive", "update", "post-receive", "post-update",
+            "push-to-checkout", "pre-auto-gc", "post-rewrite",
+            "sendemail-validate", "fsmonitor-watchman",
         }
         if hook not in valid_hooks:
             return f"ERROR: Invalid git hook name: {hook}. Valid hooks: {', '.join(sorted(valid_hooks))}"
@@ -2957,6 +2929,5 @@ class AsyncToolExecutor(ToolExecutor):
 
 def get_all_tool_schemas() -> list[dict]:
     from .config_tools import custom_tool_manager, ensure_tools_loaded
-
     ensure_tools_loaded()
     return TOOL_SCHEMAS + custom_tool_manager.get_schemas()
