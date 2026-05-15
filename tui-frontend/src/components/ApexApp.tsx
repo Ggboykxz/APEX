@@ -122,12 +122,19 @@ export function ApexApp() {
 
   useEffect(() => { if (connectionError) { const t = setTimeout(() => { setConnectionError(null); setIsReconnecting(false) }, 5000); return () => clearTimeout(t) } }, [connectionError])
   useEffect(() => {
-    fetch(`${API_BASE}/api/v1/tui-config`).then(r => r.json()).then((cfg: any) => {
+    fetch(`${API_BASE}/api/v1/tui-config`).then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.json()
+    }).then((cfg: any) => {
       try {
         (globalThis as any).__TUI_CONFIG__ = cfg
         if (cfg.leader_timeout) setLeaderTimeout(cfg.leader_timeout)
       } catch {}
-    }).catch(() => {})
+    }).catch((err) => {
+      // Backend unavailable — TUI can still work with defaults for chat/stream
+      console.warn(`TUI config fetch failed: ${err.message}`)
+      setConnectionError("Backend API unavailable — some features may not work")
+    })
   }, [])
   useEffect(() => { if (!isGenerating && !anyOverlay) setScrollOffset(0) }, [isGenerating, messages.length])
 
@@ -327,10 +334,7 @@ export function ApexApp() {
     if (key.ctrl && input === "q") { exit(); return }
     if (key.ctrl && input === "o") { setSidebarVisible((v) => !v); return }
     if (key.ctrl && input === "l") { setMessages([]); setInputValue(""); setTotalPromptTokens(0); setTotalCompletionTokens(0); setTotalSpent(0); setScrollOffset(0); return }
-    if (key.ctrl && input === "a") { setInputValue((v) => v); return }
-    if (key.ctrl && input === "e") { setInputValue((v) => v); return }
     if (key.ctrl && input === "u") { setInputValue(""); return }
-    if (key.ctrl && input === "k") { setInputValue(""); return }
     if (key.ctrl && input === "w") { setInputValue((v) => v.replace(/\s*\S+\s*$/, "")); return }
     if (key.ctrl && input === "d") { const nv = inputValue.slice(1); setInputValue(nv); const at = nv.lastIndexOf("@"); if (at >= 0) { setShowFF(true); setFfQuery(nv.slice(at + 1)); setFfIdx(0); fetchFiles() } return }
     if (input === "r" && !key.ctrl && !key.meta && isReconnecting) { retryConnection?.(); return }

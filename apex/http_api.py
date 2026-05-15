@@ -199,6 +199,9 @@ class HTTPServer:
 
     def _setup_routes(self):
         """Setup HTTP routes."""
+        # Add CORS middleware for local TUI/web development
+        self.app.middlewares.append(self._cors_middleware)
+
         # Existing routes
         self.app.router.add_get("/", self.index)
         self.app.router.add_get("/health", self.health)
@@ -252,6 +255,19 @@ class HTTPServer:
         self.app.router.add_get("/api/v1/lsp", self.api_lsp_status)
         self.app.router.add_get("/api/v1/formatter", self.api_formatter_status)
         self.app.router.add_get("/api/v1/mcp", self.api_mcp_status)
+
+    @web.middleware
+    async def _cors_middleware(self, request: web.Request, handler):
+        """CORS middleware — allows all origins for localhost-only server."""
+        # Handle preflight OPTIONS requests
+        if request.method == "OPTIONS":
+            response = web.Response(status=204)
+        else:
+            response = await handler(request)
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key"
+        return response
 
     async def _check_auth(
         self, request: web.Request
@@ -1481,7 +1497,7 @@ class HTTPServer:
 
 
 class APEXHTTPServer(HTTPServer):
-    """Backward compatibility wrapper."""
+    """Backward compatibility wrapper — local TUI server with no auth and relaxed rate limits."""
 
     def __init__(self, host: str = "127.0.0.1", port: int = 8080):
         super().__init__(
@@ -1489,9 +1505,9 @@ class APEXHTTPServer(HTTPServer):
             port=port,
             require_auth=False,
             rate_limit_config=RateLimitConfig(
-                requests_per_minute=10,
-                requests_per_hour=100,
-                requests_per_day=500,
+                requests_per_minute=120,
+                requests_per_hour=5000,
+                requests_per_day=50000,
             ),
         )
 

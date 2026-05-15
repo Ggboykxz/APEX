@@ -14,7 +14,6 @@ import shutil
 import subprocess
 import sys
 import textwrap
-import threading
 import time
 import webbrowser
 from pathlib import Path
@@ -889,6 +888,14 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
     node_modules = tui_dir / "node_modules"
     if node_modules.exists() and (node_modules / "ink").exists():
         return True
+    # Remove stale lockfiles that may reference wrong React versions
+    for lockfile in ["bun.lock", "bun.lockb", "package-lock.json"]:
+        lock_path = tui_dir / lockfile
+        if lock_path.exists():
+            try:
+                lock_path.unlink()
+            except OSError:
+                pass
     ui.print_info("Installing TUI dependencies (first run)...")
     bun_path = _find_bun()
     if bun_path:
@@ -919,7 +926,7 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
 
 
 def _try_run_tui_process(tui_dir: Path, runtime_cmd: list[str], ui: UI,
-                         runtime_name: str = "OpenTUI") -> bool:
+                         runtime_name: str = "Ink") -> bool:
     ui.print_info(f"Starting APEX TUI with {runtime_name} (Ctrl+C to exit)...")
     env = os.environ.copy()
     local_bin = tui_dir / "node_modules" / ".bin"
@@ -932,41 +939,14 @@ def _try_run_tui_process(tui_dir: Path, runtime_cmd: list[str], ui: UI,
         env["PATH"] = str(Path(bun_path).parent) + path_sep + env.get("PATH", "")
     env["APEX_HTTP_PORT"] = "8080"
     try:
+        # Ink requires TTY for raw mode — pass stdin/stdout/stderr directly
         proc = subprocess.Popen(
-            runtime_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, env=env, text=True, bufsize=1, cwd=str(tui_dir),
+            runtime_cmd, stdin=sys.stdin, stdout=sys.stdout,
+            stderr=sys.stderr, env=env, cwd=str(tui_dir),
         )
-        stderr_lines: list[str] = []
-        def read_stderr():
-            for line in iter(proc.stderr.readline, ""):
-                if line.strip():
-                    stderr_lines.append(line.rstrip())
-        stderr_thread = threading.Thread(target=read_stderr, daemon=True)
-        stderr_thread.start()
-
-        def read_stdout():
-            for line in iter(proc.stdout.readline, ""):
-                if not line.strip():
-                    continue
-                try:
-                    msg = json.loads(line)
-                    if msg.get("type") == "quit":
-                        proc.terminate()
-                        return
-                except json.JSONDecodeError:
-                    pass
-        stdout_thread = threading.Thread(target=read_stdout, daemon=True)
-        stdout_thread.start()
-        time.sleep(2.0)
-        if proc.poll() is not None:
-            stderr_output = "\n".join(stderr_lines)
-            if proc.returncode != 0:
-                ui.print_error(f"{runtime_name} exited with code {proc.returncode}")
-                return False
-            return False
         while proc.poll() is None:
             time.sleep(0.1)
-        return True
+        return proc.returncode == 0
     except FileNotFoundError:
         ui.print_error(f"{runtime_name} executable not found: {runtime_cmd[0]}")
         return False
@@ -1006,6 +986,9 @@ def run_apex_tui(agent: Agent, ui: UI, resume: bool = False,
     if not tui_dir:
         ui.print_error("TUI frontend not found. Install with: apex install-tui")
         sys.exit(1)
+
+    # Ensure package.json has React 18 (not 19) before installing deps
+    _patch_tui_package_json(tui_dir)
 
     if not _setup_tui_frontend(tui_dir, ui):
         ui.print_error("TUI dependencies not installed. Run: apex install-tui")
@@ -1058,6 +1041,45 @@ def run_apex_tui(agent: Agent, ui: UI, resume: bool = False,
 
     ui.print_error(f"TUI failed. Run: apex install-tui")
     sys.exit(1)
+
+
+def _patch_tui_package_json(tui_dir: Path) -> None:
+    """Patch tui-frontend/package.json to ensure React 18 + react-reconciler for Ink compatibility.
+
+    Ink 5.x requires react-reconciler which only supports React ^18.3.1.
+    If the repo's package.json still has React 19, this patches it after download.
+    """
+    pkg_path = tui_dir / "package.json"
+    if not pkg_path.exists():
+        return
+    try:
+        data = json.loads(pkg_path.read_text())
+        deps = data.get("dependencies", {})
+        dev_deps = data.get("devDependencies", {})
+        patched = False
+
+        # Downgrade React 19 → 18 if present
+        if "react" in deps and deps["react"].startswith("^19"):
+            deps["react"] = "^18.3.1"
+            patched = True
+        # Ensure react-reconciler is present for Ink
+        if "react-reconciler" not in deps:
+            deps["react-reconciler"] = "^0.29.2"
+            patched = True
+        # Fix @types/react to match React 18
+        if "@types/react" in dev_deps and dev_deps["@types/react"].startswith("^19"):
+            dev_deps["@types/react"] = "^18.3.0"
+            patched = True
+        # Fix invalid typescript version
+        if "typescript" in dev_deps and dev_deps["typescript"].startswith("^6"):
+            dev_deps["typescript"] = "^5.7.0"
+            patched = True
+
+        if patched:
+            pkg_path.write_text(json.dumps(data, indent=2) + "\n")
+            logger.info("Patched tui-frontend/package.json for React 18 / Ink compatibility")
+    except Exception as e:
+        logger.warning(f"Failed to patch tui-frontend/package.json: {e}")
 
 
 def _install_tui_command(ui: UI) -> None:
@@ -1136,6 +1158,10 @@ def _install_tui_command(ui: UI) -> None:
             except Exception as e:
                 ui.print_error(f"Failed to download TUI frontend: {e}")
                 return
+
+    # Post-install: patch package.json to ensure React 18 compatibility with Ink
+    if tui_dir:
+        _patch_tui_package_json(tui_dir)
 
     if tui_dir and not _find_bun():
         tsx_path = _ensure_tsx(tui_dir)
