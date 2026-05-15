@@ -1,0 +1,7 @@
+1:"$Sreact.fragment"
+2:I[7121,[],""]
+3:I[4581,[],""]
+4:I[2113,["255","static/chunks/255-adbeef9524552869.js","177","static/chunks/app/layout-326ec8b7863f687f.js"],"Toaster"]
+:HL["/APEX/_next/static/css/a396b8f900f39353.css","style"]
+:HL["/APEX/_next/static/css/bd2f3a2c92f648b7.css","style"]
+0:{"rsc":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/APEX/_next/static/css/a396b8f900f39353.css","precedence":"next"}],["$","link","1",{"rel":"stylesheet","href":"/APEX/_next/static/css/bd2f3a2c92f648b7.css","precedence":"next"}]],["$","html",null,{"lang":"en","className":"dark","suppressHydrationWarning":true,"children":["$","body",null,{"className":"__variable_514942 __variable_6291ec antialiased bg-background text-foreground","children":[["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}],["$","$L4",null,{}]]}]}]]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"MVQ7y0f48wdGhEW5PzwpT"}
