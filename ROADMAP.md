@@ -49,14 +49,24 @@
 - Fixed Docker build failure (removed data-files from pyproject.toml)
 - CI fixes: resolved 7 failing workflows + codegen/UI test failures
 
-## 🎯 v2.0.0 — Intelligence
+## ✅ v2.0.0 — OpenCode Architecture & Production Hardening (released May 16, 2026)
+- WebSocket EventBus for real-time TUI-backend synchronization
+- Random port binding (no more port 8080 conflicts)
+- State directory with port discovery (~/.apex/state/)
+- 12 bug fixes (Fernet encryption, symlink race, glob paths, shell security, etc.)
+- TUI audit fixes (8 missing API routes, React 18, Ink subprocess, CORS)
+- 10 Dependabot PRs merged, 7 dangerous PRs closed
+- All 10 CI workflows passing
+- Node.js 24 in all workflows
+
+## 🎯 v2.5.0 — Intelligence
 - Repo map (understand full codebase structure)
 - Vision support (send screenshots to vision models)
 - Auto-commit mode
 - VS Code extension
 - MCP server mode
 
-## 🌍 v2.5.0 — Enterprise
+## 🌍 v3.0.0 — Enterprise
 - Full test suite (>80% coverage)
 - Windows installer (.exe)
 - macOS app wrapper

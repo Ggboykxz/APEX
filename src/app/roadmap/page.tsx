@@ -66,8 +66,22 @@ const VERSIONS = [
     ]
   },
   {
-    version: 'v2.0.0', name: 'Intelligence', status: 'planned' as const, progress: 15, color: '#ffaa00',
-    desc: 'Intelligence features — repo mapping, vision, auto-commit, VS Code extension, MCP server.',
+    version: 'v2.0.0', name: 'OpenCode Architecture', status: 'released' as const, progress: 100, color: '#ffaa00',
+    desc: 'OpenCode-inspired TUI architecture with WebSocket EventBus, random port binding, 12 bug fixes, TUI audit fixes, and dependency cleanup.',
+    features: [
+      { text: 'WebSocket EventBus for real-time TUI-backend synchronization', done: true },
+      { text: 'Random port binding (no more port 8080 conflicts)', done: true },
+      { text: 'State directory with port discovery (~/.apex/state/)', done: true },
+      { text: '12 bug fixes (Fernet encryption, symlink race, glob paths, shell security, etc.)', done: true },
+      { text: 'TUI audit fixes (8 missing API routes, React 18, Ink subprocess, CORS)', done: true },
+      { text: '10 Dependabot PRs merged, 7 dangerous PRs closed', done: true },
+      { text: 'All 10 CI workflows passing', done: true },
+      { text: 'Node.js 24 in all workflows', done: true },
+    ]
+  },
+  {
+    version: 'v2.5.0', name: 'Intelligence', status: 'planned' as const, progress: 10, color: '#ffaa00',
+    desc: 'Intelligence features — repo mapping, vision, auto-commit, VS Code extension, MCP server mode.',
     features: [
       { text: 'Repository Map & Code Understanding', done: false },
       { text: 'Vision Model Support (image analysis)', done: false },
@@ -77,20 +91,6 @@ const VERSIONS = [
       { text: 'Multi-file Editing with Diff Preview', done: false },
       { text: 'Context Window Optimization', done: false },
       { text: 'Custom Skill Templates', done: false },
-    ]
-  },
-  {
-    version: 'v2.5.0', name: 'Enterprise', status: 'planned' as const, progress: 5, color: '#d946ef',
-    desc: 'Enterprise-ready — test suite generation, installers, SSO, and APEX Cloud.',
-    features: [
-      { text: 'Automated Test Suite Generation', done: false },
-      { text: 'Windows GUI Installer', done: false },
-      { text: 'macOS App Bundle', done: false },
-      { text: 'SSO & Enterprise Authentication', done: false },
-      { text: 'APEX Cloud (hosted service)', done: false },
-      { text: 'Team Collaboration Features', done: false },
-      { text: 'Audit Logging & Compliance', done: false },
-      { text: 'Custom Model Fine-tuning Integration', done: false },
     ]
   },
 ]
@@ -108,8 +108,8 @@ export default function RoadmapPage() {
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Roadmap</div>
-              <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">From <span className="animated-gradient-text">Foundation</span> to Enterprise</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.0.0 First Production Release to v2.5.0 Enterprise. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
+              <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">From <span className="animated-gradient-text">Foundation</span> to Intelligence</h1>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Our journey from v1.0.0 First Production Release through v2.0.0 OpenCode Architecture to v2.5.0 Intelligence. Every milestone brings APEX closer to being the last coding agent you&apos;ll ever need.</p>
             </motion.div>
           </div>
         </section>
@@ -187,11 +187,11 @@ export default function RoadmapPage() {
             <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Eye className="w-6 h-6 text-apex-cyan" /> Looking Ahead</h2>
             <div className="space-y-4">
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#ffaa00', borderLeftWidth: 3 }}>
-                <h3 className="font-bold font-mono text-[#ffaa00] mb-2">v2.0.0 — Intelligence</h3>
+                <h3 className="font-bold font-mono text-[#ffaa00] mb-2">v2.5.0 — Intelligence</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">The Intelligence release will bring repo-level understanding, vision model support for analyzing screenshots and diagrams, auto-commit with generated messages, and a VS Code extension that integrates APEX into your IDE workflow. The MCP Server mode will allow other tools to communicate with APEX programmatically.</p>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#d946ef', borderLeftWidth: 3 }}>
-                <h3 className="font-bold font-mono text-[#d946ef] mb-2">v2.5.0 — Enterprise</h3>
+                <h3 className="font-bold font-mono text-[#d946ef] mb-2">v3.0.0 — Enterprise</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">The Enterprise release targets organizations with automated test suite generation, native installers for Windows and macOS, SSO integration, and APEX Cloud — a hosted version of APEX that runs in the cloud with team collaboration features, audit logging, and compliance reporting.</p>
               </div>
             </div>

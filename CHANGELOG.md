@@ -2,6 +2,52 @@
 
 All notable changes to APEX will be documented in this file.
 
+## [2.0.0] - 2026-05-16
+
+### 🚀 Second Major Release — OpenCode Architecture & Production Hardening
+
+APEX v2.0.0 brings the OpenCode-inspired architecture to the TUI, production hardening with 12 critical bug fixes, TUI audit fixes, and a major dependency cleanup.
+
+### OpenCode-like TUI Architecture
+
+- **WebSocket EventBus** — Real-time bidirectional communication between the Python backend and Ink TUI frontend, replacing simple HTTP polling with event-driven state synchronization
+- **Random Port Binding** — Backend HTTP server now binds to a random available localhost port (instead of fixed 8080), preventing port conflicts when running multiple APEX instances
+- **State Directory** — Standardized `~/.apex/state/` directory for runtime state, PID files, and port discovery
+- **Port Discovery** — TUI frontend automatically discovers the backend port via shared state file, eliminating manual configuration
+
+### Bug Fixes (12 Critical/High/Medium/Low)
+
+- **Fernet Encryption Fix** — Session encryption now handles padding errors gracefully instead of crashing
+- **Symlink Race Condition** — File operations no longer follow symlinks, preventing TOCTOU attacks
+- **Glob Relative Paths** — Glob tool correctly resolves relative paths against the workspace root
+- **Config.json Blocking** — Config files no longer block tool execution when malformed
+- **Duplicate Pass Fix** — Permission system correctly handles duplicate pass-through rules
+- **Dangerous Pattern Regex** — Shell security regex patterns fixed to prevent ReDoS and false negatives
+- **React 18 Downgrade** — TUI frontend uses React 18 for compatibility with ink's react-reconciler@0.29
+- **Ink Subprocess Passthrough** — TUI subprocess now uses passthrough stdio instead of captured pipes
+- **Rate Limiting Fix** — Increased from 10 req/min to 60 req/min for TUI operations
+- **CORS Headers** — Added proper CORS headers to all HTTP API endpoints
+- **Unhandled Fetch Rejection** — TUI frontend `.catch()` handlers added to all fetch calls
+- **Dead Import Cleanup** — Removed unused `threading` and `time` imports from main.py
+
+### TUI Audit Fixes
+
+- **Missing /api/v1/* Routes** — Added 8 missing API endpoints that TUI frontend expected (tui-config, undo, redo, compact, bash, files, themes, sessions)
+- **Subprocess PIPEs → Passthrough** — TUI process stdio now uses passthrough for proper terminal rendering
+- **@opentui → Ink Check** — Replaced OpenTUI detection with proper Ink dependency verification
+- **Slow Fallback Logic** — Optimized TUI runtime detection fallback chain
+- **Install-TUI Overwrite Protection** — TUI installation no longer overwrites existing configurations
+
+### Dependency Management
+
+- **10 Dependabot PRs Merged** — CI actions updates (checkout v6, setup-node v6, setup-python v6, setup-buildx v4, build-push v7, codeql v4), Python cryptography range expanded, lucide-react, react-day-picker minor bumps
+- **7 Dangerous PRs Closed** — react-reconciler 0.33 (breaks Ink), Prisma 7 (breaking), mdxeditor 4 (removes Sandpack), Node 26 (too new), @types/node 25 (mismatch), and others
+
+### CI/CD
+
+- **All 10 GitHub Actions Workflows Passing** — CI, TUI Build/Lint/TypeScript, Security, Coverage, Build Check, Release, Docs, PR Checks
+- **Node.js 24** — All workflows updated to use Node.js 24
+
 ## [1.0.0] - 2026-05-12
 
 ### 🚀 First Production Release

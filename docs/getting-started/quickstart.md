@@ -26,14 +26,7 @@ Or launch the TUI (Terminal User Interface) directly:
 apex tui
 ```
 
-If you installed via pip, set up the TUI first:
-
-```bash
-apex install-tui    # One-time setup
-apex tui            # Launch TUI
-```
-
-The TUI is a rich terminal interface built with OpenTUI and React featuring a dark theme (`#0d1117` background) with cyan (`#00e5ff`) and green (`#00ff88`) accents. The interface provides a chat panel, model selector, tool panel, and sidebar for managing sessions.
+The TUI launches by default when you run `apex`. It is a rich terminal interface built with Ink and React featuring a dark theme (`#0d1117` background) with cyan (`#00e5ff`) and green (`#00ff88`) accents. The backend starts on a random localhost port with a WebSocket EventBus for real-time synchronization. The interface provides a chat panel, model selector, tool panel, and sidebar for managing sessions.
 
 ## Step 3 — Your First Prompt
 

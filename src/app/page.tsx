@@ -38,7 +38,7 @@ const FEATURES = [
   { icon: Wrench, title: '75+ Tools', description: 'File ops, search, git, web, LSP, code generation, sandboxed execution, clipboard, skills, and more — all built in and ready.', color: 'text-apex-yellow', glow: 'group-hover:shadow-[0_0_30px_rgba(255,170,0,0.15)]' },
   { icon: Shield, title: 'Security System', description: 'Shell command analysis, permission rulesets (ALLOW/DENY/ASK), rate limiting, API key management, billing system, and path traversal protection.', color: 'text-apex-red', glow: 'group-hover:shadow-[0_0_30px_rgba(255,68,68,0.15)]' },
   { icon: Zap, title: 'Switch Models Live', description: 'Switch between any model mid-session without restarting. Compare outputs, optimize costs, and never lose context.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
-  { icon: Terminal, title: 'Ink TUI + 12 Themes + Leader Keys', description: 'Rich Ink + React TUI with command palette (Ctrl+P), leader keys (Ctrl+X), @ file references, ! bash inline, 12 built-in themes (apex, nord, catppuccin, tokyonight, gruvbox, matrix, etc.) with dark/light mode.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
+  { icon: Terminal, title: 'Ink TUI + WebSocket EventBus + 12 Themes', description: 'Rich Ink + React TUI with WebSocket EventBus for real-time sync, command palette (Ctrl+P), leader keys (Ctrl+X), @ file references, ! bash inline, 12 built-in themes with dark/light mode. OpenCode architecture with random port binding.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
   { icon: Layers, title: 'Snapshots & Undo/Redo', description: 'Git-based snapshot system creates automatic backups before every destructive action. Undo/redo with full diff computation. Never lose work again.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
   { icon: Command, title: 'Custom Commands + Session Sharing + Formatters', description: 'Create custom commands via .md files with $ARGUMENTS, !shell, @file. Share sessions via public URLs. 11 auto-formatters (ruff, prettier, gofmt, rustfmt, etc.). File watcher with gitignore-aware patterns.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
 ]
@@ -246,13 +246,13 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }} className="text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v2.0.0 — First Production Release 🚀
+              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v2.0.0 — OpenCode Architecture 🚀
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold font-mono leading-tight mb-6">
               The Universal <span className="animated-gradient-text">AI Coding</span><br />Agent
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Every model. One terminal. APEX runs in your terminal with 170+ models from 21 providers, 75+ tools, and 5 specialized agents. Switch models mid-session. Snapshots, custom commands, and event bus built in.
+              Every model. One terminal. APEX runs in your terminal with 170+ models from 21 providers, 75+ tools, and 5 specialized agents. WebSocket EventBus for real-time sync. Snapshots, custom commands, and OpenCode architecture built in.
             </p>
 
             {/* Install Tabs */}

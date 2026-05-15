@@ -1,6 +1,6 @@
 <div align="center">
 
-# ◆ APEX v1.5.0
+# ◆ APEX v2.0.0
 
 **The universal AI coding agent. Every model. One terminal.**
 
@@ -46,7 +46,7 @@
 | Leader key shortcuts | ✅ | ✅ | ❌ | ❌ |
 | Command palette (Ctrl+P) | ✅ | ✅ | ❌ | ❌ |
 | @file references / !bash | ✅ | ✅ | ❌ | ❌ |
-| Beautiful Ink TUI | ✅ | ✅ | ✅ | ❌ |
+| Beautiful Ink TUI + WebSocket EventBus | ✅ | ✅ | ✅ | ❌ |
 | Live token cost tracker | ✅ | ❌ | ❌ | ✅ |
 | Shell security analysis | ✅ | ❌ | ❌ | ❌ |
 | File watcher with ignores | ✅ | ✅ | ❌ | ❌ |
@@ -84,7 +84,7 @@ apex --session mysession        # Load a specific session
 
 ## 🎨 TUI — Terminal User Interface
 
-APEX features a modern terminal UI built with [Ink](https://github.com/vadimdemedes/ink) (React for terminals). The TUI connects to the APEX backend via HTTP SSE for real-time token streaming, live cost tracking, and context percentage monitoring.
+APEX features a modern terminal UI built with [Ink](https://github.com/vadimdemedes/ink) (React for terminals). The TUI connects to the APEX backend via HTTP SSE for real-time token streaming, live cost tracking, and context percentage monitoring. The backend runs on a random localhost port with a WebSocket EventBus for real-time state synchronization, following the OpenCode architecture pattern.
 
 ```bash
 apex              # Launch TUI (default)
@@ -133,7 +133,7 @@ apex --model gpt-4o            # Start with GPT-4o
 - **Command Palette**: Ctrl+P with fuzzy search
 - **@ References**: Fuzzy file search with `@filename`
 - **! Bash**: Run shell commands inline with `!command`
-- **HTTP Backend**: Local SSE server on port 8080
+- **HTTP Backend**: Local SSE server on random port with WebSocket EventBus
 
 ---
 
@@ -252,7 +252,7 @@ APEX_CONFIG_CONTENT='{"model": "gpt-4o"}'
   "lsp": true,
   "share": "manual",
   "snapshot": true,
-  "server": { "port": 8080, "hostname": "127.0.0.1" },
+  "server": { "port": 0, "hostname": "127.0.0.1" },
   "watcher": {
     "ignore": ["**/node_modules/**", "**/.git/**"]
   }

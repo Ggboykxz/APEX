@@ -1,8 +1,8 @@
-# APEX v1.5.0 — Agent for Programming EXecution
+# APEX v2.0.0 — Agent for Programming EXecution
 
 *Built in Gabon 🇬🇦 for the world.*
 
-APEX is a production-grade, terminal-native AI coding agent that works with **any LLM** via a unified interface powered by litellm. Now featuring the full OpenCode user experience.
+APEX is a production-grade, terminal-native AI coding agent that works with **any LLM** via a unified interface powered by litellm. Now featuring the full OpenCode user experience with WebSocket EventBus, random port binding, and real-time state synchronization.
 
 ## Features
 
@@ -10,7 +10,7 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 - **170+ Models** — Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more
 - **11 Specialized Agents** — 4 primary + 4 subagents + 3 system agents
 - **75+ Tools** — File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB
-- **Rich Terminal UI** — Ink + React with syntax highlighting, markdown rendering
+- **Rich Terminal UI** — Ink + React with WebSocket EventBus, syntax highlighting, markdown rendering
 - **Session Persistence** — Save, load, and share conversations
 - **Token Cost Tracking** — Monitor usage and estimated costs
 
@@ -35,7 +35,8 @@ APEX is a production-grade, terminal-native AI coding agent that works with **an
 - **Share Sanitization** — API keys stripped from shared sessions
 
 ### TUI
-- **Ink + React TUI** — Modern terminal UI with agent-colored theming, live metrics, and HTTP SSE backend
+- **Ink + React TUI** — Modern terminal UI with agent-colored theming, live metrics, WebSocket EventBus, and HTTP SSE backend
+- **OpenCode Architecture** — Worker thread backend with random port, Event Bus for real-time sync, SQLite session storage
 - **Leader Key System** — Ctrl+X prefix for all actions
 - **Command Palette** — Ctrl+P fuzzy search
 - **@ File References** — Fuzzy file search

@@ -74,17 +74,19 @@ For local models (Ollama), no API key needed.
 
 ## TUI Setup
 
-After installing apex-ai via pip, you need to set up the TUI frontend:
+The TUI launches automatically with `apex`. The backend starts on a random localhost port and the Ink frontend connects via WebSocket EventBus for real-time synchronization.
 
 ```bash
-# One-time TUI setup (installs Bun + downloads tui-frontend)
-apex install-tui
+# Launch APEX (TUI is the default mode)
+apex
 
-# Then launch TUI
+# Or explicitly
 apex tui
 ```
 
-For dev/git users, the TUI works directly: `apex tui` (auto-installs deps on first run).
+For pip install users, the TUI auto-installs dependencies on first run. The backend port is written to `~/.apex/state/` for discovery.
+
+For dev/git users, the TUI works directly: `apex` (auto-installs deps on first run).
 
 ## Upgrade
 
