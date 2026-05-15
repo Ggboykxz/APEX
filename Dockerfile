@@ -18,7 +18,7 @@ COPY apex/ apex/
 RUN pip install --no-cache-dir .
 
 # ---- Stage 2: Node.js + TUI frontend ----
-FROM node:22-slim AS tui-builder
+FROM node:26-slim AS tui-builder
 
 WORKDIR /app/tui-frontend
 
