@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from aiohttp import web
+from aiohttp import web, WSMsgType
 
 from .agent import Agent
 from .rate_limiter import (
@@ -171,6 +171,45 @@ class AuthMiddleware:
             return False, api_key, None
 
 
+class EventBus:
+    """Real-time event bus for TUI synchronization (OpenCode-like)."""
+
+    def __init__(self):
+        self._subscribers: list = []
+        self._history: list[dict] = []
+
+    async def publish(self, event_type: str, data: dict = None) -> None:
+        """Publish an event to all subscribers."""
+        payload = {"event": event_type, "data": data or {}, "timestamp": time.time()}
+        self._history.append(payload)
+        if len(self._history) > 1000:
+            self._history = self._history[-500:]
+        dead = []
+        for ws in self._subscribers:
+            try:
+                await ws.send_json(payload)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            try:
+                self._subscribers.remove(ws)
+            except ValueError:
+                pass
+
+    def subscribe(self, ws) -> None:
+        self._subscribers.append(ws)
+
+    def unsubscribe(self, ws) -> None:
+        try:
+            self._subscribers.remove(ws)
+        except ValueError:
+            pass
+
+    @property
+    def subscriber_count(self) -> int:
+        return len(self._subscribers)
+
+
 class HTTPServer:
     """HTTP server with integrated security features."""
 
@@ -196,6 +235,7 @@ class HTTPServer:
         self.runner = None
         self.session_manager = SessionManager()
         self.undo_manager = UndoManager()
+        self.event_bus = EventBus()
 
     def _setup_routes(self):
         """Setup HTTP routes."""
@@ -255,6 +295,7 @@ class HTTPServer:
         self.app.router.add_get("/api/v1/lsp", self.api_lsp_status)
         self.app.router.add_get("/api/v1/formatter", self.api_formatter_status)
         self.app.router.add_get("/api/v1/mcp", self.api_mcp_status)
+        self.app.router.add_get("/ws/events", self.ws_events)
 
     @web.middleware
     async def _cors_middleware(self, request: web.Request, handler):
@@ -268,6 +309,52 @@ class HTTPServer:
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key"
         return response
+
+    async def ws_events(self, request: web.Request) -> web.WebSocketResponse:
+        """WebSocket event stream for real-time TUI sync."""
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        self.event_bus.subscribe(ws)
+        try:
+            # Send initial state
+            await ws.send_json({
+                "event": "connected",
+                "data": {
+                    "version": __import__('apex', fromlist=['__version__']).__version__,
+                    "model": self.agent.model,
+                    "agent": self.agent.current_agent,
+                    "cwd": str(self.agent.cwd),
+                },
+                "timestamp": time.time(),
+            })
+            async for msg in ws:
+                if msg.type == WSMsgType.TEXT:
+                    try:
+                        cmd = json.loads(msg.data)
+                        # Handle RPC-like commands from TUI
+                        if cmd.get("method") == "ping":
+                            await ws.send_json({"event": "pong", "data": {}, "timestamp": time.time()})
+                        elif cmd.get("method") == "state":
+                            await ws.send_json({
+                                "event": "state",
+                                "data": {
+                                    "model": self.agent.model,
+                                    "agent": self.agent.current_agent,
+                                    "history_length": len(self.agent.history) if hasattr(self.agent, "history") else 0,
+                                    "undo_available": self.undo_manager.can_undo(),
+                                    "redo_available": self.undo_manager.can_redo(),
+                                },
+                                "timestamp": time.time(),
+                            })
+                    except json.JSONDecodeError:
+                        pass
+                elif msg.type in (WSMsgType.ERROR, WSMsgType.CLOSE):
+                    break
+        except Exception:
+            pass
+        finally:
+            self.event_bus.unsubscribe(ws)
+        return ws
 
     async def _check_auth(
         self, request: web.Request
@@ -472,6 +559,11 @@ class HTTPServer:
 
             async for chunk in self.agent.chat_streaming(message):
                 await response.write(f"data: {json.dumps({'chunk': chunk})}\n\n".encode())
+
+            await self.event_bus.publish("chat_complete", {
+                "model": self.agent.model,
+                "usage": self.agent.usage or {},
+            })
 
             usage = self.agent.usage or {}
             if key_info:
@@ -755,6 +847,7 @@ class HTTPServer:
             if not name:
                 return web.json_response({"error": "theme name required"}, status=400)
             theme_manager.set_theme(name)
+            await self.event_bus.publish("theme_changed", {"theme": theme_manager.current_name})
             return web.json_response(
                 {
                     "theme": theme_manager.current_name,
@@ -858,6 +951,8 @@ class HTTPServer:
 
             saved = ctx.compact(strategy=strategy)
             self.agent.history = ctx.get_messages()
+
+            await self.event_bus.publish("compact", {"tokens_saved": saved})
 
             return web.json_response(
                 {
@@ -1066,6 +1161,7 @@ class HTTPServer:
 
         action = self.undo_manager.undo()
         if action:
+            await self.event_bus.publish("undo", {"action": action.get("type")})
             return web.json_response(
                 {
                     "undone": True,
@@ -1083,6 +1179,7 @@ class HTTPServer:
 
         action = self.undo_manager.redo()
         if action:
+            await self.event_bus.publish("redo", {"action": action.get("type")})
             return web.json_response(
                 {
                     "redone": True,

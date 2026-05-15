@@ -5,9 +5,11 @@ import { StatusBar } from "./StatusBar.js"
 import { Sidebar } from "./Sidebar.js"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_AGENTS, APEX_MODELS, type ChatMessage } from "../data/apex-data.js"
+import { SyncClient } from "../sync.js"
 
-const HTTP_PORT = parseInt(process.env.APEX_HTTP_PORT ?? "8080", 10)
+const HTTP_PORT = parseInt(process.env.APEX_HTTP_PORT ?? "0", 10)
 const API_BASE = `http://127.0.0.1:${HTTP_PORT}`
+const WS_URL = `ws://127.0.0.1:${HTTP_PORT}/ws/events`
 const DEFAULT_LEADER_TIMEOUT = 2000
 const MAX_VISIBLE = 20
 
@@ -107,6 +109,40 @@ export function ApexApp() {
   const [inputHistory, setInputHistory] = useState<string[]>([])
   const [historyIdx, setHistoryIdx] = useState(-1)
 
+  // ── SyncClient (WebSocket EventBus) ──────────────────────
+  const syncRef = useRef<SyncClient | null>(null)
+
+  useEffect(() => {
+    if (!HTTP_PORT) return
+    const sync = new SyncClient(WS_URL, API_BASE)
+    syncRef.current = sync
+
+    sync.on("connected", () => { setConnectionError(null); setIsReconnecting(false) })
+    sync.on("disconnected", () => { setConnectionError("WebSocket disconnected — reconnecting..."); setIsReconnecting(true) })
+    sync.on("state", (state: any) => {
+      if (state.model) setActiveModel(state.model)
+      if (state.agent) setActiveAgent(state.agent)
+    })
+    sync.on("theme_changed", (data: any) => {
+      // Theme was changed externally — update local state
+      setConnectionError(`Theme changed: ${data.theme}`)
+    })
+    sync.on("chat_complete", (data: any) => {
+      // Chat completed — update tokens if available
+      if (data.usage) {
+        const pt = data.usage.prompt_tokens ?? 0
+        const ct = data.usage.completion_tokens ?? 0
+        setTotalPromptTokens((p) => p + pt)
+        setTotalCompletionTokens((c) => c + ct)
+        const mc = calcMessageCost(pt, ct, activeModel)
+        setTotalSpent((s) => s + mc)
+      }
+    })
+
+    sync.connect()
+    return () => { sync.disconnect(); syncRef.current = null }
+  }, [])
+
   const agent = APEX_AGENTS.find((a) => a.id === activeAgent) ?? APEX_AGENTS[0]!
   const model = APEX_MODELS.find((m) => m.id === activeModel)
   const totalTokens = totalPromptTokens + totalCompletionTokens
@@ -130,10 +166,13 @@ export function ApexApp() {
         (globalThis as any).__TUI_CONFIG__ = cfg
         if (cfg.leader_timeout) setLeaderTimeout(cfg.leader_timeout)
       } catch {}
-    }).catch((err) => {
+    }).catch((err: Error) => {
       // Backend unavailable — TUI can still work with defaults for chat/stream
-      console.warn(`TUI config fetch failed: ${err.message}`)
-      setConnectionError("Backend API unavailable — some features may not work")
+      // SyncClient will handle reconnection via WebSocket
+      if (!syncRef.current?.connected) {
+        console.warn(`TUI config fetch failed: ${err.message}`)
+        setConnectionError("Backend API unavailable — some features may not work")
+      }
     })
   }, [])
   useEffect(() => { if (!isGenerating && !anyOverlay) setScrollOffset(0) }, [isGenerating, messages.length])
@@ -157,9 +196,9 @@ export function ApexApp() {
       }
       case "/exit": case "/quit": case "/q": exit(); return true
       case "/sessions": fetchSessions(); setShowSL(true); setSlIdx(0); return true
-      case "/undo": fetch(`${API_BASE}/api/v1/undo`, { method: "POST" }).then(r => r.json()).then((d: any) => { setConnectionError(d.error ? null : null) }).catch(() => {}); return true
-      case "/redo": fetch(`${API_BASE}/api/v1/redo`, { method: "POST" }).then(r => r.json()).then((_d: any) => {}).catch(() => {}); return true
-      case "/compact": fetch(`${API_BASE}/api/v1/compact`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(() => {}).catch(() => {}); return true
+      case "/undo": fetch(`${API_BASE}/api/v1/undo`, { method: "POST" }).then(r => r.json()).then((d: any) => { setConnectionError(d.error ? null : null) }).catch(() => { setConnectionError("Undo failed — backend unreachable") }); return true
+      case "/redo": fetch(`${API_BASE}/api/v1/redo`, { method: "POST" }).then(r => r.json()).then((_d: any) => {}).catch(() => { setConnectionError("Redo failed — backend unreachable") }); return true
+      case "/compact": fetch(`${API_BASE}/api/v1/compact`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(() => {}).catch(() => { setConnectionError("Compact failed — backend unreachable") }); return true
       case "/share": case "/unshare": case "/export": case "/editor": case "/init": case "/connect": return false
       default: return false
     }

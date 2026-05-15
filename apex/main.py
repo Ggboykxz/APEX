@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import textwrap
@@ -38,6 +39,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 memory = Memory()
+logger = logging.getLogger("apex")
 
 _SUBCOMMANDS: dict[str, dict[str, bool]] = {
     "tui": {"tui": True},
@@ -926,7 +928,7 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
 
 
 def _try_run_tui_process(tui_dir: Path, runtime_cmd: list[str], ui: UI,
-                         runtime_name: str = "Ink") -> bool:
+                         port: int = 8080, runtime_name: str = "Ink") -> bool:
     ui.print_info(f"Starting APEX TUI with {runtime_name} (Ctrl+C to exit)...")
     env = os.environ.copy()
     local_bin = tui_dir / "node_modules" / ".bin"
@@ -937,7 +939,9 @@ def _try_run_tui_process(tui_dir: Path, runtime_cmd: list[str], ui: UI,
     if bun_path:
         path_sep = ";" if sys.platform == "win32" else ":"
         env["PATH"] = str(Path(bun_path).parent) + path_sep + env.get("PATH", "")
-    env["APEX_HTTP_PORT"] = "8080"
+    env["APEX_HTTP_PORT"] = str(port)
+    env["APEX"] = "1"
+    env["APEX_PID"] = str(os.getpid())
     try:
         # Ink requires TTY for raw mode — pass stdin/stdout/stderr directly
         proc = subprocess.Popen(
@@ -978,6 +982,13 @@ def _install_tsx(tui_dir: Path, ui: UI) -> str | None:
     except Exception:
         pass
     return None
+
+
+def _find_free_port() -> int:
+    """Find a random free port on localhost."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
 
 
 def run_apex_tui(agent: Agent, ui: UI, resume: bool = False,
@@ -1028,12 +1039,20 @@ def run_apex_tui(agent: Agent, ui: UI, resume: bool = False,
         sm.load(session_id, agent)
         ui.print_success(f"Loaded session: {session_id}")
 
-    ui.print_info("Starting APEX HTTP API server on port 8080...")
-    server = start_tui_server(port=8080, agent=agent)
-    time.sleep(0.5)
+    # Use a random free port instead of hardcoded 8080
+    port = _find_free_port()
+
+    ui.print_info(f"Starting APEX HTTP API server on port {port}...")
+    server = start_tui_server(port=port, agent=agent)
+
+    logger.info(f"APEX v{__version__} starting...")
+    logger.info(f"Project: {agent.cwd}")
+    logger.info(f"Model: {agent.model}")
+    logger.info(f"Agent: {agent.current_agent}")
+    logger.info(f"HTTP API: http://127.0.0.1:{port}")
 
     try:
-        success = _try_run_tui_process(tui_dir, runtime_cmd, ui, runtime_name=runtime_name)
+        success = _try_run_tui_process(tui_dir, runtime_cmd, ui, port=port, runtime_name=runtime_name)
         if success:
             return
     finally:
@@ -2130,6 +2149,14 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    # Set environment variables like OpenCode
+    os.environ["APEX"] = "1"
+    os.environ["APEX_PID"] = str(os.getpid())
+
+    # Initialize state directory and file logging before any dispatch
+    _init_state_dir()
+    _setup_file_logging()
+
     parser = build_parser()
 
     # Handle --help first to show full epilog
@@ -2243,9 +2270,18 @@ def main() -> None:
     _dispatch(parsed)
 
 
+def _init_state_dir() -> Path:
+    """Initialize APEX state directory (like OpenCode's ~/.local/state/opencode/)."""
+    state_dir = Path.home() / ".local" / "state" / "apex"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    (state_dir / "log").mkdir(parents=True, exist_ok=True)
+    (state_dir / "data").mkdir(parents=True, exist_ok=True)
+    return state_dir
+
+
 def _setup_file_logging() -> None:
-    """Log to file like OpenCode does at ~/.local/share/opencode/log/."""
-    log_dir = Path.home() / ".local" / "share" / "apex" / "log"
+    """Log to file like OpenCode does at ~/.local/state/opencode/log/."""
+    log_dir = Path.home() / ".local" / "state" / "apex" / "log"
     log_dir.mkdir(parents=True, exist_ok=True)
     from datetime import datetime
     log_file = log_dir / f"{datetime.now().strftime('%Y-%m-%dT%H%M%S')}.log"
@@ -2259,7 +2295,6 @@ def _setup_file_logging() -> None:
 
 
 def _dispatch(parsed: argparse.Namespace) -> None:
-    _setup_file_logging()
     from apex.config import Config
     config = Config()
 
