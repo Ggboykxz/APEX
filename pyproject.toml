@@ -86,7 +86,8 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-ignore = ["ALL"]
+select = []
+ignore = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
