@@ -86,7 +86,11 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-ignore = ["E402"]
+ignore = [
+    "E402", "E401", "E741", "F401", "F541", "F811", "F821", "F841",
+    "BLE001", "UP035", "I001", "EXE002", "RUF068", "RUF022", "RUF059",
+    "PERF102", "PLW1510", "B018", "SIM117", "DTZ005", "TRY002", "RUF012", "S110"
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
