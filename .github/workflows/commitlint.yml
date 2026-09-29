@@ -59,7 +59,9 @@ jobs:
           subjectPatternError: |
             The subject must start with a lowercase letter and not end with a period or exclamation mark.
           # Validate single commit (for PRs with 1 commit)
-          validateSingleCommit: true
+          validateSingleCommit: false
+          # Ignore titles matching pattern (e.g., merge commits)
+          ignorePattern: ^Merge.*
           # Ignore commits from certain authors (e.g., dependabot)
           ignoreLabels: |
             bot
