@@ -317,35 +317,43 @@ class HTTPServer:
         self.event_bus.subscribe(ws)
         try:
             # Send initial state
-            await ws.send_json({
-                "event": "connected",
-                "data": {
-                    "version": __import__('apex', fromlist=['__version__']).__version__,
-                    "model": self.agent.model,
-                    "agent": self.agent.current_agent,
-                    "cwd": str(self.agent.cwd),
-                },
-                "timestamp": time.time(),
-            })
+            await ws.send_json(
+                {
+                    "event": "connected",
+                    "data": {
+                        "version": __import__("apex", fromlist=["__version__"]).__version__,
+                        "model": self.agent.model,
+                        "agent": self.agent.current_agent,
+                        "cwd": str(self.agent.cwd),
+                    },
+                    "timestamp": time.time(),
+                }
+            )
             async for msg in ws:
                 if msg.type == WSMsgType.TEXT:
                     try:
                         cmd = json.loads(msg.data)
                         # Handle RPC-like commands from TUI
                         if cmd.get("method") == "ping":
-                            await ws.send_json({"event": "pong", "data": {}, "timestamp": time.time()})
+                            await ws.send_json(
+                                {"event": "pong", "data": {}, "timestamp": time.time()}
+                            )
                         elif cmd.get("method") == "state":
-                            await ws.send_json({
-                                "event": "state",
-                                "data": {
-                                    "model": self.agent.model,
-                                    "agent": self.agent.current_agent,
-                                    "history_length": len(self.agent.history) if hasattr(self.agent, "history") else 0,
-                                    "undo_available": self.undo_manager.can_undo(),
-                                    "redo_available": self.undo_manager.can_redo(),
-                                },
-                                "timestamp": time.time(),
-                            })
+                            await ws.send_json(
+                                {
+                                    "event": "state",
+                                    "data": {
+                                        "model": self.agent.model,
+                                        "agent": self.agent.current_agent,
+                                        "history_length": len(self.agent.history)
+                                        if hasattr(self.agent, "history")
+                                        else 0,
+                                        "undo_available": self.undo_manager.can_undo(),
+                                        "redo_available": self.undo_manager.can_redo(),
+                                    },
+                                    "timestamp": time.time(),
+                                }
+                            )
                     except json.JSONDecodeError:
                         pass
                 elif msg.type in (WSMsgType.ERROR, WSMsgType.CLOSE):
@@ -560,10 +568,13 @@ class HTTPServer:
             async for chunk in self.agent.chat_streaming(message):
                 await response.write(f"data: {json.dumps({'chunk': chunk})}\n\n".encode())
 
-            await self.event_bus.publish("chat_complete", {
-                "model": self.agent.model,
-                "usage": self.agent.usage or {},
-            })
+            await self.event_bus.publish(
+                "chat_complete",
+                {
+                    "model": self.agent.model,
+                    "usage": self.agent.usage or {},
+                },
+            )
 
             usage = self.agent.usage or {}
             if key_info:
