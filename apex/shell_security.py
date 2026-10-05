@@ -37,7 +37,10 @@ class CommandAnalysis:
 
 class ShellSecurityAnalyzer:
     DANGEROUS_PATTERNS = [
-        (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?", "Destructive system-wide deletion"),
+        (
+            r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?",
+            "Destructive system-wide deletion",
+        ),
         (r":\(\)\{\s*:\|:\s*&\s*\};:.*", "Fork bomb"),
         (r">\s*/dev/sd[a-z]", "Direct disk write detected"),
         (r"dd\s+if=.*of=/dev/", "Direct device write"),
