@@ -16,11 +16,6 @@ logger = logging.getLogger(__name__)
 _FERNET_KEY: Optional[bytes] = None
 
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from cryptography.fernet import Fernet
-
-
 def _get_fernet() -> "Fernet":
     """Get or create a Fernet cipher using a key stored in the user's home directory.
 
