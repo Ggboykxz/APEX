@@ -34,6 +34,7 @@ def _get_fernet() -> "Fernet":
         # If the old key was a raw 32-byte SHA-256 hash, derive a proper Fernet key from it
         if len(raw) == 32:
             import hashlib
+
             _FERNET_KEY = base64.urlsafe_b64encode(hashlib.sha256(raw + b":fernet").digest())
         else:
             # Already a valid Fernet key (url-safe base64 of 32 bytes)
@@ -234,6 +235,7 @@ class SessionManager:
         encrypted_payload = _encrypt(payload)
 
         import hashlib as _hl
+
         encoded = _hl.sha256(payload + os.urandom(16)).hexdigest()[:16]
         share_id = encoded
 
@@ -260,6 +262,7 @@ class SessionManager:
             raw = filepath.read_bytes()
             if filepath.suffix == ".json":
                 import base64
+
                 wrapper = json.loads(raw)
                 compressed = wrapper.get("data", "")
                 json_str = base64.b64decode(compressed.encode()).decode()
