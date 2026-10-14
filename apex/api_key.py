@@ -182,8 +182,8 @@ class KeyManager:
         )
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
-                """INSERT INTO api_keys (key_id, key_hash, workspace_id, name, created_at, expires_at, 
-                   rate_limit_per_minute, rate_limit_per_hour, permissions, metadata) 
+                """INSERT INTO api_keys (key_id, key_hash, workspace_id, name, created_at, expires_at,
+                   rate_limit_per_minute, rate_limit_per_hour, permissions, metadata)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     key_id,
