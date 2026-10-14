@@ -234,7 +234,7 @@ Items:
         elif complexity_hint == "complex":
             return self.query(prompt, use_cheap=False)
         else:
-            complexity_prompt = f"""Is this query simple or complex? 
+            complexity_prompt = f"""Is this query simple or complex?
 Reply with just "simple" or "complex".
 
 Query: {prompt}"""
