@@ -7,7 +7,10 @@ import logging
 import base64
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from cryptography.fernet import Fernet
 
 from .agent import Agent
 

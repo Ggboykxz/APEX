@@ -1,26 +1,27 @@
 """Core agent loop for APEX - litellm integration and tool orchestration with multi-agent support."""
 
 import json
-import re
 import logging
+import re
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any
 
 try:
     import litellm
-    from litellm import BadRequestError, RateLimitError, AuthenticationError
+    from litellm import AuthenticationError, BadRequestError, RateLimitError
 
     _LITELLM_AVAILABLE = True
 except ImportError:
     _LITELLM_AVAILABLE = False
     BadRequestError = RateLimitError = AuthenticationError = Exception
 
-from .config import Config, MODELS
-from .tools import ToolExecutor, AsyncToolExecutor, get_all_tool_schemas
-from .ui import UI
 from .agents import agent_manager
-from .permission import permission_manager, get_tool_permission
+from .config import MODELS, Config
 from .config_v2 import apex_config
+from .permission import get_tool_permission, permission_manager
+from .tools import AsyncToolExecutor, ToolExecutor, get_all_tool_schemas
+from .ui import UI
 
 
 class Agent:
@@ -74,7 +75,7 @@ class Agent:
                     content = resp.read().decode("utf-8", errors="replace").strip()
                     if content:
                         parts.append(f"## Instructions from {instr}\n{content}")
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
                 continue
             # Local glob pattern
@@ -418,7 +419,7 @@ class Agent:
             except BadRequestError as e:
                 logging.getLogger(__name__).error(f"BadRequestError: {e}")
                 return f"ERROR: Bad request. The model may not support tools. Details: {e}"
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logging.getLogger(__name__).error(
                     f"Unexpected error in _chat_internal: {type(e).__name__}: {e}"
                 )
@@ -649,7 +650,7 @@ class Agent:
             except BadRequestError as e:
                 yield f"ERROR: Bad request. The model may not support tools. Details: {e}"
                 return
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 yield f"ERROR: {type(e).__name__}: {e}"
                 return
 
