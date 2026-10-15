@@ -3,7 +3,9 @@
 import subprocess
 from pathlib import Path
 
-from apex.context import generate_ctags, get_git_info, get_language_stats, get_repo_map
+
+from apex.context import get_repo_map, get_language_stats, get_git_info, generate_ctags
+
 
 # ---------------------------------------------------------------------------
 # get_repo_map

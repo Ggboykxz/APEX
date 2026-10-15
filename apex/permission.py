@@ -21,8 +21,8 @@ class PermissionAction(Enum):
 class PermissionRule:
     pattern: str
     action: PermissionAction
-    reason: str | None = None
-    expires_at: float | None = None
+    reason: Optional[str] = None
+    expires_at: Optional[float] = None
     remember: bool = False
 
     def is_expired(self) -> bool:
@@ -39,8 +39,8 @@ class PermissionRequest:
     args: dict
     timestamp: float = field(default_factory=time.time)
     status: str = "pending"
-    workspace_id: str | None = None
-    user_id: str | None = None
+    workspace_id: Optional[str] = None
+    user_id: Optional[str] = None
 
 
 class PermissionManager:
@@ -70,8 +70,8 @@ class PermissionManager:
         self,
         pattern: str,
         action: PermissionAction,
-        reason: str | None = None,
-        expires_in: int | None = None,
+        reason: Optional[str] = None,
+        expires_in: Optional[int] = None,
         remember: bool = False,
     ) -> None:
         expires_at = time.time() + expires_in if expires_in else None
@@ -91,7 +91,7 @@ class PermissionManager:
         self._setup_default_rules()
 
     def can_execute_tool(
-        self, tool_name: str, workspace_id: str | None = None, user_id: str | None = None
+        self, tool_name: str, workspace_id: Optional[str] = None, user_id: Optional[str] = None
     ) -> tuple[bool, str]:
         self.initialize()
         for rule in self._rules:
@@ -111,8 +111,8 @@ class PermissionManager:
         tool_name: str,
         args: dict,
         permission: str,
-        workspace_id: str | None = None,
-        user_id: str | None = None,
+        workspace_id: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> str:
         self._request_id_counter += 1
         request_id = f"req_{self._request_id_counter}_{uuid.uuid4().hex[:8]}"
@@ -129,7 +129,7 @@ class PermissionManager:
         return request_id
 
     def approve_request(
-        self, request_id: str, remember: bool = False, expires_in: int | None = None
+        self, request_id: str, remember: bool = False, expires_in: Optional[int] = None
     ) -> bool:
         if request_id not in self._requests:
             logger.warning(f"Unknown request: {request_id}")
@@ -168,7 +168,7 @@ class PermissionManager:
     def get_pending_requests(self) -> list[PermissionRequest]:
         return list(self._requests.values())
 
-    def get_request(self, request_id: str) -> PermissionRequest | None:
+    def get_request(self, request_id: str) -> Optional[PermissionRequest]:
         return self._requests.get(request_id)
 
     def _match_pattern(self, tool_name: str, pattern: str) -> bool:

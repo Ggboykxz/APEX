@@ -7,9 +7,10 @@ import litellm
 import pytest
 
 from apex.agent import Agent
+from apex.config import Config, MODELS
 from apex.agents import agent_manager
-from apex.config import MODELS, Config
 from apex.permission import permission_manager
+
 
 # ---------------------------------------------------------------------------
 # Helpers: build mock litellm responses
@@ -355,7 +356,7 @@ class TestParseSubagentInvocation:
         assert task == "@ghost hi"
 
     def test_subagent_not_subagent_mode(self, agent):
-        name, _task = agent._parse_subagent_invocation("@coder do something")
+        name, task = agent._parse_subagent_invocation("@coder do something")
         assert name is None
 
 
@@ -847,7 +848,7 @@ class TestEdgeCases:
         assert task == "@"
 
     def test_parse_subagent_just_name(self, agent):
-        name, _task = agent._parse_subagent_invocation("@reviewer")
+        name, task = agent._parse_subagent_invocation("@reviewer")
         assert name is None
 
 

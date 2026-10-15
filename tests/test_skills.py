@@ -1,13 +1,12 @@
 """Tests for apex/skills.py — SkillManager, DiffTool, SearchReplace, CodeAnalyzer."""
 
 import pytest
-
 from apex.skills import (
-    CodeAnalyzer,
-    DiffTool,
-    SearchReplace,
     Skill,
     SkillManager,
+    DiffTool,
+    SearchReplace,
+    CodeAnalyzer,
     get_skill_manager,
 )
 

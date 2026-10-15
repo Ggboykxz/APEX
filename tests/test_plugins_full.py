@@ -1,21 +1,20 @@
 """Tests for apex/plugins.py — PluginManager, PluginBase, BuiltInPlugins, _check_code_safety."""
 
-import os
-import tempfile
-from pathlib import Path
-
 import pytest
-
+import tempfile
+import os
+from pathlib import Path
 from apex.plugins import (
-    BuiltInPlugins,
+    _check_code_safety,
+    PluginInfo,
     PluginBase,
     PluginHook,
-    PluginInfo,
     PluginManager,
-    _check_code_safety,
-    load_plugins_from_config,
+    BuiltInPlugins,
     plugin_manager,
+    load_plugins_from_config,
 )
+
 
 # ---------------------------------------------------------------------------
 # _check_code_safety

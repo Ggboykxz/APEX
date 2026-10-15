@@ -3,12 +3,11 @@
 import json
 import threading
 import time
-from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Callable
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass, asdict
 
 
 class TaskStatus(Enum):

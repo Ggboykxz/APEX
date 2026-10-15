@@ -1,13 +1,13 @@
 """Tests for apex/structured_message.py — Message, MessagePart, TokenUsage, PartType."""
 
 from apex.structured_message import (
-    Message,
-    MessagePart,
     PartType,
+    MessagePart,
     TokenUsage,
+    Message,
     create_message,
-    deserialize_messages,
     serialize_messages,
+    deserialize_messages,
 )
 
 

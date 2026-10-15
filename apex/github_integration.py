@@ -1,7 +1,7 @@
 """GitHub integration - PRs, Issues, and automation."""
 
-import json
 import os
+import json
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
@@ -51,15 +51,15 @@ class GitHubClient:
     def _run_gh(self, *args) -> tuple[int, str, str]:
         """Run gh CLI command."""
         try:
-            result = subprocess.run(["gh", *list(args)], capture_output=True, text=True)
+            result = subprocess.run(["gh"] + list(args), capture_output=True, text=True)
             return result.returncode, result.stdout, result.stderr
         except FileNotFoundError:
             return -1, "", "gh not found"
 
     def _api_request(self, method: str, path: str, data: dict | None = None) -> dict | None:
         """Make GitHub API request."""
-        import urllib.parse
         import urllib.request
+        import urllib.parse
 
         url = f"{self._api_base}{path}"
         headers = self._get_headers()

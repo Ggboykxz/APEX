@@ -1,10 +1,10 @@
 """Tests for APEX tools - core file operations and ToolExecutor basics."""
 
+import pytest
 from pathlib import Path
 
-import pytest
+from apex.tools import ToolExecutor, TOOL_SCHEMAS
 
-from apex.tools import TOOL_SCHEMAS, ToolExecutor
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 

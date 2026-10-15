@@ -1,6 +1,7 @@
 """Tests for i18n module — no mocks, real environment manipulation via monkeypatch."""
 
-from apex.i18n import LOCALES, I18n, detect_locale, get_i18n, set_locale
+from apex.i18n import LOCALES, detect_locale, I18n, get_i18n, set_locale
+
 
 # ---------------------------------------------------------------------------
 # LOCALES dictionary

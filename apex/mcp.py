@@ -3,11 +3,10 @@
 import asyncio
 import json
 import subprocess
-import uuid
-from collections.abc import Callable
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+from dataclasses import dataclass, field
+import uuid
 
 
 @dataclass
@@ -64,7 +63,7 @@ class MCPClient:
         try:
             env = {**subprocess.os.environ.copy(), **self.config.env}
             self.process = subprocess.Popen(
-                [self.config.command, *self.config.args],
+                [self.config.command] + self.config.args,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

@@ -1,8 +1,8 @@
 """Code execution sandbox for APEX - Run code safely."""
 
-import os
 import subprocess
 import tempfile
+import os
 import uuid
 from pathlib import Path
 

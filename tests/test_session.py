@@ -5,9 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from apex.session import UndoManager, SessionManager
 from apex.agent import Agent
 from apex.config import Config
-from apex.session import SessionManager, UndoManager
+
 
 # ---------------------------------------------------------------------------
 # Fixtures

@@ -1,8 +1,8 @@
 """Skills and custom commands system for APEX."""
 
-from collections.abc import Callable
-from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -311,7 +311,7 @@ class CustomCommand:
         name: str,
         handler: Callable[[list[str]], str],
         description: str = "",
-        aliases: list[str] | None = None,
+        aliases: list[str] = None,
     ):
         self.name = name
         self.handler = handler

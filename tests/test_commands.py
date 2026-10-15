@@ -1,8 +1,7 @@
 """Tests for apex/commands.py — Command, CommandManager, create_command_manager."""
 
-import os
-
 import pytest
+import os
 
 from apex.commands import Command, CommandManager, create_command_manager
 

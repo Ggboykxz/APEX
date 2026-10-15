@@ -1,9 +1,9 @@
 """Structured message system for APEX - Parts like OpenCode."""
 
+from typing import Any, Optional, List, Dict
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from datetime import datetime
 
 
 class PartType(Enum):
@@ -19,7 +19,7 @@ class PartType(Enum):
 class MessagePart:
     part_type: PartType
     content: Any
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {"type": self.part_type.value, "content": self.content, "metadata": self.metadata}
@@ -43,9 +43,9 @@ class TokenUsage:
 class Message:
     id: str
     role: str
-    parts: list[MessagePart] = field(default_factory=list)
-    token_usage: TokenUsage | None = None
-    cost_usd: float | None = None
+    parts: List[MessagePart] = field(default_factory=list)
+    token_usage: Optional[TokenUsage] = None
+    cost_usd: Optional[float] = None
     timestamp: datetime = field(default_factory=datetime.now)
 
     def to_dict(self) -> dict:
@@ -101,10 +101,10 @@ class Message:
     def get_text(self) -> str:
         return " ".join(p.content for p in self.parts if p.part_type == PartType.TEXT)
 
-    def get_files(self) -> list[dict]:
+    def get_files(self) -> List[Dict]:
         return [p.content for p in self.parts if p.part_type == PartType.FILE]
 
-    def get_tool_calls(self) -> list[dict]:
+    def get_tool_calls(self) -> List[Dict]:
         return [p.content for p in self.parts if p.part_type == PartType.TOOL_CALL]
 
 
@@ -122,11 +122,11 @@ def create_message(role: str, content: str = "") -> Message:
     return msg
 
 
-def serialize_messages(messages: list[Message]) -> list[dict]:
+def serialize_messages(messages: List[Message]) -> List[dict]:
     """Serialize messages to list of dicts."""
     return [m.to_dict() for m in messages]
 
 
-def deserialize_messages(data: list[dict]) -> list[Message]:
+def deserialize_messages(data: List[dict]) -> List[Message]:
     """Deserialize messages from list of dicts."""
     return [Message.from_dict(d) for d in data]

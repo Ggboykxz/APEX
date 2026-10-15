@@ -1,16 +1,14 @@
 """Tests for apex/mcp.py — full coverage including connect, _send_request, _send_notification, _handle_message, _read_messages."""
 
-import asyncio
-import json
-
 import pytest
-
+import json
+import asyncio
 from apex.mcp import (
+    MCPResource,
+    MCPTool,
+    MCPServerConfig,
     MCPClient,
     MCPManager,
-    MCPResource,
-    MCPServerConfig,
-    MCPTool,
 )
 
 

@@ -32,15 +32,12 @@ class CommandAnalysis:
     args: list[str]
     warnings: list[str]
     requires_confirmation: bool
-    description: str | None = None
+    description: Optional[str] = None
 
 
 class ShellSecurityAnalyzer:
     DANGEROUS_PATTERNS = [
-        (
-            r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?",
-            "Destructive system-wide deletion",
-        ),
+        (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?", "Destructive system-wide deletion"),
         (r":\(\)\{\s*:\|:\s*&\s*\};:.*", "Fork bomb"),
         (r">\s*/dev/sd[a-z]", "Direct disk write detected"),
         (r"dd\s+if=.*of=/dev/", "Direct device write"),
@@ -305,7 +302,7 @@ class ShellSecurityAnalyzer:
 
     def get_allowed_commands(self) -> list[str]:
         return list(
-            set([*self.SAFE_COMMANDS, "npm", "pip", "git", "make", "cargo", "go", "python", "node"])
+            set(self.SAFE_COMMANDS + ["npm", "pip", "git", "make", "cargo", "go", "python", "node"])
         )
 
 

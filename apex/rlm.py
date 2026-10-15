@@ -2,10 +2,9 @@
 
 import asyncio
 import time
-from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Callable, Optional
+from concurrent.futures import ThreadPoolExecutor
 
 import litellm
 
@@ -30,7 +29,7 @@ class RLM:
         "day": 86400,
     }
 
-    def __init__(self, config: RLMConfig | None = None):
+    def __init__(self, config: Optional[RLMConfig] = None):
         self.config = config or RLMConfig()
         self._counts: dict[str, dict[str, tuple[int, float]]] = {}
 
@@ -211,7 +210,7 @@ Items:
         """Summarize each item in a batch using cheap model."""
 
         def summarize(idx_prompt):
-            _idx, item = idx_prompt
+            idx, item = idx_prompt
             prompt = f"Summarize this in max {max_length} chars: {item}"
             return self.query(prompt, use_cheap=True)
 
@@ -221,7 +220,7 @@ Items:
         """Extract information from a batch using a pattern."""
 
         def extract(idx_item):
-            _idx, item = idx_item
+            idx, item = idx_item
             prompt = f"Extract {extract_pattern} from: {item}"
             result = self.query(prompt, use_cheap=True)
             return [x.strip() for x in result.split("\n") if x.strip()]

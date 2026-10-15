@@ -7,13 +7,14 @@ from pathlib import Path
 import pytest
 
 from apex.codegen import (
-    APIClientGenerator,
     CodeRefactorer,
     DatabaseManager,
     DockerManager,
+    APIClientGenerator,
     DocumentationGenerator,
     PerformanceProfiler,
 )
+
 
 # ---------------------------------------------------------------------------
 # CodeRefactorer — extended coverage

@@ -11,11 +11,12 @@ import pytest
 litellm = pytest.importorskip("litellm")
 
 from apex.agent import Agent
+from apex.config import Config, MODELS
 from apex.agents import (
     agent_manager,
 )
-from apex.config import MODELS, Config
 from apex.permission import permission_manager
+
 
 # ---------------------------------------------------------------------------
 # Fixtures

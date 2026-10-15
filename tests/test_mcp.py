@@ -1,15 +1,16 @@
 """Tests for apex/mcp.py — MCPClient, MCPManager, dataclasses, _format_content."""
 
 from apex.mcp import (
+    MCPResource,
+    MCPTool,
+    MCPServerConfig,
+    MCPMessage,
     MCPClient,
     MCPManager,
-    MCPMessage,
-    MCPResource,
-    MCPServerConfig,
-    MCPTool,
-    load_mcp_config,
     mcp_manager,
+    load_mcp_config,
 )
+
 
 # ---------------------------------------------------------------------------
 # Dataclass tests

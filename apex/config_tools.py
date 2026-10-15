@@ -1,11 +1,11 @@
 """Custom tools defined from configuration for APEX."""
 
+from pathlib import Path
+from typing import Callable
+from dataclasses import dataclass
 import logging
 import re
 import shlex
-from collections.abc import Callable
-from dataclasses import dataclass
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 

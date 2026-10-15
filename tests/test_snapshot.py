@@ -1,9 +1,7 @@
 """Tests for apex/snapshot.py — SnapshotManager, Snapshot, FileChange, ActionType."""
 
-from pathlib import Path
-
 import pytest
-
+from pathlib import Path
 from apex.snapshot import ActionType, FileChange, Snapshot, SnapshotManager, create_snapshot_manager
 
 

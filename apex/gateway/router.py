@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import UTC, datetime, timezone
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from .auth import AuthManager
@@ -87,8 +87,8 @@ class RequestRouter:
                 status=429,
             )
 
-        today = datetime.now(UTC).strftime("%Y-%m-%d")
-        day_req, _day_tok = self.auth.get_or_create_day_usage(key_info["key_id"], today)
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        day_req, day_tok = self.auth.get_or_create_day_usage(key_info["key_id"], today)
 
         if day_req >= tier.daily_requests:
             return web.json_response(
@@ -123,7 +123,7 @@ class RequestRouter:
                 completion_tokens = usage.get("completion_tokens", 0)
                 total_tokens = prompt_tokens + completion_tokens
 
-                today = datetime.now(UTC).strftime("%Y-%m-%d")
+                today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                 key_id = rate_key.split(":")[0]
                 self.auth.record_usage(key_id, today, requests=1, tokens=total_tokens)
 
@@ -134,10 +134,10 @@ class RequestRouter:
 
                 return web.json_response(upstream_data)
 
-        except TimeoutError:
+        except asyncio.TimeoutError:
             return web.json_response({"error": "Upstream request timed out"}, status=504)
         except aiohttp.ClientError as e:
-            return web.json_response({"error": f"Upstream error: {e!s}"}, status=502)
+            return web.json_response({"error": f"Upstream error: {str(e)}"}, status=502)
 
     async def close(self):
         if self._session and not self._session.closed:
@@ -145,7 +145,7 @@ class RequestRouter:
 
     async def status(self, key_info: dict) -> dict:
         tier = self._get_tier(key_info["tier"])
-        today = datetime.now(UTC).strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         req, tok = self.auth.get_or_create_day_usage(key_info["key_id"], today)
         return {
             "tier": key_info["tier"],

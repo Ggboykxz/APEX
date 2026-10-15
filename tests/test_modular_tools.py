@@ -2,7 +2,7 @@
 
 import pytest
 
-from apex.tools import TOOL_SCHEMAS, AsyncToolExecutor, ToolExecutor
+from apex.tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
 
 
 @pytest.fixture

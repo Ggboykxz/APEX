@@ -6,15 +6,16 @@ from pathlib import Path
 import pytest
 
 from apex.cost_local import (
+    ModelPricing,
     MODEL_PRICING,
     CostTracker,
     LocalExecutionManager,
-    ModelPricing,
     ZenIntegration,
     cost_tracker,
     local_manager,
     zen_integration,
 )
+
 
 # ---------------------------------------------------------------------------
 # ModelPricing dataclass

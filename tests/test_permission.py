@@ -14,6 +14,7 @@ from apex.permission import (
     permission_manager,
 )
 
+
 # ---------------------------------------------------------------------------
 # PermissionAction enum
 # ---------------------------------------------------------------------------
@@ -363,7 +364,7 @@ class TestPermissionManagerCanExecute:
             "expired_tool", PermissionAction.ALLOW, "Expired allow", expires_at=time.time() - 10
         )
         manager._rules.insert(0, expired_rule)
-        can_exec, _reason = manager.can_execute_tool("expired_tool")
+        can_exec, reason = manager.can_execute_tool("expired_tool")
         # Expired rule is skipped, falls through to next rules
         # Eventually hits the wildcard * ASK rule
         assert can_exec is False
@@ -371,7 +372,7 @@ class TestPermissionManagerCanExecute:
     def test_priority_first_match(self, manager):
         # Add a DENY rule before the default ALLOW for read_file
         manager.add_rule("read_file", PermissionAction.DENY, "Override deny")
-        can_exec, _reason = manager.can_execute_tool("read_file")
+        can_exec, reason = manager.can_execute_tool("read_file")
         assert can_exec is False
 
     def test_can_execute_auto_initializes(self):

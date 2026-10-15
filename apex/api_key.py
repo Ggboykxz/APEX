@@ -52,8 +52,8 @@ class APIKeyInfo:
     workspace_id: str
     name: str
     created_at: float
-    expires_at: float | None = None
-    last_used: float | None = None
+    expires_at: Optional[float] = None
+    last_used: Optional[float] = None
     request_count: int = 0
     is_active: bool = True
     rate_limit_per_minute: int = 60
@@ -114,7 +114,9 @@ class KeyManager:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_workspace ON api_keys(workspace_id)")
             conn.commit()
 
-    def create_workspace(self, name: str, owner_id: str, settings: dict | None = None) -> Workspace:
+    def create_workspace(
+        self, name: str, owner_id: str, settings: Optional[dict] = None
+    ) -> Workspace:
         workspace_id = str(uuid.uuid4())
         workspace = Workspace(
             workspace_id=workspace_id,
@@ -132,7 +134,7 @@ class KeyManager:
         logger.info(f"Created workspace: {workspace_id}")
         return workspace
 
-    def get_workspace(self, workspace_id: str) -> Workspace | None:
+    def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
                 "SELECT workspace_id, name, owner_id, created_at, is_active, settings, metadata FROM workspaces WHERE workspace_id = ?",
@@ -155,11 +157,11 @@ class KeyManager:
         self,
         workspace_id: str,
         name: str,
-        expires_in: int | None = None,
+        expires_in: Optional[int] = None,
         rate_limit_per_minute: int = 60,
         rate_limit_per_hour: int = 1000,
-        permissions: list[str] | None = None,
-        metadata: dict | None = None,
+        permissions: Optional[list[str]] = None,
+        metadata: Optional[dict] = None,
     ) -> tuple[str, APIKeyInfo]:
         key = f"apex_{secrets.token_urlsafe(32)}"
         key_hash = hashlib.sha256(key.encode()).hexdigest()
@@ -291,5 +293,5 @@ class KeyManager:
 key_manager = KeyManager()
 
 
-def create_key_manager(db_path: str | None = None) -> KeyManager:
+def create_key_manager(db_path: Optional[str] = None) -> KeyManager:
     return KeyManager(db_path=db_path) if db_path else KeyManager()

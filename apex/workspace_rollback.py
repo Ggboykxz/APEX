@@ -3,9 +3,9 @@
 import json
 import shutil
 import subprocess
-from datetime import datetime
 from pathlib import Path
 from typing import Any
+from datetime import datetime
 
 
 class WorkspaceRollback:
@@ -20,7 +20,7 @@ class WorkspaceRollback:
         """Run git command."""
         try:
             result = subprocess.run(
-                ["git", *list(args)], cwd=self.cwd, capture_output=True, text=True
+                ["git"] + list(args), cwd=self.cwd, capture_output=True, text=True
             )
             return result.returncode, result.stdout, result.stderr
         except FileNotFoundError:
@@ -49,7 +49,7 @@ class WorkspaceRollback:
             json.dump(metadata, f)
 
         if self.is_git_repo():
-            code, stdout, _stderr = self._run_git("diff", "--name-only")
+            code, stdout, stderr = self._run_git("diff", "--name-only")
             if code == 0 and stdout.strip():
                 with open(snapshot_path / "changed_files.txt", "w") as f:
                     f.write(stdout)

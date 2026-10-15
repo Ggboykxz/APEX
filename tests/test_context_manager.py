@@ -1,6 +1,7 @@
 """Tests for APEX context manager — no mocks, real file system."""
 
-from apex.context_manager import AutoSaveManager, ContextWindow, ConversationManager, MessageSummary
+from apex.context_manager import ContextWindow, MessageSummary, ConversationManager, AutoSaveManager
+
 
 # ---------------------------------------------------------------------------
 # MessageSummary

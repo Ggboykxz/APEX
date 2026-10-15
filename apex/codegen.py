@@ -1,8 +1,8 @@
 """Code refactoring and AI-powered improvements."""
 
 import re
-from pathlib import Path
 from typing import Any
+from pathlib import Path
 
 
 class CodeRefactorer:
@@ -268,9 +268,7 @@ class APIClientGenerator:
         except Exception as e:
             return f"ERROR: {e}"
 
-    def generate_curl(
-        self, method: str, url: str, headers: dict | None = None, data: Any = None
-    ) -> str:
+    def generate_curl(self, method: str, url: str, headers: dict = None, data: Any = None) -> str:
         parts = ["curl", f"-X {method.upper()}", f'"{url}"']
 
         if headers:

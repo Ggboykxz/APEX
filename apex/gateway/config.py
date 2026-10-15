@@ -82,9 +82,9 @@ class GatewayConfig:
     data_dir: Path = Path.home() / ".apex" / "gateway"
     tiers: dict[str, TierConfig] = field(default_factory=lambda: DEFAULT_TIERS)
     upstream_base: str = "https://openrouter.ai/api/v1"
-    upstream_api_key: str | None = None
+    upstream_api_key: Optional[str] = None
     default_tier: str = "free"
-    admin_key: str | None = None
+    admin_key: Optional[str] = None
     register_enabled: bool = True
 
     @classmethod

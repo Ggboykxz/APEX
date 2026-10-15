@@ -1,10 +1,10 @@
 """Cost management and local execution support."""
 
-import json
 import os
-from dataclasses import dataclass
-from datetime import datetime
+import json
 from pathlib import Path
+from datetime import datetime
+from dataclasses import dataclass
 
 
 @dataclass
@@ -194,8 +194,8 @@ class LocalExecutionManager:
 
     def check_provider_available(self, provider: str) -> bool:
         """Check if a local provider is available."""
-        import urllib.error
         import urllib.request
+        import urllib.error
 
         provider_config = self.LOCAL_PROVIDERS.get(provider, {})
         url = provider_config.get("url", "")

@@ -6,6 +6,7 @@ from rich.console import Console
 
 from apex.ui import UI, APEXTheme, create_ui, get_available_themes
 
+
 # ---------------------------------------------------------------------------
 # APEXTheme tests
 # ---------------------------------------------------------------------------

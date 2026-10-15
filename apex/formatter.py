@@ -307,8 +307,8 @@ formatter_manager = FormatterManager()
 
 
 __all__ = [
-    "BUILTIN_FORMATTERS",
     "FormatterConfig",
     "FormatterManager",
     "formatter_manager",
+    "BUILTIN_FORMATTERS",
 ]

@@ -1,18 +1,18 @@
 """Extra features for APEX - shell expansion, task queue, history search."""
 
-import asyncio
 import os
 import re
-from dataclasses import dataclass, field
+import asyncio
 from pathlib import Path
 from typing import Any, Optional
+from dataclasses import dataclass, field
 
 
 class ShellExpander:
     VAR_PATTERN = re.compile(r"\$\{?([a-zA-Z_][a-zA-Z0-9_]*)\}?")
 
     @classmethod
-    def expand(cls, text: str, env: dict | None = None) -> str:
+    def expand(cls, text: str, env: dict = None) -> str:
         env = env or os.environ
 
         def replace_var(match):
@@ -38,7 +38,7 @@ class EnvManager:
         self.cwd = Path(cwd)
         self._local_env: dict[str, str] = {}
 
-    def get(self, key: str, default: str | None = None) -> str:
+    def get(self, key: str, default: str = None) -> str:
         return self._local_env.get(key, os.environ.get(key, default))
 
     def set(self, key: str, value: str):
@@ -109,7 +109,7 @@ class TaskQueue:
             task.error = str(e)
             task.status = "failed"
 
-    def get(self, task_id: str) -> Task | None:
+    def get(self, task_id: str) -> Optional[Task]:
         return self._tasks.get(task_id)
 
     def list(self) -> list[dict]:
@@ -135,7 +135,7 @@ class HistorySearch:
         self.max_items = max_items
         self._history: list[dict[str, Any]] = []
 
-    def add(self, query: str, response: str = "", metadata: dict | None = None):
+    def add(self, query: str, response: str = "", metadata: dict = None):
         self._history.append(
             {
                 "query": query,
@@ -266,9 +266,9 @@ class SecurityAuditor:
         return results
 
 
-_env_manager: EnvManager | None = None
-_task_queue: TaskQueue | None = None
-_history_search: HistorySearch | None = None
+_env_manager: Optional[EnvManager] = None
+_task_queue: Optional[TaskQueue] = None
+_history_search: Optional[HistorySearch] = None
 
 
 def get_env_manager(cwd: str) -> EnvManager:

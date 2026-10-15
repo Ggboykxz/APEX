@@ -1,8 +1,8 @@
 """Skills system for APEX - reusable prompt templates."""
 
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional, Dict, Any
+from dataclasses import dataclass
 
 
 @dataclass
@@ -16,7 +16,7 @@ class Skill:
 class SkillManager:
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
-        self._skills: dict[str, Skill] = {}
+        self._skills: Dict[str, Skill] = {}
         self._load_skills()
 
     def _load_skills(self):
@@ -56,7 +56,7 @@ class SkillManager:
         except Exception:
             pass
 
-    def get(self, name: str) -> Skill | None:
+    def get(self, name: str) -> Optional[Skill]:
         return self._skills.get(name)
 
     def list_skills(self) -> list[dict[str, str]]:
@@ -65,7 +65,7 @@ class SkillManager:
             for skill in self._skills.values()
         ]
 
-    def render(self, name: str, **kwargs) -> str | None:
+    def render(self, name: str, **kwargs) -> Optional[str]:
         skill = self.get(name)
         if not skill:
             return None
@@ -136,7 +136,7 @@ class SearchReplace:
 
     def replace_in_files(
         self, pattern: str, replacement: str, patterns: list[str], dry_run: bool = True
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
         import re
 
         results = {"files_modified": [], "replacements": 0, "errors": []}
@@ -174,7 +174,7 @@ class CodeAnalyzer:
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
 
-    def analyze_file(self, path: str) -> dict[str, Any]:
+    def analyze_file(self, path: str) -> Dict[str, Any]:
         filepath = self.cwd / path
         if not filepath.exists():
             return {"error": "File not found"}
@@ -215,7 +215,7 @@ class CodeAnalyzer:
         except Exception as e:
             return {"error": str(e)}
 
-    def explain_code(self, path: str, start_line: int = 1, end_line: int | None = None) -> str:
+    def explain_code(self, path: str, start_line: int = 1, end_line: int = None) -> str:
         analysis = self.analyze_file(path)
         if "error" in analysis:
             return analysis["error"]
@@ -238,7 +238,7 @@ Imports: {", ".join(analysis["imports"][:10])}
 """
 
 
-_skill_manager: SkillManager | None = None
+_skill_manager: Optional[SkillManager] = None
 
 
 def get_skill_manager(cwd: str) -> SkillManager:

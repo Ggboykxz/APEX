@@ -3,11 +3,11 @@
 import json
 import os
 import tempfile
+import pytest
 from pathlib import Path
 
-import pytest
+from apex.config import Config, MODELS, MODEL_PROVIDERS, DEFAULT_MODEL, SYSTEM_PROMPT
 
-from apex.config import DEFAULT_MODEL, MODEL_PROVIDERS, MODELS, SYSTEM_PROMPT, Config
 
 # ---------------------------------------------------------------------------
 # Fixtures

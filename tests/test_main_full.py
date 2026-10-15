@@ -1,10 +1,10 @@
 """Tests for apex/main.py — handle_command and other functions with real Agent/UI objects."""
 
-import os
+import pytest
 import sys
 import tempfile
+import os
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # parse_args — additional edge cases
@@ -75,9 +75,9 @@ class TestListModels:
     """Test list_models function."""
 
     def test_list_models_calls_show_models(self):
-        from apex.config import Config
         from apex.main import list_models
         from apex.ui import UI
+        from apex.config import Config
 
         ui = UI()
         Config()

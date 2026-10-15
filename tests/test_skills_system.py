@@ -1,14 +1,13 @@
 """Tests for apex/skills_system.py — SkillsManager, CustomCommand, CommandRegistry."""
 
 import pytest
-
 from apex.skills_system import (
-    CommandRegistry,
-    CustomCommand,
     Skill,
     SkillsManager,
-    command_registry,
+    CustomCommand,
+    CommandRegistry,
     skills_manager,
+    command_registry,
 )
 
 

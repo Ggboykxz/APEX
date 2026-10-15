@@ -1,12 +1,12 @@
 """Tests for apex/github_integration.py — GitHubClient, GitHubAutomation with no network calls."""
 
 from apex.github_integration import (
-    GitHubAutomation,
-    GitHubClient,
     GitHubIssue,
     GitHubPR,
-    gh_automation,
+    GitHubClient,
+    GitHubAutomation,
     gh_client,
+    gh_automation,
 )
 
 
@@ -205,14 +205,14 @@ class TestGitHubIntegrationEdgeCases:
 
         monkeypatch.setattr(subprocess, "run", mock_run)
         client = GitHubClient()
-        code, out, _err = client._run_gh("repo", "view")
+        code, out, err = client._run_gh("repo", "view")
         assert code == 0
         assert out == "ok"
 
     def test_api_request_success(self, monkeypatch):
         """Hit line 75 — successful API request with JSON response."""
-        import json
         import urllib.request
+        import json
 
         class FakeResponse:
             def read(self):

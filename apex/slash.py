@@ -1,8 +1,7 @@
 """Slash commands for APEX - OpenCode-style command system."""
 
-from collections.abc import Callable
+from typing import Callable, Any
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass
@@ -161,7 +160,7 @@ class SlashCommandManager:
         args = parts[1:] if len(parts) > 1 else []
         return (name, args)
 
-    def execute(self, text: str, context: dict[str, Any] | None = None) -> str:
+    def execute(self, text: str, context: dict[str, Any] = None) -> str:
         context = context or {}
         parsed = self.parse(text)
         if not parsed:

@@ -1,14 +1,13 @@
 """Tests for apex/extras.py — full coverage edge cases."""
 
-import os
 import tempfile
+import os
 from pathlib import Path
-
 from apex.extras import (
-    EnvManager,
-    SecurityAuditor,
     ShellExpander,
+    EnvManager,
     WorkspaceValidator,
+    SecurityAuditor,
 )
 
 

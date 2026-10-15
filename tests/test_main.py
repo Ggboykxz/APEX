@@ -1,10 +1,10 @@
 """Tests for apex/main.py — parse_args, handle_command, _dispatch_verb, and all CLI subcommands."""
 
 import argparse
+import pytest
 import sys
 from unittest.mock import patch
 
-import pytest
 
 # ---------------------------------------------------------------------------
 # parse_args — we must manipulate sys.argv directly (no mock/patch)
