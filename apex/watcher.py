@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import fnmatch
 import os
-import time
 import threading
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from .config_v2 import apex_config
 
@@ -98,7 +98,7 @@ def _load_gitignore_patterns(project_dir: str) -> list[str]:
     root = Path(project_dir).resolve()
 
     # Walk up from project_dir to find .gitignore (root and parent dirs)
-    for parent in [root] + list(root.parents):
+    for parent in [root, *list(root.parents)]:
         gi = parent / ".gitignore"
         if gi.is_file():
             try:

@@ -16,7 +16,6 @@ from apex.commands_manager import (
 )
 from apex.config_v2 import apex_config
 
-
 # ──────────────────────────────────────────────
 # Helpers — directly manipulate config storage
 # to avoid triggering the property setter/save.
@@ -133,12 +132,12 @@ class TestParseYamlFrontmatter:
 
     def test_comment_lines_skipped(self):
         text = "---\n# comment\ndescription: real\n---\nbody"
-        meta, body = _parse_yaml_frontmatter(text)
+        meta, _body = _parse_yaml_frontmatter(text)
         assert meta == {"description": "real"}
 
     def test_no_colon_line_skipped(self):
         text = "---\nno-colon-line\ndescription: ok\n---\nbody"
-        meta, body = _parse_yaml_frontmatter(text)
+        meta, _body = _parse_yaml_frontmatter(text)
         assert meta == {"description": "ok"}
 
     def test_frontmatter_only_no_body(self):
@@ -149,7 +148,7 @@ class TestParseYamlFrontmatter:
 
     def test_multiline_body_trimmed(self):
         text = "---\nkey: val\n---\n  \nbody line 1\nbody line 2\n  "
-        meta, body = _parse_yaml_frontmatter(text)
+        _meta, body = _parse_yaml_frontmatter(text)
         assert body == "body line 1\nbody line 2"
 
 
@@ -206,7 +205,7 @@ class TestRenderTemplate:
         d.mkdir()
         f = d / "data.txt"
         f.write_text("included content")
-        result = _render_template("content: @{}".format(f), [], str(tmp_path))
+        result = _render_template(f"content: @{f}", [], str(tmp_path))
         assert "included content" in result
 
     def test_file_inclusion_relative_path(self, tmp_path):

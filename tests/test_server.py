@@ -10,7 +10,6 @@ import pytest
 
 from apex.server import APEXClient, APEXServer, APIKeyManager, run_server
 
-
 # =========================================================================
 # Helper: async-iterable mock WebSocket for handle_websocket tests
 # =========================================================================
@@ -677,7 +676,7 @@ class TestRunServer:
             patch("aiohttp.web", create=True) as mock_web,
             patch("apex.server.APEXServer") as mock_server_cls,
         ):
-            mock_server, mock_runner, mock_site, _, _, _ = await self._run_with_mocks(
+            _mock_server, mock_runner, mock_site, _, _, _ = await self._run_with_mocks(
                 mock_web, mock_server_cls
             )
 

@@ -5,6 +5,7 @@ import time
 import pytest
 
 from apex.billing import (
+    MODEL_COSTS,
     BillingAccount,
     BillingManager,
     BillingPlan,
@@ -16,9 +17,7 @@ from apex.billing import (
     UsageRecord,
     billing_manager,
     calculate_cost,
-    MODEL_COSTS,
 )
-
 
 # ---------------------------------------------------------------------------
 # PlanType enum
@@ -464,7 +463,7 @@ class TestBillingManagerCheckQuota:
         assert msg == "OK"
 
     def test_check_quota_auto_creates_account(self, manager):
-        ok, msg = manager.check_quota("new_user", "gpt-4o", 100, 100)
+        ok, _msg = manager.check_quota("new_user", "gpt-4o", 100, 100)
         assert ok is True
         assert manager.get_account("new_user") is not None
 
@@ -509,7 +508,7 @@ class TestBillingManagerCheckQuota:
         # Use enough tokens to push past the $20 limit.
         # claude-sonnet (alias): (10000/1000)*0.003 + (10000/1000)*0.015 = 0.03 + 0.15 = 0.18
         # 19.99 + 0.18 = 20.17 > 20.0 → overage triggered, but allowed
-        ok, msg = manager.check_quota("user-1", "claude-sonnet", 10000, 10000)
+        ok, _msg = manager.check_quota("user-1", "claude-sonnet", 10000, 10000)
         assert ok is True
 
     def test_check_quota_input_limit_exceeded(self, manager):
@@ -531,14 +530,14 @@ class TestBillingManagerCheckQuota:
         account = manager.create_account("user-1", PlanType.ENTERPRISE)
         account.input_tokens_used = 1000000000
         account.output_tokens_used = 1000000000
-        ok, msg = manager.check_quota("user-1", "gpt-4o", 1000, 1000)
+        ok, _msg = manager.check_quota("user-1", "gpt-4o", 1000, 1000)
         assert ok is True
 
     def test_check_quota_free_plan_no_monthly_limit(self, manager):
         """Free plan has monthly_limit=0, so the monthly check is skipped."""
         account = manager.create_account("user-1", PlanType.FREE)
         account.used_this_month = 0.0
-        ok, msg = manager.check_quota("user-1", "gpt-4o", 100, 100)
+        ok, _msg = manager.check_quota("user-1", "gpt-4o", 100, 100)
         assert ok is True
 
 

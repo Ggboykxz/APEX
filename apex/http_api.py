@@ -8,32 +8,32 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from aiohttp import web, WSMsgType
+from aiohttp import WSMsgType, web
 
 from .agent import Agent
-from .rate_limiter import (
-    create_rate_limiter,
-    RateLimitConfig,
-    RateLimitResult,
-)
+from .agents import agent_manager
 from .api_key import (
-    key_manager,
     InvalidKeyError,
-    KeyExpiredError,
     KeyDisabledError,
+    KeyExpiredError,
+    key_manager,
 )
 from .billing import (
     billing_manager,
 )
-from .config_v2 import apex_config
-from .share import share_manager, SENSITIVE_PATTERNS
-from .theme_manager import theme_manager
-from .formatter import formatter_manager
 from .commands_manager import commands_manager
-from .agents import agent_manager
-from .session import SessionManager, UndoManager
+from .config import MODEL_PROVIDERS, MODELS
+from .config_v2 import apex_config
+from .formatter import formatter_manager
 from .project import ProjectInitializer
-from .config import MODELS, MODEL_PROVIDERS
+from .rate_limiter import (
+    RateLimitConfig,
+    RateLimitResult,
+    create_rate_limiter,
+)
+from .session import SessionManager, UndoManager
+from .share import SENSITIVE_PATTERNS, share_manager
+from .theme_manager import theme_manager
 
 logger = logging.getLogger(__name__)
 
@@ -145,9 +145,7 @@ class AuthMiddleware:
         self.require_auth = require_auth
         self.key_manager = key_manager
 
-    async def authenticate(
-        self, request: web.Request
-    ) -> tuple[bool, Optional[str], Optional[dict]]:
+    async def authenticate(self, request: web.Request) -> tuple[bool, str | None, dict | None]:
         """Authenticate request and return (success, api_key, key_info)."""
         if not self.require_auth:
             return True, None, None
@@ -178,7 +176,7 @@ class EventBus:
         self._subscribers: list = []
         self._history: list[dict] = []
 
-    async def publish(self, event_type: str, data: dict = None) -> None:
+    async def publish(self, event_type: str, data: dict | None = None) -> None:
         """Publish an event to all subscribers."""
         payload = {"event": event_type, "data": data or {}, "timestamp": time.time()}
         self._history.append(payload)
@@ -218,7 +216,7 @@ class HTTPServer:
         host: str = "127.0.0.1",
         port: int = 8080,
         require_auth: bool = True,
-        rate_limit_config: Optional[RateLimitConfig] = None,
+        rate_limit_config: RateLimitConfig | None = None,
         use_sqlite_storage: bool = False,
     ):
         self.host = host
@@ -364,11 +362,9 @@ class HTTPServer:
             self.event_bus.unsubscribe(ws)
         return ws
 
-    async def _check_auth(
-        self, request: web.Request
-    ) -> tuple[Optional[web.Response], Optional[dict]]:
+    async def _check_auth(self, request: web.Request) -> tuple[web.Response | None, dict | None]:
         """Check authentication, returns error response if failed."""
-        success, api_key, key_info = await self.auth_middleware.authenticate(request)
+        success, _api_key, key_info = await self.auth_middleware.authenticate(request)
         if self.require_auth and not success:
             return web.json_response(
                 {"error": "Authentication required", "code": "AUTH_REQUIRED"},
@@ -377,8 +373,8 @@ class HTTPServer:
         return None, key_info
 
     async def _check_rate_limit(
-        self, key_info: Optional[dict]
-    ) -> tuple[Optional[web.Response], Optional[RateLimitResult]]:
+        self, key_info: dict | None
+    ) -> tuple[web.Response | None, RateLimitResult | None]:
         """Check rate limit, returns error response if exceeded."""
         key = f"key:{key_info['key_id']}" if key_info else "anonymous"
         result = self.rate_limiter.check_rate_limit(key)
@@ -1134,7 +1130,7 @@ class HTTPServer:
         if auth_error:
             return auth_error
 
-        rate_error, result = await self._check_rate_limit(key_info)
+        rate_error, _result = await self._check_rate_limit(key_info)
         if rate_error:
             return rate_error
 
@@ -1433,7 +1429,7 @@ class HTTPServer:
             )
             while True:
                 await asyncio.sleep(30)
-                await response.write(": keepalive\n\n".encode())
+                await response.write(b": keepalive\n\n")
         except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
             pass
         finally:

@@ -1,17 +1,17 @@
 import json
-import subprocess
 import os
-from typing import Optional, Dict, Any, List
+import subprocess
+from typing import Any, Dict, List, Optional
 
 
 class LSPClient:
-    def __init__(self, cwd: str, server_command: List[str], env: Optional[Dict[str, str]] = None):
+    def __init__(self, cwd: str, server_command: list[str], env: dict[str, str] | None = None):
         self.cwd = cwd
         self.server_command = server_command
         self.env = env or {}
-        self.process: Optional[subprocess.Popen] = None
+        self.process: subprocess.Popen | None = None
         self.request_id = 0
-        self.capabilities: Dict[str, Any] = {}
+        self.capabilities: dict[str, Any] = {}
         self._initialized = False
 
     def start(self):
@@ -27,7 +27,7 @@ class LSPClient:
         )
         self._initialized = False
 
-    def _send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _send_request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         if not self.process or not self.process.stdin:
             raise RuntimeError("LSP server not running")
 
@@ -45,7 +45,7 @@ class LSPClient:
 
         return self._read_response()
 
-    def _read_response(self) -> Dict[str, Any]:
+    def _read_response(self) -> dict[str, Any]:
         if not self.process or not self.process.stdout:
             raise RuntimeError("LSP server not running")
 
@@ -77,7 +77,7 @@ class LSPClient:
             self.process.terminate()
             self.process.wait()
 
-    def get_definitions(self, uri: str, line: int, column: int) -> List[Dict[str, Any]]:
+    def get_definitions(self, uri: str, line: int, column: int) -> list[dict[str, Any]]:
         if not self._initialized:
             return []
 
@@ -90,7 +90,7 @@ class LSPClient:
         )
         return result.get("result", [])
 
-    def get_references(self, uri: str, line: int, column: int) -> List[Dict[str, Any]]:
+    def get_references(self, uri: str, line: int, column: int) -> list[dict[str, Any]]:
         if not self._initialized:
             return []
 
@@ -104,7 +104,7 @@ class LSPClient:
         )
         return result.get("result", [])
 
-    def get_hover(self, uri: str, line: int, column: int) -> Optional[Dict[str, Any]]:
+    def get_hover(self, uri: str, line: int, column: int) -> dict[str, Any] | None:
         if not self._initialized:
             return None
 
@@ -117,7 +117,7 @@ class LSPClient:
         )
         return result.get("result")
 
-    def get_document_symbols(self, uri: str) -> List[Dict[str, Any]]:
+    def get_document_symbols(self, uri: str) -> list[dict[str, Any]]:
         if not self._initialized:
             return []
 
@@ -127,14 +127,14 @@ class LSPClient:
         )
         return result.get("result", [])
 
-    def get_workspace_symbols(self, query: str) -> List[Dict[str, Any]]:
+    def get_workspace_symbols(self, query: str) -> list[dict[str, Any]]:
         if not self._initialized:
             return []
 
         result = self._send_request("workspace/symbol", {"query": query})
         return result.get("result", [])
 
-    def get_diagnostics(self, uri: str) -> List[Dict[str, Any]]:
+    def get_diagnostics(self, uri: str) -> list[dict[str, Any]]:
         if not self._initialized:
             return []
 
@@ -148,13 +148,13 @@ class LSPClient:
 class LSPManager:
     def __init__(self, cwd: str):
         self.cwd = cwd
-        self.servers: Dict[str, LSPClient] = {}
-        self._config: Dict[str, Any] = {}
+        self.servers: dict[str, LSPClient] = {}
+        self._config: dict[str, Any] = {}
 
-    def load_config(self, config: Dict[str, Any]):
+    def load_config(self, config: dict[str, Any]):
         self._config = config
 
-    def add_server(self, name: str, command: List[str], env: Optional[Dict[str, str]] = None):
+    def add_server(self, name: str, command: list[str], env: dict[str, str] | None = None):
         client = LSPClient(self.cwd, command, env)
         self.servers[name] = client
 
@@ -173,7 +173,7 @@ class LSPManager:
             except Exception:
                 pass
 
-    def get_tools(self) -> Dict[str, Any]:
+    def get_tools(self) -> dict[str, Any]:
         tools = {}
         for name, client in self.servers.items():
             if client._initialized:
@@ -225,7 +225,7 @@ class LSPManager:
                 }
         return tools
 
-    def call_tool(self, name: str, args: Dict[str, Any]) -> Any:
+    def call_tool(self, name: str, args: dict[str, Any]) -> Any:
         parts = name.split("_", 2)
         if len(parts) < 3:
             return {"error": "Invalid LSP tool name"}
@@ -279,7 +279,7 @@ class LSPManager:
             return {"error": str(e)}
 
 
-_lsp_manager: Optional[LSPManager] = None
+_lsp_manager: LSPManager | None = None
 
 
 def get_lsp_manager(cwd: str) -> LSPManager:

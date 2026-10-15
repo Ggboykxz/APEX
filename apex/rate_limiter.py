@@ -27,7 +27,7 @@ class RateLimitResult:
     remaining_hour: int
     remaining_day: int
     reset_at: float
-    retry_after: Optional[int] = None
+    retry_after: int | None = None
 
 
 class StorageBackend(ABC):
@@ -135,7 +135,7 @@ class SQLiteStorage(StorageBackend):
             )
             row = cursor.fetchone()
             if row:
-                count, timestamp = row
+                _count, timestamp = row
                 if now - timestamp > duration:
                     conn.execute(
                         "UPDATE rate_limits SET count = 1, timestamp = ? WHERE key = ? AND window = ?",
@@ -166,7 +166,7 @@ class SQLiteStorage(StorageBackend):
 
 class RateLimiter:
     def __init__(
-        self, config: Optional[RateLimitConfig] = None, storage: Optional[StorageBackend] = None
+        self, config: RateLimitConfig | None = None, storage: StorageBackend | None = None
     ):
         self.config = config or RateLimitConfig()
         self.storage = storage or MemoryStorage()
@@ -233,7 +233,7 @@ class RateLimiter:
 
 
 def create_rate_limiter(
-    config: Optional[RateLimitConfig] = None, use_sqlite: bool = False
+    config: RateLimitConfig | None = None, use_sqlite: bool = False
 ) -> RateLimiter:
     if use_sqlite:
         return RateLimiter(config=config, storage=SQLiteStorage())

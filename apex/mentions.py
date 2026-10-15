@@ -1,9 +1,9 @@
 """@Mention system for APEX - OpenCode-style file/agent mentions."""
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-from dataclasses import dataclass
 
 
 @dataclass
@@ -145,8 +145,8 @@ class FileMentionCompleter:
         return any(part in ignore for part in path.parts)
 
 
-_mention_parser: Optional[MentionParser] = None
-_file_completer: Optional[FileMentionCompleter] = None
+_mention_parser: MentionParser | None = None
+_file_completer: FileMentionCompleter | None = None
 
 
 def get_mention_parser(cwd: str) -> MentionParser:

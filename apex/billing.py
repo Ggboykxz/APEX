@@ -107,8 +107,8 @@ class UsageRecord:
     input_tokens: int
     output_tokens: int
     cost: float
-    session_id: Optional[str] = None
-    workspace_id: Optional[str] = None
+    session_id: str | None = None
+    workspace_id: str | None = None
 
 
 @dataclass
@@ -135,7 +135,7 @@ class BillingAccount:
     used_this_month: float = 0.0
     input_tokens_used: int = 0
     output_tokens_used: int = 0
-    trial_end: Optional[float] = None
+    trial_end: float | None = None
     created_at: float = field(default_factory=time.time)
     is_active: bool = True
     metadata: dict = field(default_factory=dict)
@@ -208,7 +208,7 @@ class BillingManager:
         logger.info(f"Created billing account for user {user_id} with plan {plan.name}")
         return account
 
-    def get_account(self, user_id: str) -> Optional[BillingAccount]:
+    def get_account(self, user_id: str) -> BillingAccount | None:
         return self._accounts.get(user_id)
 
     def calculate_cost(
@@ -263,8 +263,8 @@ class BillingManager:
         model: str,
         input_tokens: int,
         output_tokens: int,
-        session_id: Optional[str] = None,
-        workspace_id: Optional[str] = None,
+        session_id: str | None = None,
+        workspace_id: str | None = None,
     ) -> UsageRecord:
         cost = self.calculate_cost(model, input_tokens, output_tokens)
         record = UsageRecord(

@@ -1,14 +1,15 @@
 """Plugin system for APEX - Dynamic plugin loading and management."""
 
 import importlib.util
-import os
-import sys
-import re
 import logging
-from pathlib import Path
-from typing import Any, Callable
-from dataclasses import dataclass, field
+import os
+import re
+import sys
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

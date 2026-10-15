@@ -18,7 +18,6 @@ from apex.api_key import (
     key_manager,
 )
 
-
 # ---------------------------------------------------------------------------
 # _safe_parse helper
 # ---------------------------------------------------------------------------
@@ -269,27 +268,27 @@ class TestKeyManagerCreateKey:
         assert info.key_hash == expected_hash
 
     def test_create_key_with_expiry(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Expiring Key", expires_in=3600)
+        _key, info = manager.create_key(workspace_id, "Expiring Key", expires_in=3600)
         assert info.expires_at is not None
         assert info.expires_at > time.time()
 
     def test_create_key_no_expiry(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Permanent Key")
+        _key, info = manager.create_key(workspace_id, "Permanent Key")
         assert info.expires_at is None
 
     def test_create_key_custom_rate_limits(self, manager, workspace_id):
-        key, info = manager.create_key(
+        _key, info = manager.create_key(
             workspace_id, "Custom RL", rate_limit_per_minute=30, rate_limit_per_hour=500
         )
         assert info.rate_limit_per_minute == 30
         assert info.rate_limit_per_hour == 500
 
     def test_create_key_with_permissions(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Perm Key", permissions=["read", "write"])
+        _key, info = manager.create_key(workspace_id, "Perm Key", permissions=["read", "write"])
         assert info.permissions == ["read", "write"]
 
     def test_create_key_with_metadata(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Meta Key", metadata={"env": "test"})
+        _key, info = manager.create_key(workspace_id, "Meta Key", metadata={"env": "test"})
         assert info.metadata == {"env": "test"}
 
     def test_create_multiple_keys(self, manager, workspace_id):
@@ -331,7 +330,7 @@ class TestKeyManagerValidateKey:
             manager.validate_key("apex_nonexistentkey")
 
     def test_validate_key_updates_request_count(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Test Key")
+        key, _info = manager.create_key(workspace_id, "Test Key")
         # validate_key returns key_info before the DB update, so request_count
         # on the returned object reflects the pre-increment value.
         manager.validate_key(key)
@@ -347,7 +346,7 @@ class TestKeyManagerValidateKey:
             manager.validate_key(key)
 
     def test_validate_expired_key(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Expiring Key", expires_in=1)
+        key, _info = manager.create_key(workspace_id, "Expiring Key", expires_in=1)
         # Wait for key to expire
         time.sleep(1.5)
         with pytest.raises(KeyExpiredError):
@@ -368,7 +367,7 @@ class TestKeyManagerRevokeKey:
         return ws.workspace_id
 
     def test_revoke_key(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Test Key")
+        _key, info = manager.create_key(workspace_id, "Test Key")
         result = manager.revoke_key(info.key_id)
         assert result is True
         keys = manager.list_keys(workspace_id)
@@ -379,7 +378,7 @@ class TestKeyManagerRevokeKey:
         assert result is False
 
     def test_revoke_key_twice(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Test Key")
+        _key, info = manager.create_key(workspace_id, "Test Key")
         assert manager.revoke_key(info.key_id) is True
         # Re-revoking still updates the row (sets is_active=0 again),
         # so rowcount is still > 0 in SQLite
@@ -420,7 +419,7 @@ class TestKeyManagerListKeys:
         assert len(manager.list_keys(ws2.workspace_id)) == 1
 
     def test_list_keys_includes_inactive(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Test Key")
+        _key, info = manager.create_key(workspace_id, "Test Key")
         manager.revoke_key(info.key_id)
         keys = manager.list_keys(workspace_id)
         assert len(keys) == 1
@@ -441,7 +440,7 @@ class TestKeyManagerDeleteKey:
         return ws.workspace_id
 
     def test_delete_key(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Test Key")
+        _key, info = manager.create_key(workspace_id, "Test Key")
         result = manager.delete_key(info.key_id)
         assert result is True
         keys = manager.list_keys(workspace_id)
@@ -452,7 +451,7 @@ class TestKeyManagerDeleteKey:
         assert result is False
 
     def test_delete_key_twice(self, manager, workspace_id):
-        key, info = manager.create_key(workspace_id, "Test Key")
+        _key, info = manager.create_key(workspace_id, "Test Key")
         assert manager.delete_key(info.key_id) is True
         assert manager.delete_key(info.key_id) is False
 
@@ -489,7 +488,7 @@ class TestKeyManagerValidateError:
 
         manager = KeyManager(str(tmp_path / "keys.db"))
         ws = manager.create_workspace("WS", "user-1")
-        key, info = manager.create_key(ws.workspace_id, "k")
+        key, _info = manager.create_key(ws.workspace_id, "k")
 
         def broken_connect(*a, **kw):
             raise RuntimeError("DB connection failed")

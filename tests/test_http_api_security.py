@@ -6,26 +6,27 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
+from apex.api_key import (
+    InvalidKeyError,
+    KeyDisabledError,
+    KeyExpiredError,
+    KeyManager,
+)
 from apex.http_api import (
-    HTTPServer,
     AuthMiddleware,
+    HTTPServer,
     RateLimitConfig,
     RateLimitResult,
 )
-from apex.api_key import (
-    KeyManager,
-    InvalidKeyError,
-    KeyExpiredError,
-    KeyDisabledError,
+from apex.rate_limiter import (
+    MemoryStorage,
+    RateLimiter,
+    SQLiteStorage,
+    create_rate_limiter,
 )
 from apex.rate_limiter import (
-    create_rate_limiter,
     RateLimitConfig as RLConfig,
-    RateLimiter,
-    MemoryStorage,
-    SQLiteStorage,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -90,7 +91,7 @@ class TestAuthMiddlewareNoAuth:
 
         # Use a real aiohttp test server to produce a proper request
         async def handler(request):
-            success, api_key, key_info = await mw.authenticate(request)
+            success, api_key, _key_info = await mw.authenticate(request)
             return web.json_response({"success": success, "api_key": api_key})
 
         app = web.Application()
@@ -107,12 +108,12 @@ class TestAuthMiddlewareBearerToken:
 
     @pytest.mark.asyncio
     async def test_bearer_token_valid(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, raw_key, key_info, _ws = key_db
         mw = AuthMiddleware(require_auth=True)
         mw.key_manager = km
 
         async def handler(request):
-            success, api_key, info = await mw.authenticate(request)
+            success, _api_key, info = await mw.authenticate(request)
             return web.json_response(
                 {
                     "success": success,
@@ -130,12 +131,12 @@ class TestAuthMiddlewareBearerToken:
 
     @pytest.mark.asyncio
     async def test_bearer_token_invalid(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, _raw_key, _key_info, _ws = key_db
         mw = AuthMiddleware(require_auth=True)
         mw.key_manager = km
 
         async def handler(request):
-            success, api_key, info = await mw.authenticate(request)
+            success, _api_key, _info = await mw.authenticate(request)
             return web.json_response({"success": success})
 
         app = web.Application()
@@ -147,12 +148,12 @@ class TestAuthMiddlewareBearerToken:
 
     @pytest.mark.asyncio
     async def test_expired_key_fails(self, key_db_expired):
-        km, raw_key, key_info, ws = key_db_expired
+        km, raw_key, _key_info, _ws = key_db_expired
         mw = AuthMiddleware(require_auth=True)
         mw.key_manager = km
 
         async def handler(request):
-            success, api_key, info = await mw.authenticate(request)
+            success, _api_key, _info = await mw.authenticate(request)
             return web.json_response({"success": success})
 
         app = web.Application()
@@ -164,12 +165,12 @@ class TestAuthMiddlewareBearerToken:
 
     @pytest.mark.asyncio
     async def test_disabled_key_fails(self, key_db_disabled):
-        km, raw_key, key_info, ws = key_db_disabled
+        km, raw_key, _key_info, _ws = key_db_disabled
         mw = AuthMiddleware(require_auth=True)
         mw.key_manager = km
 
         async def handler(request):
-            success, api_key, info = await mw.authenticate(request)
+            success, _api_key, _info = await mw.authenticate(request)
             return web.json_response({"success": success})
 
         app = web.Application()
@@ -185,12 +186,12 @@ class TestAuthMiddlewareXAPIKeyHeader:
 
     @pytest.mark.asyncio
     async def test_x_api_key_valid(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, raw_key, key_info, _ws = key_db
         mw = AuthMiddleware(require_auth=True)
         mw.key_manager = km
 
         async def handler(request):
-            success, api_key, info = await mw.authenticate(request)
+            success, _api_key, info = await mw.authenticate(request)
             return web.json_response(
                 {
                     "success": success,
@@ -212,12 +213,12 @@ class TestAuthMiddlewareQueryParam:
 
     @pytest.mark.asyncio
     async def test_query_param_valid(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, raw_key, key_info, _ws = key_db
         mw = AuthMiddleware(require_auth=True)
         mw.key_manager = km
 
         async def handler(request):
-            success, api_key, info = await mw.authenticate(request)
+            success, _api_key, info = await mw.authenticate(request)
             return web.json_response(
                 {
                     "success": success,
@@ -239,7 +240,7 @@ class TestAuthMiddlewareNoKey:
 
     @pytest.mark.asyncio
     async def test_no_key_returns_false(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, _raw_key, _key_info, _ws = key_db
         mw = AuthMiddleware(require_auth=True)
         mw.key_manager = km
 
@@ -268,12 +269,12 @@ class TestAuthMiddlewareBearerTakesPrecedence:
 
     @pytest.mark.asyncio
     async def test_bearer_over_x_api_key(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, raw_key, _key_info, _ws = key_db
         mw = AuthMiddleware(require_auth=True)
         mw.key_manager = km
 
         async def handler(request):
-            success, api_key, info = await mw.authenticate(request)
+            success, api_key, _info = await mw.authenticate(request)
             return web.json_response(
                 {
                     "success": success,
@@ -484,17 +485,17 @@ class TestKeyManagerSecurity:
             km.validate_key("apex_nonexistent_key_1234567890")
 
     def test_validate_expired_key(self, key_db_expired):
-        km, raw_key, key_info, ws = key_db_expired
+        km, raw_key, _key_info, _ws = key_db_expired
         with pytest.raises(KeyExpiredError):
             km.validate_key(raw_key)
 
     def test_validate_disabled_key(self, key_db_disabled):
-        km, raw_key, key_info, ws = key_db_disabled
+        km, raw_key, _key_info, _ws = key_db_disabled
         with pytest.raises(KeyDisabledError):
             km.validate_key(raw_key)
 
     def test_revoke_key(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, raw_key, key_info, _ws = key_db
         result = km.revoke_key(key_info.key_id)
         assert result is True
         with pytest.raises(KeyDisabledError):
@@ -506,19 +507,19 @@ class TestKeyManagerSecurity:
         assert result is False
 
     def test_delete_key(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, raw_key, key_info, _ws = key_db
         result = km.delete_key(key_info.key_id)
         assert result is True
         with pytest.raises(InvalidKeyError):
             km.validate_key(raw_key)
 
     def test_list_keys(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, _raw_key, _key_info, ws = key_db
         keys = km.list_keys(ws.workspace_id)
         assert len(keys) >= 1
 
     def test_get_workspace(self, key_db):
-        km, raw_key, key_info, ws = key_db
+        km, _raw_key, _key_info, ws = key_db
         fetched = km.get_workspace(ws.workspace_id)
         assert fetched is not None
         assert fetched.name == "test-ws"

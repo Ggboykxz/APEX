@@ -1,11 +1,11 @@
 """Git-based undo/redo system for workspace changes."""
 
-import subprocess
 import json
+import subprocess
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
-from dataclasses import dataclass, asdict
 
 
 @dataclass
@@ -16,8 +16,8 @@ class UndoSnapshot:
     timestamp: str
     description: str
     changed_files: list[str]
-    git_commit: Optional[str]
-    parent_commit: Optional[str]
+    git_commit: str | None
+    parent_commit: str | None
 
 
 class GitUndoManager:
@@ -35,7 +35,7 @@ class GitUndoManager:
         """Run git command."""
         try:
             result = subprocess.run(
-                ["git"] + list(args), cwd=self.cwd, capture_output=True, text=True
+                ["git", *list(args)], cwd=self.cwd, capture_output=True, text=True
             )
             return result.returncode, result.stdout, result.stderr
         except FileNotFoundError:
@@ -113,7 +113,7 @@ class GitUndoManager:
 
         return snapshot_id
 
-    def undo(self, steps: int = 1) -> Optional[str]:
+    def undo(self, steps: int = 1) -> str | None:
         """Undo changes by reverting to previous snapshot."""
         if not self.snapshots or self.current_index < 0:
             return None
@@ -129,7 +129,7 @@ class GitUndoManager:
 
         return target_snapshot.id
 
-    def redo(self, steps: int = 1) -> Optional[str]:
+    def redo(self, steps: int = 1) -> str | None:
         """Redo previously undone changes."""
         if not self.snapshots or self.current_index >= len(self.snapshots) - 1:
             return None

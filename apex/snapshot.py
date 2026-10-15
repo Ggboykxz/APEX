@@ -1,14 +1,14 @@
 """Snapshot system for APEX - Git-based undo/redo."""
 
-import os
-import subprocess
 import hashlib
 import json
-from pathlib import Path
-from typing import Optional, List
+import os
+import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import List, Optional
 
 
 class ActionType(Enum):
@@ -23,9 +23,9 @@ class ActionType(Enum):
 @dataclass
 class FileChange:
     path: str
-    before: Optional[str] = None
-    after: Optional[str] = None
-    diff: Optional[str] = None
+    before: str | None = None
+    after: str | None = None
+    diff: str | None = None
 
 
 @dataclass
@@ -33,9 +33,9 @@ class Snapshot:
     id: str
     timestamp: datetime
     action_type: ActionType
-    files: List[FileChange] = field(default_factory=list)
-    command: Optional[str] = None
-    message: Optional[str] = None
+    files: list[FileChange] = field(default_factory=list)
+    command: str | None = None
+    message: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -59,8 +59,8 @@ class SnapshotManager:
         self._snapshots_dir = self.cwd / ".apex" / "snapshots"
         self._snapshots_dir.mkdir(parents=True, exist_ok=True)
         self._init_git_repo()
-        self._undo_stack: List[Snapshot] = []
-        self._redo_stack: List[Snapshot] = []
+        self._undo_stack: list[Snapshot] = []
+        self._redo_stack: list[Snapshot] = []
 
     def _init_git_repo(self) -> None:
         """Initialize or use existing git repo for snapshots."""
@@ -99,7 +99,7 @@ class SnapshotManager:
         return snapshot_id
 
     def add_file_change(
-        self, snapshot_id: str, path: str, before: str = None, after: str = None
+        self, snapshot_id: str, path: str, before: str | None = None, after: str | None = None
     ) -> None:
         """Add a file change to a snapshot."""
         for snapshot in self._undo_stack:
@@ -112,7 +112,7 @@ class SnapshotManager:
 
     def track_file(
         self, path: str, action_type: ActionType = ActionType.FILE_EDIT
-    ) -> Optional[Snapshot]:
+    ) -> Snapshot | None:
         """Track a file before modification."""
         file_path = self.cwd / path
         if not file_path.exists():
@@ -147,7 +147,7 @@ class SnapshotManager:
 
         return "".join(diff)
 
-    def get_snapshot(self, snapshot_id: str) -> Optional[Snapshot]:
+    def get_snapshot(self, snapshot_id: str) -> Snapshot | None:
         """Get a snapshot by ID."""
         for snapshot in self._undo_stack:
             if snapshot.id == snapshot_id:
@@ -171,7 +171,7 @@ class SnapshotManager:
 
         return True
 
-    def undo(self) -> Optional[Snapshot]:
+    def undo(self) -> Snapshot | None:
         """Undo last action."""
         if not self._undo_stack:
             return None
@@ -182,7 +182,7 @@ class SnapshotManager:
 
         return snapshot
 
-    def redo(self) -> Optional[Snapshot]:
+    def redo(self) -> Snapshot | None:
         """Redo last undone action."""
         if not self._redo_stack:
             return None
@@ -216,7 +216,7 @@ class SnapshotManager:
             capture_output=True,
         )
 
-    def get_history(self, limit: int = 50) -> List[Snapshot]:
+    def get_history(self, limit: int = 50) -> list[Snapshot]:
         """Get undo history."""
         return self._undo_stack[-limit:]
 

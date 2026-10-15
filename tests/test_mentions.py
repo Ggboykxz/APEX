@@ -1,14 +1,16 @@
 """Tests for apex/mentions.py — MentionParser, FileMentionCompleter, singleton functions."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from apex.mentions import (
-    FileMention,
     AgentMention,
-    MentionParser,
+    FileMention,
     FileMentionCompleter,
-    get_mention_parser,
+    MentionParser,
     get_file_completer,
+    get_mention_parser,
 )
 
 
@@ -55,27 +57,27 @@ class TestMentionParser:
         assert agents == []
 
     def test_parse_file_mention_ts(self, parser):
-        files, agents = parser.parse("@component.ts")
+        files, _agents = parser.parse("@component.ts")
         assert len(files) == 1
         assert files[0].path == "component.ts"
 
     def test_parse_file_mention_js(self, parser):
-        files, agents = parser.parse("@index.js")
+        files, _agents = parser.parse("@index.js")
         assert len(files) == 1
         assert files[0].path == "index.js"
 
     def test_parse_file_mention_relative(self, parser):
-        files, agents = parser.parse("@src/utils/helper.py")
+        files, _agents = parser.parse("@src/utils/helper.py")
         assert len(files) == 1
         assert files[0].path == "src/utils/helper.py"
 
     def test_parse_file_mention_absolute(self, parser):
-        files, agents = parser.parse("@/absolute/path/file.py")
+        files, _agents = parser.parse("@/absolute/path/file.py")
         assert len(files) == 1
         assert files[0].path == "/absolute/path/file.py"
 
     def test_parse_file_mention_multi_dot(self, parser):
-        files, agents = parser.parse("@file.min.js")
+        files, _agents = parser.parse("@file.min.js")
         assert len(files) == 1
         assert files[0].path == "file.min.js"
 
@@ -86,32 +88,32 @@ class TestMentionParser:
         assert agents[0].name == "build"
 
     def test_parse_agent_architect(self, parser):
-        files, agents = parser.parse("@plan")
+        _files, agents = parser.parse("@plan")
         assert len(agents) == 1
         assert agents[0].name == "plan"
 
     def test_parse_agent_planner(self, parser):
-        files, agents = parser.parse("use @planner please")
+        _files, agents = parser.parse("use @planner please")
         assert len(agents) == 1
         assert agents[0].name == "planner"
 
     def test_parse_agent_reviewer(self, parser):
-        files, agents = parser.parse("hey @reviewer")
+        _files, agents = parser.parse("hey @reviewer")
         assert len(agents) == 1
         assert agents[0].name == "reviewer"
 
     def test_parse_agent_shell(self, parser):
-        files, agents = parser.parse("@shell run this")
+        _files, agents = parser.parse("@shell run this")
         assert len(agents) == 1
         assert agents[0].name == "shell"
 
     def test_parse_agent_at_end_of_input(self, parser):
-        files, agents = parser.parse("@build")
+        _files, agents = parser.parse("@build")
         assert len(agents) == 1
         assert agents[0].name == "build"
 
     def test_parse_agent_case_insensitive(self, parser):
-        files, agents = parser.parse("@Build and @PLAN")
+        _files, agents = parser.parse("@Build and @PLAN")
         assert len(agents) == 2
         names = {a.name for a in agents}
         assert names == {"build", "plan"}
@@ -130,12 +132,12 @@ class TestMentionParser:
         assert agents == []
 
     def test_parse_multiple_agents(self, parser):
-        files, agents = parser.parse("@build and @plan then @planner")
+        _files, agents = parser.parse("@build and @plan then @planner")
         assert len(agents) == 3
         assert [a.name for a in agents] == ["build", "plan", "planner"]
 
     def test_parse_agent_not_in_list(self, parser):
-        files, agents = parser.parse("@unknown")
+        _files, agents = parser.parse("@unknown")
         # Unknown agent name is treated as a file mention
         assert len(agents) == 0
 
@@ -150,26 +152,26 @@ class TestMentionParser:
         assert agents == []
 
     def test_parse_double_at_with_file(self, parser):
-        files, agents = parser.parse("@@test.py")
+        files, _agents = parser.parse("@@test.py")
         assert len(files) == 1
 
     def test_parse_at_in_middle_of_word_no_dot(self, parser):
-        files, agents = parser.parse("hello@there")
+        files, _agents = parser.parse("hello@there")
         assert files == []
 
     def test_parse_at_in_middle_of_word_with_dot(self, parser):
-        files, agents = parser.parse("checkout@file.py for details")
+        files, _agents = parser.parse("checkout@file.py for details")
         assert len(files) == 1
         assert files[0].path == "file.py"
 
     def test_parse_positions(self, parser):
-        files, agents = parser.parse("a @file.py b")
+        files, _agents = parser.parse("a @file.py b")
         assert len(files) == 1
         assert files[0].start == 2
         assert files[0].end == 10
 
     def test_parse_agent_positions(self, parser):
-        files, agents = parser.parse("x @build y")
+        _files, agents = parser.parse("x @build y")
         assert len(agents) == 1
         assert agents[0].start == 2
         assert agents[0].end == 8
@@ -234,7 +236,7 @@ class TestMentionParser:
         f = tmp_path / "abs.py"
         f.write_text("absolute")
         result = parser.read_mentioned_files(f"read @{f}")
-        assert list(result.keys())[0] == str(f)
+        assert next(iter(result.keys())) == str(f)
         assert result[str(f)] == "absolute"
 
 

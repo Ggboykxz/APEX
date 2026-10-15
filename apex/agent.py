@@ -1,26 +1,27 @@
 """Core agent loop for APEX - litellm integration and tool orchestration with multi-agent support."""
 
 import json
-import re
 import logging
+import re
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any
 
 try:
     import litellm
-    from litellm import BadRequestError, RateLimitError, AuthenticationError
+    from litellm import AuthenticationError, BadRequestError, RateLimitError
 
     _LITELLM_AVAILABLE = True
 except ImportError:
     _LITELLM_AVAILABLE = False
     BadRequestError = RateLimitError = AuthenticationError = Exception
 
-from .config import Config, MODELS
-from .tools import ToolExecutor, AsyncToolExecutor, get_all_tool_schemas
-from .ui import UI
 from .agents import agent_manager
-from .permission import permission_manager, get_tool_permission
+from .config import MODELS, Config
 from .config_v2 import apex_config
+from .permission import get_tool_permission, permission_manager
+from .tools import AsyncToolExecutor, ToolExecutor, get_all_tool_schemas
+from .ui import UI
 
 
 class Agent:
@@ -290,7 +291,7 @@ class Agent:
         if not _LITELLM_AVAILABLE:
             return "ERROR: litellm is not installed. Run: pip install litellm"
         max_rounds = max_rounds or 10
-        messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
+        messages = [self._system_message, *self.history, {"role": "user", "content": user_input}]
         model_str = MODELS.get(self.model, self.model)
 
         for round_num in range(max_rounds):
@@ -453,7 +454,7 @@ class Agent:
             yield "ERROR: litellm is not installed. Run: pip install litellm"
             return
         max_rounds = max_rounds or 10
-        messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
+        messages = [self._system_message, *self.history, {"role": "user", "content": user_input}]
         model_str = MODELS.get(self.model, self.model)
 
         for round_num in range(max_rounds):

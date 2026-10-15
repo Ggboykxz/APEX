@@ -1,8 +1,8 @@
 """Context Manager for APEX - Handle long conversations with summarization."""
 
 import json
-from typing import Any
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -60,7 +60,8 @@ class ContextWindow:
                 "content": f"Context summary: {len(older)} previous messages compressed. {summary_prompt}",
             },
             {"role": "system", "content": summary_text[:2000]},
-        ] + recent
+            *recent,
+        ]
 
 
 class ConversationManager:
@@ -87,7 +88,7 @@ class ConversationManager:
     def _trim_history(self) -> None:
         keep = self.max_history // 2
         summary = f"[Previous {len(self._history) - keep} messages trimmed]"
-        self._history = [{"role": "system", "content": summary}] + self._history[-keep:]
+        self._history = [{"role": "system", "content": summary}, *self._history[-keep:]]
 
     def bookmark(self, name: str) -> None:
         self._bookmarks[name] = len(self._history)

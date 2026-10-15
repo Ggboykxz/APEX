@@ -20,23 +20,24 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
-from . import __version__
-from .agent import Agent
-from .config import MODELS
-from .ui import UI
-from .memory import Memory
-from .session import SessionManager
-from .context import get_repo_map, get_language_stats
-from .http_api import start_tui_server, stop_tui_server
-from .config_v2 import apex_config, tui_config
-from .commands_manager import commands_manager
-from .theme_manager import theme_manager
-from .share import share_manager
-from .formatter import formatter_manager
-from .watcher import watcher
-from .agents import agent_manager
 from rich.panel import Panel
 from rich.table import Table
+
+from . import __version__
+from .agent import Agent
+from .agents import agent_manager
+from .commands_manager import commands_manager
+from .config import MODELS
+from .config_v2 import apex_config, tui_config
+from .context import get_language_stats, get_repo_map
+from .formatter import formatter_manager
+from .http_api import start_tui_server, stop_tui_server
+from .memory import Memory
+from .session import SessionManager
+from .share import share_manager
+from .theme_manager import theme_manager
+from .ui import UI
+from .watcher import watcher
 
 memory = Memory()
 logger = logging.getLogger("apex")
@@ -719,7 +720,8 @@ def handle_command(
             return True
 
         case "/editor":
-            import subprocess, tempfile
+            import subprocess
+            import tempfile
 
             editor = os.environ.get("EDITOR", "vim")
             prompt_file = tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False)
@@ -1211,8 +1213,8 @@ def _install_tui_command(ui: UI) -> None:
             ui.print_info("Downloading TUI frontend from GitHub...")
             try:
                 # Use tarball download instead of full git clone (much smaller)
-                import tempfile
                 import tarfile
+                import tempfile
                 import urllib.request
 
                 tarball_url = "https://api.github.com/repos/Ggboykxz/APEX/tarball/main"
@@ -1417,7 +1419,7 @@ def _cmd_auth(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_agent(args: argparse.Namespace, ui: UI) -> None:
-    from .agents import agent_manager, AgentConfig
+    from .agents import AgentConfig, agent_manager
 
     if args.agent_subcommand == "list":
         agents = agent_manager.list_agents()
@@ -1575,7 +1577,7 @@ def _cmd_session(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_stats(args: argparse.Namespace, ui: UI) -> None:
-    from .cost_local import cost_tracker, MODEL_PRICING
+    from .cost_local import MODEL_PRICING, cost_tracker
 
     sm = SessionManager()
     sessions = sm.list_sessions()
@@ -1818,7 +1820,7 @@ def _cmd_uninstall(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_mcp(args: argparse.Namespace, ui: UI) -> None:
-    from .mcp import mcp_manager, MCPServerConfig
+    from .mcp import MCPServerConfig, mcp_manager
 
     if args.mcp_subcommand == "list":
         servers = mcp_manager.list_servers() if hasattr(mcp_manager, "list_servers") else []
@@ -1959,8 +1961,10 @@ def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
 
 def _cmd_key(args: argparse.Namespace, ui: UI) -> None:
     """Quick setup: set OpenRouter API key."""
+    import json
+    import os
+    import time
     from pathlib import Path
-    import os, json, time
 
     key = getattr(args, "key_value", None) or args.prompt or ""
     if not key:
@@ -2146,6 +2150,7 @@ def _cmd_debug(args: argparse.Namespace, ui: UI) -> None:
         ui.console.print()
         ui.console.print("[bold]Resolved config:[/]")
         import json
+
         from .config_v2 import apex_config
 
         ui.console.print(json.dumps(apex_config.raw(), indent=2, default=str)[:2000])
@@ -2197,7 +2202,7 @@ def _cmd_plugin(args: argparse.Namespace, ui: UI) -> None:
             ui.print_info("No plugins installed. Use 'apex plugin <module>' to install one.")
         return
 
-    from .plugins import plugin_manager, load_plugins_from_config
+    from .plugins import load_plugins_from_config, plugin_manager
 
     ui.print_info(f"Installing plugin: {module}")
     try:
@@ -2249,8 +2254,9 @@ def _cmd_gateway(parsed: argparse.Namespace, ui: UI) -> None:
     sub = args[0].lower() if args else "help"
 
     if sub == "start":
-        import os
         import asyncio
+        import os
+
         from .gateway import GatewayServer
         from .gateway.config import GatewayConfig
 
@@ -2374,7 +2380,7 @@ def main() -> None:
     }
 
     if verb in subcommand_map:
-        attr_name, sub_val = subcommand_map[verb]
+        _attr_name, sub_val = subcommand_map[verb]
         # Build modified args for dispatch
         modified = [verb]
         if verb == "db":
@@ -2518,7 +2524,7 @@ def _dispatch(parsed: argparse.Namespace) -> None:
         config.set("default_agent", parsed.agent_name)
 
     # Conditional model list
-    if parsed.list_models or hasattr(parsed, "list_models") and parsed.list_models:
+    if parsed.list_models or (hasattr(parsed, "list_models") and parsed.list_models):
         list_models(ui, verbose=parsed.verbose, refresh=parsed.refresh)
         sys.exit(0)
 

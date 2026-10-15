@@ -3,9 +3,8 @@
 import tempfile
 from pathlib import Path
 
-
 from apex.gateway.auth import AuthManager
-from apex.gateway.config import GatewayConfig, DEFAULT_TIERS
+from apex.gateway.config import DEFAULT_TIERS, GatewayConfig
 from apex.gateway.router import RateLimiter
 
 
@@ -60,8 +59,8 @@ class TestModelValidation:
         free_tier = cfg.tiers["free"]
         pro_tier = cfg.tiers["pro"]
 
-        from apex.gateway.router import RequestRouter
         from apex.gateway.auth import AuthManager
+        from apex.gateway.router import RequestRouter
 
         with tempfile.TemporaryDirectory() as tmp:
             db_path = Path(tmp) / "test.db"

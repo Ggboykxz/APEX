@@ -2,13 +2,13 @@
 
 from typing import Any, List
 
-from rich.console import Console
-from rich.panel import Panel
-from rich.syntax import Syntax
-from rich.markdown import Markdown
-from rich.table import Table
 from rich.box import ROUNDED
 from rich.columns import Columns
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.table import Table
 
 
 class APEXTheme:
@@ -345,7 +345,7 @@ class UI:
         gray = self._c("gray", "")
         self.console.print(f"\n{gray}{'─' * 50}")
 
-    def print_git_status(self, branch: str, status: str, files: List[str]) -> None:
+    def print_git_status(self, branch: str, status: str, files: list[str]) -> None:
         """Git status - Better than OpenCode."""
         self._c("cyan", "")
         green = self._c("green", "")
@@ -423,6 +423,6 @@ def create_ui(theme: str = "dracula") -> UI:
     return UI(theme)
 
 
-def get_available_themes() -> List[str]:
+def get_available_themes() -> list[str]:
     """List available themes."""
     return ["dracula", "nord", "one_dark"]

@@ -1,10 +1,12 @@
 """Tests for apex/workspace_rollback.py — WorkspaceRollback, TurnTracker with real git operations."""
 
-import pytest
-import tempfile
 import subprocess
+import tempfile
 from pathlib import Path
-from apex.workspace_rollback import WorkspaceRollback, TurnTracker
+
+import pytest
+
+from apex.workspace_rollback import TurnTracker, WorkspaceRollback
 
 
 def _git_init(path):
@@ -202,7 +204,7 @@ class TestWorkspaceRollbackEdgeCases:
 
         monkeypatch.setattr(subprocess, "run", broken_run)
         rb = WorkspaceRollback(cwd=tmp_path)
-        code, out, err = rb._run_git("status")
+        code, _out, err = rb._run_git("status")
         assert code == -1
         assert "git not found" in err
 

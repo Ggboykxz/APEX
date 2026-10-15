@@ -1,10 +1,12 @@
 """Tests for apex/git_undo.py — GitUndoManager with real git operations."""
 
-import pytest
-import tempfile
 import subprocess
+import tempfile
 from pathlib import Path
-from apex.git_undo import UndoSnapshot, GitUndoManager
+
+import pytest
+
+from apex.git_undo import GitUndoManager, UndoSnapshot
 
 
 def _git_init(path):
@@ -197,7 +199,7 @@ class TestGitUndoManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             mgr = GitUndoManager(cwd=Path(tmpdir))
             # Should handle gracefully
-            code, stdout, stderr = mgr._run_git("status")
+            code, _stdout, _stderr = mgr._run_git("status")
             assert code != 0  # Not a git repo
 
     def test_get_current_files(self, manager, git_repo):
@@ -232,7 +234,7 @@ class TestGitUndoEdgeCases:
 
         with tempfile.TemporaryDirectory() as tmp:
             mgr = GitUndoManager(cwd=Path(tmp))
-            code, stdout, stderr = mgr._run_git("status")
+            code, _stdout, stderr = mgr._run_git("status")
             assert code == -1
             assert "git not found" in stderr
 

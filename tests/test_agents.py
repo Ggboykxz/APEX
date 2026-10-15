@@ -22,7 +22,6 @@ from apex.agents import (
 )
 from apex.config_v2 import apex_config
 
-
 # ---------------------------------------------------------------------------
 # Permission constants
 # ---------------------------------------------------------------------------
@@ -1159,7 +1158,7 @@ class TestGlobalAgentManager:
             assert agent_manager.get(name) is not None
 
     def test_build_permissions_via_global(self):
-        allowed, msg = agent_manager.can_execute_tool("build", "read_file")
+        allowed, _msg = agent_manager.can_execute_tool("build", "read_file")
         assert allowed is True
 
     def test_subagent_mention_resolution(self):
@@ -1192,23 +1191,23 @@ class TestGlobalAgentManager:
         assert perm == PERMISSION_ASK
 
     def test_plan_edit_denied(self):
-        allowed, msg = agent_manager.can_execute_tool("plan", "write_file")
+        allowed, _msg = agent_manager.can_execute_tool("plan", "write_file")
         assert allowed is False
 
     def test_explore_edit_denied(self):
-        allowed, msg = agent_manager.can_execute_tool("explore", "write_file")
+        allowed, _msg = agent_manager.can_execute_tool("explore", "write_file")
         assert allowed is False
 
     def test_scout_edit_denied(self):
-        allowed, msg = agent_manager.can_execute_tool("scout", "write_file")
+        allowed, _msg = agent_manager.can_execute_tool("scout", "write_file")
         assert allowed is False
 
     def test_general_full_access(self):
-        allowed, msg = agent_manager.can_execute_tool("general", "write_file")
+        allowed, _msg = agent_manager.can_execute_tool("general", "write_file")
         assert allowed is True
 
     def test_build_full_access(self):
-        allowed, msg = agent_manager.can_execute_tool("build", "edit_file")
+        allowed, _msg = agent_manager.can_execute_tool("build", "edit_file")
         assert allowed is True
 
     def test_shell_edit_requires_ask(self):

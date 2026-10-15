@@ -1,12 +1,12 @@
 """Telemetry and logging system for APEX."""
 
-import time
 import json
-from pathlib import Path
-from typing import Any
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 
 class EventType(Enum):

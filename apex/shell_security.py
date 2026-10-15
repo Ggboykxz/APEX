@@ -32,7 +32,7 @@ class CommandAnalysis:
     args: list[str]
     warnings: list[str]
     requires_confirmation: bool
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class ShellSecurityAnalyzer:
@@ -305,7 +305,7 @@ class ShellSecurityAnalyzer:
 
     def get_allowed_commands(self) -> list[str]:
         return list(
-            set(self.SAFE_COMMANDS + ["npm", "pip", "git", "make", "cargo", "go", "python", "node"])
+            set([*self.SAFE_COMMANDS, "npm", "pip", "git", "make", "cargo", "go", "python", "node"])
         )
 
 

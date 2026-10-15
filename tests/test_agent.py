@@ -14,7 +14,6 @@ litellm = pytest.importorskip("litellm")
 from apex.agent import Agent
 from apex.config import Config
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -234,7 +233,7 @@ class TestAgentCycleAgent:
         agent.cycle_agent()
         # Cycle through remaining
         len(
-            [a for a in agent.config.cwd and [] or []]  # just count
+            [a for a in (agent.config.cwd and []) or []]  # just count
         )
         from apex.agents import agent_manager
 

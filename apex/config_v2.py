@@ -16,7 +16,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from .config import MODELS, MODEL_PROVIDERS
+from .config import MODEL_PROVIDERS, MODELS
 
 # ────────────────────────────────────────────────────────────
 # JSONC helpers
@@ -836,15 +836,15 @@ tui_config = TuiConfig()
 
 
 __all__ = [
-    "ApexConfig",
-    "TuiConfig",
-    "apex_config",
-    "tui_config",
     "CONFIG_DIR",
     "GLOBAL_JSON",
     "GLOBAL_JSONC",
     "TUI_JSON",
-    "strip_jsonc_comments",
+    "ApexConfig",
+    "TuiConfig",
+    "apex_config",
     "parse_jsonc",
     "read_jsonc",
+    "strip_jsonc_comments",
+    "tui_config",
 ]

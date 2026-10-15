@@ -5,26 +5,25 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
+from apex.agent import Agent
+from apex.config import Config
 from apex.http_api import (
     APEXHTTPServer,
     HTTPServer,
     RateLimitConfig,
+    _check_provider_configured,
+    _get_configured_providers,
     _sanitize_config,
     _sanitize_string,
-    _get_configured_providers,
-    _check_provider_configured,
     run_server,
     start_tui_server,
     stop_tui_server,
 )
-from apex.agent import Agent
-from apex.config import Config
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -750,7 +749,7 @@ class TestCheckRateLimitMethod:
         server = HTTPServer(require_auth=False, rate_limit_config=cfg)
         server.rate_limiter.check_rate_limit("anonymous")
         server.rate_limiter.check_rate_limit("anonymous")
-        err, result = await server._check_rate_limit(None)
+        err, _result = await server._check_rate_limit(None)
         assert err is not None
         assert err.status == 429
 

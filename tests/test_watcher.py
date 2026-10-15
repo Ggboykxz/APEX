@@ -3,23 +3,22 @@
 from __future__ import annotations
 
 import os
-import time
 import threading
+import time
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from apex.watcher import (
+    DEFAULT_IGNORE_PATTERNS,
     FileWatcher,
     WatcherConfig,
-    DEFAULT_IGNORE_PATTERNS,
-    _matches_pattern,
     _load_gitignore_patterns,
+    _matches_pattern,
     is_ignored,
     watcher,
 )
-
 
 # ────────────────────────────────────────────────────────────
 # _matches_pattern  (full branch coverage)

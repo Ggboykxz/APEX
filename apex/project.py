@@ -267,7 +267,7 @@ class FileWatcher:
         self._callbacks = []
         self._running = False
 
-    def watch(self, patterns: list[str] = None):
+    def watch(self, patterns: list[str] | None = None):
         patterns = patterns or ["*.py", "*.js", "*.ts", "*.go", "*.rs"]
         try:
             import watchdog
