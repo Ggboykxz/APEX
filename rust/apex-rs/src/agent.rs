@@ -14,6 +14,25 @@ impl Agent {
         Self { config, history: Vec::new() }
     }
 
+    /// Expand @file mentions in user input by appending file contents.
+    pub fn expand_mentions(&self, input: &str) -> String {
+        let mut out = input.to_string();
+        for token in input.split_whitespace() {
+            if !token.starts_with('@') { continue; }
+            let path = token.trim_start_matches('@');
+            if path.is_empty() { continue; }
+            let full = if std::path::Path::new(path).is_absolute() {
+                std::path::PathBuf::from(path)
+            } else {
+                self.config.cwd.join(path)
+            };
+            if let Ok(content) = std::fs::read_to_string(&full) {
+                out.push_str(&format!("\n\n[File: {}]\n{}", full.display(), content));
+            }
+        }
+        out
+    }
+
     pub fn session_path(&self, id: &str) -> std::path::PathBuf {
         let base = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
         base.join(".apex").join("sessions").join(format!("{id}.json"))
@@ -39,7 +58,8 @@ impl Agent {
     }
 
     pub async fn chat(&mut self, user_input: &str) -> Result<String> {
-        self.history.push(json!({"role":"user","content":user_input}));
+        let expanded = self.expand_mentions(user_input);
+        self.history.push(json!({"role":"user","content":expanded}));
 
         // Auto-compaction
         if self.config.auto_compact && self.history.len() > self.config.compact_threshold {
@@ -128,7 +148,8 @@ impl Agent {
     }
 
     pub async fn chat_stream(&mut self, user_input: &str, tx: tokio::sync::mpsc::Sender<String>) -> anyhow::Result<()> {
-        self.history.push(json!({"role":"user","content":user_input}));
+        let expanded = self.expand_mentions(user_input);
+        self.history.push(json!({"role":"user","content":expanded}));
 
         if self.config.auto_compact && self.history.len() > self.config.compact_threshold {
             let keep = self.config.compact_threshold / 2;

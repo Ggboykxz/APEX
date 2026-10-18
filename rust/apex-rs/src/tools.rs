@@ -3,9 +3,12 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::Mutex;
+
+static BACKUP_STACK: Mutex<Vec<(PathBuf, String)>> = Mutex::new(Vec::new());
 
 pub fn tool_schemas() -> Value {
-    json!([
+    let base = json!([
         {"type":"function","function":{"name":"read_file","description":"Read a file","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"write_file","description":"Write a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}},
         {"type":"function","function":{"name":"list_files","description":"List files in a directory","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
@@ -14,8 +17,14 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"git_diff","description":"Show git diff","parameters":{"type":"object","properties":{"ref":{"type":"string"}}}}},
         {"type":"function","function":{"name":"git_log","description":"Show recent git commits","parameters":{"type":"object","properties":{"n":{"type":"integer"}}}}},
         {"type":"function","function":{"name":"search_in_files","description":"Search a pattern in files","parameters":{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"}},"required":["pattern"]}}},
-        {"type":"function","function":{"name":"format_file","description":"Format a file with the appropriate formatter","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}
-    ])
+        {"type":"function","function":{"name":"format_file","description":"Format a file with the appropriate formatter","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}}
+    ]);
+    let mut arr = base.as_array().cloned().unwrap_or_default();
+    for t in crate::mcp_client::global_tools() {
+        arr.push(t);
+    }
+    Value::Array(arr)
 }
 
 fn is_dangerous_command(cmd: &str) -> bool {
@@ -25,6 +34,16 @@ fn is_dangerous_command(cmd: &str) -> bool {
 }
 
 pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
+    if name.starts_with("mcp_") {
+        // dispatch to MCP client (best-effort sync)
+        let rt = tokio::runtime::Runtime::new();
+        if let Ok(rt) = rt {
+            if let Some(res) = rt.block_on(crate::mcp_client::global_call(name.to_string(), args.clone())) {
+                return res;
+            }
+        }
+        return "ERROR: MCP tool unavailable".to_string();
+    }
     match name {
         "read_file" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
@@ -38,6 +57,14 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let content = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
             let full = resolve(path, cwd);
+            // Snapshot before overwrite for undo support.
+            if full.exists() {
+                if let Ok(orig) = fs::read_to_string(&full) {
+                    if let Ok(mut stack) = BACKUP_STACK.lock() {
+                        stack.push((full.clone(), orig));
+                    }
+                }
+            }
             if let Some(parent) = full.parent() {
                 let _ = fs::create_dir_all(parent);
             }
@@ -47,6 +74,20 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                     format!("Wrote {} ({})", full.display(), fmt)
                 }
                 Err(e) => format!("ERROR: {e}"),
+            }
+        }
+        "undo_last_edit" => {
+            if let Ok(mut stack) = BACKUP_STACK.lock() {
+                if let Some((path, content)) = stack.pop() {
+                    match fs::write(&path, content) {
+                        Ok(_) => format!("Restored {}", path.display()),
+                        Err(e) => format!("ERROR: {e}"),
+                    }
+                } else {
+                    "Nothing to undo".to_string()
+                }
+            } else {
+                "ERROR: lock poisoned".to_string()
             }
         }
         "list_files" => {

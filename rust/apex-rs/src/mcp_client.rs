@@ -63,8 +63,57 @@ impl McpClient {
     }
 }
 
+use std::sync::Mutex;
+
 pub struct McpManager {
     pub servers: HashMap<String, McpClient>,
+}
+
+static GLOBAL_MCP: Mutex<Option<McpManager>> = Mutex::new(None);
+
+pub fn set_global(manager: McpManager) {
+    if let Ok(mut g) = GLOBAL_MCP.lock() {
+        *g = Some(manager);
+    }
+}
+
+pub fn global_tools() -> Vec<Value> {
+    let mut out = Vec::new();
+    if let Ok(g) = GLOBAL_MCP.lock() {
+        if let Some(m) = g.as_ref() {
+            for (sname, client) in &m.servers {
+                for t in &client.tools {
+                    let mut tool = t.clone();
+                    if let Some(name) = tool.get("name").and_then(|n| n.as_str()) {
+                        let prefixed = format!("mcp_{}_{}", sname, name);
+                        if let Some(obj) = tool.as_object_mut() {
+                            obj.insert("name".to_string(), serde_json::Value::String(prefixed));
+                        }
+                    }
+                    out.push(tool);
+                }
+            }
+        }
+    }
+    out
+}
+
+pub async fn global_call(name: String, args: Value) -> Option<String> {
+    // strip mcp_ prefix
+    let stripped = name.strip_prefix("mcp_").unwrap_or(&name);
+    let parts: Vec<&str> = stripped.splitn(2, '_').collect();
+    if parts.len() != 2 { return None; }
+    let (server, tool) = (parts[0], parts[1]);
+    if let Ok(mut g) = GLOBAL_MCP.lock() {
+        if let Some(m) = g.as_mut() {
+            if let Some(client) = m.servers.get_mut(server) {
+                if let Ok(res) = client.call_tool(tool, args).await {
+                    return Some(res);
+                }
+            }
+        }
+    }
+    None
 }
 
 impl McpManager {
