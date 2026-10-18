@@ -1,8 +1,10 @@
 use crate::agent::Agent;
 use crate::config::Config;
+use axum::response::sse::{Event, Sse};
 use axum::{routing::{get, post}, Json, Router};
-use serde_json;
+use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -40,6 +42,21 @@ pub async fn serve(config: Config, port: u16) {
                 let mut a = agent.lock().await;
                 let resp = a.chat(&req.prompt).await.unwrap_or_else(|e| format!("ERROR: {e}"));
                 Json(ChatResp { response: resp })
+            }
+        }))
+        .route("/api/v1/chat/stream", post({
+            let agent = agent.clone();
+            move |Json(req): Json<ChatReq>| async move {
+                let (tx, rx) = tokio::sync::mpsc::channel::<String>(64);
+                let agent = agent.clone();
+                let prompt = req.prompt.clone();
+                tokio::spawn(async move {
+                    let mut a = agent.lock().await;
+                    let _ = a.chat_stream(&prompt, tx).await;
+                });
+                let stream = tokio_stream::wrappers::ReceiverStream::new(rx)
+                    .map(|msg| Ok::<_, Infallible>(Event::default().data(msg)));
+                Sse::new(stream)
             }
         }));
     let addr = format!("127.0.0.1:{port}");
