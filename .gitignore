@@ -44,6 +44,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Rust
+rust/target/
+
 # Python
 __pycache__/
 *.py[cod]
