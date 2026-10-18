@@ -19,6 +19,21 @@ pub async fn serve(config: Config, port: u16) {
         .route("/api/v1/tools", get(|| async {
             Json(serde_json::to_value(crate::tools::tool_schemas()).unwrap())
         }))
+        .route("/api/v1/models", get(|| async {
+            Json(serde_json::json!({"models":[std::env::var("APEX_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string())]}))
+        }))
+        .route("/api/v1/sessions", get(|| async {
+            let base = dirs::home_dir().unwrap_or_default().join(".apex").join("sessions");
+            let mut names = Vec::new();
+            if let Ok(rd) = std::fs::read_dir(&base) {
+                for e in rd.flatten() {
+                    if let Some(n) = e.file_name().to_str() {
+                        names.push(n.trim_end_matches(".json").to_string());
+                    }
+                }
+            }
+            Json(serde_json::json!({"sessions": names}))
+        }))
         .route("/api/v1/chat", post({
             let agent = agent.clone();
             move |Json(req): Json<ChatReq>| async move {

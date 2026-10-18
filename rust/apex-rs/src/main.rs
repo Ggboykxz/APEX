@@ -1,5 +1,6 @@
 mod agent;
 mod config;
+mod formatter;
 mod server;
 mod tools;
 

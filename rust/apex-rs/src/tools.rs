@@ -1,3 +1,4 @@
+use crate::formatter;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::PathBuf;
@@ -12,7 +13,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"git_status","description":"Show git working tree status","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_diff","description":"Show git diff","parameters":{"type":"object","properties":{"ref":{"type":"string"}}}}},
         {"type":"function","function":{"name":"git_log","description":"Show recent git commits","parameters":{"type":"object","properties":{"n":{"type":"integer"}}}}},
-        {"type":"function","function":{"name":"search_in_files","description":"Search a pattern in files","parameters":{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"}},"required":["pattern"]}}}
+        {"type":"function","function":{"name":"search_in_files","description":"Search a pattern in files","parameters":{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"}},"required":["pattern"]}}},
+        {"type":"function","function":{"name":"format_file","description":"Format a file with the appropriate formatter","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}}
     ])
 }
 
@@ -40,7 +42,10 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 let _ = fs::create_dir_all(parent);
             }
             match fs::write(&full, content) {
-                Ok(_) => format!("Wrote {}", full.display()),
+                Ok(_) => {
+                    let fmt = formatter::format_file(&full);
+                    format!("Wrote {} ({})", full.display(), fmt)
+                }
                 Err(e) => format!("ERROR: {e}"),
             }
         }
@@ -95,7 +100,6 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             let pattern = args.get("pattern").and_then(|v| v.as_str()).unwrap_or("");
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
             let full = resolve(path, cwd);
-            // Use grep if available
             match Command::new("grep").args(["-rn", pattern, &full.to_string_lossy()]).output() {
                 Ok(o) => {
                     let s = String::from_utf8_lossy(&o.stdout).to_string();
@@ -103,6 +107,11 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 }
                 Err(e) => format!("ERROR: {e}"),
             }
+        }
+        "format_file" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let full = resolve(path, cwd);
+            formatter::format_file(&full)
         }
         _ => format!("ERROR: Unknown tool '{name}'"),
     }
