@@ -36,6 +36,28 @@ pub async fn serve(config: Config, port: u16) {
             }
             Json(serde_json::json!({"sessions": names}))
         }))
+        .route("/api/v1/files/read", post({
+            move |Json(req): Json<serde_json::Value>| async move {
+                let path = req.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                match std::fs::read_to_string(path) {
+                    Ok(c) => Json(serde_json::json!({"content": c})),
+                    Err(e) => Json(serde_json::json!({"error": e.to_string()})),
+                }
+            }
+        }))
+        .route("/api/v1/files/write", post({
+            move |Json(req): Json<serde_json::Value>| async move {
+                let path = req.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                let content = req.get("content").and_then(|v| v.as_str()).unwrap_or("");
+                match std::fs::write(path, content) {
+                    Ok(_) => Json(serde_json::json!({"ok": true})),
+                    Err(e) => Json(serde_json::json!({"error": e.to_string()})),
+                }
+            }
+        }))
+        .route("/api/v1/agents/:id", get(|axum::extract::Path(id): axum::extract::Path<String>| async move {
+            Json(serde_json::json!({"id": id, "name": id}))
+        }))
         .route("/api/v1/agents", get(|| async {
             Json(serde_json::json!({"agents": [{"id":"build","name":"Build"},{"id":"plan","name":"Plan"}]}))
         }))

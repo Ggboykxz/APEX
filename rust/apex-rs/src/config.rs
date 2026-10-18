@@ -9,6 +9,8 @@ pub struct Config {
     pub denied_tools: Vec<String>,
     pub auto_compact: bool,
     pub compact_threshold: usize,
+    pub theme: String,
+    pub keybinds: std::collections::HashMap<String, String>,
 }
 
 impl Config {
@@ -25,7 +27,9 @@ impl Config {
             .unwrap_or_default();
         let auto_compact = env::var("APEX_AUTO_COMPACT").map(|v| v != "0" && v.to_lowercase() != "false").unwrap_or(true);
         let compact_threshold = env::var("APEX_COMPACT_THRESHOLD").ok().and_then(|v| v.parse().ok()).unwrap_or(20);
-        Self { model, api_key, base_url, cwd, denied_tools, auto_compact, compact_threshold }
+        let theme = env::var("APEX_THEME").unwrap_or_else(|_| "default".to_string());
+        let keybinds = std::collections::HashMap::new();
+        Self { model, api_key, base_url, cwd, denied_tools, auto_compact, compact_threshold, theme, keybinds }
     }
 }
 

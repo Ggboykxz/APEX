@@ -44,7 +44,7 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         }
         return "ERROR: MCP tool unavailable".to_string();
     }
-    match name {
+    let result = match name {
         "read_file" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let full = resolve(path, cwd);
@@ -155,7 +155,9 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             formatter::format_file(&full)
         }
         _ => format!("ERROR: Unknown tool '{name}'"),
-    }
+    };
+    crate::hooks::trigger_hooks(name, args);
+    result
 }
 
 fn resolve(path: &str, cwd: &std::path::Path) -> PathBuf {
