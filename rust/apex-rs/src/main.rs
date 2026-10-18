@@ -1,6 +1,9 @@
 mod agent;
 mod config;
 mod formatter;
+mod jsonrpc;
+mod lsp;
+mod mcp_client;
 mod server;
 mod tools;
 
