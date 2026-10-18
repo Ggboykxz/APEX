@@ -36,6 +36,23 @@ pub async fn serve(config: Config, port: u16) {
             }
             Json(serde_json::json!({"sessions": names}))
         }))
+        .route("/api/v1/agents", get(|| async {
+            Json(serde_json::json!({"agents": [{"id":"build","name":"Build"},{"id":"plan","name":"Plan"}]}))
+        }))
+        .route("/api/v1/themes", get(|| async {
+            Json(serde_json::json!({"themes": [{"id":"default","name":"Default"},{"id":"light","name":"Light"}]}))
+        }))
+        .route("/api/v1/files", get(|| async {
+            Json(serde_json::json!({"files": []}))
+        }))
+        .route("/api/v1/tui-config", get(|| async {
+            Json(serde_json::json!({"leader_timeout": 1000, "keybinds": {}}))
+        }))
+        .route("/api/v1/config", get(|| async {
+            Json(serde_json::json!({"model": std::env::var("APEX_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string())}))
+        }))
+        .route("/api/v1/undo", post(|| async { Json(serde_json::json!({"ok": true})) }))
+        .route("/api/v1/redo", post(|| async { Json(serde_json::json!({"ok": true})) }))
         .route("/api/v1/chat", post({
             let agent = agent.clone();
             move |Json(req): Json<ChatReq>| async move {

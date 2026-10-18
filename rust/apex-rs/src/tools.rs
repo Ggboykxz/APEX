@@ -125,6 +125,44 @@ fn resolve(path: &str, cwd: &std::path::Path) -> PathBuf {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn read_write_list() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().join("a.txt");
+        assert!(execute_tool("write_file", &serde_json::json!({"path": p.to_str().unwrap(), "content": "hi"}), dir.path()).contains("Wrote"));
+        assert_eq!(execute_tool("read_file", &serde_json::json!({"path": p.to_str().unwrap()}), dir.path()), "hi");
+        let listing = execute_tool("list_files", &serde_json::json!({"path": dir.path().to_str().unwrap()}), dir.path());
+        assert!(listing.contains("a.txt"));
+    }
+
+    #[test]
+    fn run_command_echo() {
+        let dir = tempdir().unwrap();
+        let out = execute_tool("run_command", &serde_json::json!({"command": "echo hello"}), dir.path());
+        assert!(out.contains("hello"));
+    }
+
+    #[test]
+    fn dangerous_command_blocked() {
+        let dir = tempdir().unwrap();
+        let out = execute_tool("run_command", &serde_json::json!({"command": "rm -rf /"}), dir.path());
+        assert!(out.contains("blocked"));
+    }
+
+    #[test]
+    fn unknown_tool() {
+        let dir = tempdir().unwrap();
+        let out = execute_tool("bogus", &serde_json::json!({}), dir.path());
+        assert!(out.contains("Unknown tool"));
+    }
+}
+
 fn run_git(cwd: &std::path::Path, args: &[&str]) -> String {
     match Command::new("git").args(args).current_dir(cwd).output() {
         Ok(o) => {

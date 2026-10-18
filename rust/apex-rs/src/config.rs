@@ -28,3 +28,39 @@ impl Config {
         Self { model, api_key, base_url, cwd, denied_tools, auto_compact, compact_threshold }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn defaults() {
+        let _g = ENV_LOCK.lock().unwrap();
+        env::set_var("APEX_MODEL", "gpt-4o-mini");
+        env::set_var("APEX_DENIED_TOOLS", "");
+        env::set_var("APEX_AUTO_COMPACT", "true");
+        env::set_var("APEX_COMPACT_THRESHOLD", "20");
+        let c = Config::from_env();
+        assert_eq!(c.model, "gpt-4o-mini");
+        assert!(c.denied_tools.is_empty());
+        assert!(c.auto_compact);
+        assert_eq!(c.compact_threshold, 20);
+        env::remove_var("APEX_MODEL");
+        env::remove_var("APEX_DENIED_TOOLS");
+        env::remove_var("APEX_AUTO_COMPACT");
+        env::remove_var("APEX_COMPACT_THRESHOLD");
+    }
+
+    #[test]
+    fn denied_tools_parsed() {
+        let _g = ENV_LOCK.lock().unwrap();
+        env::set_var("APEX_DENIED_TOOLS", "run_command, write_file");
+        let c = Config::from_env();
+        assert_eq!(c.denied_tools, vec!["run_command", "write_file"]);
+        env::remove_var("APEX_DENIED_TOOLS");
+    }
+}
