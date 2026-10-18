@@ -19,7 +19,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"search_in_files","description":"Search a pattern in files","parameters":{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"}},"required":["pattern"]}}},
         {"type":"function","function":{"name":"format_file","description":"Format a file with the appropriate formatter","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}},
-        {"type":"function","function":{"name":"git_undo","description":"Revert uncommitted changes (git checkout)","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}}
+        {"type":"function","function":{"name":"git_undo","description":"Revert uncommitted changes (git checkout)","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
+        {"type":"function","function":{"name":"lsp_diagnostics","description":"Get LSP diagnostics for a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"server":{"type":"string"}},"required":["path"]}}}
     ]);
     let mut arr = base.as_array().cloned().unwrap_or_default();
     for t in crate::mcp_client::global_tools() {
@@ -101,6 +102,52 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 Err(e) => format!("ERROR: {e}"),
             }
         }
+        "lsp_diagnostics" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
+            // Determine server command from extension if not provided
+            let (prog, sargs): (String, Vec<String>) = if !server.is_empty() {
+                (server.to_string(), vec![])
+            } else {
+                let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+                match ext.as_str() {
+                    "rs" => ("rust-analyzer".to_string(), vec![]),
+                    "py" => ("pyright-langserver".to_string(), vec!["--stdio".to_string()]),
+                    "ts" | "js" | "tsx" | "jsx" => ("typescript-language-server".to_string(), vec!["--stdio".to_string()]),
+                    "go" => ("gopls".to_string(), vec![]),
+                    _ => (String::new(), vec![]),
+                }
+            };
+            if prog.is_empty() {
+                return "ERROR: No LSP server for this file type".to_string();
+            }
+            // Check if binary available
+            if which(&prog).is_none() {
+                return format!("ERROR: LSP server '{prog}' not installed");
+            }
+            let full_path = if std::path::Path::new(path).is_absolute() {
+                path.to_string()
+            } else {
+                cwd.join(path).to_string_lossy().to_string()
+            };
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(r) => r,
+                Err(e) => return format!("ERROR: {e}"),
+            };
+            rt.block_on(async {
+                let mut lsp = crate::lsp::LspManager::new();
+                let root = cwd.to_string_lossy().to_string();
+                if lsp.start(&prog, &sargs.iter().map(|s| s.as_str()).collect::<Vec<_>>(), &root).await.is_err() {
+                    return format!("ERROR: failed to start {prog}");
+                }
+                let res = lsp.diagnostics(&full_path).await;
+                lsp.shutdown().await;
+                match res {
+                    Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
+                    Err(e) => format!("ERROR: {e}"),
+                }
+            })
+        }
         "list_files" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
             let full = resolve(path, cwd);
@@ -171,6 +218,17 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
     result
 }
 
+fn which(name: &str) -> Option<std::path::PathBuf> {
+    let path = std::env::var("PATH").unwrap_or_default();
+    for dir in path.split(':') {
+        let p = std::path::Path::new(dir).join(name);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    None
+}
+
 fn resolve(path: &str, cwd: &std::path::Path) -> PathBuf {
     if std::path::Path::new(path).is_absolute() {
         PathBuf::from(path)
@@ -214,6 +272,25 @@ mod tests {
         let dir = tempdir().unwrap();
         let out = execute_tool("bogus", &serde_json::json!({}), dir.path());
         assert!(out.contains("Unknown tool"));
+    }
+
+    #[test]
+    fn undo_last_edit() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().join("b.txt");
+        std::fs::write(&p, "original").unwrap();
+        execute_tool("write_file", &serde_json::json!({"path": p.to_str().unwrap(), "content": "changed"}), dir.path());
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "changed");
+        let out = execute_tool("undo_last_edit", &serde_json::json!({}), dir.path());
+        assert!(out.contains("Restored") || out.contains("Nothing"));
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), "original");
+    }
+
+    #[test]
+    fn git_undo_no_repo() {
+        let dir = tempdir().unwrap();
+        let out = execute_tool("git_undo", &serde_json::json!({}), dir.path());
+        assert!(out.contains("ERROR") || out.contains("Reverted"));
     }
 }
 
