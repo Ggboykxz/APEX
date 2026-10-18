@@ -1,6 +1,7 @@
 use crate::agent::Agent;
 use crate::config::Config;
 use axum::{routing::{get, post}, Json, Router};
+use serde_json;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -15,6 +16,9 @@ pub async fn serve(config: Config, port: u16) {
     let agent = Arc::new(Mutex::new(Agent::new(config)));
     let app = Router::new()
         .route("/health", get(|| async { "ok" }))
+        .route("/api/v1/tools", get(|| async {
+            Json(serde_json::to_value(crate::tools::tool_schemas()).unwrap())
+        }))
         .route("/api/v1/chat", post({
             let agent = agent.clone();
             move |Json(req): Json<ChatReq>| async move {

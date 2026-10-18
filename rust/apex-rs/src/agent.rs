@@ -41,6 +41,15 @@ impl Agent {
     pub async fn chat(&mut self, user_input: &str) -> Result<String> {
         self.history.push(json!({"role":"user","content":user_input}));
 
+        // Auto-compaction
+        if self.config.auto_compact && self.history.len() > self.config.compact_threshold {
+            let keep = self.config.compact_threshold / 2;
+            if self.history.len() > keep {
+                let start = self.history.len().saturating_sub(keep);
+                self.history = self.history[start..].to_vec();
+            }
+        }
+
         let client = reqwest::Client::new();
         for _ in 0..10 {
             let mut messages = vec![json!({"role":"system","content":"You are APEX, a helpful coding assistant."})];
@@ -80,6 +89,11 @@ impl Agent {
                 for tc in arr {
                     let name = tc["function"]["name"].as_str().unwrap_or("");
                     let args: Value = serde_json::from_str(tc["function"]["arguments"].as_str().unwrap_or("{}")).unwrap_or(json!({}));
+                    if self.config.denied_tools.iter().any(|d| d == name) {
+                        let tool_call_id = tc["id"].as_str().unwrap_or("");
+                        self.history.push(json!({"role":"tool","tool_call_id":tool_call_id,"content":"ERROR: Permission denied"}));
+                        continue;
+                    }
                     let result = tools::execute_tool(name, &args, &self.config.cwd);
                     let tool_call_id = tc["id"].as_str().unwrap_or("");
                     self.history.push(json!({"role":"tool","tool_call_id":tool_call_id,"content":result}));
