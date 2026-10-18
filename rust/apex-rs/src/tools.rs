@@ -18,7 +18,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"git_log","description":"Show recent git commits","parameters":{"type":"object","properties":{"n":{"type":"integer"}}}}},
         {"type":"function","function":{"name":"search_in_files","description":"Search a pattern in files","parameters":{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"}},"required":["pattern"]}}},
         {"type":"function","function":{"name":"format_file","description":"Format a file with the appropriate formatter","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
-        {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}}
+        {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"git_undo","description":"Revert uncommitted changes (git checkout)","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}}
     ]);
     let mut arr = base.as_array().cloned().unwrap_or_default();
     for t in crate::mcp_client::global_tools() {
@@ -88,6 +89,16 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 }
             } else {
                 "ERROR: lock poisoned".to_string()
+            }
+        }
+        "git_undo" => {
+            let path = args.get("path").and_then(|v| v.as_str());
+            let mut cmd = vec!["checkout", "--"];
+            if let Some(p) = path { cmd.push(p); } else { cmd.push("."); }
+            match Command::new("git").args(&cmd).current_dir(cwd).output() {
+                Ok(o) if o.status.success() => "Reverted uncommitted changes".to_string(),
+                Ok(o) => format!("ERROR: {}", String::from_utf8_lossy(&o.stderr)),
+                Err(e) => format!("ERROR: {e}"),
             }
         }
         "list_files" => {

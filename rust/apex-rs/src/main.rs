@@ -2,6 +2,7 @@ mod agent;
 mod config;
 mod formatter;
 mod hooks;
+mod plugins;
 mod jsonrpc;
 mod lsp;
 mod mcp_client;
@@ -29,6 +30,8 @@ enum Commands {
     Serve { #[arg(short, long, default_value = "8765")] port: u16 },
     /// List tools
     Tools,
+    /// List plugins
+    Plugins,
 }
 
 fn load_mcp_servers() {
@@ -82,6 +85,16 @@ async fn main() {
         Some(Commands::Tools) => {
             let v = tools::tool_schemas();
             println!("{}", serde_json::to_string_pretty(&v).unwrap());
+        }
+        Some(Commands::Plugins) => {
+            let ps = plugins::discover_plugins();
+            if ps.is_empty() {
+                println!("No plugins found (~/.apex/plugins/)");
+            } else {
+                for p in ps {
+                    println!("{}", p.name);
+                }
+            }
         }
         None => {
             println!("APEX (Rust) — type 'apex-rs --help'");

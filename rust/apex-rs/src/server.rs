@@ -58,6 +58,11 @@ pub async fn serve(config: Config, port: u16) {
         .route("/api/v1/agents/:id", get(|axum::extract::Path(id): axum::extract::Path<String>| async move {
             Json(serde_json::json!({"id": id, "name": id}))
         }))
+        .route("/api/v1/plugins", get(|| async {
+            let ps = crate::plugins::discover_plugins();
+            let names: Vec<String> = ps.into_iter().map(|p| p.name).collect();
+            Json(serde_json::json!({"plugins": names}))
+        }))
         .route("/api/v1/agents", get(|| async {
             Json(serde_json::json!({"agents": [{"id":"build","name":"Build"},{"id":"plan","name":"Plan"}]}))
         }))

@@ -26,7 +26,15 @@ impl Agent {
             } else {
                 self.config.cwd.join(path)
             };
-            if let Ok(content) = std::fs::read_to_string(&full) {
+            let ext = full.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+            let is_image = matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp");
+            if is_image {
+                if let Ok(bytes) = std::fs::read(&full) {
+                    use base64::Engine;
+                    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                    out.push_str(&format!("\n\n[Image: {} (base64, {} bytes)]\n{}", full.display(), bytes.len(), b64));
+                }
+            } else if let Ok(content) = std::fs::read_to_string(&full) {
                 out.push_str(&format!("\n\n[File: {}]\n{}", full.display(), content));
             }
         }
