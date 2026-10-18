@@ -1,5 +1,6 @@
 use crate::agent::Agent;
 use crate::config::Config;
+use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::response::sse::{Event, Sse};
 use axum::{routing::{get, post}, Json, Router};
 use futures::stream::StreamExt;
@@ -102,9 +103,29 @@ pub async fn serve(config: Config, port: u16) {
                     .map(|msg| Ok::<_, Infallible>(Event::default().data(msg)));
                 Sse::new(stream)
             }
-        }));
+        }))
+        .route("/ws", get(ws_handler))
+        .route("/ws/events", get(ws_handler));
     let addr = format!("127.0.0.1:{port}");
     println!("APEX (Rust) listening on {addr}");
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn ws_handler(ws: WebSocketUpgrade) -> impl axum::response::IntoResponse {
+    ws.on_upgrade(handle_socket)
+}
+
+async fn handle_socket(mut socket: WebSocket) {
+    use futures::SinkExt;
+    let _ = socket.send(Message::Text("connected".into())).await;
+    while let Some(Ok(msg)) = socket.recv().await {
+        match msg {
+            Message::Text(t) => {
+                let _ = socket.send(Message::Text(format!("echo: {t}"))).await;
+            }
+            Message::Close(_) => break,
+            _ => {}
+        }
+    }
 }
