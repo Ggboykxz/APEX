@@ -84,10 +84,19 @@ class CostTracker:
         self._current_session_start = datetime.now()
         self._current_input_tokens = 0
         self._current_output_tokens = 0
+        self._model_usage: dict[str, dict[str, int]] = {}
 
     def record_usage(self, model: str, input_tokens: int, output_tokens: int) -> float:
         """Record token usage and return cost."""
         pricing = MODEL_PRICING.get(model)
+
+        self._current_input_tokens += input_tokens
+        self._current_output_tokens += output_tokens
+
+        usage = self._model_usage.setdefault(model, {"input": 0, "output": 0})
+        usage["input"] += input_tokens
+        usage["output"] += output_tokens
+
         if not pricing:
             return 0.0
 
@@ -95,21 +104,21 @@ class CostTracker:
             output_tokens / 1000
         ) * pricing.per_1k_output
 
-        self._current_input_tokens += input_tokens
-        self._current_output_tokens += output_tokens
-
         return cost
 
     def get_session_cost(self) -> dict:
         """Get current session cost breakdown."""
         total_tokens = self._current_input_tokens + self._current_output_tokens
 
-        input_cost = 0
-        output_cost = 0
+        input_cost = 0.0
+        output_cost = 0.0
 
-        for model, pricing in MODEL_PRICING.items():
-            input_cost += (self._current_input_tokens / 1000) * pricing.per_1k_input
-            output_cost += (self._current_output_tokens / 1000) * pricing.per_1k_output
+        for model, usage in self._model_usage.items():
+            pricing = MODEL_PRICING.get(model)
+            if not pricing:
+                continue
+            input_cost += (usage["input"] / 1000) * pricing.per_1k_input
+            output_cost += (usage["output"] / 1000) * pricing.per_1k_output
 
         return {
             "input_tokens": self._current_input_tokens,
@@ -130,6 +139,7 @@ class CostTracker:
         self._current_session_start = datetime.now()
         self._current_input_tokens = 0
         self._current_output_tokens = 0
+        self._model_usage = {}
 
     def get_history(self) -> list[dict]:
         """Get cost history."""

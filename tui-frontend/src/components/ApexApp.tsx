@@ -562,7 +562,7 @@ export function ApexApp() {
         <Text color={apexTheme.gray}>Thinking: {thinkingMode} (Ctrl+T to cycle)</Text>
       )}
 
-      {showFF && !anyOverlay && (
+      {showFF && (
         <Box borderStyle="single" borderColor={apexTheme.border} paddingX={1}>
           <Text color={apexTheme.cyan} bold>@ File Reference </Text><Text color={apexTheme.gray}>(filter, Tab/Enter select, Esc close)</Text>
           <Text color={apexTheme.fg}>@{ffQuery}<Text color={apexTheme.gray}>▎</Text></Text>

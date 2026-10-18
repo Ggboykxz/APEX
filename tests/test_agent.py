@@ -353,3 +353,47 @@ class TestAgentHistory:
         agent.history.append({"role": "user", "content": "hello"})
         agent.history.append({"role": "assistant", "content": "hi"})
         assert len(agent.history) == 2
+
+
+# ---------------------------------------------------------------------------
+# Compact context
+# ---------------------------------------------------------------------------
+
+
+class TestAgentCompactContext:
+    """Tests for Agent.compact_context (manual compaction)."""
+
+    def test_compact_context_exists(self, agent):
+        assert hasattr(agent, "compact_context")
+        assert callable(agent.compact_context)
+
+    def test_compact_context_empty_history_no_crash(self, agent):
+        agent.compact_context()
+        assert agent.history == []
+
+    def test_compact_context_reduces_history(self, agent):
+        for i in range(10):
+            agent.history.append({"role": "user", "content": f"user message {i} " * 5})
+            agent.history.append({"role": "assistant", "content": f"assistant reply {i} " * 5})
+        before = len(agent.history)
+        agent.compact_context()
+        after = len(agent.history)
+        assert after < before
+
+    def test_compact_context_strategy_prune(self, agent):
+        for i in range(10):
+            agent.history.append({"role": "user", "content": f"m{i}"})
+            agent.history.append({"role": "assistant", "content": f"r{i}"})
+        before = len(agent.history)
+        agent.compact_context(strategy="prune")
+        after = len(agent.history)
+        assert after < before
+
+    def test_compact_context_preserves_system_not_in_history(self, agent):
+        # system message lives in _system_message, not history
+        for i in range(6):
+            agent.history.append({"role": "user", "content": f"m{i}"})
+            agent.history.append({"role": "assistant", "content": f"r{i}"})
+        agent.compact_context(strategy="prune")
+        # no crash; history still a list of dicts
+        assert all(isinstance(m, dict) and "role" in m for m in agent.history)

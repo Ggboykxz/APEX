@@ -1506,7 +1506,13 @@ class HTTPServer:
 
         servers = mcp_manager.list_servers() if hasattr(mcp_manager, "list_servers") else []
         return web.json_response(
-            {s.name: {"enabled": getattr(s, "enabled", True)} for s in servers}
+            {
+                s.get("name", str(i)): {
+                    "enabled": s.get("enabled", True),
+                    "tools_count": s.get("tools_count", 0),
+                }
+                for i, s in enumerate(servers)
+            }
         )
 
     # ── API v1: Command ───────────────────────────────────

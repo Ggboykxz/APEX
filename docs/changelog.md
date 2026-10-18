@@ -2,6 +2,20 @@
 
 All notable changes to APEX are documented in this file. The project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Bug Fixes
+
+- **Manual compaction now works** — `Agent.compact_context(strategy=...)` implemented (summarize/prune/merge), so `/compact` and `apex compact` no longer crash on the missing method.
+- **MCP status endpoint fixed** — `/api/v1/mcp/status` no longer crashes; server entries are dicts, so access now uses dict keys.
+- **Session cost math fixed** — `CostTracker.get_session_cost()` no longer multiplies costs by every model in `MODEL_PRICING`; costs now come from per-model usage.
+- **Per-agent model & reasoning effort** — `Agent` resolves model from the current agent config and forwards temperature/top_p/reasoning_effort to litellm.
+- **Auto-compaction wired** — chat loops now auto-compact when enabled.
+- **MCP tooling exposed** — schemas include MCP/plugin tools; `mcp_*` dispatch via `mcp_manager`; name parsing fixed.
+- **Plugin hooks wired** — `tool_call` hook triggered after successful tool calls.
+- **Web search providers** — Brave/Tavily/Exa selected via env keys, fallback DuckDuckGo.
+- **Real PR creation** — uses `gh` CLI or GitHub REST API.
+
 ## v2.0.0 (Current) — 2026-05-16
 
 ### 🚀 OpenCode Architecture & Production Hardening

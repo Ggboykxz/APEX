@@ -2,6 +2,21 @@
 
 All notable changes to APEX will be documented in this file.
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **Manual compaction now works** — `Agent.compact_context(strategy=...)` implemented (summarize/prune/merge), so the `/compact` slash command and `apex compact` no longer crash with `AttributeError` on the missing method. Compaction now reduces `Agent.history` (system messages preserved) and returns the number of messages removed.
+- **MCP status endpoint fixed** — `/api/v1/mcp/status` (OpenCode `/mcp` compat) no longer crashes with `AttributeError` when reading server entries: `list_servers()` returns dicts, so access now uses dict keys (`name`, `enabled`, `tools_count`) instead of attribute access.
+- **Session cost math fixed** — `CostTracker.get_session_cost()` no longer multiplies costs by every model in `MODEL_PRICING`; costs are now computed from per-model token usage tracked in `record_usage()` (unknown models contribute 0 cost).
+- **Per-agent model & reasoning effort** — `Agent` now resolves the model alias from the current agent's `AgentConfig.model` when set, and forwards `temperature`, `top_p` and `reasoning_effort` to litellm completion calls.
+- **Auto-compaction wired** — `_chat_internal` and `chat_streaming` now compact history automatically when `config.compaction.auto` is enabled and history exceeds the threshold.
+- **MCP tooling exposed** — `get_all_tool_schemas()` now includes connected MCP server and plugin tools; `ToolExecutor`/`AsyncToolExecutor` dispatch `mcp_*` tools via `mcp_manager.call_tool`; `call_tool` name parsing fixed for the `mcp_<server>_<tool>` convention.
+- **Plugin hooks wired** — `ToolExecutor.execute` now triggers the `tool_call` hook after a successful tool call; plugin tools are merged into the schema list.
+- **Web search providers** — `_execute_web_search` now selects Brave/Tavily/Exa when the corresponding API key env var is set, falling back to DuckDuckGo.
+- **Real PR creation** — `_execute_git_create_pr` now uses `gh pr create` (or the GitHub REST API with `GITHUB_TOKEN`/`GH_TOKEN`) instead of returning a placeholder.
+- **TUI `@file` popup** — the file-reference popup now renders (was hidden by an inverted `anyOverlay` guard in `ApexApp.tsx`).
+
 ## [2.0.0] - 2026-05-16
 
 ### 🚀 Second Major Release — OpenCode Architecture & Production Hardening

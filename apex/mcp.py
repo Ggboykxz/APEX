@@ -295,7 +295,13 @@ class MCPManager:
         return tools
 
     async def call_tool(self, full_name: str, arguments: dict) -> str:
-        parts = full_name.split("_", 1)
+        # Tool names follow the ``mcp_<server>_<tool>`` convention. Strip the
+        # leading ``mcp_`` prefix before splitting off the server name so that
+        # multi-underscore tool names resolve correctly.
+        name = full_name
+        if name.startswith("mcp_"):
+            name = name[len("mcp_"):]
+        parts = name.split("_", 1)
         if len(parts) != 2:
             return "ERROR: Invalid tool name format"
 

@@ -1404,6 +1404,25 @@ class ToolExecutor:
             result = custom_tool_manager.execute(tool_name, args)
             if not result.startswith("ERROR: Unknown custom tool"):
                 return result
+            if tool_name.startswith("mcp_"):
+                try:
+                    import asyncio
+                    from .mcp import mcp_manager
+
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            # Defer to a fresh loop in a worker thread.
+                            import concurrent.futures
+
+                            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                                fut = pool.submit(asyncio.run, mcp_manager.call_tool(tool_name, args))
+                                return fut.result()
+                        return loop.run_until_complete(mcp_manager.call_tool(tool_name, args))
+                    except RuntimeError:
+                        return asyncio.run(mcp_manager.call_tool(tool_name, args))
+                except Exception as e:
+                    return f"ERROR: {type(e).__name__}: {e}"
             return f"ERROR: Unknown tool '{tool_name}'"
         key = f"{tool_name}:{json.dumps(args, sort_keys=True)}"
         if self._doom_last is not None and key == self._doom_last[0]:
@@ -1415,9 +1434,16 @@ class ToolExecutor:
             self._doom_counter.clear()
             return f"ERROR: Doom loop detected — '{tool_name}' called 3+ times with identical arguments. Stopping to prevent infinite loop."
         try:
-            return method(args)
+            result = method(args)
         except Exception as e:
             return f"ERROR: {type(e).__name__}: {e}"
+        try:
+            from .plugins import plugin_manager
+
+            plugin_manager.trigger_hook("tool_call", tool_name, args, result)
+        except Exception:
+            pass
+        return result
 
     def _execute_read_file(self, args: dict[str, Any]) -> str:
         path = self._resolve(args["path"])
@@ -1701,27 +1727,100 @@ class ToolExecutor:
 
     def _execute_web_search(self, args: dict[str, Any]) -> str:
         query = args["query"]
+        import os
+
+        brave_key = os.environ.get("BRAVE_API_KEY") or os.environ.get("BRAVE_SEARCH_API_KEY")
+        tavily_key = os.environ.get("TAVILY_API_KEY")
+        exa_key = os.environ.get("EXA_API_KEY")
+
         try:
-            import urllib.parse
-
-            url = f"https://duckduckgo.com/html/?q={urllib.parse.quote(query)}"
-            result = subprocess.run(
-                ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30
-            )
-            html = result.stdout
-
-            import re
-
-            titles = re.findall(r'<a class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)', html)
-            snippets = re.findall(r'<a class="result__snippet"[^>]*>([^<]*)', html)
-
-            output = []
-            for i, (link, title) in enumerate(titles[:5]):
-                snippet = snippets[i] if i < len(snippets) else ""
-                output.append(f"{i + 1}. {title.strip()}\n   {snippet.strip()}\n   {link}")
-            return "\n\n".join(output) if output else "[no results]"
+            if brave_key:
+                return self._web_search_brave(query, brave_key)
+            if tavily_key:
+                return self._web_search_tavily(query, tavily_key)
+            if exa_key:
+                return self._web_search_exa(query, exa_key)
+            return self._web_search_duckduckgo(query)
         except Exception as e:
-            return f"ERROR: Web search failed: {e}"
+            try:
+                return self._web_search_duckduckgo(query)
+            except Exception:
+                return f"ERROR: Web search failed: {e}"
+
+    def _web_search_duckduckgo(self, query: str) -> str:
+        import urllib.parse
+        import re
+
+        url = f"https://duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+        result = subprocess.run(
+            ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30
+        )
+        html = result.stdout
+        titles = re.findall(r'<a class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)', html)
+        snippets = re.findall(r'<a class="result__snippet"[^>]*>([^<]*)', html)
+        output = []
+        for i, (link, title) in enumerate(titles[:5]):
+            snippet = snippets[i] if i < len(snippets) else ""
+            output.append(f"{i + 1}. {title.strip()}\n   {snippet.strip()}\n   {link}")
+        return "\n\n".join(output) if output else "[no results]"
+
+    def _web_search_brave(self, query: str, api_key: str) -> str:
+        import urllib.parse
+        import json
+
+        url = f"https://api.search.brave.com/res/v1/web/search?q={urllib.parse.quote(query)}&count=5"
+        result = subprocess.run(
+            ["curl", "-s", "-L", url, "-H", f"X-Subscription-Token: {api_key}"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        data = json.loads(result.stdout or "{}")
+        items = (data.get("web") or {}).get("results") or []
+        output = []
+        for i, r in enumerate(items[:5]):
+            output.append(
+                f"{i + 1}. {r.get('title', '').strip()}\n   {r.get('description', '').strip()}\n   {r.get('url', '')}"
+            )
+        return "\n\n".join(output) if output else "[no results]"
+
+    def _web_search_tavily(self, query: str, api_key: str) -> str:
+        import json
+
+        payload = json.dumps({"api_key": api_key, "query": query, "max_results": 5})
+        result = subprocess.run(
+            ["curl", "-s", "-L", "https://api.tavily.com/search", "-H", "Content-Type: application/json", "-d", payload],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        data = json.loads(result.stdout or "{}")
+        items = data.get("results") or []
+        output = []
+        for i, r in enumerate(items[:5]):
+            output.append(
+                f"{i + 1}. {r.get('title', '').strip()}\n   {r.get('content', '').strip()}\n   {r.get('url', '')}"
+            )
+        return "\n\n".join(output) if output else "[no results]"
+
+    def _web_search_exa(self, query: str, api_key: str) -> str:
+        import json
+
+        payload = json.dumps({"query": query, "numResults": 5})
+        result = subprocess.run(
+            ["curl", "-s", "-L", "https://api.exa.ai/search", "-H", f"x-api-key: {api_key}", "-H", "Content-Type: application/json", "-d", payload],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        data = json.loads(result.stdout or "{}")
+        items = data.get("results") or []
+        output = []
+        for i, r in enumerate(items[:5]):
+            output.append(
+                f"{i + 1}. {r.get('title', '').strip()}\n   {r.get('text', '').strip()[:200]}\n   {r.get('url', '')}"
+            )
+        return "\n\n".join(output) if output else "[no results]"
 
     def _execute_fetch_url(self, args: dict[str, Any]) -> str:
         url = args["url"]
@@ -2271,7 +2370,62 @@ class ToolExecutor:
         title = args.get("title", "")
         body = args.get("body", "")
         base = args.get("base", "main")
-        return f"Creating PR: {title}\nBase: {base}\nBody: {body}\n\n(Note: Use gh CLI or GitHub API for actual PR creation)"
+        head = args.get("head")
+        try:
+            # Prefer gh CLI when available.
+            import shutil
+
+            if shutil.which("gh"):
+                cmd = ["gh", "pr", "create", "--title", title, "--base", base]
+                if body:
+                    cmd += ["--body", body]
+                if head:
+                    cmd += ["--head", head]
+                result = subprocess.run(
+                    cmd, cwd=self.cwd, capture_output=True, text=True, timeout=60
+                )
+                if result.returncode == 0:
+                    return result.stdout.strip() or "PR created."
+                return f"ERROR: gh pr create failed: {result.stderr.strip()}"
+            # Fallback: GitHub REST API using GITHUB_TOKEN/GH_TOKEN.
+            import os
+            import urllib.request
+            import json as _json
+
+            token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+            if not token:
+                return "ERROR: gh CLI not found and no GITHUB_TOKEN/GH_TOKEN set."
+            # Resolve owner/repo from git remote.
+            remote = subprocess.run(
+                ["git", "remote", "get-url", "origin"], cwd=self.cwd, capture_output=True, text=True
+            ).stdout.strip()
+            import re
+
+            m = re.search(r"github\\.com[:/](.+?)(?:\\.git)?$", remote)
+            if not m:
+                return "ERROR: Could not parse GitHub remote URL."
+            repo = m.group(1)
+            # Determine head branch.
+            if not head:
+                head = subprocess.run(
+                    ["git", "branch", "--show-current"], cwd=self.cwd, capture_output=True, text=True
+                ).stdout.strip()
+            payload = _json.dumps({"title": title, "body": body, "base": base, "head": head}).encode()
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{repo}/pulls",
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "Content-Type": "application/json",
+                    "User-Agent": "APEX",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = _json.loads(resp.read().decode())
+            return data.get("html_url", "PR created.")
+        except Exception as e:
+            return f"ERROR: PR creation failed: {e}"
 
     def _execute_get_completions(self, args: dict[str, Any]) -> str:
         ctype = args.get("type", "file")
@@ -2914,6 +3068,13 @@ class AsyncToolExecutor(ToolExecutor):
     async def execute_async(self, tool_name: str, args: dict[str, Any]) -> str:
         method = getattr(self, f"_execute_{tool_name}", None)
         if not method:
+            if tool_name.startswith("mcp_"):
+                try:
+                    from .mcp import mcp_manager
+
+                    return await mcp_manager.call_tool(tool_name, args)
+                except Exception as e:
+                    return f"ERROR: {type(e).__name__}: {e}"
             return f"ERROR: Unknown tool '{tool_name}'"
         try:
             if hasattr(method, "__await__"):
@@ -2930,4 +3091,23 @@ class AsyncToolExecutor(ToolExecutor):
 def get_all_tool_schemas() -> list[dict]:
     from .config_tools import custom_tool_manager, ensure_tools_loaded
     ensure_tools_loaded()
-    return TOOL_SCHEMAS + custom_tool_manager.get_schemas()
+    schemas = list(TOOL_SCHEMAS) + custom_tool_manager.get_schemas()
+    # Expose connected MCP server tools (if any) to the model.
+    try:
+        from .mcp import mcp_manager
+
+        for tool in mcp_manager.get_all_tools():
+            if tool not in schemas:
+                schemas.append(tool)
+    except Exception:
+        pass
+    # Expose plugin-provided tools (if any).
+    try:
+        from .plugins import plugin_manager
+
+        for tool in plugin_manager.get_tools():
+            if tool not in schemas:
+                schemas.append(tool)
+    except Exception:
+        pass
+    return schemas

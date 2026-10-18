@@ -181,6 +181,71 @@ class Agent:
         self.history = []
         self._usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
+    def compact_context(self, strategy: str = "summarize") -> int:
+        """Compact conversation history to reduce context size.
+
+        Supports ``summarize`` (default), ``prune`` and ``merge`` strategies,
+        mirroring :class:`apex.context_tracking.ContextManager`. Returns the
+        number of messages removed.
+        """
+        if not self.history:
+            return 0
+
+        original_count = len(self.history)
+
+        if strategy == "summarize":
+            self._compact_history_summarize()
+        elif strategy == "prune":
+            self._compact_history_prune()
+        elif strategy == "merge":
+            self._compact_history_merge()
+        # Unknown strategy: leave history untouched.
+
+        return original_count - len(self.history)
+
+    def _compact_history_summarize(self) -> None:
+        if len(self.history) < 4:
+            return
+        system_messages = [m for m in self.history if m.get("role") == "system"]
+        recent = self.history[-6:]
+        old = self.history[:-6]
+
+        summary_parts = []
+        for msg in old:
+            role = msg.get("role", "unknown")
+            content = str(msg.get("content", ""))[:100]
+            if content:
+                summary_parts.append(f"{role}: {content}...")
+        summary = "; ".join(summary_parts[:5]) if summary_parts else "No previous messages"
+
+        self.history = (
+            system_messages
+            + [{"role": "system", "content": f"[Previous conversation summary: {summary}]"}]
+            + recent
+        )
+
+    def _compact_history_prune(self) -> None:
+        keep_count = len(self.history) // 2
+        system_messages = [m for m in self.history if m.get("role") == "system"]
+        others = [m for m in self.history if m.get("role") != "system"]
+        self.history = system_messages + others[-keep_count:]
+
+    def _compact_history_merge(self) -> None:
+        if len(self.history) < 3:
+            return
+        merged: list[dict[str, Any]] = []
+        current = None
+        for msg in self.history:
+            if current is not None and msg.get("role") == current.get("role"):
+                current["content"] = str(current.get("content", "")) + f"\n{msg.get('content', '')}"
+            else:
+                if current is not None:
+                    merged.append(current)
+                current = dict(msg)
+        if current is not None:
+            merged.append(current)
+        self.history = merged
+
     def _check_tool_permission(
         self, tool_name: str, tool_args: dict | None = None
     ) -> tuple[bool, str]:
@@ -264,6 +329,27 @@ class Agent:
                     return subagent_name, task
         return None, user_input
 
+    def _resolve_model_alias(self) -> str:
+        """Resolve the model alias to use: per-agent override, else global."""
+        agent_config = agent_manager.get(self._current_agent)
+        if agent_config is not None and getattr(agent_config, "model", None):
+            return agent_config.model
+        return self.model
+
+    def _completion_kwargs(self) -> dict[str, Any]:
+        """Extra kwargs (temperature, top_p, reasoning_effort) for litellm calls."""
+        kwargs: dict[str, Any] = {}
+        agent_config = agent_manager.get(self._current_agent)
+        if agent_config is not None:
+            if getattr(agent_config, "temperature", 0.0):
+                kwargs["temperature"] = agent_config.temperature
+            if getattr(agent_config, "top_p", None) is not None:
+                kwargs["top_p"] = agent_config.top_p
+        effort = getattr(self.config, "reasoning_effort", "off")
+        if effort and effort != "off":
+            kwargs["reasoning_effort"] = effort
+        return kwargs
+
     def chat(self, user_input: str, max_rounds: int | None = None) -> str:
         subagent_name, actual_input = self._parse_subagent_invocation(user_input)
 
@@ -290,13 +376,22 @@ class Agent:
         if not _LITELLM_AVAILABLE:
             return "ERROR: litellm is not installed. Run: pip install litellm"
         max_rounds = max_rounds or 10
+        # Auto-compaction when enabled and history grows large.
+        try:
+            _ccfg = apex_config.compaction
+            if _ccfg.get("auto") and len(self.history) > 20:
+                _strategy = "prune" if _ccfg.get("prune") else "summarize"
+                self.compact_context(strategy=_strategy)
+        except Exception:
+            pass
         messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
-        model_str = MODELS.get(self.model, self.model)
+        model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
+        _extra = self._completion_kwargs()
 
         for round_num in range(max_rounds):
             try:
                 response = litellm.completion(
-                    model=model_str, messages=messages, tools=get_all_tool_schemas(), timeout=120
+                    model=model_str, messages=messages, tools=get_all_tool_schemas(), timeout=120, **_extra
                 )
                 self._update_usage(response.usage)
                 if not response.choices[0].message.tool_calls:
@@ -453,8 +548,16 @@ class Agent:
             yield "ERROR: litellm is not installed. Run: pip install litellm"
             return
         max_rounds = max_rounds or 10
+        try:
+            _ccfg = apex_config.compaction
+            if _ccfg.get("auto") and len(self.history) > 20:
+                _strategy = "prune" if _ccfg.get("prune") else "summarize"
+                self.compact_context(strategy=_strategy)
+        except Exception:
+            pass
         messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
-        model_str = MODELS.get(self.model, self.model)
+        model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
+        _extra = self._completion_kwargs()
 
         for round_num in range(max_rounds):
             try:
@@ -464,6 +567,7 @@ class Agent:
                     tools=get_all_tool_schemas(),
                     stream=True,
                     timeout=120,
+                    **_extra,
                 )
 
                 full_content = ""
@@ -626,6 +730,7 @@ class Agent:
                         messages=messages,
                         tools=get_all_tool_schemas(),
                         timeout=120,
+                        **_extra,
                     )
                     self._update_usage(follow_up.usage)
 

@@ -91,10 +91,10 @@ class ShellSession:
         self.env = env or os.environ.copy()
         self.process: subprocess.Popen | None = None
 
-    def start(self) -> bool:
+    def start(self, shell: str = "bash") -> bool:
         try:
             self.process = subprocess.Popen(
-                ["bash", "-i"],
+                [shell, "-i"],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
