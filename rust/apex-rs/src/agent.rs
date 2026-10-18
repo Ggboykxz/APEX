@@ -14,6 +14,30 @@ impl Agent {
         Self { config, history: Vec::new() }
     }
 
+    pub fn session_path(&self, id: &str) -> std::path::PathBuf {
+        let base = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+        base.join(".apex").join("sessions").join(format!("{id}.json"))
+    }
+
+    pub fn save_session(&self, id: &str) -> anyhow::Result<()> {
+        let path = self.session_path(id);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let json = serde_json::to_string_pretty(&self.history)?;
+        std::fs::write(&path, json)?;
+        Ok(())
+    }
+
+    pub fn load_session(&mut self, id: &str) -> anyhow::Result<()> {
+        let path = self.session_path(id);
+        if path.exists() {
+            let data = std::fs::read_to_string(&path)?;
+            self.history = serde_json::from_str(&data).unwrap_or_default();
+        }
+        Ok(())
+    }
+
     pub async fn chat(&mut self, user_input: &str) -> Result<String> {
         self.history.push(json!({"role":"user","content":user_input}));
 
