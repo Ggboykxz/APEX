@@ -69,6 +69,9 @@ pub fn tool_schemas() -> Value {
     for t in crate::mcp_client::global_tools() {
         arr.push(t);
     }
+    for t in crate::plugins::plugin_tools() {
+        arr.push(t);
+    }
     Value::Array(arr)
 }
 
@@ -84,6 +87,12 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             return res;
         }
         return "ERROR: MCP tool unavailable".to_string();
+    }
+    if name.starts_with(crate::plugins::PLUGIN_TOOL_PREFIX) {
+        let result = crate::plugins::execute_plugin_tool(name, args, cwd)
+            .unwrap_or_else(|| format!("ERROR: Unknown plugin tool '{name}'"));
+        crate::hooks::trigger_hooks(name, args);
+        return result;
     }
     let result = match name {
         "read_file" => {

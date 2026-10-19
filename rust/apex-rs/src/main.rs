@@ -1,5 +1,6 @@
 mod agent;
 mod config;
+mod cost;
 mod formatter;
 mod hooks;
 mod plugins;
@@ -40,6 +41,8 @@ enum Commands {
         #[arg(default_value = "{}")]
         args: String,
     },
+    /// Show session token usage and estimated cost
+    Cost,
     /// Manage saved sessions
     Session {
         #[command(subcommand)]
@@ -99,12 +102,21 @@ async fn main() {
                 Err(e) => eprintln!("ERROR: {e}"),
             }
             if let Some(id) = &session { let _ = agent.save_session(id); }
+            // Token accounting goes to stderr so stdout stays script-friendly.
+            if agent.usage.total_tokens > 0 {
+                eprintln!("[usage] {} tokens, cost ${:.6}",
+                    agent.usage.total_tokens,
+                    agent.cost.get_session_cost()["total_cost"].as_f64().unwrap_or(0.0));
+            }
         }
         Some(Commands::Chat { session }) => {
             let mut agent = agent::Agent::new(config);
             if let Some(id) = &session { let _ = agent.load_session(id); }
-            agent.run_repl();
+            agent.run_repl().await;
             if let Some(id) = &session { let _ = agent.save_session(id); }
+            if agent.usage.total_tokens > 0 {
+                eprintln!("{}", agent.cost_report());
+            }
         }
         Some(Commands::Serve { port }) => {
             server::serve(config, port).await;
@@ -118,10 +130,26 @@ async fn main() {
             if ps.is_empty() {
                 println!("No plugins found (~/.apex/plugins/)");
             } else {
-                for p in ps {
-                    println!("{}", p.name);
+                for p in &ps {
+                    if p.manifest.is_none() {
+                        println!("{} (no manifest)", p.name);
+                        continue;
+                    }
+                    let version = p.version();
+                    let version = if version.is_empty() { String::new() } else { format!(" v{version}") };
+                    let state = if p.enabled() { "" } else { " [disabled]" };
+                    let desc = p.description();
+                    println!("{}{}{}{}", p.name, version, state, if desc.is_empty() { String::new() } else { format!(" — {desc}") });
+                    for t in p.tools() {
+                        println!("  - {} ({})", t.name, plugins::tool_full_name(&p.name, &t.name));
+                    }
                 }
             }
+        }
+        Some(Commands::Cost) => {
+            // No chat happened in this process: report an empty session, like Python's `/cost` with no usage.
+            let agent = agent::Agent::new(config);
+            println!("{}", agent.cost_report());
         }
         Some(Commands::CallTool { name, args }) => {
             let parsed: serde_json::Value = serde_json::from_str(&args).unwrap_or(serde_json::json!({}));

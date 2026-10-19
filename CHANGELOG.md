@@ -8,23 +8,26 @@ All notable changes to APEX will be documented in this file.
 
 Full rewrite of the backend in Rust (Python remains the reference implementation until parity is complete).
 
-- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`.
+- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`.
 - **Tools** — `read_file`, `write_file`, `list_files`, `run_command`, `git_status`, `git_diff`, `git_log`, `search_in_files`, `format_file`, `undo_last_edit`, `git_undo`, `lsp_diagnostics`.
 - **Agent loop** — OpenAI-compatible chat completions, tool calling (10 rounds max), per-agent permission gate (`APEX_DENIED_TOOLS`), session persistence in `~/.apex/sessions/<id>.json`.
 - **Compaction** — `Agent.compact_context(strategy)` with `prune`, `summarize`, `merge`; automatic compaction above `APEX_COMPACT_THRESHOLD`.
 - **`@mentions`** — text files inlined; image files (png/jpg/jpeg/gif/webp/bmp) embedded as base64.
 - **MCP** — discovery from `~/.apex/mcp.json`, tools exposed in OpenAI function-calling format, calls spawn a fresh server process per invocation, server processes shut down after discovery.
 - **LSP** — JSON-RPC client and `lsp_diagnostics` tool (rust-analyzer, pyright, typescript-language-server, gopls).
-- **HTTP server** — `/health`, `/api/v1/chat`, `/api/v1/chat/stream` (SSE), `/tools`, `/models`, `/sessions`, `/files`, `/files/read`, `/files/write`, `/agents`, `/agents/:id`, `/themes`, `/tui-config`, `/config`, `/undo`, `/redo`, `/plugins`, plus WebSocket `/ws` and `/ws/events`.
+- **HTTP server** — `/health`, `/api/v1/chat`, `/api/v1/chat/stream` (SSE), `/tools`, `/models`, `/sessions`, `/files`, `/files/read`, `/files/write`, `/agents`, `/agents/:id`, `/themes`, `/tui-config`, `/config`, `/undo`, `/redo`, `/plugins`, `/cost`, `/cost/history`, `/cost/reset`, plus WebSocket `/ws` and `/ws/events`.
 - **Formatters** — rustfmt, black, prettier, gofmt, clang-format detection.
-- **Plugins** — discovery from `~/.apex/plugins/`, hooks module.
-- **Tests** — 13 passing (`cargo test`), including an MCP roundtrip against a fake MCP server.
+- **Plugins** — Rust-native manifests (`~/.apex/plugins/<name>/plugin.json`) declaring command-backed tools exposed to the model; legacy `.py`/`.toml` entries are still listed (Python plugins are not executable without an interpreter).
+- **Cost tracking** — `cost.rs` ports `apex/cost_local.py`: the 46-model `MODEL_PRICING` table (verified identical to Python) plus a `CostTracker` with per-model token accounting, six-decimal cost rounding and resettable history.
+- **Tests** — 37 passing (`cargo test`), including an MCP roundtrip against a fake MCP server, plugin manifest execution and streamed usage accounting.
 
 #### Fixed during the port
 
 - **MCP/LSP nested-runtime panic** — `execute_tool` used to create a Tokio runtime inside the async runtime and panic (`Cannot start a runtime from within a runtime`). LSP/MCP work now runs on dedicated threads with their own runtime.
 - **MCP schema format** — MCP tools are converted from `name`/`description`/`inputSchema` to `{"type":"function","function":{...}}`, matching the model API contract.
 - **MCP process lifetime** — discovery no longer leaks child processes tied to a dropped runtime; each call owns its server process.
+- **Streamed usage was never read** — `chat_stream` stopped consuming the SSE stream as soon as `finish_reason: stop` arrived, so the trailing `usage` chunk (sent *after* finish_reason, as real providers do) was dropped and every streamed answer reported 0 tokens. The stream is now read until `[DONE]`/EOF. Covered by a test whose fake SSE body is split across two network chunks.
+- **`apex-rs chat` panicked on first prompt** — `run_repl` called `Runtime::block_on` from inside `#[tokio::main]` (`Cannot start a runtime from within a runtime`). The REPL is now async and awaits `chat()` directly.
 
 ### TUI ⇄ Rust backend integration
 
@@ -35,7 +38,17 @@ Full rewrite of the backend in Rust (Python remains the reference implementation
 - **TUI dead commands fixed** — `/theme <id>` switches the palette live (new `default`/`light`/`dark`/`forest`/`sunset` registry) and notifies the backend; `/session <id>` loads and renders a saved session; `/export` writes `session_<id>.json`; `/share`/`/unshare` call the share API; `/editor` opens `$EDITOR` on a temp prompt file and sends the result.
 - **Node < 22 fix** — the TUI no longer crashes with `WebSocket is not defined`; it falls back to the `ws` package when `globalThis.WebSocket` is absent.
 - **Streaming sentinel removed** — `Agent::chat_stream` now sends structured events (`Chunk`/`Done`/`Error`) and the SSE wire format is `{"chunk":…}` / `{"done":true}` / `{"error":…}`. Previously a literal `[DONE]` was appended to every streamed answer in the TUI.
-- **Verified end-to-end** — TUI → SSE → Rust backend → upstream API → TUI renders the reply; integration tests cover the agent tool-calling loop, the permission gate and SSE streaming (26 Rust tests).
+- **Verified end-to-end** — TUI → SSE → Rust backend → upstream API → TUI renders the reply; integration tests cover the agent tool-calling loop, the permission gate and SSE streaming (37 Rust tests).
+
+### Cost tracking, usage reporting & Rust-native plugins
+
+- **Cost parity with Python** — `rust/apex-rs/src/cost.rs` ports `apex/cost_local.py`: the full 46-entry `MODEL_PRICING` table (checked value-by-value against Python: identical), `CostTracker::record_usage`, `get_session_cost` (6-decimal rounding, `USD`), `reset_session` and archived session history. Provider-prefixed ids (`openai/gpt-4o`, `anthropic:claude-opus-4.7`) fall back to the bare model name.
+- **Usage is tracked in the agent** — non-streaming replies read `data.usage`; streaming requests now set `stream_options.include_usage = true` and fold each round's usage into the session counters (`Agent::usage`, cumulative) and the cost tracker.
+- **Wire contract** — SSE emits `{"usage":{…}}` right before `{"done":true}`; `POST /api/v1/chat` returns `usage` alongside `response`; new routes `GET /api/v1/cost`, `GET /api/v1/cost/history`, `POST /api/v1/cost/reset`; WebSocket gains the `cost` RPC method and a `chat_complete` event (parity with Python's `event_bus`). `usage` in the SSE/`chat_complete` payloads is **per request** (the TUI accumulates its own totals), while `/api/v1/cost` and `/api/v1/chat` keep the cumulative session values, like Python's `agent.usage`.
+- **Model switching via HTTP** — the `model` field of chat requests now switches the running model (parity with Python's `switch_model`), and `/api/v1/config` reports the live model.
+- **CLI** — `apex-rs cost` prints the session report; the REPL answers `/cost`; `apex-rs run` prints `[usage] <tokens>, cost $…` on stderr so stdout stays script-friendly.
+- **TUI accounting fixed** — the status bar reads its per-message usage from a ref instead of a stale closure and dedupes the `chat_complete` event, so SSE + WebSocket no longer double count. Verified live: status bar shows `In: 120 Out: 34 Total: 154 • $0.0006`.
+- **Rust-native plugins** — `~/.apex/plugins/<name>/plugin.json` (`APEX_PLUGINS_DIR` override) declares tools as data: `command` templates with shell-escaped `{arg}` placeholders, or `args` argv templates executed without a shell. Tools are exposed to the model as `plugin_<plugin>_<tool>` (added to `tool_schemas()`), run with `APEX_PLUGIN_NAME` / `APEX_PLUGIN_DIR` / `APEX_TOOL_NAME` / `APEX_PLUGIN_ARGS` in the environment, honour `APEX_DENIED_TOOLS`, are skipped when `"enabled": false`, and appear with version/description in `apex-rs plugins` and `GET /api/v1/plugins`. Shell injection through placeholder values is covered by a test.
 
 ### Bug Fixes
 

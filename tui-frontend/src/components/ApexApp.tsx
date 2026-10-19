@@ -24,6 +24,7 @@ const COMMANDS = [
   { id: "/undo", desc: "Undo last" }, { id: "/redo", desc: "Redo last" },
   { id: "/share", desc: "Share session" }, { id: "/export", desc: "Export" },
   { id: "/editor", desc: "Open editor" }, { id: "/sessions", desc: "Sessions" },
+  { id: "/cost", desc: "Token usage & cost" },
   { id: "/init", desc: "Initialize" }, { id: "/connect", desc: "Connect remote" },
   { id: "/thinking", desc: "Toggle thinking" }, { id: "/details", desc: "Details" },
   { id: "/agent", desc: "Switch agent" },
@@ -114,6 +115,12 @@ export function ApexApp() {
   const [retryCount, setRetryCount] = useState(0)
   const [inputHistory, setInputHistory] = useState<string[]>([])
   const [historyIdx, setHistoryIdx] = useState(-1)
+  // Live usage of the request being streamed, and of the last accounted one
+  // (used to dedupe the `chat_complete` WebSocket event).
+  const liveUsageRef = useRef<{ pt: number; ct: number }>({ pt: 0, ct: 0 })
+  const accountedUsageRef = useRef<{ pt: number; ct: number }>({ pt: 0, ct: 0 })
+  const activeModelRef = useRef(activeModel)
+  useEffect(() => { activeModelRef.current = activeModel }, [activeModel])
 
   // ── SyncClient (WebSocket EventBus) ──────────────────────
   const syncRef = useRef<SyncClient | null>(null)
@@ -136,15 +143,15 @@ export function ApexApp() {
       }
     })
     sync.on("chat_complete", (data: any) => {
-      // Chat completed — update tokens if available
-      if (data.usage) {
-        const pt = data.usage.prompt_tokens ?? 0
-        const ct = data.usage.completion_tokens ?? 0
-        setTotalPromptTokens((p) => p + pt)
-        setTotalCompletionTokens((c) => c + ct)
-        const mc = calcMessageCost(pt, ct, activeModel)
-        setTotalSpent((s) => s + mc)
-      }
+      // Chat completed — update tokens if the SSE stream did not already.
+      const u = data?.usage
+      if (!u) return
+      const pt = u.prompt_tokens ?? 0
+      const ct = u.completion_tokens ?? 0
+      if (pt === accountedUsageRef.current.pt && ct === accountedUsageRef.current.ct) return
+      setTotalPromptTokens((p) => p + pt)
+      setTotalCompletionTokens((c) => c + ct)
+      setTotalSpent((s) => s + calcMessageCost(pt, ct, activeModelRef.current))
     })
 
     sync.connect()
@@ -299,6 +306,20 @@ export function ApexApp() {
         }
         return true
       }
+      case "/cost": {
+        fetch(`${API_BASE}/api/v1/cost`).then((r) => r.json()).then((d: any) => {
+          const usage = d.usage ?? {}
+          const content = [
+            "Token usage (session):",
+            `  Input: ${usage.prompt_tokens ?? d.input_tokens ?? 0}`,
+            `  Output: ${usage.completion_tokens ?? d.output_tokens ?? 0}`,
+            `  Total tokens: ${usage.total_tokens ?? d.total_tokens ?? 0}`,
+            `  Cost: $${(d.total_cost ?? 0).toFixed(6)} (${d.currency ?? "USD"}, model ${d.model ?? activeModelRef.current})`,
+          ].join("\n")
+          setMessages((prev) => [...prev, { id: `msg-${Date.now()}-c`, role: "assistant", content, agent: "build", model: activeModelRef.current, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 }])
+        }).catch(() => setConnectionError("Cost request failed — backend unreachable"))
+        return true
+      }
       case "/init": case "/connect": return false
       default: return false
     }
@@ -313,6 +334,7 @@ export function ApexApp() {
     }
     setIsGenerating(true); setConnectionError(null); setIsReconnecting(false)
     setLivePromptTokens(0); setLiveCompletionTokens(0)
+    liveUsageRef.current = { pt: 0, ct: 0 }
     const userMsg: ChatMessage = { id: `msg-${Date.now()}-u`, role: "user", content: userMessage, timestamp: Date.now() }
     setMessages((p) => [...p, userMsg])
     const aid = `msg-${Date.now()}-a`
@@ -341,13 +363,19 @@ export function ApexApp() {
             full += p.chunk
             setMessages((prev) => { const l = prev[prev.length - 1]; if (l?.id === aid) return [...prev.slice(0, -1), { ...l, content: full }]; return prev })
           }
-          if (p.usage) { setLivePromptTokens(p.usage.prompt_tokens ?? 0); setLiveCompletionTokens(p.usage.completion_tokens ?? 0) }
+          if (p.usage) {
+            const u = { pt: p.usage.prompt_tokens ?? 0, ct: p.usage.completion_tokens ?? 0 }
+            liveUsageRef.current = u
+            setLivePromptTokens(u.pt); setLiveCompletionTokens(u.ct)
+          }
         }
       }
       if (buf.trim()) { const p = parseSSE(buf); if (p.chunk) full += p.chunk }
-      const fp = livePromptTokens || 0, fc = liveCompletionTokens || 0, mc = calcMessageCost(fp, fc, activeModel)
+      const { pt: fp, ct: fc } = liveUsageRef.current
+      const mc = calcMessageCost(fp, fc, activeModel)
       setMessages((prev) => { const l = prev[prev.length - 1]; if (l?.id === aid) return [...prev.slice(0, -1), { ...l, content: full || "(empty)", promptTokens: fp, completionTokens: fc, cost: mc }]; return prev })
       setTotalPromptTokens((p) => p + fp); setTotalCompletionTokens((c) => c + fc); setTotalSpent((s) => s + mc)
+      accountedUsageRef.current = { pt: fp, ct: fc }
       setRetryCount(0)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)

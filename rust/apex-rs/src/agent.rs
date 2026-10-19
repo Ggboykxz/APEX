@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::cost::{CostTracker, Usage};
 use crate::tools;
 use anyhow::Result;
 use serde_json::{json, Value};
@@ -7,6 +8,12 @@ use std::io::{self, Write};
 pub struct Agent {
     pub config: Config,
     pub history: Vec<Value>,
+    /// Cumulative token usage for this session (never reset except on history reset).
+    pub usage: Usage,
+    /// Usage of the last `chat`/`chat_stream` call only (all tool rounds included).
+    pub last_call_usage: Usage,
+    /// Cost accounting, mirrors `cost_tracker` in Python.
+    pub cost: CostTracker,
 }
 
 /// Incremental output of [`Agent::chat_stream`].
@@ -14,6 +21,8 @@ pub struct Agent {
 pub enum StreamEvent {
     /// A piece of assistant text.
     Chunk(String),
+    /// Cumulative token usage, emitted once before [`StreamEvent::Done`].
+    Usage(Value),
     /// The answer is complete.
     Done,
     /// The upstream API (or transport) failed.
@@ -22,7 +31,40 @@ pub enum StreamEvent {
 
 impl Agent {
     pub fn new(config: Config) -> Self {
-        Self { config, history: Vec::new() }
+        Self {
+            config,
+            history: Vec::new(),
+            usage: Usage::default(),
+            last_call_usage: Usage::default(),
+            cost: CostTracker::new(),
+        }
+    }
+
+    /// Cumulative usage as JSON (`prompt_tokens`, `completion_tokens`, `total_tokens`).
+    pub fn usage_json(&self) -> Value {
+        self.usage.to_json()
+    }
+
+    /// Usage of the last chat call as JSON. The TUI accumulates session totals
+    /// from these per-request numbers (its `chat_complete`/SSE contract).
+    pub fn last_usage_json(&self) -> Value {
+        self.last_call_usage.to_json()
+    }
+
+    /// Fold an OpenAI `usage` object into the session counters and the cost tracker.
+    pub fn record_api_usage(&mut self, usage: &Value) {
+        if usage.is_null() {
+            return;
+        }
+        let prompt = usage.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+        let completion = usage.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+        let total = usage
+            .get("total_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(prompt + completion);
+        self.usage.add(prompt, completion, total);
+        self.last_call_usage.add(prompt, completion, total);
+        self.cost.record_usage(&self.config.model, prompt, completion);
     }
 
     /// Expand @file mentions in user input by appending file contents.
@@ -129,6 +171,7 @@ impl Agent {
     }
 
     pub async fn chat(&mut self, user_input: &str) -> Result<String> {
+        self.last_call_usage = Usage::default();
         let expanded = self.expand_mentions(user_input);
         self.history.push(json!({"role":"user","content":expanded}));
 
@@ -165,6 +208,9 @@ impl Agent {
                 return Err(anyhow::anyhow!("API error {}: {}", status, text));
             }
             let data: Value = serde_json::from_str(&text)?;
+            if let Some(usage) = data.get("usage") {
+                self.record_api_usage(usage);
+            }
             let choice = &data["choices"][0]["message"];
             let assistant_text = choice.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
             let tool_calls = choice.get("tool_calls").cloned().unwrap_or(Value::Null);
@@ -194,7 +240,7 @@ impl Agent {
         Ok("[max rounds reached]".to_string())
     }
 
-    pub fn run_repl(&mut self) {
+    pub async fn run_repl(&mut self) {
         let stdin = io::stdin();
         let mut line = String::new();
         loop {
@@ -211,11 +257,29 @@ impl Agent {
             if input == "/quit" || input == "/exit" {
                 break;
             }
-            match tokio::runtime::Runtime::new().unwrap().block_on(self.chat(input)) {
+            if input == "/cost" {
+                println!("{}", self.cost_report());
+                continue;
+            }
+            match self.chat(input).await {
                 Ok(resp) => println!("{resp}"),
                 Err(e) => println!("ERROR: {e}"),
             }
         }
+    }
+
+    /// Human-readable token/cost report (parity with Python's `/cost` slash command).
+    pub fn cost_report(&self) -> String {
+        let cost = self.cost.get_session_cost();
+        let total_cost = cost["total_cost"].as_f64().unwrap_or(0.0);
+        format!(
+            "Token usage:\n  Input: {}\n  Output: {}\n  Total tokens: {}\n  Cost: ${:.6} (session {}s)",
+            self.usage.prompt_tokens,
+            self.usage.completion_tokens,
+            self.usage.total_tokens,
+            total_cost,
+            cost["session_duration"].as_u64().unwrap_or(0),
+        )
     }
 
     /// Events emitted while streaming an answer (see [`chat_stream`]).
@@ -224,6 +288,7 @@ impl Agent {
         user_input: &str,
         tx: tokio::sync::mpsc::Sender<StreamEvent>,
     ) -> anyhow::Result<()> {
+        self.last_call_usage = Usage::default();
         let expanded = self.expand_mentions(user_input);
         self.history.push(json!({"role":"user","content":expanded}));
 
@@ -245,7 +310,8 @@ impl Agent {
                 "messages": messages,
                 "tools": tools::tool_schemas(),
                 "tool_choice": "auto",
-                "stream": true
+                "stream": true,
+                "stream_options": {"include_usage": true}
             });
 
             let url = format!("{}/chat/completions", self.config.base_url.trim_end_matches('/'));
@@ -266,6 +332,11 @@ impl Agent {
             // tool_calls accumulator: index -> (id, name, args)
             let mut tool_calls: std::collections::BTreeMap<usize, (String, String, String)> = std::collections::BTreeMap::new();
             let mut finish_reason: Option<String> = None;
+            // The provider sends `usage` in a trailing chunk *after* finish_reason,
+            // so the stream is only interrupted on `[DONE]` or EOF.
+            let mut saw_done = false;
+            // Final chunk of the round carrying `usage` (stream_options.include_usage).
+            let mut round_usage: Option<Value> = None;
 
             let mut buf = String::new();
             while let Some(chunk) = stream.next().await {
@@ -279,13 +350,18 @@ impl Agent {
                     }
                     let data = line.trim_start_matches("data:").trim();
                     if data == "[DONE]" {
-                        finish_reason = Some("stop".to_string());
+                        saw_done = true;
                         break;
                     }
                     let v: Value = match serde_json::from_str(data) {
                         Ok(v) => v,
                         Err(_) => continue,
                     };
+                    if let Some(usage) = v.get("usage") {
+                        if !usage.is_null() {
+                            round_usage = Some(usage.clone());
+                        }
+                    }
                     if let Some(fr) = v["choices"][0]["finish_reason"].as_str() {
                         if !fr.is_empty() && fr != "null" {
                             finish_reason = Some(fr.to_string());
@@ -314,15 +390,20 @@ impl Agent {
                         }
                     }
                 }
-                if finish_reason.as_deref() == Some("stop") {
+                if saw_done {
                     break;
                 }
+            }
+
+            // The round is over: fold its token usage into the session counters.
+            if let Some(usage) = round_usage {
+                self.record_api_usage(&usage);
             }
 
             let fr = finish_reason.unwrap_or_default();
             if fr == "tool_calls" || !tool_calls.is_empty() {
                 // push assistant message with tool_calls
-                let tcs_json: Vec<Value> = tool_calls.iter().map(|(idx, (id, name, args))| {
+                let tcs_json: Vec<Value> = tool_calls.iter().map(|(_idx, (id, name, args))| {
                     json!({"id": id, "type": "function", "function": {"name": name, "arguments": args}})
                 }).collect();
                 self.history.push(json!({"role":"assistant","content": if content_acc.is_empty() { Value::Null } else { Value::String(content_acc.clone()) }, "tool_calls": tcs_json}));
@@ -340,9 +421,11 @@ impl Agent {
 
             // final
             self.history.push(json!({"role":"assistant","content": content_acc}));
+            let _ = tx.send(StreamEvent::Usage(self.last_usage_json())).await;
             let _ = tx.send(StreamEvent::Done).await;
             return Ok(());
         }
+        let _ = tx.send(StreamEvent::Usage(self.last_usage_json())).await;
         let _ = tx.send(StreamEvent::Done).await;
         Ok(())
     }
@@ -388,7 +471,7 @@ mod tests {
     }
 
     /// Fake OpenAI-compatible API: first call asks for a `read_file` tool call,
-    /// second call answers with plain text.
+    /// second call answers with plain text. Both report token usage.
     async fn fake_api(
         axum::extract::State(calls): axum::extract::State<std::sync::Arc<std::sync::atomic::AtomicUsize>>,
         axum::Json(_body): axum::Json<serde_json::Value>,
@@ -408,14 +491,16 @@ mod tests {
                             "function": {"name": "read_file", "arguments": "{\"path\":\"note.txt\"}"}
                         }]
                     }
-                }]
+                }],
+                "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120}
             }))
         } else {
             axum::Json(serde_json::json!({
                 "choices": [{
                     "finish_reason": "stop",
                     "message": {"role": "assistant", "content": "done"}
-                }]
+                }],
+                "usage": {"prompt_tokens": 150, "completion_tokens": 30, "total_tokens": 180}
             }))
         }
     }
@@ -450,6 +535,16 @@ mod tests {
         assert_eq!(reply, "done");
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
 
+        // Usage reported by the API is accumulated across rounds.
+        assert_eq!(agent.usage.prompt_tokens, 250);
+        assert_eq!(agent.usage.completion_tokens, 50);
+        assert_eq!(agent.usage.total_tokens, 300);
+        let u = agent.usage_json();
+        assert_eq!(u["total_tokens"], 300);
+        // Unknown model in tests → tokens tracked, zero cost (same as Python).
+        assert_eq!(agent.cost.get_session_cost()["total_cost"], 0.0);
+        assert_eq!(agent.cost.get_session_cost()["total_tokens"], 300);
+
         // The tool result must be threaded back into the conversation.
         let tool_msg = agent
             .history
@@ -466,15 +561,24 @@ mod tests {
     }
 
     async fn fake_sse() -> axum::response::Response {
-        let body = concat!(
+        // Two separate chunks: the `usage` chunk arrives *after* finish_reason,
+        // exactly like real providers (and unlike a single in-memory body).
+        let first = concat!(
             "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"},\"finish_reason\":null}]}\n\n",
             "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"},\"finish_reason\":null}]}\n\n",
             "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+        );
+        let second = concat!(
+            "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":40,\"completion_tokens\":10,\"total_tokens\":50}}\n\n",
             "data: [DONE]\n\n",
         );
+        let chunks = futures::stream::iter(vec![
+            Ok::<_, std::convert::Infallible>(axum::body::Bytes::from(first)),
+            Ok(axum::body::Bytes::from(second)),
+        ]);
         axum::response::Response::builder()
             .header("content-type", "text/event-stream")
-            .body(axum::body::Body::from(body))
+            .body(axum::body::Body::from_stream(chunks))
             .unwrap()
     }
 
@@ -499,9 +603,16 @@ mod tests {
         agent.chat_stream("hi", tx).await.unwrap();
         let mut collected = String::new();
         let mut saw_done = false;
+        let mut saw_usage = false;
         while let Some(ev) = rx.recv().await {
             match ev {
                 StreamEvent::Chunk(text) => collected.push_str(&text),
+                StreamEvent::Usage(u) => {
+                    saw_usage = true;
+                    assert_eq!(u["prompt_tokens"], 40);
+                    assert_eq!(u["completion_tokens"], 10);
+                    assert_eq!(u["total_tokens"], 50);
+                }
                 StreamEvent::Done => {
                     saw_done = true;
                     break;
@@ -511,6 +622,8 @@ mod tests {
         }
         assert_eq!(collected, "Hello");
         assert!(saw_done, "stream must end with Done");
+        assert!(saw_usage, "stream must report usage before Done");
+        assert_eq!(agent.usage.total_tokens, 50);
         // Streaming answers are recorded in history as well.
         assert!(agent
             .history

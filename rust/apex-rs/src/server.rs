@@ -19,6 +19,8 @@ use tokio::sync::Mutex;
 struct AppState {
     agent: Arc<Mutex<Agent>>,
     config: Config,
+    /// Broadcast bus for TUI events (`chat_complete`, …), parity with Python's `event_bus`.
+    events: tokio::sync::broadcast::Sender<String>,
 }
 
 /// Chat request. The TUI sends `message`, the CLI/API docs use `prompt`.
@@ -29,7 +31,6 @@ struct ChatReq {
     #[serde(default)]
     message: Option<String>,
     #[serde(default)]
-    #[allow(dead_code)]
     model: Option<String>,
     #[serde(default)]
     #[allow(dead_code)]
@@ -48,6 +49,7 @@ impl ChatReq {
 #[derive(Serialize)]
 struct ChatResp {
     response: String,
+    usage: serde_json::Value,
 }
 
 fn now_ms() -> u128 {
@@ -112,9 +114,11 @@ fn run_shell_capture(command: &str, cwd: &std::path::Path) -> serde_json::Value 
 }
 
 pub async fn serve(config: Config, port: u16) {
+    let (events, _) = tokio::sync::broadcast::channel::<String>(256);
     let state = AppState {
         agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
         config,
+        events,
     };
 
     let app = Router::new()
@@ -161,8 +165,32 @@ pub async fn serve(config: Config, port: u16) {
         )
         .route("/api/v1/plugins", get(|| async {
             let ps = crate::plugins::discover_plugins();
+            let list: Vec<serde_json::Value> = ps
+                .iter()
+                .map(|p| {
+                    let tools: Vec<serde_json::Value> = p
+                        .tools()
+                        .iter()
+                        .map(|t| {
+                            serde_json::json!({
+                                "name": t.name,
+                                "full_name": crate::plugins::tool_full_name(&p.name, &t.name),
+                                "description": t.description,
+                            })
+                        })
+                        .collect();
+                    serde_json::json!({
+                        "name": p.name,
+                        "version": p.version(),
+                        "description": p.description(),
+                        "enabled": p.enabled(),
+                        "has_manifest": p.manifest.is_some(),
+                        "tools": tools,
+                    })
+                })
+                .collect();
             let names: Vec<String> = ps.into_iter().map(|p| p.name).collect();
-            Json(serde_json::json!({"plugins": names}))
+            Json(serde_json::json!({"plugins": names, "details": list}))
         }))
         .route("/api/v1/agents", get(|| async {
             Json(serde_json::json!({"agents": [
@@ -197,14 +225,15 @@ pub async fn serve(config: Config, port: u16) {
             }))
         }))
         .route("/api/v1/config", get(|State(st): State<AppState>| async move {
+            let a = st.agent.lock().await;
             Json(serde_json::json!({
-                "model": st.config.model,
-                "base_url": st.config.base_url,
-                "theme": st.config.theme,
-                "cwd": st.config.cwd.to_string_lossy(),
-                "auto_compact": st.config.auto_compact,
-                "compact_threshold": st.config.compact_threshold,
-                "denied_tools": st.config.denied_tools,
+                "model": a.config.model,
+                "base_url": a.config.base_url,
+                "theme": a.config.theme,
+                "cwd": a.config.cwd.to_string_lossy(),
+                "auto_compact": a.config.auto_compact,
+                "compact_threshold": a.config.compact_threshold,
+                "denied_tools": a.config.denied_tools,
             }))
         }))
         .route("/api/v1/undo", post(|| async {
@@ -309,12 +338,34 @@ pub async fn serve(config: Config, port: u16) {
             let state = state.clone();
             move |Json(req): Json<ChatReq>| async move {
                 let mut a = state.agent.lock().await;
+                if let Some(model) = req.model.clone().filter(|m| !m.is_empty()) {
+                    a.config.model = model;
+                }
                 let resp = a
                     .chat(&req.text())
                     .await
                     .unwrap_or_else(|e| format!("ERROR: {e}"));
-                Json(ChatResp { response: resp })
+                let usage = a.usage_json();
+                Json(ChatResp { response: resp, usage })
             }
+        }))
+        .route("/api/v1/cost", get(|State(st): State<AppState>| async move {
+            let a = st.agent.lock().await;
+            let mut cost = a.cost.get_session_cost();
+            if let Some(obj) = cost.as_object_mut() {
+                obj.insert("usage".to_string(), a.usage_json());
+                obj.insert("model".to_string(), serde_json::json!(a.config.model));
+            }
+            Json(cost)
+        }))
+        .route("/api/v1/cost/history", get(|State(st): State<AppState>| async move {
+            let a = st.agent.lock().await;
+            Json(serde_json::json!({"history": a.cost.get_history()}))
+        }))
+        .route("/api/v1/cost/reset", post(|State(st): State<AppState>| async move {
+            let mut a = st.agent.lock().await;
+            a.cost.reset_session();
+            Json(serde_json::json!({"ok": true}))
         }))
         .route("/api/v1/chat/stream", post(chat_stream_handler))
         .route("/chat/stream", post(chat_stream_handler))
@@ -334,18 +385,34 @@ async fn chat_stream_handler(
 ) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
     let (tx, rx) = tokio::sync::mpsc::channel::<crate::agent::StreamEvent>(64);
     let agent = state.agent.clone();
+    let events = state.events.clone();
     let prompt = req.text();
+    let model_override = req.model.clone().filter(|m| !m.is_empty());
     tokio::spawn(async move {
         let mut a = agent.lock().await;
+        if let Some(model) = model_override {
+            a.config.model = model;
+        }
         if let Err(e) = a.chat_stream(&prompt, tx.clone()).await {
             let _ = tx.send(crate::agent::StreamEvent::Error(e.to_string())).await;
         }
+        // Parity with Python's event_bus.publish("chat_complete", {...}).
+        // Usage is per request here (the TUI accumulates its own session totals).
+        let payload = event(
+            "chat_complete",
+            serde_json::json!({
+                "model": a.config.model,
+                "usage": a.last_usage_json(),
+            }),
+        );
+        let _ = events.send(payload);
     });
     let stream = tokio_stream::wrappers::ReceiverStream::new(rx).map(|ev| {
         // The TUI parses each SSE data line as JSON: `chunk` for text,
-        // `done` when finished, `error` on failure.
+        // `usage` before completion, `done` when finished, `error` on failure.
         let payload = match ev {
             crate::agent::StreamEvent::Chunk(text) => serde_json::json!({"chunk": text}),
+            crate::agent::StreamEvent::Usage(usage) => serde_json::json!({"usage": usage}),
             crate::agent::StreamEvent::Done => serde_json::json!({"done": true}),
             crate::agent::StreamEvent::Error(message) => serde_json::json!({"error": message}),
         }
@@ -359,20 +426,49 @@ async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
-async fn handle_socket(mut socket: WebSocket, state: AppState) {
-    use futures::SinkExt;
+async fn handle_socket(socket: WebSocket, state: AppState) {
+    use futures::{SinkExt, StreamExt};
+    let (mut sender, mut receiver) = socket.split();
+    let (out_tx, out_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+
+    // Outbound traffic = broadcast bus (chat_complete, …) + direct replies to
+    // this client's messages, merged into a single sink task.
+    let bcast_rx = state.events.subscribe();
+    let mut send_task = tokio::spawn(async move {
+        let bcast = futures::stream::unfold(bcast_rx, |mut rx| async move {
+            loop {
+                match rx.recv().await {
+                    Ok(payload) => return Some((payload, rx)),
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+                    Err(_) => return None,
+                }
+            }
+        });
+        let outbound = tokio_stream::wrappers::UnboundedReceiverStream::new(out_rx);
+        let merged = futures::stream::select(bcast, outbound);
+        futures::pin_mut!(merged);
+        while let Some(payload) = merged.next().await {
+            if sender.send(Message::Text(payload)).await.is_err() {
+                break;
+            }
+        }
+    });
+
     let connected = event(
         "connected",
         serde_json::json!({
-            "model": state.config.model,
+            "model": state.agent.lock().await.config.model,
             "agent": "build",
             "cwd": state.config.cwd.to_string_lossy(),
             "version": env!("CARGO_PKG_VERSION"),
         }),
     );
-    let _ = socket.send(Message::Text(connected)).await;
+    if out_tx.send(connected).is_err() {
+        send_task.abort();
+        return;
+    }
 
-    while let Some(Ok(msg)) = socket.recv().await {
+    while let Some(Ok(msg)) = receiver.next().await {
         let Message::Text(text) = msg else {
             if matches!(msg, Message::Close(_)) {
                 break;
@@ -382,27 +478,39 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
         let v: serde_json::Value = match serde_json::from_str(&text) {
             Ok(v) => v,
             Err(_) => {
-                let _ = socket
-                    .send(Message::Text(event(
-                        "error",
-                        serde_json::json!({"message": "invalid JSON"}),
-                    )))
-                    .await;
+                let _ = out_tx.send(event(
+                    "error",
+                    serde_json::json!({"message": "invalid JSON"}),
+                ));
                 continue;
             }
         };
         let method = v.get("method").and_then(|m| m.as_str()).unwrap_or("");
         let out = match method {
             "ping" => Some(event("pong", serde_json::json!({}))),
-            "state" => Some(event(
-                "state",
-                serde_json::json!({
-                    "model": state.config.model,
-                    "agent": "build",
-                    "cwd": state.config.cwd.to_string_lossy(),
-                    "historyLength": state.agent.lock().await.history.len(),
-                }),
-            )),
+            "state" => {
+                let a = state.agent.lock().await;
+                Some(event(
+                    "state",
+                    serde_json::json!({
+                        "model": a.config.model,
+                        "agent": "build",
+                        "cwd": a.config.cwd.to_string_lossy(),
+                        "historyLength": a.history.len(),
+                        "usage": a.usage_json(),
+                    }),
+                ))
+            }
+            "cost" => {
+                let a = state.agent.lock().await;
+                Some(event(
+                    "cost",
+                    serde_json::json!({
+                        "cost": a.cost.get_session_cost(),
+                        "usage": a.usage_json(),
+                    }),
+                ))
+            }
             "undo" => {
                 let detail = tools::undo_last_edit();
                 Some(event("undo", serde_json::json!({"detail": detail})))
@@ -430,11 +538,13 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
             )),
         };
         if let Some(payload) = out {
-            if socket.send(Message::Text(payload)).await.is_err() {
+            if out_tx.send(payload).is_err() {
                 break;
             }
         }
     }
+    drop(out_tx);
+    send_task.abort();
 }
 
 #[cfg(test)]
