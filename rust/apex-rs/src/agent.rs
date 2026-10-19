@@ -41,6 +41,61 @@ impl Agent {
         out
     }
 
+    /// Compact conversation history. Returns number of messages removed.
+    /// strategies: "prune" (keep last N), "summarize" (placeholder summary), "merge" (merge consecutive same-role).
+    pub fn compact_context(&mut self, strategy: &str) -> usize {
+        if self.history.is_empty() {
+            return 0;
+        }
+        let before = self.history.len();
+        match strategy {
+            "prune" => {
+                let keep = 10usize;
+                if self.history.len() > keep {
+                    let start = self.history.len() - keep;
+                    self.history = self.history[start..].to_vec();
+                }
+            }
+            "summarize" => {
+                let keep = 10usize;
+                if self.history.len() > keep {
+                    let start = self.history.len() - keep;
+                    let summary: String = self.history[..start]
+                        .iter()
+                        .map(|m| {
+                            let role = m.get("role").and_then(|r| r.as_str()).unwrap_or("?");
+                            let content = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                            format!("{}: {}", role, &content[..content.len().min(80)])
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    let mut new = vec![serde_json::json!({"role":"system","content": format!("[Previous conversation summary]\n{}", summary)})];
+                    new.extend(self.history[start..].to_vec());
+                    self.history = new;
+                }
+            }
+            "merge" => {
+                let mut merged: Vec<serde_json::Value> = Vec::new();
+                for m in self.history.drain(..) {
+                    if let Some(last) = merged.last_mut() {
+                        let last_role = last.get("role").and_then(|r| r.as_str()).unwrap_or("");
+                        let cur_role = m.get("role").and_then(|r| r.as_str()).unwrap_or("");
+                        if last_role == cur_role {
+                            let last_content = last.get("content").and_then(|c| c.as_str()).unwrap_or("").to_string();
+                            let cur_content = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                            last["content"] = serde_json::json!(format!("{}\n{}", last_content, cur_content));
+                            continue;
+                        }
+                    }
+                    merged.push(m);
+                }
+                self.history = merged;
+            }
+            _ => {}
+        }
+        before - self.history.len()
+    }
+
     pub fn session_path(&self, id: &str) -> std::path::PathBuf {
         let base = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
         base.join(".apex").join("sessions").join(format!("{id}.json"))
@@ -277,5 +332,45 @@ impl Agent {
         }
         let _ = tx.send("[DONE]".to_string()).await;
         Ok(())
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    #[test]
+    fn expand_mentions_text() {
+        let cfg = Config::from_env();
+        let agent = Agent::new(cfg);
+        let out = agent.expand_mentions("hello @README.md");
+        assert!(out.contains("hello"));
+    }
+
+    #[test]
+    fn compact_context_reduces() {
+        let cfg = Config::from_env();
+        let mut agent = Agent::new(cfg);
+        for i in 0..10 {
+            agent.history.push(serde_json::json!({"role":"user","content":format!("msg {}", i)}));
+            agent.history.push(serde_json::json!({"role":"assistant","content":format!("reply {}", i)}));
+        }
+        let before = agent.history.len();
+        agent.compact_context("prune");
+        let after = agent.history.len();
+        assert!(after < before);
+    }
+
+    #[test]
+    fn compact_context_merge() {
+        let cfg = Config::from_env();
+        let mut agent = Agent::new(cfg);
+        agent.history.push(serde_json::json!({"role":"user","content":"a"}));
+        agent.history.push(serde_json::json!({"role":"user","content":"b"}));
+        agent.history.push(serde_json::json!({"role":"assistant","content":"c"}));
+        let before = agent.history.len();
+        agent.compact_context("merge");
+        assert_eq!(agent.history.len(), 2);
+        assert!(before >= 2);
     }
 }
