@@ -24,6 +24,15 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **MCP schema format** — tools converted to OpenAI `function` schemas.
 - **MCP process lifetime** — no leaked child processes; discovery shuts servers down, calls own their process.
 
+### TUI ⇄ Rust backend integration
+
+- **HTTP contract** — `/chat/stream` (SSE JSON), `bash`, `compact`, real `undo`/`redo`, `files`, `sessions` (metadata), `themes`, `tui-config`, `config`, `plugins`.
+- **WebSocket** — `/ws/events` with `connected`/`pong`/`state`/`undo`/`redo`/`compact`/`theme_changed`/`error` events and RPC method handling.
+- **Sessions** — `GET /api/v1/sessions/:id`, `POST /:id/load|save`, `GET /:id/history`; encrypted format shared with Python.
+- **Sharing** — `POST /api/v1/share`, `DELETE /api/v1/share/:id`, `GET /api/v1/shares`, `POST /api/v1/export` with secret redaction.
+- **TUI commands** — `/theme`, `/session`, `/export`, `/share`, `/unshare`, `/editor` are all functional (were dead).
+- **Node < 22** — `WebSocket is not defined` fixed via the `ws` package fallback.
+
 ### Bug Fixes
 
 - **Manual compaction now works** — `Agent.compact_context(strategy=...)` implemented (summarize/prune/merge), so `/compact` and `apex compact` no longer crash on the missing method.

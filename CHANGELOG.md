@@ -26,6 +26,15 @@ Full rewrite of the backend in Rust (Python remains the reference implementation
 - **MCP schema format** — MCP tools are converted from `name`/`description`/`inputSchema` to `{"type":"function","function":{...}}`, matching the model API contract.
 - **MCP process lifetime** — discovery no longer leaks child processes tied to a dropped runtime; each call owns its server process.
 
+### TUI ⇄ Rust backend integration
+
+- **HTTP contract implemented** — `/chat/stream` (SSE JSON chunks), `POST /api/v1/bash`, `/api/v1/compact`, real `/api/v1/undo` + `/api/v1/redo`, `/api/v1/files`, `/api/v1/sessions` (with metadata), `/api/v1/themes`, `/api/v1/tui-config`, `/api/v1/config`, `/api/v1/plugins`.
+- **WebSocket protocol** — `/ws/events` emits `connected` / `pong` / `state` / `undo` / `redo` / `compact` / `theme_changed` / `error` and answers the client's `{method: ...}` RPC frames.
+- **Session API** — `GET /api/v1/sessions/:id`, `POST /:id/load`, `POST /:id/save`, `GET /:id/history`; encrypted sessions are shared with the Python implementation.
+- **Sharing** — `POST /api/v1/share`, `DELETE /api/v1/share/:id`, `GET /api/v1/shares`, `POST /api/v1/export` (secret redaction mirrored from `apex/share.py`).
+- **TUI dead commands fixed** — `/theme <id>` switches the palette live (new `default`/`light`/`dark`/`forest`/`sunset` registry) and notifies the backend; `/session <id>` loads and renders a saved session; `/export` writes `session_<id>.json`; `/share`/`/unshare` call the share API; `/editor` opens `$EDITOR` on a temp prompt file and sends the result.
+- **Node < 22 fix** — the TUI no longer crashes with `WebSocket is not defined`; it falls back to the `ws` package when `globalThis.WebSocket` is absent.
+
 ### Bug Fixes
 
 - **Manual compaction now works** — `Agent.compact_context(strategy=...)` implemented (summarize/prune/merge), so the `/compact` slash command and `apex compact` no longer crash with `AttributeError` on the missing method. Compaction now reduces `Agent.history` (system messages preserved) and returns the number of messages removed.
