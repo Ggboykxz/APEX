@@ -4,6 +4,28 @@ All notable changes to APEX will be documented in this file.
 
 ## [Unreleased]
 
+### Rust Port (`rust/apex-rs`)
+
+Full rewrite of the backend in Rust (Python remains the reference implementation until parity is complete).
+
+- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`.
+- **Tools** — `read_file`, `write_file`, `list_files`, `run_command`, `git_status`, `git_diff`, `git_log`, `search_in_files`, `format_file`, `undo_last_edit`, `git_undo`, `lsp_diagnostics`.
+- **Agent loop** — OpenAI-compatible chat completions, tool calling (10 rounds max), per-agent permission gate (`APEX_DENIED_TOOLS`), session persistence in `~/.apex/sessions/<id>.json`.
+- **Compaction** — `Agent.compact_context(strategy)` with `prune`, `summarize`, `merge`; automatic compaction above `APEX_COMPACT_THRESHOLD`.
+- **`@mentions`** — text files inlined; image files (png/jpg/jpeg/gif/webp/bmp) embedded as base64.
+- **MCP** — discovery from `~/.apex/mcp.json`, tools exposed in OpenAI function-calling format, calls spawn a fresh server process per invocation, server processes shut down after discovery.
+- **LSP** — JSON-RPC client and `lsp_diagnostics` tool (rust-analyzer, pyright, typescript-language-server, gopls).
+- **HTTP server** — `/health`, `/api/v1/chat`, `/api/v1/chat/stream` (SSE), `/tools`, `/models`, `/sessions`, `/files`, `/files/read`, `/files/write`, `/agents`, `/agents/:id`, `/themes`, `/tui-config`, `/config`, `/undo`, `/redo`, `/plugins`, plus WebSocket `/ws` and `/ws/events`.
+- **Formatters** — rustfmt, black, prettier, gofmt, clang-format detection.
+- **Plugins** — discovery from `~/.apex/plugins/`, hooks module.
+- **Tests** — 13 passing (`cargo test`), including an MCP roundtrip against a fake MCP server.
+
+#### Fixed during the port
+
+- **MCP/LSP nested-runtime panic** — `execute_tool` used to create a Tokio runtime inside the async runtime and panic (`Cannot start a runtime from within a runtime`). LSP/MCP work now runs on dedicated threads with their own runtime.
+- **MCP schema format** — MCP tools are converted from `name`/`description`/`inputSchema` to `{"type":"function","function":{...}}`, matching the model API contract.
+- **MCP process lifetime** — discovery no longer leaks child processes tied to a dropped runtime; each call owns its server process.
+
 ### Bug Fixes
 
 - **Manual compaction now works** — `Agent.compact_context(strategy=...)` implemented (summarize/prune/merge), so the `/compact` slash command and `apex compact` no longer crash with `AttributeError` on the missing method. Compaction now reduces `Agent.history` (system messages preserved) and returns the number of messages removed.

@@ -4,6 +4,26 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### Rust Port (`rust/apex-rs`)
+
+Full rewrite of the backend in Rust. The Python implementation stays the reference until parity is reached.
+
+- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`.
+- **Tools** — read/write/list, shell, git (status/diff/log/undo), search, format, undo, LSP diagnostics.
+- **Agent loop** — OpenAI-compatible chat completions with tool calling, permission gate (`APEX_DENIED_TOOLS`), JSON session persistence (`~/.apex/sessions/`).
+- **Compaction** — `prune` / `summarize` / `merge` strategies plus threshold-based auto-compaction.
+- **`@mentions`** — text files inlined, images embedded as base64.
+- **MCP** — `~/.apex/mcp.json` discovery, OpenAI-format tool schemas, fresh server process per call.
+- **LSP** — JSON-RPC client + `lsp_diagnostics` tool (rust-analyzer, pyright, tsc, gopls).
+- **HTTP/WS API** — chat (JSON + SSE), tools, models, sessions, files, agents, themes, tui-config, config, undo/redo, plugins, `/ws` and `/ws/events`.
+- **Tests** — 13 passing, including an MCP roundtrip against a fake server.
+
+#### Fixed during the port
+
+- **Nested-runtime panic** — MCP/LSP execution no longer creates a Tokio runtime inside the async runtime; both run on dedicated threads.
+- **MCP schema format** — tools converted to OpenAI `function` schemas.
+- **MCP process lifetime** — no leaked child processes; discovery shuts servers down, calls own their process.
+
 ### Bug Fixes
 
 - **Manual compaction now works** — `Agent.compact_context(strategy=...)` implemented (summarize/prune/merge), so `/compact` and `apex compact` no longer crash on the missing method.
