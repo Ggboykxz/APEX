@@ -77,20 +77,32 @@ pub fn set_global(manager: McpManager) {
     }
 }
 
+/// Convert an MCP tool definition (`name`/`description`/`inputSchema`)
+/// into the OpenAI function-calling schema expected by the model API.
+pub fn to_openai_tool(server: &str, tool: &Value) -> Value {
+    let name = tool.get("name").and_then(|n| n.as_str()).unwrap_or("tool");
+    let desc = tool.get("description").and_then(|d| d.as_str()).unwrap_or("");
+    let params = tool
+        .get("inputSchema")
+        .cloned()
+        .unwrap_or_else(|| json!({"type": "object", "properties": {}}));
+    json!({
+        "type": "function",
+        "function": {
+            "name": format!("mcp_{}_{}", server, name),
+            "description": desc,
+            "parameters": params
+        }
+    })
+}
+
 pub fn global_tools() -> Vec<Value> {
     let mut out = Vec::new();
     if let Ok(g) = GLOBAL_MCP.lock() {
         if let Some(m) = g.as_ref() {
             for (sname, client) in &m.servers {
                 for t in &client.tools {
-                    let mut tool = t.clone();
-                    if let Some(name) = tool.get("name").and_then(|n| n.as_str()) {
-                        let prefixed = format!("mcp_{}_{}", sname, name);
-                        if let Some(obj) = tool.as_object_mut() {
-                            obj.insert("name".to_string(), serde_json::Value::String(prefixed));
-                        }
-                    }
-                    out.push(tool);
+                    out.push(to_openai_tool(sname, t));
                 }
             }
         }
@@ -98,22 +110,46 @@ pub fn global_tools() -> Vec<Value> {
     out
 }
 
-pub async fn global_call(name: String, args: Value) -> Option<String> {
-    // strip mcp_ prefix
-    let stripped = name.strip_prefix("mcp_").unwrap_or(&name);
-    let parts: Vec<&str> = stripped.splitn(2, '_').collect();
-    if parts.len() != 2 { return None; }
-    let (server, tool) = (parts[0], parts[1]);
-    if let Ok(mut g) = GLOBAL_MCP.lock() {
-        if let Some(m) = g.as_mut() {
-            if let Some(client) = m.servers.get_mut(server) {
-                if let Ok(res) = client.call_tool(tool, args).await {
-                    return Some(res);
-                }
+fn parse_mcp_name(name: &str) -> Option<(String, String)> {
+    let stripped = name.strip_prefix("mcp_")?;
+    let mut parts = stripped.splitn(2, '_');
+    let server = parts.next()?.to_string();
+    let tool = parts.next()?.to_string();
+    Some((server, tool))
+}
+
+/// Execute an MCP tool from synchronous code.
+///
+/// The call runs on its own thread with a fresh runtime and a fresh server
+/// process. This avoids both nested-runtime panics and reusing pipe handles
+/// after the discovery runtime has been dropped.
+pub fn call_tool_blocking(name: String, args: Value) -> Option<String> {
+    let (server, tool) = parse_mcp_name(&name)?;
+    let (command, server_args) = {
+        let g = GLOBAL_MCP.lock().ok()?;
+        let m = g.as_ref()?;
+        let c = m.servers.get(&server)?;
+        (c.config.command.clone(), c.config.args.clone())
+    };
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Runtime::new().ok()?;
+        rt.block_on(async move {
+            let mut client = McpClient::new(McpServerConfig {
+                name: server,
+                command,
+                args: server_args,
+            });
+            if client.connect().await.is_err() {
+                return None;
             }
-        }
-    }
-    None
+            let res = client.call_tool(&tool, args).await.ok();
+            client.shutdown().await;
+            res
+        })
+    })
+    .join()
+    .ok()
+    .flatten()
 }
 
 impl McpManager {
@@ -128,6 +164,10 @@ impl McpManager {
         for name in names {
             if let Some(s) = self.servers.get_mut(&name) {
                 let _ = s.connect().await;
+                // Discovery is done: keep only the tool schemas. Calls spawn a
+                // fresh process on demand (see `call_tool_blocking`), because
+                // the discovery runtime is dropped when this function returns.
+                s.shutdown().await;
             }
         }
     }
@@ -136,17 +176,58 @@ impl McpManager {
         let mut out = Vec::new();
         for (sname, client) in &self.servers {
             for t in &client.tools {
-                let mut tool = t.clone();
-                // prefix name with mcp_<server>_
-                if let Some(name) = tool.get("name").and_then(|n| n.as_str()) {
-                    let prefixed = format!("mcp_{}_{}", sname, name);
-                    if let Some(obj) = tool.as_object_mut() {
-                        obj.insert("name".to_string(), serde_json::Value::String(prefixed));
-                    }
-                }
-                out.push((sname.clone(), tool));
+                out.push((sname.clone(), to_openai_tool(sname, t)));
             }
         }
         out
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn openai_schema_conversion() {
+        let t = json!({
+            "name": "echo",
+            "description": "Echo text",
+            "inputSchema": {"type": "object", "properties": {"x": {"type": "string"}}}
+        });
+        let o = to_openai_tool("srv", &t);
+        assert_eq!(o["type"], "function");
+        assert_eq!(o["function"]["name"], "mcp_srv_echo");
+        assert_eq!(o["function"]["description"], "Echo text");
+        assert_eq!(o["function"]["parameters"]["properties"]["x"]["type"], "string");
+    }
+
+    #[tokio::test]
+    async fn mcp_roundtrip_with_fake_server() {
+        let dir = tempfile::tempdir().unwrap();
+        let script = dir.path().join("fake_mcp.sh");
+        let body = r#"#!/bin/sh
+while IFS= read -r line; do
+  case "$line" in
+    *tools/list*) echo '{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"echo","description":"Echo","inputSchema":{"type":"object","properties":{"text":{"type":"string"}}}}]}}' ;;
+    *tools/call*) echo '{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"hello from mcp"}]}}' ;;
+    *initialize*) echo '{"jsonrpc":"2.0","id":1,"result":{}}' ;;
+  esac
+done
+"#;
+        std::fs::write(&script, body).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let mut client = McpClient::new(McpServerConfig {
+            name: "fake".into(),
+            command: script.to_string_lossy().to_string(),
+            args: vec![],
+        });
+        client.connect().await.unwrap();
+        assert_eq!(client.tools.len(), 1);
+        let out = client.call_tool("echo", json!({"text": "hi"})).await.unwrap();
+        assert!(out.contains("hello from mcp"));
+        client.shutdown().await;
     }
 }

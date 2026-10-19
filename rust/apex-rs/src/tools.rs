@@ -37,12 +37,8 @@ fn is_dangerous_command(cmd: &str) -> bool {
 
 pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
     if name.starts_with("mcp_") {
-        // dispatch to MCP client (best-effort sync)
-        let rt = tokio::runtime::Runtime::new();
-        if let Ok(rt) = rt {
-            if let Some(res) = rt.block_on(crate::mcp_client::global_call(name.to_string(), args.clone())) {
-                return res;
-            }
+        if let Some(res) = crate::mcp_client::call_tool_blocking(name.to_string(), args.clone()) {
+            return res;
         }
         return "ERROR: MCP tool unavailable".to_string();
     }
@@ -130,23 +126,29 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             } else {
                 cwd.join(path).to_string_lossy().to_string()
             };
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(r) => r,
-                Err(e) => return format!("ERROR: {e}"),
-            };
-            rt.block_on(async {
-                let mut lsp = crate::lsp::LspManager::new();
-                let root = cwd.to_string_lossy().to_string();
-                if lsp.start(&prog, &sargs.iter().map(|s| s.as_str()).collect::<Vec<_>>(), &root).await.is_err() {
-                    return format!("ERROR: failed to start {prog}");
-                }
-                let res = lsp.diagnostics(&full_path).await;
-                lsp.shutdown().await;
-                match res {
-                    Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
-                    Err(e) => format!("ERROR: {e}"),
-                }
+            let root = cwd.to_string_lossy().to_string();
+            // Same nested-runtime concern as MCP: run on a dedicated thread.
+            std::thread::spawn(move || {
+                let rt = match tokio::runtime::Runtime::new() {
+                    Ok(r) => r,
+                    Err(e) => return format!("ERROR: {e}"),
+                };
+                rt.block_on(async {
+                    let mut lsp = crate::lsp::LspManager::new();
+                    let arg_refs: Vec<&str> = sargs.iter().map(|s| s.as_str()).collect();
+                    if lsp.start(&prog, &arg_refs, &root).await.is_err() {
+                        return format!("ERROR: failed to start {prog}");
+                    }
+                    let res = lsp.diagnostics(&full_path).await;
+                    lsp.shutdown().await;
+                    match res {
+                        Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
+                        Err(e) => format!("ERROR: {e}"),
+                    }
+                })
             })
+            .join()
+            .unwrap_or_else(|_| "ERROR: LSP thread panicked".to_string())
         }
         "list_files" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");

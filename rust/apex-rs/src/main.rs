@@ -32,29 +32,39 @@ enum Commands {
     Tools,
     /// List plugins
     Plugins,
+    /// Execute a single tool (useful for debugging MCP servers)
+    CallTool {
+        name: String,
+        #[arg(default_value = "{}")]
+        args: String,
+    },
 }
 
 fn load_mcp_servers() {
-    let base = dirs::home_dir().unwrap_or_default().join(".apex").join("mcp.json");
-    if !base.exists() { return; }
-    let data = match std::fs::read_to_string(&base) { Ok(d) => d, Err(_) => return };
-    let v: serde_json::Value = match serde_json::from_str(&data) { Ok(v) => v, Err(_) => return };
-    let servers = v.get("mcpServers").or_else(|| v.get("mcp_servers")).and_then(|x| x.as_object());
-    let Some(servers) = servers else { return };
-    let mut mgr = crate::mcp_client::McpManager::new();
-    for (name, cfg) in servers {
-        let command = cfg.get("command").and_then(|x| x.as_str()).unwrap_or("").to_string();
-        let args: Vec<String> = cfg.get("args").and_then(|x| x.as_array())
-            .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
-            .unwrap_or_default();
-        if !command.is_empty() {
-            mgr.add_server(name.clone(), command, args);
+    // Run discovery on a dedicated thread: `main` is itself async, so creating
+    // and blocking on another runtime from there would panic.
+    let _ = std::thread::spawn(|| {
+        let base = dirs::home_dir().unwrap_or_default().join(".apex").join("mcp.json");
+        if !base.exists() { return; }
+        let data = match std::fs::read_to_string(&base) { Ok(d) => d, Err(_) => return };
+        let v: serde_json::Value = match serde_json::from_str(&data) { Ok(v) => v, Err(_) => return };
+        let servers = v.get("mcpServers").or_else(|| v.get("mcp_servers")).and_then(|x| x.as_object());
+        let Some(servers) = servers else { return };
+        let mut mgr = crate::mcp_client::McpManager::new();
+        for (name, cfg) in servers {
+            let command = cfg.get("command").and_then(|x| x.as_str()).unwrap_or("").to_string();
+            let args: Vec<String> = cfg.get("args").and_then(|x| x.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+                .unwrap_or_default();
+            if !command.is_empty() {
+                mgr.add_server(name.clone(), command, args);
+            }
         }
-    }
-    // connect in background (best-effort, sync block)
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(mgr.connect_all());
-    crate::mcp_client::set_global(mgr);
+        let rt = match tokio::runtime::Runtime::new() { Ok(r) => r, Err(_) => return };
+        rt.block_on(mgr.connect_all());
+        crate::mcp_client::set_global(mgr);
+    })
+    .join();
 }
 
 #[tokio::main]
@@ -95,6 +105,10 @@ async fn main() {
                     println!("{}", p.name);
                 }
             }
+        }
+        Some(Commands::CallTool { name, args }) => {
+            let parsed: serde_json::Value = serde_json::from_str(&args).unwrap_or(serde_json::json!({}));
+            println!("{}", tools::execute_tool(&name, &parsed, &config.cwd));
         }
         None => {
             println!("APEX (Rust) — type 'apex-rs --help'");
