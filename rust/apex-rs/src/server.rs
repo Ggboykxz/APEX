@@ -332,18 +332,24 @@ async fn chat_stream_handler(
     State(state): State<AppState>,
     Json(req): Json<ChatReq>,
 ) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
-    let (tx, rx) = tokio::sync::mpsc::channel::<String>(64);
+    let (tx, rx) = tokio::sync::mpsc::channel::<crate::agent::StreamEvent>(64);
     let agent = state.agent.clone();
     let prompt = req.text();
     tokio::spawn(async move {
         let mut a = agent.lock().await;
         if let Err(e) = a.chat_stream(&prompt, tx.clone()).await {
-            let _ = tx.send(format!("ERROR: {e}")).await;
+            let _ = tx.send(crate::agent::StreamEvent::Error(e.to_string())).await;
         }
     });
-    let stream = tokio_stream::wrappers::ReceiverStream::new(rx).map(|msg| {
-        // The TUI parses each SSE data line as JSON with a `chunk` field.
-        let payload = serde_json::json!({"chunk": msg}).to_string();
+    let stream = tokio_stream::wrappers::ReceiverStream::new(rx).map(|ev| {
+        // The TUI parses each SSE data line as JSON: `chunk` for text,
+        // `done` when finished, `error` on failure.
+        let payload = match ev {
+            crate::agent::StreamEvent::Chunk(text) => serde_json::json!({"chunk": text}),
+            crate::agent::StreamEvent::Done => serde_json::json!({"done": true}),
+            crate::agent::StreamEvent::Error(message) => serde_json::json!({"error": message}),
+        }
+        .to_string();
         Ok::<_, Infallible>(Event::default().data(payload))
     });
     Sse::new(stream)

@@ -9,6 +9,17 @@ pub struct Agent {
     pub history: Vec<Value>,
 }
 
+/// Incremental output of [`Agent::chat_stream`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum StreamEvent {
+    /// A piece of assistant text.
+    Chunk(String),
+    /// The answer is complete.
+    Done,
+    /// The upstream API (or transport) failed.
+    Error(String),
+}
+
 impl Agent {
     pub fn new(config: Config) -> Self {
         Self { config, history: Vec::new() }
@@ -207,7 +218,12 @@ impl Agent {
         }
     }
 
-    pub async fn chat_stream(&mut self, user_input: &str, tx: tokio::sync::mpsc::Sender<String>) -> anyhow::Result<()> {
+    /// Events emitted while streaming an answer (see [`chat_stream`]).
+    pub async fn chat_stream(
+        &mut self,
+        user_input: &str,
+        tx: tokio::sync::mpsc::Sender<StreamEvent>,
+    ) -> anyhow::Result<()> {
         let expanded = self.expand_mentions(user_input);
         self.history.push(json!({"role":"user","content":expanded}));
 
@@ -240,7 +256,7 @@ impl Agent {
             let resp = req.send().await?;
             if !resp.status().is_success() {
                 let text = resp.text().await.unwrap_or_default();
-                let _ = tx.send(format!("ERROR: API {}: {}", "error", text)).await;
+                let _ = tx.send(StreamEvent::Error(format!("API error: {text}"))).await;
                 return Ok(());
             }
 
@@ -278,7 +294,7 @@ impl Agent {
                     let delta = &v["choices"][0]["delta"];
                     if let Some(c) = delta.get("content").and_then(|x| x.as_str()) {
                         content_acc.push_str(c);
-                        let _ = tx.send(c.to_string()).await;
+                        let _ = tx.send(StreamEvent::Chunk(c.to_string())).await;
                     }
                     if let Some(tcs) = delta.get("tool_calls").and_then(|x| x.as_array()) {
                         for tc in tcs {
@@ -324,10 +340,10 @@ impl Agent {
 
             // final
             self.history.push(json!({"role":"assistant","content": content_acc}));
-            let _ = tx.send("[DONE]".to_string()).await;
+            let _ = tx.send(StreamEvent::Done).await;
             return Ok(());
         }
-        let _ = tx.send("[DONE]".to_string()).await;
+        let _ = tx.send(StreamEvent::Done).await;
         Ok(())
     }
 }
@@ -369,5 +385,175 @@ mod tests {
         agent.compact_context("merge");
         assert_eq!(agent.history.len(), 2);
         assert!(before >= 2);
+    }
+
+    /// Fake OpenAI-compatible API: first call asks for a `read_file` tool call,
+    /// second call answers with plain text.
+    async fn fake_api(
+        axum::extract::State(calls): axum::extract::State<std::sync::Arc<std::sync::atomic::AtomicUsize>>,
+        axum::Json(_body): axum::Json<serde_json::Value>,
+    ) -> axum::Json<serde_json::Value> {
+        use std::sync::atomic::Ordering;
+        let n = calls.fetch_add(1, Ordering::SeqCst);
+        if n == 0 {
+            axum::Json(serde_json::json!({
+                "choices": [{
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {"name": "read_file", "arguments": "{\"path\":\"note.txt\"}"}
+                        }]
+                    }
+                }]
+            }))
+        } else {
+            axum::Json(serde_json::json!({
+                "choices": [{
+                    "finish_reason": "stop",
+                    "message": {"role": "assistant", "content": "done"}
+                }]
+            }))
+        }
+    }
+
+    #[tokio::test]
+    async fn agent_executes_tool_calls_against_api() {
+        use axum::{routing::post, Router};
+        use std::sync::atomic::AtomicUsize;
+        use std::sync::Arc;
+
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("note.txt"), "file body").unwrap();
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let app = Router::new()
+            .route("/chat/completions", post(fake_api))
+            .with_state(calls.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut cfg = Config::from_env();
+        cfg.base_url = format!("http://{addr}");
+        cfg.model = "fake-model".to_string();
+        cfg.api_key = "test".to_string();
+        cfg.cwd = dir.path().to_path_buf();
+
+        let mut agent = Agent::new(cfg);
+        let reply = agent.chat("please read note.txt").await.unwrap();
+        assert_eq!(reply, "done");
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+
+        // The tool result must be threaded back into the conversation.
+        let tool_msg = agent
+            .history
+            .iter()
+            .find(|m| m.get("role").and_then(|r| r.as_str()) == Some("tool"))
+            .expect("tool message missing");
+        assert!(tool_msg["content"].as_str().unwrap().contains("file body"));
+
+        // The assistant tool_call message must be part of the history too.
+        assert!(agent
+            .history
+            .iter()
+            .any(|m| m.get("tool_calls").is_some()));
+    }
+
+    async fn fake_sse() -> axum::response::Response {
+        let body = concat!(
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"},\"finish_reason\":null}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"},\"finish_reason\":null}]}\n\n",
+            "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+            "data: [DONE]\n\n",
+        );
+        axum::response::Response::builder()
+            .header("content-type", "text/event-stream")
+            .body(axum::body::Body::from(body))
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn chat_stream_emits_chunks() {
+        use axum::{routing::post, Router};
+
+        let app = Router::new().route("/chat/completions", post(fake_sse));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut cfg = Config::from_env();
+        cfg.base_url = format!("http://{addr}");
+        cfg.model = "fake-model".to_string();
+        cfg.api_key = "test".to_string();
+
+        let mut agent = Agent::new(cfg);
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<StreamEvent>(8);
+        agent.chat_stream("hi", tx).await.unwrap();
+        let mut collected = String::new();
+        let mut saw_done = false;
+        while let Some(ev) = rx.recv().await {
+            match ev {
+                StreamEvent::Chunk(text) => collected.push_str(&text),
+                StreamEvent::Done => {
+                    saw_done = true;
+                    break;
+                }
+                StreamEvent::Error(e) => panic!("unexpected stream error: {e}"),
+            }
+        }
+        assert_eq!(collected, "Hello");
+        assert!(saw_done, "stream must end with Done");
+        // Streaming answers are recorded in history as well.
+        assert!(agent
+            .history
+            .iter()
+            .any(|m| m.get("content").and_then(|c| c.as_str()) == Some("Hello")));
+    }
+
+    #[tokio::test]
+    async fn denied_tool_is_refused() {
+        use axum::{routing::post, Router};
+        use std::sync::atomic::AtomicUsize;
+        use std::sync::Arc;
+
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("note.txt"), "secret body").unwrap();
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let app = Router::new()
+            .route("/chat/completions", post(fake_api))
+            .with_state(calls.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut cfg = Config::from_env();
+        cfg.base_url = format!("http://{addr}");
+        cfg.model = "fake-model".to_string();
+        cfg.api_key = "test".to_string();
+        cfg.cwd = dir.path().to_path_buf();
+        cfg.denied_tools = vec!["read_file".to_string()];
+
+        let mut agent = Agent::new(cfg);
+        let _ = agent.chat("read note.txt").await.unwrap();
+        let tool_msg = agent
+            .history
+            .iter()
+            .find(|m| m.get("role").and_then(|r| r.as_str()) == Some("tool"))
+            .expect("tool message missing");
+        // Content must not leak when the tool is denied.
+        let content = tool_msg["content"].as_str().unwrap();
+        assert!(content.contains("Permission denied"));
+        assert!(!content.contains("secret body"));
     }
 }
