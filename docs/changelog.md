@@ -32,6 +32,8 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **Sharing** — `POST /api/v1/share`, `DELETE /api/v1/share/:id`, `GET /api/v1/shares`, `POST /api/v1/export` with secret redaction.
 - **TUI commands** — `/theme`, `/session`, `/export`, `/share`, `/unshare`, `/editor` are all functional (were dead).
 - **Node < 22** — `WebSocket is not defined` fixed via the `ws` package fallback.
+- **Streaming** — structured `Chunk`/`Done`/`Error` events; SSE emits `{"chunk":…}` / `{"done":true}` / `{"error":…}` (no more `[DONE]` text in answers).
+- **Verified end-to-end** — TUI → SSE → Rust → upstream API → TUI; 26 Rust tests including the agent loop, permission gate and streaming.
 
 ### Bug Fixes
 

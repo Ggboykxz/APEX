@@ -34,6 +34,8 @@ Full rewrite of the backend in Rust (Python remains the reference implementation
 - **Sharing** — `POST /api/v1/share`, `DELETE /api/v1/share/:id`, `GET /api/v1/shares`, `POST /api/v1/export` (secret redaction mirrored from `apex/share.py`).
 - **TUI dead commands fixed** — `/theme <id>` switches the palette live (new `default`/`light`/`dark`/`forest`/`sunset` registry) and notifies the backend; `/session <id>` loads and renders a saved session; `/export` writes `session_<id>.json`; `/share`/`/unshare` call the share API; `/editor` opens `$EDITOR` on a temp prompt file and sends the result.
 - **Node < 22 fix** — the TUI no longer crashes with `WebSocket is not defined`; it falls back to the `ws` package when `globalThis.WebSocket` is absent.
+- **Streaming sentinel removed** — `Agent::chat_stream` now sends structured events (`Chunk`/`Done`/`Error`) and the SSE wire format is `{"chunk":…}` / `{"done":true}` / `{"error":…}`. Previously a literal `[DONE]` was appended to every streamed answer in the TUI.
+- **Verified end-to-end** — TUI → SSE → Rust backend → upstream API → TUI renders the reply; integration tests cover the agent tool-calling loop, the permission gate and SSE streaming (26 Rust tests).
 
 ### Bug Fixes
 
