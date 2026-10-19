@@ -63,7 +63,10 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"redo_last_edit","description":"Re-apply the last undone file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_undo","description":"Revert uncommitted changes (git checkout)","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
-        {"type":"function","function":{"name":"lsp_diagnostics","description":"Get LSP diagnostics for a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"server":{"type":"string"}},"required":["path"]}}}
+        {"type":"function","function":{"name":"lsp_diagnostics","description":"Get LSP diagnostics for a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"server":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"lsp_definition","description":"Go to definition using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"lsp_references","description":"Find references using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"lsp_hover","description":"Show hover information using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}}
     ]);
     let mut arr = base.as_array().cloned().unwrap_or_default();
     for t in crate::mcp_client::global_tools() {
@@ -144,54 +147,28 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         "lsp_diagnostics" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
-            // Determine server command from extension if not provided
-            let (prog, sargs): (String, Vec<String>) = if !server.is_empty() {
-                (server.to_string(), vec![])
-            } else {
-                let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-                match ext.as_str() {
-                    "rs" => ("rust-analyzer".to_string(), vec![]),
-                    "py" => ("pyright-langserver".to_string(), vec!["--stdio".to_string()]),
-                    "ts" | "js" | "tsx" | "jsx" => ("typescript-language-server".to_string(), vec!["--stdio".to_string()]),
-                    "go" => ("gopls".to_string(), vec![]),
-                    _ => (String::new(), vec![]),
-                }
-            };
-            if prog.is_empty() {
-                return "ERROR: No LSP server for this file type".to_string();
-            }
-            // Check if binary available
-            if which(&prog).is_none() {
-                return format!("ERROR: LSP server '{prog}' not installed");
-            }
-            let full_path = if std::path::Path::new(path).is_absolute() {
-                path.to_string()
-            } else {
-                cwd.join(path).to_string_lossy().to_string()
-            };
-            let root = cwd.to_string_lossy().to_string();
-            // Same nested-runtime concern as MCP: run on a dedicated thread.
-            std::thread::spawn(move || {
-                let rt = match tokio::runtime::Runtime::new() {
-                    Ok(r) => r,
-                    Err(e) => return format!("ERROR: {e}"),
-                };
-                rt.block_on(async {
-                    let mut lsp = crate::lsp::LspManager::new();
-                    let arg_refs: Vec<&str> = sargs.iter().map(|s| s.as_str()).collect();
-                    if lsp.start(&prog, &arg_refs, &root).await.is_err() {
-                        return format!("ERROR: failed to start {prog}");
-                    }
-                    let res = lsp.diagnostics(&full_path).await;
-                    lsp.shutdown().await;
-                    match res {
-                        Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
-                        Err(e) => format!("ERROR: {e}"),
-                    }
-                })
-            })
-            .join()
-            .unwrap_or_else(|_| "ERROR: LSP thread panicked".to_string())
+            run_lsp_op("diagnostics", path, 0, 0, server, cwd)
+        }
+        "lsp_definition" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
+            let line = args.get("line").and_then(|v| v.as_i64()).unwrap_or(0);
+            let column = args.get("column").and_then(|v| v.as_i64()).unwrap_or(0);
+            run_lsp_op("definition", path, line, column, server, cwd)
+        }
+        "lsp_references" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
+            let line = args.get("line").and_then(|v| v.as_i64()).unwrap_or(0);
+            let column = args.get("column").and_then(|v| v.as_i64()).unwrap_or(0);
+            run_lsp_op("references", path, line, column, server, cwd)
+        }
+        "lsp_hover" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
+            let line = args.get("line").and_then(|v| v.as_i64()).unwrap_or(0);
+            let column = args.get("column").and_then(|v| v.as_i64()).unwrap_or(0);
+            run_lsp_op("hover", path, line, column, server, cwd)
         }
         "list_files" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
@@ -261,6 +238,88 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
     };
     crate::hooks::trigger_hooks(name, args);
     result
+}
+
+/// LSP server command for a file, honouring an explicit `server` override.
+fn lsp_server_for(path: &str, server: &str) -> (String, Vec<String>) {
+    if !server.is_empty() {
+        return (server.to_string(), vec![]);
+    }
+    let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    match ext.as_str() {
+        "rs" => ("rust-analyzer".to_string(), vec![]),
+        "py" => ("pyright-langserver".to_string(), vec!["--stdio".to_string()]),
+        "ts" | "js" | "tsx" | "jsx" => ("typescript-language-server".to_string(), vec!["--stdio".to_string()]),
+        "go" => ("gopls".to_string(), vec![]),
+        _ => (String::new(), vec![]),
+    }
+}
+
+/// Run one LSP operation (`diagnostics`, `definition`, `references`, `hover`).
+///
+/// Same nested-runtime concern as MCP: the client runs on a dedicated thread
+/// with its own Tokio runtime.
+fn run_lsp_op(op: &str, path: &str, line: i64, column: i64, server: &str, cwd: &std::path::Path) -> String {
+    let (prog, sargs) = lsp_server_for(path, server);
+    if prog.is_empty() {
+        return "ERROR: No LSP server for this file type".to_string();
+    }
+    if which(&prog).is_none() {
+        return format!("ERROR: LSP server '{prog}' not installed");
+    }
+    let full_path = if std::path::Path::new(path).is_absolute() {
+        path.to_string()
+    } else {
+        cwd.join(path).to_string_lossy().to_string()
+    };
+    let root = cwd.to_string_lossy().to_string();
+    let op = op.to_string();
+    std::thread::spawn(move || {
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(r) => r,
+            Err(e) => return format!("ERROR: {e}"),
+        };
+        rt.block_on(async {
+            let mut lsp = crate::lsp::LspManager::new();
+            let arg_refs: Vec<&str> = sargs.iter().map(|s| s.as_str()).collect();
+            if lsp.start(&prog, &arg_refs, &root).await.is_err() {
+                return format!("ERROR: failed to start {prog}");
+            }
+            // Open the document: servers only answer queries for open files.
+            let _ = lsp.did_open(&full_path).await;
+            // …and wait for indexing to finish (rust-analyzer returns `null` while loading).
+            lsp.wait_ready(15000).await;
+            let mut res = run_op(&mut lsp, &op, &full_path, line, column).await;
+            // The server may not be fully indexed yet: wait, then retry once.
+            if matches!(&res, Ok(v) if v.is_null()) {
+                lsp.wait_ready(15000).await;
+                res = run_op(&mut lsp, &op, &full_path, line, column).await;
+            }
+            lsp.shutdown().await;
+            match res {
+                Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
+                Err(e) => format!("ERROR: {e}"),
+            }
+        })
+    })
+    .join()
+    .unwrap_or_else(|_| "ERROR: LSP thread panicked".to_string())
+}
+
+/// Dispatch one LSP operation against a started manager.
+async fn run_op(
+    lsp: &mut crate::lsp::LspManager,
+    op: &str,
+    path: &str,
+    line: i64,
+    column: i64,
+) -> anyhow::Result<Value> {
+    match op {
+        "definition" => lsp.definition(path, line, column).await,
+        "references" => lsp.references(path, line, column).await,
+        "hover" => lsp.hover(path, line, column).await,
+        _ => lsp.diagnostics(path).await,
+    }
 }
 
 fn which(name: &str) -> Option<std::path::PathBuf> {

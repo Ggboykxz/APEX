@@ -9,17 +9,18 @@ All notable changes to APEX will be documented in this file.
 Full rewrite of the backend in Rust (Python remains the reference implementation until parity is complete).
 
 - **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`.
-- **Tools** — `read_file`, `write_file`, `list_files`, `run_command`, `git_status`, `git_diff`, `git_log`, `search_in_files`, `format_file`, `undo_last_edit`, `git_undo`, `lsp_diagnostics`.
+- **Tools** — `read_file`, `write_file`, `list_files`, `run_command`, `git_status`, `git_diff`, `git_log`, `search_in_files`, `format_file`, `undo_last_edit`, `git_undo`, `lsp_diagnostics`, `lsp_definition`, `lsp_references`, `lsp_hover`.
 - **Agent loop** — OpenAI-compatible chat completions, tool calling (10 rounds max), per-agent permission gate (`APEX_DENIED_TOOLS`), session persistence in `~/.apex/sessions/<id>.json`.
 - **Compaction** — `Agent.compact_context(strategy)` with `prune`, `summarize`, `merge`; automatic compaction above `APEX_COMPACT_THRESHOLD`.
 - **`@mentions`** — text files inlined; image files (png/jpg/jpeg/gif/webp/bmp) embedded as base64.
 - **MCP** — discovery from `~/.apex/mcp.json`, tools exposed in OpenAI function-calling format, calls spawn a fresh server process per invocation, server processes shut down after discovery.
-- **LSP** — JSON-RPC client and `lsp_diagnostics` tool (rust-analyzer, pyright, typescript-language-server, gopls).
+- **LSP** — JSON-RPC client with `Content-Length` framing and `lsp_diagnostics`, `lsp_definition`, `lsp_references`, `lsp_hover` tools (rust-analyzer, pyright, typescript-language-server, gopls); server selection by file extension or explicit override.
 - **HTTP server** — `/health`, `/api/v1/chat`, `/api/v1/chat/stream` (SSE), `/tools`, `/models`, `/sessions`, `/files`, `/files/read`, `/files/write`, `/agents`, `/agents/:id`, `/themes`, `/tui-config`, `/config`, `/undo`, `/redo`, `/plugins`, `/cost`, `/cost/history`, `/cost/reset`, plus WebSocket `/ws` and `/ws/events`.
 - **Formatters** — rustfmt, black, prettier, gofmt, clang-format detection.
 - **Plugins** — Rust-native manifests (`~/.apex/plugins/<name>/plugin.json`) declaring command-backed tools exposed to the model; legacy `.py`/`.toml` entries are still listed (Python plugins are not executable without an interpreter).
 - **Cost tracking** — `cost.rs` ports `apex/cost_local.py`: the 46-model `MODEL_PRICING` table (verified identical to Python) plus a `CostTracker` with per-model token accounting, six-decimal cost rounding and resettable history.
-- **Tests** — 37 passing (`cargo test`), including an MCP roundtrip against a fake MCP server, plugin manifest execution and streamed usage accounting.
+- **Tests** — 42 passing (`cargo test`), including an MCP roundtrip against a fake MCP server, plugin manifest execution, streamed usage accounting and JSON-RPC framing (line + `Content-Length`).
+- **Verified against real tooling** — `lsp_hover` / `lsp_definition` / `lsp_references` / `lsp_diagnostics` produce correct results from a real `rust-analyzer` (demo crate and the `apex-rs` crate itself: hover shows the resolved signature and doc comment, `E0308` diagnostics reported).
 
 #### Fixed during the port
 
@@ -27,6 +28,7 @@ Full rewrite of the backend in Rust (Python remains the reference implementation
 - **MCP schema format** — MCP tools are converted from `name`/`description`/`inputSchema` to `{"type":"function","function":{...}}`, matching the model API contract.
 - **MCP process lifetime** — discovery no longer leaks child processes tied to a dropped runtime; each call owns its server process.
 - **Streamed usage was never read** — `chat_stream` stopped consuming the SSE stream as soon as `finish_reason: stop` arrived, so the trailing `usage` chunk (sent *after* finish_reason, as real providers do) was dropped and every streamed answer reported 0 tokens. The stream is now read until `[DONE]`/EOF. Covered by a test whose fake SSE body is split across two network chunks.
+- **LSP never worked against real servers** — the JSON-RPC client (ported from `apex/lsp.py`) spoke line-delimited JSON, while LSP mandates `Content-Length` framing, so rust-analyzer/pyright/tsserver silently ignored every request. The client now writes proper frames and tolerates either framing when reading (`Framing::Line` for MCP, `Framing::ContentLength` for LSP). Queries also open the document first (`textDocument/didOpen`), wait for `experimental/serverStatus {quiescent:true}` (declared via `capabilities.experimental.serverStatusNotification`, with an idle-timeout fallback for servers that never report) and retry once, because rust-analyzer answers `null` while indexing.
 - **`apex-rs chat` panicked on first prompt** — `run_repl` called `Runtime::block_on` from inside `#[tokio::main]` (`Cannot start a runtime from within a runtime`). The REPL is now async and awaits `chat()` directly.
 
 ### TUI ⇄ Rust backend integration

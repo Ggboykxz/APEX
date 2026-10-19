@@ -9,16 +9,16 @@ All notable changes to APEX are documented in this file. The project follows [Se
 Full rewrite of the backend in Rust. The Python implementation stays the reference until parity is reached.
 
 - **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`.
-- **Tools** — read/write/list, shell, git (status/diff/log/undo), search, format, undo, LSP diagnostics.
+- **Tools** — read/write/list, shell, git (status/diff/log/undo), search, format, undo, LSP (diagnostics, definition, references, hover).
 - **Agent loop** — OpenAI-compatible chat completions with tool calling, permission gate (`APEX_DENIED_TOOLS`), JSON session persistence (`~/.apex/sessions/`).
 - **Compaction** — `prune` / `summarize` / `merge` strategies plus threshold-based auto-compaction.
 - **`@mentions`** — text files inlined, images embedded as base64.
 - **MCP** — `~/.apex/mcp.json` discovery, OpenAI-format tool schemas, fresh server process per call.
-- **LSP** — JSON-RPC client + `lsp_diagnostics` tool (rust-analyzer, pyright, tsc, gopls).
+- **LSP** — JSON-RPC client with proper `Content-Length` framing, document open + readiness wait, server picked by extension (rust-analyzer, pyright, tsc, gopls) or explicit override.
 - **HTTP/WS API** — chat (JSON + SSE), tools, models, sessions, files, agents, themes, tui-config, config, undo/redo, plugins, cost, `/ws` and `/ws/events`.
 - **Plugins** — Rust-native manifests (`~/.apex/plugins/<name>/plugin.json`); Python `.py` plugins are listed but not executable without an interpreter.
 - **Cost tracking** — `cost.rs` mirrors `apex/cost_local.py` (46-model pricing table verified identical, per-model usage, resettable history).
-- **Tests** — 37 passing, including an MCP roundtrip against a fake server, plugin execution and streamed usage.
+- **Tests** — 42 passing, including an MCP roundtrip against a fake server, plugin execution, streamed usage and JSON-RPC framing (line + `Content-Length`).
 
 #### Fixed during the port
 
@@ -26,6 +26,7 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **MCP schema format** — tools converted to OpenAI `function` schemas.
 - **MCP process lifetime** — no leaked child processes; discovery shuts servers down, calls own their process.
 - **Streamed usage dropped** — the SSE reader stopped at `finish_reason: stop`, never seeing the trailing `usage` chunk (real providers send it afterwards), so streamed answers always reported 0 tokens. Now read until `[DONE]`/EOF; regression test splits the SSE body across two chunks.
+- **LSP client was not LSP** — requests were line-delimited JSON, but the protocol requires `Content-Length` framing; real servers ignored everything. Now framed (MCP keeps line mode), documents are opened before queries, readiness (`experimental/serverStatus {quiescent:true}`) is awaited with an idle fallback and a retry, and `lsp_definition` / `lsp_references` / `lsp_hover` join `lsp_diagnostics`. Verified with a real `rust-analyzer`.
 - **`apex-rs chat` panic** — the REPL called `block_on` inside `#[tokio::main]`; it is async now.
 
 ### TUI ⇄ Rust backend integration
@@ -37,7 +38,7 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **TUI commands** — `/theme`, `/session`, `/export`, `/share`, `/unshare`, `/editor` are all functional (were dead).
 - **Node < 22** — `WebSocket is not defined` fixed via the `ws` package fallback.
 - **Streaming** — structured `Chunk`/`Done`/`Error` events; SSE emits `{"chunk":…}` / `{"done":true}` / `{"error":…}` (no more `[DONE]` text in answers).
-- **Verified end-to-end** — TUI → SSE → Rust → upstream API → TUI; 37 Rust tests including the agent loop, permission gate, streaming and usage accounting.
+- **Verified end-to-end** — TUI → SSE → Rust → upstream API → TUI; 42 Rust tests including the agent loop, permission gate, streaming and usage accounting. LSP verified against a real `rust-analyzer`.
 
 ### Cost tracking, usage reporting & Rust-native plugins
 
