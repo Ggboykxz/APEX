@@ -8,8 +8,8 @@ All notable changes to APEX will be documented in this file.
 
 Full rewrite of the backend in Rust (Python remains the reference implementation until parity is complete).
 
-- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`.
-- **Tools** — `read_file`, `write_file`, `list_files`, `run_command`, `git_status`, `git_diff`, `git_log`, `search_in_files`, `format_file`, `undo_last_edit`, `git_undo`, `lsp_diagnostics`, `lsp_definition`, `lsp_references`, `lsp_hover`.
+- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`, `memory` (`list` / `add` / `search` / `remove` / `clear`).
+- **Tools** — `read_file`, `write_file`, `list_files`, `run_command`, git (`git_status`, `git_diff`, `git_log`, `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_switch_branch`, `git_delete_branch`, `git_list_branches`, `git_pre_commit`, `git_create_pr`, `git_undo`), `search_in_files`, `format_file`, `undo_last_edit`, LSP (`lsp_diagnostics`, `lsp_definition`, `lsp_references`, `lsp_hover`) and code generation (`refactor_code`, `generate_db_model`, `generate_dockerfile`, `generate_docker_compose`, `generate_api_client`, `generate_docs`, `profile_code`, `optimize_code`).
 - **Agent loop** — OpenAI-compatible chat completions, tool calling (10 rounds max), per-agent permission gate (`APEX_DENIED_TOOLS`), session persistence in `~/.apex/sessions/<id>.json`.
 - **Compaction** — `Agent.compact_context(strategy)` with `prune`, `summarize`, `merge`; automatic compaction above `APEX_COMPACT_THRESHOLD`.
 - **`@mentions`** — text files inlined; image files (png/jpg/jpeg/gif/webp/bmp) embedded as base64.
@@ -19,7 +19,7 @@ Full rewrite of the backend in Rust (Python remains the reference implementation
 - **Formatters** — rustfmt, black, prettier, gofmt, clang-format detection.
 - **Plugins** — Rust-native manifests (`~/.apex/plugins/<name>/plugin.json`) declaring command-backed tools exposed to the model; legacy `.py`/`.toml` entries are still listed (Python plugins are not executable without an interpreter).
 - **Cost tracking** — `cost.rs` ports `apex/cost_local.py`: the 46-model `MODEL_PRICING` table (verified identical to Python) plus a `CostTracker` with per-model token accounting, six-decimal cost rounding and resettable history.
-- **Tests** — 42 passing (`cargo test`), including an MCP roundtrip against a fake MCP server, plugin manifest execution, streamed usage accounting and JSON-RPC framing (line + `Content-Length`).
+- **Tests** — 76 passing (`cargo test`), including an MCP roundtrip against a fake MCP server, plugin manifest execution, streamed usage accounting, JSON-RPC framing (line + `Content-Length`), a fake GitHub API server and Python-matching expectations for the code generator.
 - **Verified against real tooling** — `lsp_hover` / `lsp_definition` / `lsp_references` / `lsp_diagnostics` produce correct results from a real `rust-analyzer` (demo crate and the `apex-rs` crate itself: hover shows the resolved signature and doc comment, `E0308` diagnostics reported).
 
 #### Fixed during the port
@@ -40,7 +40,7 @@ Full rewrite of the backend in Rust (Python remains the reference implementation
 - **TUI dead commands fixed** — `/theme <id>` switches the palette live (new `default`/`light`/`dark`/`forest`/`sunset` registry) and notifies the backend; `/session <id>` loads and renders a saved session; `/export` writes `session_<id>.json`; `/share`/`/unshare` call the share API; `/editor` opens `$EDITOR` on a temp prompt file and sends the result.
 - **Node < 22 fix** — the TUI no longer crashes with `WebSocket is not defined`; it falls back to the `ws` package when `globalThis.WebSocket` is absent.
 - **Streaming sentinel removed** — `Agent::chat_stream` now sends structured events (`Chunk`/`Done`/`Error`) and the SSE wire format is `{"chunk":…}` / `{"done":true}` / `{"error":…}`. Previously a literal `[DONE]` was appended to every streamed answer in the TUI.
-- **Verified end-to-end** — TUI → SSE → Rust backend → upstream API → TUI renders the reply; integration tests cover the agent tool-calling loop, the permission gate and SSE streaming (37 Rust tests).
+- **Verified end-to-end** — TUI → SSE → Rust backend → upstream API → TUI renders the reply; integration tests cover the agent tool-calling loop, the permission gate and SSE streaming.
 
 ### Cost tracking, usage reporting & Rust-native plugins
 
@@ -51,6 +51,13 @@ Full rewrite of the backend in Rust (Python remains the reference implementation
 - **CLI** — `apex-rs cost` prints the session report; the REPL answers `/cost`; `apex-rs run` prints `[usage] <tokens>, cost $…` on stderr so stdout stays script-friendly.
 - **TUI accounting fixed** — the status bar reads its per-message usage from a ref instead of a stale closure and dedupes the `chat_complete` event, so SSE + WebSocket no longer double count. Verified live: status bar shows `In: 120 Out: 34 Total: 154 • $0.0006`.
 - **Rust-native plugins** — `~/.apex/plugins/<name>/plugin.json` (`APEX_PLUGINS_DIR` override) declares tools as data: `command` templates with shell-escaped `{arg}` placeholders, or `args` argv templates executed without a shell. Tools are exposed to the model as `plugin_<plugin>_<tool>` (added to `tool_schemas()`), run with `APEX_PLUGIN_NAME` / `APEX_PLUGIN_DIR` / `APEX_TOOL_NAME` / `APEX_PLUGIN_ARGS` in the environment, honour `APEX_DENIED_TOOLS`, are skipped when `"enabled": false`, and appear with version/description in `apex-rs plugins` and `GET /api/v1/plugins`. Shell injection through placeholder values is covered by a test.
+
+### Memory, code generation and Git/GitHub tooling
+
+- **Persistent memory** — `rust/apex-rs/src/memory.rs` ports `apex/memory.py`: the same `~/.apex/memory.json` array (`{"fact", "added", "relevance"}`) with `add` / `get_all` / `get_relevant` / `get_context_for_prompt` (last 5 facts) / `clear` / `remove` / `list_facts` / `search`. Timestamps keep Python's microsecond `isoformat()` shape, and both implementations read and write the same file (checked round-trip with the Python class). Exposed as `apex-rs memory list|add|search|remove|clear`, the REPL `/memory` command (which — unlike Python's `arg.split(maxsplit=2)` — accepts multi-word facts and `--tags a,b`) and `APEX_MEMORY_FILE` for a custom store.
+- **Code generation** — `rust/apex-rs/src/codegen.rs` ports `apex/codegen.py`: `CodeRefactorer` (`refactor_function` styles `async` / `type_hints` / `modern`, `extract_method`, `convert_to_class`, `add_type_hints`), `DatabaseManager` (`generate_model`, `generate_queries`, `get_connection_string`), `DockerManager` (Dockerfile for python/node/go/rust/java, `docker-compose.yml`), `ApiClientGenerator` (`generate_from_openapi`, `generate_curl`), `DocumentationGenerator` (readme / api docs / markdoc) and `PerformanceProfiler` (`profile_file`, `suggest_optimizations`). The seven model-facing tools (`refactor_code`, `generate_db_model`, `generate_dockerfile`, `generate_docker_compose`, `generate_api_client`, `generate_docs`, `profile_code`, `optimize_code`) return the same strings as Python; the regex patterns behind them are implemented as small scanners so the crate stays dependency-free, and the tests pin the outputs verified against Python on identical fixtures.
+- **Git workflow tools** — `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_switch_branch`, `git_delete_branch`, `git_list_branches` and `git_pre_commit` join `git_status`/`git_diff`/`git_log`/`git_undo`, with Python's messages (`SUCCESS: Staged N file(s)`, `Branches:\n…`, `Pre-commit checks:\nStaged: …\nUnstaged: …`, `Nothing to commit (working tree clean)`) and real error reporting instead of Python's silent `subprocess.run` calls.
+- **GitHub integration** — `rust/apex-rs/src/github.rs` ports `apex/github_integration.py`: `GitHubClient` (issues, pull requests, merge, branch creation over the REST API with `GITHUB_TOKEN`/`GH_TOKEN`, `Accept`/`Authorization` headers identical to Python, `APEX_GITHUB_API` to point the client elsewhere) and `GitHubAutomation` (`auto_create_pr`, `create_issue_from_error`, `create_pr_for_changes`, `list_issues_by_label`, `get_issue_todos`, `close_completed_prs`). `git_create_pr` prefers `gh pr create` and falls back to `POST /repos/<owner>/<repo>/pulls`, returning the PR URL — verified end-to-end against a local fake GitHub API (correct owner/repo parsing from `git remote get-url origin`, `Bearer` token, auto-detected head branch).
 
 ### Bug Fixes
 
@@ -63,6 +70,10 @@ Full rewrite of the backend in Rust (Python remains the reference implementation
 - **Plugin hooks wired** — `ToolExecutor.execute` now triggers the `tool_call` hook after a successful tool call; plugin tools are merged into the schema list.
 - **Web search providers** — `_execute_web_search` now selects Brave/Tavily/Exa when the corresponding API key env var is set, falling back to DuckDuckGo.
 - **Real PR creation** — `_execute_git_create_pr` now uses `gh pr create` (or the GitHub REST API with `GITHUB_TOKEN`/`GH_TOKEN`) instead of returning a placeholder.
+- **`add_type_hints` never worked** — `CodeRefactorer.add_type_hints()` built `def (\w+)\((\bint\b ` (a group that is never closed) and therefore always raised `missing ), unterminated subpattern`; it now applies the intended `def name(args):` → `def name(args) -> Any:` rewrite, covered by a test.
+- **GitHub POST/PATCH bodies carried no `Content-Type`** — `GitHubClient._api_request` mutated a headers dict after `urllib.request.Request` had already copied it, so issue/PR creations sent JSON without `application/json`; the header is now added to the request itself (regression test asserts it).
+- **Stale `xfail` markers removed** — nine tests (`/github issues`, `/github prs`, `/github unknown_subcmd`, `/save`, `/load`, `/sessions`, `/sessionload`) were still marked expected-to-fail for bugs that are fixed; they now run as regular passing tests.
+- **Rust `git_unstage` on an unborn branch** — `git reset HEAD` fails before the first commit; the tool falls back to `git rm --cached -r .` and still reports `SUCCESS: Unstaged files`, matching the Python tool which ignored git's exit code.
 - **TUI `@file` popup** — the file-reference popup now renders (was hidden by an inverted `anyOverlay` guard in `ApexApp.tsx`).
 
 ## [2.0.0] - 2026-05-16

@@ -56,7 +56,6 @@ class TestHandleCommandMore:
 
         return UI()
 
-    @pytest.mark.xfail(reason="Source bug: SessionManager.load() missing agent arg in /sessionload")
     def test_sessionload_with_name(self, real_agent, real_ui):
         from apex.main import handle_command
 
@@ -134,21 +133,18 @@ class TestHandleCommandMore:
         finally:
             memory.clear()
 
-    @pytest.mark.xfail(reason="Source bug: SessionManager shadowed by local import")
     def test_github_issues_command(self, real_agent, real_ui):
         from apex.main import handle_command
 
         result = handle_command("/github issues", real_agent, real_ui)
         assert result is True
 
-    @pytest.mark.xfail(reason="Source bug: SessionManager shadowed by local import")
     def test_github_prs_command(self, real_agent, real_ui):
         from apex.main import handle_command
 
         result = handle_command("/github prs", real_agent, real_ui)
         assert result is True
 
-    @pytest.mark.xfail(reason="Source bug: SessionManager shadowed by local import")
     def test_github_unknown_subcmd(self, real_agent, real_ui):
         from apex.main import handle_command
 

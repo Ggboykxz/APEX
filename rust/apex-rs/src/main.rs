@@ -1,8 +1,11 @@
 mod agent;
+mod codegen;
 mod config;
 mod cost;
 mod formatter;
+mod github;
 mod hooks;
+mod memory;
 mod plugins;
 mod jsonrpc;
 mod lsp;
@@ -43,11 +46,34 @@ enum Commands {
     },
     /// Show session token usage and estimated cost
     Cost,
+    /// Inspect and edit persistent memory (~/.apex/memory.json)
+    Memory {
+        #[command(subcommand)]
+        action: MemoryAction,
+    },
     /// Manage saved sessions
     Session {
         #[command(subcommand)]
         action: SessionAction,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum MemoryAction {
+    /// List stored facts
+    List,
+    /// Add a fact: `apex-rs memory add "fact" "tag1,tag2"`
+    Add {
+        fact: String,
+        #[arg(default_value = "")]
+        relevance: String,
+    },
+    /// Search facts by substring (case-insensitive)
+    Search { query: String },
+    /// Remove a fact by index
+    Remove { index: usize },
+    /// Delete all facts
+    Clear,
 }
 
 #[derive(Subcommand, Debug)]
@@ -150,6 +176,43 @@ async fn main() {
             // No chat happened in this process: report an empty session, like Python's `/cost` with no usage.
             let agent = agent::Agent::new(config);
             println!("{}", agent.cost_report());
+        }
+        Some(Commands::Memory { action }) => {
+            let mut mem = memory::Memory::new();
+            match action {
+                MemoryAction::List => println!("{}", memory::list_facts_report(&mem)),
+                MemoryAction::Add { fact, relevance } => {
+                    let tags: Vec<String> = relevance
+                        .split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect();
+                    mem.add(&fact, tags);
+                    println!("Added to memory: {fact}");
+                }
+                MemoryAction::Search { query } => {
+                    let results = mem.search(&query);
+                    if results.is_empty() {
+                        println!("No matching facts found");
+                    } else {
+                        println!("Search results:");
+                        for f in results {
+                            println!("  {}", f["fact"].as_str().unwrap_or(""));
+                        }
+                    }
+                }
+                MemoryAction::Remove { index } => {
+                    if mem.remove(index) {
+                        println!("Removed fact {index}");
+                    } else {
+                        println!("Index out of range");
+                    }
+                }
+                MemoryAction::Clear => {
+                    mem.clear();
+                    println!("Memory cleared");
+                }
+            }
         }
         Some(Commands::CallTool { name, args }) => {
             let parsed: serde_json::Value = serde_json::from_str(&args).unwrap_or(serde_json::json!({}));

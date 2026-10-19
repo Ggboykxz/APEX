@@ -68,7 +68,10 @@ class GitHubClient:
 
         if data:
             req.data = json.dumps(data).encode("utf-8")
-            headers["Content-Type"] = "application/json"
+            # `headers` was already copied by Request(): the Content-Type must
+            # be added to the request itself, otherwise POST/PATCH bodies were
+            # sent without it.
+            req.add_header("Content-Type", "application/json")
 
         try:
             response = urllib.request.urlopen(req)

@@ -95,18 +95,11 @@ class CodeRefactorer:
         try:
             content = path.read_text()
 
-            type_mappings = {
-                r"\bint\b": "int",
-                r"\bstr\b": "str",
-                r"\blist\b": "list",
-                r"\bdict\b": "dict",
-                r"\bbool\b": "bool",
-                r"\bfloat\b": "float",
-            }
-
-            for pattern, type_hint in type_mappings.items():
-                content = re.sub(f"def (\\w+)\\(({pattern} ", f"def \\1({type_hint} ", content)
-                content = re.sub("def (\\w+)\\(([^)]*)\\):", "def \\1(\\2) -> Any:", content)
+            # Add a return annotation to every function definition that lacks
+            # one. The previous implementation built `def (\w+)\((\bint\b `
+            # (a group that is never closed) and therefore *always* raised
+            # "missing ), unterminated subpattern" — see CHANGELOG 2026-10-19.
+            content = re.sub(r"def (\w+)\(([^)]*)\):", r"def \1(\2) -> Any:", content)
 
             path.write_text(content)
             return {"success": True, "file": str(filepath)}

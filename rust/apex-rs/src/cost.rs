@@ -200,10 +200,7 @@ impl CostTracker {
     pub fn reset_session(&mut self) {
         let mut snapshot = self.get_session_cost();
         if let Some(obj) = snapshot.as_object_mut() {
-            obj.insert(
-                "timestamp".to_string(),
-                json!(chrono_lite_now_iso8601()),
-            );
+            obj.insert("timestamp".to_string(), json!(now_iso8601_micros()));
         }
         self.session_costs.push(snapshot);
         self.session_start = Instant::now();
@@ -217,12 +214,15 @@ impl CostTracker {
     }
 }
 
-/// Minimal RFC3339-ish timestamp without pulling a datetime crate.
-fn chrono_lite_now_iso8601() -> String {
+/// Timestamp with microsecond precision in the same shape as Python's
+/// `datetime.now().isoformat()` (`2026-10-19T07:12:38.134721`), without
+/// pulling a datetime crate.
+pub fn now_iso8601_micros() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();
     let secs = now.as_secs();
+    let micros = now.subsec_micros();
     // 1970-01-01 based civil date conversion (Howard Hinnant's algorithm).
     let days = (secs / 86_400) as i64;
     let rem = secs % 86_400;
@@ -237,7 +237,7 @@ fn chrono_lite_now_iso8601() -> String {
     let d = doy - (153 * mp + 2) / 5 + 1;
     let mth = if mp < 10 { mp + 3 } else { mp - 9 };
     let y = if mth <= 2 { y + 1 } else { y };
-    format!("{y:04}-{mth:02}-{d:02}T{h:02}:{m:02}:{s:02}")
+    format!("{y:04}-{mth:02}-{d:02}T{h:02}:{m:02}:{s:02}.{micros:06}")
 }
 
 #[cfg(test)]
@@ -293,6 +293,18 @@ mod tests {
         let s = t.get_session_cost();
         assert_eq!(s["total_tokens"], 0);
         assert_eq!(s["total_cost"], 0.0);
+    }
+
+    #[test]
+    fn iso_timestamp_has_python_shape() {
+        let t = now_iso8601_micros();
+        // "2026-10-19T07:12:38.134721"
+        assert_eq!(t.len(), 26, "got {t}");
+        assert_eq!(&t[4..5], "-");
+        assert_eq!(&t[7..8], "-");
+        assert_eq!(&t[10..11], "T");
+        assert_eq!(&t[13..14], ":");
+        assert_eq!(&t[19..20], ".");
     }
 
     #[test]

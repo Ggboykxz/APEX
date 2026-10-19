@@ -66,7 +66,24 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"lsp_diagnostics","description":"Get LSP diagnostics for a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_definition","description":"Go to definition using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_references","description":"Find references using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
-        {"type":"function","function":{"name":"lsp_hover","description":"Show hover information using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}}
+        {"type":"function","function":{"name":"lsp_hover","description":"Show hover information using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"git_stage","description":"Stage files for commit.","parameters":{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"},"description":"Files to stage"}},"required":["files"]}}},
+        {"type":"function","function":{"name":"git_unstage","description":"Unstage files.","parameters":{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"},"description":"Files to unstage"}}}}},
+        {"type":"function","function":{"name":"git_commit","description":"Commit staged changes.","parameters":{"type":"object","properties":{"message":{"type":"string","description":"Commit message"}},"required":["message"]}}},
+        {"type":"function","function":{"name":"git_create_branch","description":"Create a new git branch.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Branch name"},"checkout":{"type":"boolean","description":"Switch to new branch"}},"required":["name"]}}},
+        {"type":"function","function":{"name":"git_switch_branch","description":"Switch to an existing git branch.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Branch name"}},"required":["name"]}}},
+        {"type":"function","function":{"name":"git_delete_branch","description":"Delete a git branch.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Branch name"},"force":{"type":"boolean","description":"Force delete"}},"required":["name"]}}},
+        {"type":"function","function":{"name":"git_list_branches","description":"List all git branches.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"git_pre_commit","description":"Run git pre-commit checks.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"git_create_pr","description":"Create a GitHub pull request.","parameters":{"type":"object","properties":{"title":{"type":"string","description":"PR title"},"body":{"type":"string","description":"PR description"},"base":{"type":"string","description":"Target branch"}},"required":["title"]}}},
+        {"type":"function","function":{"name":"refactor_code","description":"Refactor code (add types, make async, extract method).","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to refactor"},"function":{"type":"string","description":"Function name"},"style":{"type":"string","description":"Style: async, type_hints, modern"}},"required":["path","function"]}}},
+        {"type":"function","function":{"name":"generate_db_model","description":"Generate database model from table schema.","parameters":{"type":"object","properties":{"table":{"type":"string","description":"Table name"},"columns":{"type":"array","items":{"type":"object"},"description":"Column definitions"}},"required":["table","columns"]}}},
+        {"type":"function","function":{"name":"generate_dockerfile","description":"Generate Dockerfile for language.","parameters":{"type":"object","properties":{"language":{"type":"string","description":"Language: python, node, go, rust, java"}},"required":["language"]}}},
+        {"type":"function","function":{"name":"generate_docker_compose","description":"Generate docker-compose.yml.","parameters":{"type":"object","properties":{"services":{"type":"array","items":{"type":"object"},"description":"Service definitions"}},"required":["services"]}}},
+        {"type":"function","function":{"name":"generate_api_client","description":"Generate API client from OpenAPI spec.","parameters":{"type":"object","properties":{"spec":{"type":"string","description":"Path to OpenAPI spec"}},"required":["spec"]}}},
+        {"type":"function","function":{"name":"generate_docs","description":"Generate documentation.","parameters":{"type":"object","properties":{"type":{"type":"string","description":"Type: readme, api, markdoc"},"path":{"type":"string","description":"File path for api docs"}},"required":["type"]}}},
+        {"type":"function","function":{"name":"profile_code","description":"Profile code complexity and performance.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to profile"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"optimize_code","description":"Get optimization suggestions.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}}
     ]);
     let mut arr = base.as_array().cloned().unwrap_or_default();
     for t in crate::mcp_client::global_tools() {
@@ -205,6 +222,187 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             }
         }
         "git_status" => run_git(cwd, &["status", "--porcelain"]),
+        "git_stage" => {
+            let files = string_array(args, "files");
+            if files.is_empty() {
+                "ERROR: No files specified".to_string()
+            } else {
+                let mut cmd = vec!["add"];
+                cmd.extend(files.iter().map(|s| s.as_str()));
+                match git_ok(cwd, &cmd, |_| format!("SUCCESS: Staged {} file(s)", files.len())) {
+                    Ok(out) => out,
+                    Err(e) => format!("ERROR: {e}"),
+                }
+            }
+        }
+        "git_unstage" => {
+            let files = string_array(args, "files");
+            let mut cmd = vec!["reset"];
+            if files.is_empty() {
+                cmd.push("HEAD");
+            } else {
+                cmd.extend(files.iter().map(|s| s.as_str()));
+            }
+            match git_ok(cwd, &cmd, |_| "SUCCESS: Unstaged files".to_string()) {
+                Ok(out) => out,
+                // On an unborn branch (no commits yet) `git reset HEAD` fails:
+                // drop everything from the index instead, like the Python tool
+                // which reported success regardless of git's exit code.
+                Err(e) => match git_ok(cwd, &["rm", "--cached", "-r", "--quiet", "."], |_| {
+                    "SUCCESS: Unstaged files".to_string()
+                }) {
+                    Ok(out) => out,
+                    Err(_) => format!("ERROR: {e}"),
+                },
+            }
+        }
+        "git_commit" => {
+            let message = args.get("message").and_then(|v| v.as_str()).unwrap_or("");
+            if message.is_empty() {
+                "ERROR: No commit message".to_string()
+            } else {
+                match git_ok(cwd, &["commit", "-m", message], |stdout| {
+                    format!("SUCCESS: Committed\n{stdout}")
+                }) {
+                    Ok(out) => out,
+                    Err(e) => format!("ERROR: {e}"),
+                }
+            }
+        }
+        "git_create_branch" => {
+            let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let checkout = args.get("checkout").and_then(|v| v.as_bool()).unwrap_or(false);
+            let msg = if checkout {
+                format!("SUCCESS: Created branch '{name}' and checked out")
+            } else {
+                format!("SUCCESS: Created branch '{name}'")
+            };
+            match git_ok(cwd, &["branch", name], |_| msg.clone()) {
+                Ok(out) if checkout => match git_ok(cwd, &["checkout", name], |_| out.clone()) {
+                    Ok(out) => out,
+                    Err(e) => format!("ERROR: {e}"),
+                },
+                Ok(out) => out,
+                Err(e) => format!("ERROR: {e}"),
+            }
+        }
+        "git_switch_branch" => {
+            let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let cmd = ["checkout", name];
+            match git_ok(cwd, &cmd, |_| format!("SUCCESS: Switched to branch '{name}'")) {
+                Ok(out) => out,
+                Err(e) => format!("ERROR: {e}"),
+            }
+        }
+        "git_delete_branch" => {
+            let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let force = args.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
+            let flag = if force { "-D" } else { "-d" };
+            match git_ok(cwd, &["branch", flag, name], |_| {
+                format!("SUCCESS: Deleted branch '{name}'")
+            }) {
+                Ok(out) => out,
+                Err(e) => format!("ERROR: {e}"),
+            }
+        }
+        "git_list_branches" => match Command::new("git").args(["branch", "-a"]).current_dir(cwd).output() {
+            Ok(o) => format!("Branches:\n{}", String::from_utf8_lossy(&o.stdout)),
+            Err(e) => format!("ERROR: {e}"),
+        },
+        "git_pre_commit" => {
+            let status = Command::new("git").args(["status", "--short"]).current_dir(cwd).output();
+            match status {
+                Ok(o) if String::from_utf8_lossy(&o.stdout).trim().is_empty() => {
+                    "Nothing to commit (working tree clean)".to_string()
+                }
+                Ok(o) => {
+                    let staged = Command::new("git")
+                        .args(["diff", "--cached", "--stat"])
+                        .current_dir(cwd)
+                        .output()
+                        .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
+                        .unwrap_or_default();
+                    let staged = if staged.trim().is_empty() { "none".to_string() } else { staged };
+                    format!(
+                        "Pre-commit checks:\nStaged: {staged}\nUnstaged: {}",
+                        String::from_utf8_lossy(&o.stdout)
+                    )
+                }
+                Err(e) => format!("ERROR: {e}"),
+            }
+        }
+        "git_create_pr" => {
+            let title = args.get("title").and_then(|v| v.as_str()).unwrap_or("");
+            let body = args.get("body").and_then(|v| v.as_str()).unwrap_or("");
+            let base = args.get("base").and_then(|v| v.as_str()).unwrap_or("main");
+            let head = args.get("head").and_then(|v| v.as_str());
+            crate::github::create_pr_tool(cwd, title, body, base, head)
+        }
+        "refactor_code" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let function = args.get("function").and_then(|v| v.as_str()).unwrap_or("");
+            let style = args.get("style").and_then(|v| v.as_str()).unwrap_or("modern");
+            let cr = crate::codegen::CodeRefactorer::new(cwd);
+            let result = cr.refactor_function(path, function, style);
+            match result.get("error").and_then(|e| e.as_str()) {
+                Some(err) => format!("ERROR: {err}"),
+                None => format!("SUCCESS: Refactored {function} with {style} style"),
+            }
+        }
+        "generate_db_model" => {
+            let table = args.get("table").and_then(|v| v.as_str()).unwrap_or("");
+            let columns = args.get("columns").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let code = crate::codegen::DatabaseManager::generate_model(table, &columns);
+            format!("Generated model for {table}:\n\n{code}")
+        }
+        "generate_dockerfile" => {
+            let language = args.get("language").and_then(|v| v.as_str()).unwrap_or("");
+            crate::codegen::DockerManager::generate_dockerfile(language)
+        }
+        "generate_docker_compose" => {
+            let services = args.get("services").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            crate::codegen::DockerManager::generate_docker_compose(&services)
+        }
+        "generate_api_client" => {
+            let spec = args.get("spec").and_then(|v| v.as_str()).unwrap_or("");
+            crate::codegen::ApiClientGenerator::new(cwd).generate_from_openapi(spec)
+        }
+        "generate_docs" => {
+            let dtype = args.get("type").and_then(|v| v.as_str()).unwrap_or("");
+            let path = args.get("path").and_then(|v| v.as_str());
+            let dg = crate::codegen::DocumentationGenerator::new(cwd);
+            match (dtype, path) {
+                ("readme", _) => dg.generate_readme(),
+                ("api", Some(path)) => dg.generate_api_docs(path),
+                ("markdoc", _) => dg.generate_markdoc(),
+                _ => "ERROR: Invalid doc type or missing path".to_string(),
+            }
+        }
+        "profile_code" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let profile = crate::codegen::PerformanceProfiler::new(cwd).profile_file(path);
+            match profile.get("error").and_then(|e| e.as_str()) {
+                Some(err) => err.to_string(),
+                None => format!(
+                    "Code Profile\n{}\nLines: {}\nFunctions: {}\nClasses: {}\nImports: {}\nComplexity: {}",
+                    "=".repeat(40),
+                    profile["lines"],
+                    profile["functions"],
+                    profile["classes"],
+                    profile["imports"],
+                    profile["complexity_score"],
+                ),
+            }
+        }
+        "optimize_code" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let suggestions = crate::codegen::PerformanceProfiler::new(cwd).suggest_optimizations(path);
+            let mut out = format!("Optimization Suggestions\n{}", "=".repeat(40));
+            for s in suggestions {
+                out.push_str(&format!("\n- {s}"));
+            }
+            out
+        }
         "git_diff" => {
             let r = args.get("ref").and_then(|v| v.as_str());
             if let Some(ref_) = r {
@@ -396,6 +594,171 @@ mod tests {
         let out = execute_tool("git_undo", &serde_json::json!({}), dir.path());
         assert!(out.contains("ERROR") || out.contains("Reverted"));
     }
+
+    fn init_repo(dir: &std::path::Path) {
+        for args in [
+            vec!["init", "-q"],
+            vec!["config", "user.email", "t@example.com"],
+            vec!["config", "user.name", "Test"],
+        ] {
+            std::process::Command::new("git")
+                .args(&args)
+                .current_dir(dir)
+                .output()
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn git_workflow_tools() {
+        let dir = tempdir().unwrap();
+        init_repo(dir.path());
+        fs::write(dir.path().join("a.txt"), "hello").unwrap();
+
+        assert_eq!(
+            execute_tool("git_stage", &serde_json::json!({"files": ["a.txt"]}), dir.path()),
+            "SUCCESS: Staged 1 file(s)"
+        );
+        assert_eq!(
+            execute_tool("git_stage", &serde_json::json!({"files": []}), dir.path()),
+            "ERROR: No files specified"
+        );
+        assert_eq!(
+            execute_tool("git_unstage", &serde_json::json!({}), dir.path()),
+            "SUCCESS: Unstaged files"
+        );
+
+        // Pre-commit report shows the dirty file before committing.
+        let pre = execute_tool("git_pre_commit", &serde_json::json!({}), dir.path());
+        assert!(pre.starts_with("Pre-commit checks:"), "got {pre}");
+        assert!(pre.contains("Unstaged:") && pre.contains("a.txt"));
+
+        execute_tool("git_stage", &serde_json::json!({"files": ["a.txt"]}), dir.path());
+        let commit = execute_tool("git_commit", &serde_json::json!({"message": "first"}), dir.path());
+        assert!(commit.starts_with("SUCCESS: Committed"), "got {commit}");
+        assert_eq!(
+            execute_tool("git_commit", &serde_json::json!({"message": ""}), dir.path()),
+            "ERROR: No commit message"
+        );
+        assert_eq!(
+            execute_tool("git_pre_commit", &serde_json::json!({}), dir.path()),
+            "Nothing to commit (working tree clean)"
+        );
+
+        // Branches
+        let branches = execute_tool("git_list_branches", &serde_json::json!({}), dir.path());
+        assert!(branches.starts_with("Branches:\n"), "got {branches}");
+        assert_eq!(
+            execute_tool("git_create_branch", &serde_json::json!({"name": "feature"}), dir.path()),
+            "SUCCESS: Created branch 'feature'"
+        );
+        assert!(execute_tool("git_list_branches", &serde_json::json!({}), dir.path()).contains("feature"));
+        assert_eq!(
+            execute_tool("git_switch_branch", &serde_json::json!({"name": "feature"}), dir.path()),
+            "SUCCESS: Switched to branch 'feature'"
+        );
+        // Deleting the current branch must fail (git protects it).
+        let err = execute_tool("git_delete_branch", &serde_json::json!({"name": "feature"}), dir.path());
+        assert!(err.starts_with("ERROR"), "got {err}");
+        execute_tool("git_create_branch", &serde_json::json!({"name": "tmp"}), dir.path());
+        assert_eq!(
+            execute_tool("git_delete_branch", &serde_json::json!({"name": "tmp", "force": true}), dir.path()),
+            "SUCCESS: Deleted branch 'tmp'"
+        );
+        assert_eq!(
+            execute_tool("git_create_branch", &serde_json::json!({"name": "other", "checkout": true}), dir.path())
+                .starts_with("SUCCESS: Created branch 'other' and checked out"),
+            true
+        );
+    }
+
+    #[test]
+    fn git_create_pr_without_gh_or_token() {
+        if crate::github::which("gh").is_some() {
+            return; // gh would try the network: covered by github.rs tests instead.
+        }
+        std::env::remove_var("GITHUB_TOKEN");
+        std::env::remove_var("GH_TOKEN");
+        let dir = tempdir().unwrap();
+        let out = execute_tool("git_create_pr", &serde_json::json!({"title": "t"}), dir.path());
+        assert_eq!(out, "ERROR: gh CLI not found and no GITHUB_TOKEN/GH_TOKEN set.");
+    }
+
+    #[test]
+    fn codegen_tools() {
+        let dir = tempdir().unwrap();
+
+        let dockerfile = execute_tool("generate_dockerfile", &serde_json::json!({"language": "python"}), dir.path());
+        assert!(dockerfile.starts_with("FROM python:3.11-slim"));
+        assert_eq!(
+            execute_tool("generate_dockerfile", &serde_json::json!({"language": "lisp"}), dir.path()),
+            "# Unsupported language"
+        );
+
+        let model = execute_tool(
+            "generate_db_model",
+            &serde_json::json!({"table": "user", "columns": [{"name": "id", "type": "int"}]}),
+            dir.path(),
+        );
+        assert!(model.starts_with("Generated model for user:\n\nclass User:"));
+        assert!(model.contains("id: int = None"));
+
+        let compose = execute_tool(
+            "generate_docker_compose",
+            &serde_json::json!({"services": [{"name": "web", "image": "nginx"}]}),
+            dir.path(),
+        );
+        assert!(compose.contains("  web:\n    image: nginx"));
+
+        // refactor_code
+        fs::write(dir.path().join("m.py"), "def foo(a):\n    return a\n").unwrap();
+        assert_eq!(
+            execute_tool(
+                "refactor_code",
+                &serde_json::json!({"path": "m.py", "function": "foo", "style": "async"}),
+                dir.path()
+            ),
+            "SUCCESS: Refactored foo with async style"
+        );
+        assert!(fs::read_to_string(dir.path().join("m.py")).unwrap().contains("async def foo"));
+        assert!(execute_tool(
+            "refactor_code",
+            &serde_json::json!({"path": "m.py", "function": "missing"}),
+            dir.path()
+        )
+        .starts_with("ERROR: Function not found"));
+
+        // Docs
+        let readme = execute_tool("generate_docs", &serde_json::json!({"type": "readme"}), dir.path());
+        assert!(readme.starts_with("# Project"), "got {readme}");
+        let api = execute_tool("generate_docs", &serde_json::json!({"type": "api", "path": "m.py"}), dir.path());
+        assert!(api.contains("## foo"));
+        assert_eq!(
+            execute_tool("generate_docs", &serde_json::json!({"type": "api"}), dir.path()),
+            "ERROR: Invalid doc type or missing path"
+        );
+
+        // Profiler
+        let profile = execute_tool("profile_code", &serde_json::json!({"path": "m.py"}), dir.path());
+        assert!(profile.starts_with("Code Profile\n="), "got {profile}");
+        assert!(profile.contains("Lines: 3"), "got {profile}");
+        assert!(profile.contains("Functions: 1"));
+        assert_eq!(
+            execute_tool("profile_code", &serde_json::json!({"path": "nope.py"}), dir.path()),
+            "File not found"
+        );
+        let suggestions = execute_tool("optimize_code", &serde_json::json!({"path": "m.py"}), dir.path());
+        assert!(suggestions.starts_with("Optimization Suggestions\n="));
+
+        // API client
+        fs::write(
+            dir.path().join("spec.json"),
+            r#"{"servers":[{"url":"https://api.example.com"}],"paths":{"/things":{"get":{}}}}"#,
+        )
+        .unwrap();
+        let client = execute_tool("generate_api_client", &serde_json::json!({"spec": "spec.json"}), dir.path());
+        assert!(client.contains("def get_things(self, **kwargs):"), "got {client}");
+    }
 }
 
 fn run_git(cwd: &std::path::Path, args: &[&str]) -> String {
@@ -410,4 +773,24 @@ fn run_git(cwd: &std::path::Path, args: &[&str]) -> String {
         }
         Err(e) => format!("ERROR: {e}"),
     }
+}
+
+/// Run git and map trimmed stdout on success, stderr on failure.
+fn git_ok(
+    cwd: &std::path::Path,
+    args: &[&str],
+    on_success: impl FnOnce(&str) -> String,
+) -> Result<String, String> {
+    match Command::new("git").args(args).current_dir(cwd).output() {
+        Ok(o) if o.status.success() => Ok(on_success(String::from_utf8_lossy(&o.stdout).trim())),
+        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+fn string_array(args: &Value, key: &str) -> Vec<String> {
+    args.get(key)
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+        .unwrap_or_default()
 }

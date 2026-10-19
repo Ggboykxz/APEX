@@ -233,6 +233,35 @@ class TestGitHubIntegrationEdgeCases:
         assert result is not None
         assert result["login"] == "owner"
 
+    def test_api_request_post_sets_content_type(self, monkeypatch):
+        """Regression: POST/PATCH bodies used to be sent without Content-Type."""
+        import urllib.request
+        import json as json_mod
+
+        seen = {}
+
+        class FakeResponse:
+            def read(self):
+                return json_mod.dumps({"ok": True}).encode()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                pass
+
+        def mock_urlopen(req):
+            seen["content_type"] = req.get_header("Content-type")
+            seen["data"] = req.data
+            return FakeResponse()
+
+        monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
+        client = GitHubClient(token="test")
+        result = client._api_request("POST", "/repos/o/r/issues", {"title": "t"})
+        assert result == {"ok": True}
+        assert seen["content_type"] == "application/json"
+        assert json_mod.loads(seen["data"].decode()) == {"title": "t"}
+
     def test_detect_repo_success(self, monkeypatch):
         """Hit lines 88-92 — detect_repo with valid JSON response."""
         import json

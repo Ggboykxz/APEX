@@ -8,8 +8,8 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 Full rewrite of the backend in Rust. The Python implementation stays the reference until parity is reached.
 
-- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`.
-- **Tools** — read/write/list, shell, git (status/diff/log/undo), search, format, undo, LSP (diagnostics, definition, references, hover).
+- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`, `memory`.
+- **Tools** — read/write/list, shell, git (status/diff/log/undo + stage/unstage/commit/branches/pre-commit/PR), search, format, undo, LSP (diagnostics, definition, references, hover), code generation (refactor, DB model, Dockerfile/compose, OpenAPI client, docs, profiler).
 - **Agent loop** — OpenAI-compatible chat completions with tool calling, permission gate (`APEX_DENIED_TOOLS`), JSON session persistence (`~/.apex/sessions/`).
 - **Compaction** — `prune` / `summarize` / `merge` strategies plus threshold-based auto-compaction.
 - **`@mentions`** — text files inlined, images embedded as base64.
@@ -18,7 +18,10 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **HTTP/WS API** — chat (JSON + SSE), tools, models, sessions, files, agents, themes, tui-config, config, undo/redo, plugins, cost, `/ws` and `/ws/events`.
 - **Plugins** — Rust-native manifests (`~/.apex/plugins/<name>/plugin.json`); Python `.py` plugins are listed but not executable without an interpreter.
 - **Cost tracking** — `cost.rs` mirrors `apex/cost_local.py` (46-model pricing table verified identical, per-model usage, resettable history).
-- **Tests** — 42 passing, including an MCP roundtrip against a fake server, plugin execution, streamed usage and JSON-RPC framing (line + `Content-Length`).
+- **Memory** — `memory.rs` mirrors `apex/memory.py` (`~/.apex/memory.json`, same JSON shape and timestamps); `apex-rs memory …` and the REPL `/memory` command read and write the same file as Python.
+- **Code generation** — `codegen.rs` mirrors `apex/codegen.py` (refactorer, DB/Docker/OpenAPI/docs generators, profiler) with Python-verified outputs.
+- **GitHub** — `github.rs` mirrors `apex/github_integration.py` (issues, PRs, merge, branches, automation) over the REST API or `gh`; `git_create_pr` returns the real PR URL.
+- **Tests** — 76 passing, including an MCP roundtrip against a fake server, plugin execution, streamed usage, JSON-RPC framing (line + `Content-Length`), a fake GitHub API and codegen parity fixtures.
 
 #### Fixed during the port
 
@@ -28,6 +31,11 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **Streamed usage dropped** — the SSE reader stopped at `finish_reason: stop`, never seeing the trailing `usage` chunk (real providers send it afterwards), so streamed answers always reported 0 tokens. Now read until `[DONE]`/EOF; regression test splits the SSE body across two chunks.
 - **LSP client was not LSP** — requests were line-delimited JSON, but the protocol requires `Content-Length` framing; real servers ignored everything. Now framed (MCP keeps line mode), documents are opened before queries, readiness (`experimental/serverStatus {quiescent:true}`) is awaited with an idle fallback and a retry, and `lsp_definition` / `lsp_references` / `lsp_hover` join `lsp_diagnostics`. Verified with a real `rust-analyzer`.
 - **`apex-rs chat` panic** — the REPL called `block_on` inside `#[tokio::main]`; it is async now.
+- **`add_type_hints` never worked (Python)** — the regex it built had an unclosed group, so it always raised `missing ), unterminated subpattern`; fixed in `apex/codegen.py` and implemented correctly in Rust.
+- **GitHub POST/PATCH bodies had no `Content-Type` (Python)** — the header was set on a dict `urllib.request.Request` had already copied; fixed and covered by a regression test.
+- **GitHub branch creation (Python)** — `GitHubClient.create_branch` shells out to `gh git checkout …`, and `gh` has no `git` subcommand, so it always returned `False`; the Rust port uses plain `git` (Python left untouched to avoid tests creating branches in the user's repo).
+- **`git_unstage` before the first commit (Rust)** — falls back to `git rm --cached -r .` when `git reset HEAD` cannot resolve an unborn `HEAD`.
+- **Stale `xfail` markers** — nine tests were still marked expected-to-fail for already-fixed bugs; they now run normally.
 
 ### TUI ⇄ Rust backend integration
 

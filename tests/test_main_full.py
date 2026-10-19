@@ -204,45 +204,30 @@ class TestHandleCommand:
         result = handle_command("/cost", real_agent, real_ui)
         assert result is True
 
-    @pytest.mark.xfail(
-        reason="Source bug: SessionManager shadowed by local import in handle_command"
-    )
     def test_save_command(self, real_agent, real_ui):
         from apex.main import handle_command
 
         result = handle_command("/save test_session", real_agent, real_ui)
         assert result is True
 
-    @pytest.mark.xfail(
-        reason="Source bug: SessionManager shadowed by local import in handle_command"
-    )
     def test_save_no_arg(self, real_agent, real_ui):
         from apex.main import handle_command
 
         result = handle_command("/save", real_agent, real_ui)
         assert result is True
 
-    @pytest.mark.xfail(
-        reason="Source bug: SessionManager shadowed by local import in handle_command"
-    )
     def test_load_no_arg(self, real_agent, real_ui):
         from apex.main import handle_command
 
         result = handle_command("/load", real_agent, real_ui)
         assert result is True
 
-    @pytest.mark.xfail(
-        reason="Source bug: SessionManager shadowed by local import in handle_command"
-    )
     def test_load_with_name(self, real_agent, real_ui):
         from apex.main import handle_command
 
         result = handle_command("/load nonexistent_session", real_agent, real_ui)
         assert result is True
 
-    @pytest.mark.xfail(
-        reason="Source bug: SessionManager shadowed by local import in handle_command"
-    )
     def test_sessions_command(self, real_agent, real_ui):
         from apex.main import handle_command
 

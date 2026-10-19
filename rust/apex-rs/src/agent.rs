@@ -261,6 +261,11 @@ impl Agent {
                 println!("{}", self.cost_report());
                 continue;
             }
+            if input == "/memory" || input.starts_with("/memory ") {
+                let arg = input["/memory".len()..].trim();
+                println!("{}", crate::memory::repl_command(arg));
+                continue;
+            }
             match self.chat(input).await {
                 Ok(resp) => println!("{resp}"),
                 Err(e) => println!("ERROR: {e}"),
