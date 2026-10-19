@@ -17,6 +17,7 @@ dirs = "5"
 futures = "0.3"
 tokio-stream = "0.1"
 tempfile = "3"
+regex = "1"
 base64 = "0.22"
 aes = "0.8"
 cbc = { version = "0.1", features = ["alloc"] }

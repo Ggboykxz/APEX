@@ -13,6 +13,7 @@ mod mcp_client;
 mod server;
 mod session_crypto;
 mod share;
+mod skills;
 mod tools;
 
 use clap::{Parser, Subcommand};

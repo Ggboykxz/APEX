@@ -83,7 +83,13 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"generate_api_client","description":"Generate API client from OpenAPI spec.","parameters":{"type":"object","properties":{"spec":{"type":"string","description":"Path to OpenAPI spec"}},"required":["spec"]}}},
         {"type":"function","function":{"name":"generate_docs","description":"Generate documentation.","parameters":{"type":"object","properties":{"type":{"type":"string","description":"Type: readme, api, markdoc"},"path":{"type":"string","description":"File path for api docs"}},"required":["type"]}}},
         {"type":"function","function":{"name":"profile_code","description":"Profile code complexity and performance.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to profile"}},"required":["path"]}}},
-        {"type":"function","function":{"name":"optimize_code","description":"Get optimization suggestions.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}}
+        {"type":"function","function":{"name":"optimize_code","description":"Get optimization suggestions.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"diff_files","description":"Show unified diff between two files.","parameters":{"type":"object","properties":{"path_a":{"type":"string","description":"Path to first file"},"path_b":{"type":"string","description":"Path to second file"}},"required":["path_a","path_b"]}}},
+        {"type":"function","function":{"name":"list_skills","description":"List available skills.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"use_skill","description":"Use a skill with arguments.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Skill name"},"args":{"type":"object","description":"Skill arguments"}},"required":["name"]}}},
+        {"type":"function","function":{"name":"replace_in_files","description":"Search and replace across multiple files.","parameters":{"type":"object","properties":{"pattern":{"type":"string","description":"Search pattern (regex)"},"replacement":{"type":"string","description":"Replacement string"},"files":{"type":"array","items":{"type":"string"},"description":"Glob patterns to match files"},"dry_run":{"type":"boolean","description":"Preview without applying"}},"required":["pattern","replacement"]}}},
+        {"type":"function","function":{"name":"analyze_code","description":"Analyze code structure and complexity.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"explain_code","description":"Explain what a code block does.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to explain"},"start":{"type":"integer","description":"Start line"},"end":{"type":"integer","description":"End line"}},"required":["path"]}}}
     ]);
     let mut arr = base.as_array().cloned().unwrap_or_default();
     for t in crate::mcp_client::global_tools() {
@@ -402,6 +408,105 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 out.push_str(&format!("\n- {s}"));
             }
             out
+        }
+        "diff_files" => {
+            let path_a = args.get("path_a").and_then(|v| v.as_str()).unwrap_or("");
+            let path_b = args.get("path_b").and_then(|v| v.as_str()).unwrap_or("");
+            crate::skills::DiffTool::new(cwd).diff(path_a, path_b)
+        }
+        "list_skills" => {
+            let skills = crate::skills::SkillManager::new(cwd).list_skills();
+            if skills.is_empty() {
+                "No skills available. Create .apex/skills/*.md files.".to_string()
+            } else {
+                let mut out = vec!["Available skills:".to_string()];
+                for (name, description) in skills {
+                    out.push(format!("  {name} - {description}"));
+                }
+                out.join("\n")
+            }
+        }
+        "use_skill" => {
+            let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let mut skill_args: std::collections::BTreeMap<String, String> = Default::default();
+            if let Some(obj) = args.get("args").and_then(|v| v.as_object()) {
+                for (k, v) in obj {
+                    let value = match v {
+                        Value::String(s) => s.clone(),
+                        other => other.to_string(),
+                    };
+                    skill_args.insert(k.clone(), value);
+                }
+            }
+            match crate::skills::SkillManager::new(cwd).render(name, &skill_args) {
+                Some(rendered) => format!("[SKILL: {name}]\n{rendered}"),
+                None => format!("ERROR: Skill '{name}' not found"),
+            }
+        }
+        "replace_in_files" => {
+            let pattern = args.get("pattern").and_then(|v| v.as_str()).unwrap_or("");
+            let replacement = args.get("replacement").and_then(|v| v.as_str()).unwrap_or("");
+            let files = string_array(args, "files");
+            let dry_run = args.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(true);
+            let result = crate::skills::SearchReplace::new(cwd).replace_in_files(pattern, replacement, &files, dry_run);
+            if let Some(err) = result.get("error").and_then(|e| e.as_str()) {
+                return err.to_string();
+            }
+            let replacements = result["replacements"].as_i64().unwrap_or(0);
+            let files_modified = result["files_modified"].as_array().cloned().unwrap_or_default();
+            let mut out = format!(
+                "Found {replacements} replacements in {} files",
+                files_modified.len()
+            );
+            if dry_run {
+                out += " (DRY RUN - use dry_run: false to apply)";
+            }
+            out += "\n\nFiles:\n";
+            out += &files_modified
+                .iter()
+                .take(10)
+                .map(|f| f.as_str().unwrap_or(""))
+                .collect::<Vec<_>>()
+                .join("\n");
+            out
+        }
+        "analyze_code" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let a = crate::skills::CodeAnalyzer::new(cwd).analyze_file(path);
+            if let Some(err) = a.get("error").and_then(|e| e.as_str()) {
+                return err.to_string();
+            }
+            let mut lines = vec!["Code Analysis".to_string(), "=".repeat(40)];
+            lines.push(format!("File: {}", a["path"].as_str().unwrap_or("")));
+            lines.push(format!("Lines: {}", a["lines"]));
+            lines.push(format!("Code lines: {}", a["code_lines"]));
+            lines.push(format!("Comment lines: {}", a["comment_lines"]));
+            lines.push(format!("Blank lines: {}", a["blank_lines"]));
+            lines.push(String::new());
+            let functions = a["functions"].as_array().cloned().unwrap_or_default();
+            lines.push(format!("Functions ({}):", functions.len()));
+            for f in functions.iter().take(5) {
+                lines.push(format!("  - {} (line {})", f["name"].as_str().unwrap_or(""), f["line"]));
+            }
+            lines.push(String::new());
+            let classes = a["classes"].as_array().cloned().unwrap_or_default();
+            lines.push(format!("Classes ({}):", classes.len()));
+            for c in classes.iter().take(5) {
+                lines.push(format!("  - {} (line {})", c["name"].as_str().unwrap_or(""), c["line"]));
+            }
+            lines.push(String::new());
+            let imports = a["imports"].as_array().cloned().unwrap_or_default();
+            lines.push(format!("Imports ({}):", imports.len()));
+            lines.push(
+                imports.iter().take(10).map(|i| i.as_str().unwrap_or("")).collect::<Vec<_>>().join(", "),
+            );
+            lines.join("\n")
+        }
+        "explain_code" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let start = args.get("start").and_then(|v| v.as_i64()).unwrap_or(1);
+            let end = args.get("end").and_then(|v| v.as_i64());
+            crate::skills::CodeAnalyzer::new(cwd).explain_code(path, start, end)
         }
         "git_diff" => {
             let r = args.get("ref").and_then(|v| v.as_str());

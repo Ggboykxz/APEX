@@ -9,7 +9,7 @@ All notable changes to APEX are documented in this file. The project follows [Se
 Full rewrite of the backend in Rust. The Python implementation stays the reference until parity is reached.
 
 - **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`, `memory`.
-- **Tools** — read/write/list, shell, git (status/diff/log/undo + stage/unstage/commit/branches/pre-commit/PR), search, format, undo, LSP (diagnostics, definition, references, hover), code generation (refactor, DB model, Dockerfile/compose, OpenAPI client, docs, profiler).
+- **Tools** — read/write/list, shell, git (status/diff/log/undo + stage/unstage/commit/branches/pre-commit/PR), search, format, undo, LSP (diagnostics, definition, references, hover), code generation (refactor, DB model, Dockerfile/compose, OpenAPI client, docs, profiler), skills & analysis (diff_files, list_skills, use_skill, replace_in_files, analyze_code, explain_code).
 - **Agent loop** — OpenAI-compatible chat completions with tool calling, permission gate (`APEX_DENIED_TOOLS`), JSON session persistence (`~/.apex/sessions/`).
 - **Compaction** — `prune` / `summarize` / `merge` strategies plus threshold-based auto-compaction.
 - **`@mentions`** — text files inlined, images embedded as base64.
@@ -21,7 +21,8 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **Memory** — `memory.rs` mirrors `apex/memory.py` (`~/.apex/memory.json`, same JSON shape and timestamps); `apex-rs memory …` and the REPL `/memory` command read and write the same file as Python.
 - **Code generation** — `codegen.rs` mirrors `apex/codegen.py` (refactorer, DB/Docker/OpenAPI/docs generators, profiler) with Python-verified outputs.
 - **GitHub** — `github.rs` mirrors `apex/github_integration.py` (issues, PRs, merge, branches, automation) over the REST API or `gh`; `git_create_pr` returns the real PR URL.
-- **Tests** — 76 passing, including an MCP roundtrip against a fake server, plugin execution, streamed usage, JSON-RPC framing (line + `Content-Length`), a fake GitHub API and codegen parity fixtures.
+- **Skills & analysis** — `skills.rs` mirrors `apex/skills.py` (skill manifests, unified diff, regex search/replace, code analyzer) and exposes six tools (`diff_files`, `list_skills`, `use_skill`, `replace_in_files`, `analyze_code`, `explain_code`).
+- **Tests** — 85 passing, including an MCP roundtrip against a fake server, plugin execution, streamed usage, JSON-RPC framing (line + `Content-Length`), a fake GitHub API and codegen parity fixtures.
 
 #### Fixed during the port
 
