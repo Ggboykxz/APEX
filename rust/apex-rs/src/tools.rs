@@ -6,6 +6,48 @@ use std::process::Command;
 use std::sync::Mutex;
 
 static BACKUP_STACK: Mutex<Vec<(PathBuf, String)>> = Mutex::new(Vec::new());
+static REDO_STACK: Mutex<Vec<(PathBuf, String, String)>> = Mutex::new(Vec::new());
+
+/// Restore the last file overwritten by `write_file`.
+pub fn undo_last_edit() -> String {
+    let mut stack = match BACKUP_STACK.lock() {
+        Ok(s) => s,
+        Err(_) => return "ERROR: lock poisoned".to_string(),
+    };
+    let Some((path, old_content)) = stack.pop() else {
+        return "Nothing to undo".to_string();
+    };
+    let current = fs::read_to_string(&path).unwrap_or_default();
+    match fs::write(&path, &old_content) {
+        Ok(_) => {
+            if let Ok(mut redo) = REDO_STACK.lock() {
+                redo.push((path.clone(), old_content, current));
+            }
+            format!("Restored {}", path.display())
+        }
+        Err(e) => format!("ERROR: {e}"),
+    }
+}
+
+/// Re-apply the last undone edit.
+pub fn redo_last_edit() -> String {
+    let mut redo = match REDO_STACK.lock() {
+        Ok(s) => s,
+        Err(_) => return "ERROR: lock poisoned".to_string(),
+    };
+    let Some((path, old_content, new_content)) = redo.pop() else {
+        return "Nothing to redo".to_string();
+    };
+    match fs::write(&path, &new_content) {
+        Ok(_) => {
+            if let Ok(mut stack) = BACKUP_STACK.lock() {
+                stack.push((path.clone(), old_content));
+            }
+            format!("Re-applied {}", path.display())
+        }
+        Err(e) => format!("ERROR: {e}"),
+    }
+}
 
 pub fn tool_schemas() -> Value {
     let base = json!([
@@ -19,6 +61,7 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"search_in_files","description":"Search a pattern in files","parameters":{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"}},"required":["pattern"]}}},
         {"type":"function","function":{"name":"format_file","description":"Format a file with the appropriate formatter","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"redo_last_edit","description":"Re-apply the last undone file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_undo","description":"Revert uncommitted changes (git checkout)","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
         {"type":"function","function":{"name":"lsp_diagnostics","description":"Get LSP diagnostics for a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"server":{"type":"string"}},"required":["path"]}}}
     ]);
@@ -63,6 +106,9 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                     }
                 }
             }
+            if let Ok(mut redo) = REDO_STACK.lock() {
+                redo.clear();
+            }
             if let Some(parent) = full.parent() {
                 let _ = fs::create_dir_all(parent);
             }
@@ -74,20 +120,8 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 Err(e) => format!("ERROR: {e}"),
             }
         }
-        "undo_last_edit" => {
-            if let Ok(mut stack) = BACKUP_STACK.lock() {
-                if let Some((path, content)) = stack.pop() {
-                    match fs::write(&path, content) {
-                        Ok(_) => format!("Restored {}", path.display()),
-                        Err(e) => format!("ERROR: {e}"),
-                    }
-                } else {
-                    "Nothing to undo".to_string()
-                }
-            } else {
-                "ERROR: lock poisoned".to_string()
-            }
-        }
+        "undo_last_edit" => undo_last_edit(),
+        "redo_last_edit" => redo_last_edit(),
         "git_undo" => {
             let path = args.get("path").and_then(|v| v.as_str());
             let mut cmd = vec!["checkout", "--"];
