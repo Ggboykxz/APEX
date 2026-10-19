@@ -1,0 +1,5 @@
+# Keep development artifacts small: this machine has a tight disk budget and
+# full debug info makes the linker run out of space.
+[profile.dev]
+debug = 0
+incremental = false

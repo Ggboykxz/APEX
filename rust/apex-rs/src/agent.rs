@@ -101,21 +101,18 @@ impl Agent {
         base.join(".apex").join("sessions").join(format!("{id}.json"))
     }
 
+    /// Persist the session in the Python-compatible encrypted format.
     pub fn save_session(&self, id: &str) -> anyhow::Result<()> {
-        let path = self.session_path(id);
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        let json = serde_json::to_string_pretty(&self.history)?;
-        std::fs::write(&path, json)?;
-        Ok(())
+        let cwd = self.config.cwd.to_string_lossy().to_string();
+        crate::share::save_session(id, &self.config.model, &cwd, &self.history)
+            .map(|_| ())
+            .ok_or_else(|| anyhow::anyhow!("failed to save session {id}"))
     }
 
+    /// Load a session (encrypted `.enc`, `latest_*` symlink, or plain JSON).
     pub fn load_session(&mut self, id: &str) -> anyhow::Result<()> {
-        let path = self.session_path(id);
-        if path.exists() {
-            let data = std::fs::read_to_string(&path)?;
-            self.history = serde_json::from_str(&data).unwrap_or_default();
+        if let Some(data) = crate::share::load_session(id) {
+            self.history = crate::share::history_of(&data);
         }
         Ok(())
     }

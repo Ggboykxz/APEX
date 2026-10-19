@@ -132,27 +132,7 @@ pub async fn serve(config: Config, port: u16) {
             Json(serde_json::json!({"models": models}))
         }))
         .route("/api/v1/sessions", get(|_st: State<AppState>| async move {
-            let dir = dirs::home_dir()
-                .unwrap_or_default()
-                .join(".apex")
-                .join("sessions");
-            let mut sessions = Vec::new();
-            if let Ok(rd) = std::fs::read_dir(&dir) {
-                for e in rd.flatten() {
-                    let fname = e.file_name();
-                    let Some(name) = fname.to_str() else { continue };
-                    let Some(id) = name.strip_suffix(".json") else { continue };
-                    sessions.push(serde_json::json!({
-                        "id": id,
-                        "name": id,
-                        "model": serde_json::Value::Null,
-                    }));
-                }
-            }
-            sessions.sort_by(|a, b| {
-                a["id"].as_str().unwrap_or("").cmp(b["id"].as_str().unwrap_or(""))
-            });
-            Json(serde_json::json!({"sessions": sessions}))
+            Json(serde_json::json!({"sessions": crate::share::list_sessions()}))
         }))
         .route("/api/v1/files/read", post({
             move |Json(req): Json<serde_json::Value>| async move {
@@ -250,6 +230,79 @@ pub async fn serve(config: Config, port: u16) {
             move |Json(req): Json<serde_json::Value>| async move {
                 let command = req.get("command").and_then(|v| v.as_str()).unwrap_or("");
                 Json(run_shell_capture(command, &state.config.cwd))
+            }
+        }))
+        .route("/api/v1/sessions/:id", get(|axum::extract::Path(id): axum::extract::Path<String>| async move {
+            match crate::share::load_session(&id) {
+                Some(history) => Json(serde_json::json!({"id": id, "history": history})),
+                None => Json(serde_json::json!({"id": id, "error": "session not found"})),
+            }
+        }))
+        .route("/api/v1/sessions/:id/load", post({
+            let state = state.clone();
+            move |axum::extract::Path(id): axum::extract::Path<String>| async move {
+                let mut a = state.agent.lock().await;
+                match a.load_session(&id) {
+                    Ok(_) => Json(serde_json::json!({"ok": true, "id": id, "messages": a.history.len()})),
+                    Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+                }
+            }
+        }))
+        .route("/api/v1/sessions/:id/save", post({
+            let state = state.clone();
+            move |axum::extract::Path(id): axum::extract::Path<String>| async move {
+                let a = state.agent.lock().await;
+                match a.save_session(&id) {
+                    Ok(_) => Json(serde_json::json!({"ok": true, "id": id})),
+                    Err(e) => Json(serde_json::json!({"ok": false, "error": e.to_string()})),
+                }
+            }
+        }))
+        .route("/api/v1/sessions/:id/history", get(|axum::extract::Path(id): axum::extract::Path<String>| async move {
+            match crate::share::load_session(&id) {
+                Some(data) => {
+                    let history = crate::share::history_of(&data);
+                    Json(serde_json::json!({
+                        "id": id,
+                        "model": data.get("model"),
+                        "messages": history,
+                    }))
+                }
+                None => Json(serde_json::json!({"id": id, "error": "session not found"})),
+            }
+        }))
+        .route("/api/v1/share", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let session_id = req.get("session_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let title = req.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let live = {
+                    let a = state.agent.lock().await;
+                    a.history.clone()
+                };
+                let (id, url) = crate::share::share_session(&session_id, &title, Some(live));
+                Json(serde_json::json!({"ok": true, "id": id, "url": url}))
+            }
+        }))
+        .route("/api/v1/share/:id", axum::routing::delete(|axum::extract::Path(id): axum::extract::Path<String>| async move {
+            let ok = crate::share::unshare_session(&id);
+            Json(serde_json::json!({"ok": ok, "id": id}))
+        }))
+        .route("/api/v1/shares", get(|| async {
+            Json(serde_json::json!({"shares": crate::share::list_shares()}))
+        }))
+        .route("/api/v1/export", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let session_id = req.get("session_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let live = {
+                    let a = state.agent.lock().await;
+                    a.history.clone()
+                };
+                match crate::share::export_session(&session_id, &state.config.cwd, Some(live)) {
+                    Some(path) => Json(serde_json::json!({"ok": true, "path": path.to_string_lossy()})),
+                    None => Json(serde_json::json!({"ok": false, "error": "nothing to export"})),
+                }
             }
         }))
         .route("/api/v1/chat", post({

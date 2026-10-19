@@ -7,6 +7,8 @@ mod jsonrpc;
 mod lsp;
 mod mcp_client;
 mod server;
+mod session_crypto;
+mod share;
 mod tools;
 
 use clap::{Parser, Subcommand};
@@ -38,6 +40,21 @@ enum Commands {
         #[arg(default_value = "{}")]
         args: String,
     },
+    /// Manage saved sessions
+    Session {
+        #[command(subcommand)]
+        action: SessionAction,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum SessionAction {
+    /// List saved sessions (name, timestamp, model, messages)
+    List,
+    /// Print a saved session as JSON
+    Show { id: String },
+    /// Save the current (empty) history under this name
+    Save { name: String },
 }
 
 fn load_mcp_servers() {
@@ -110,6 +127,30 @@ async fn main() {
             let parsed: serde_json::Value = serde_json::from_str(&args).unwrap_or(serde_json::json!({}));
             println!("{}", tools::execute_tool(&name, &parsed, &config.cwd));
         }
+        Some(Commands::Session { action }) => match action {
+            SessionAction::List => {
+                for s in share::list_sessions() {
+                    println!(
+                        "{}\t{}\t{}\t{} msgs",
+                        s["name"].as_str().unwrap_or("?"),
+                        s["timestamp"].as_str().unwrap_or("?"),
+                        s["model"].as_str().unwrap_or("?"),
+                        s["history_len"].as_u64().unwrap_or(0),
+                    );
+                }
+            }
+            SessionAction::Show { id } => match share::load_session(&id) {
+                Some(v) => println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default()),
+                None => eprintln!("session not found: {id}"),
+            },
+            SessionAction::Save { name } => {
+                let cwd = config.cwd.to_string_lossy().to_string();
+                match share::save_session(&name, &config.model, &cwd, &[]) {
+                    Some(p) => println!("Saved {}", p.display()),
+                    None => eprintln!("failed to save session"),
+                }
+            }
+        },
         None => {
             println!("APEX (Rust) — type 'apex-rs --help'");
         }

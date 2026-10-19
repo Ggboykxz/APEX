@@ -224,7 +224,24 @@ done
             command: script.to_string_lossy().to_string(),
             args: vec![],
         });
-        client.connect().await.unwrap();
+        // Some filesystems briefly return ETXTBSY right after writing an
+        // executable; retry a few times before giving up.
+        let mut last_err = None;
+        for _ in 0..5 {
+            match client.connect().await {
+                Ok(_) => {
+                    last_err = None;
+                    break;
+                }
+                Err(e) => {
+                    last_err = Some(e);
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            }
+        }
+        if let Some(e) = last_err {
+            panic!("connect failed: {e}");
+        }
         assert_eq!(client.tools.len(), 1);
         let out = client.call_tool("echo", json!({"text": "hi"})).await.unwrap();
         assert!(out.contains("hello from mcp"));
