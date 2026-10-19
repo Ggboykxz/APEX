@@ -1,9 +1,13 @@
 import React, { useState, useCallback, useEffect, useRef } from "react"
 import { Box, Text, useInput, useApp } from "ink"
+import { spawnSync } from "node:child_process"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { ChatPanel } from "./ChatPanel.js"
 import { StatusBar } from "./StatusBar.js"
 import { Sidebar } from "./Sidebar.js"
-import { apexTheme } from "../theme/apex.js"
+import { apexTheme, hasTheme, setTheme } from "../theme/apex.js"
 import { APEX_AGENTS, APEX_MODELS, type ChatMessage } from "../data/apex-data.js"
 import { SyncClient } from "../sync.js"
 
@@ -90,6 +94,7 @@ export function ApexApp() {
   const [ffResults, setFfResults] = useState<string[]>([])
   const [ffIdx, setFfIdx] = useState(0)
   const ffCache = useRef<string[]>([])
+  const sendMessageRef = useRef<((message: string) => void) | null>(null)
   const [showHelp, setShowHelp] = useState(false)
   const [showMS, setShowMS] = useState(false)
   const [msSearch, setMsSearch] = useState("")
@@ -104,6 +109,7 @@ export function ApexApp() {
   const [showSL, setShowSL] = useState(false)
   const [sessions, setSessions] = useState<{ id: string; name: string; model: string }[]>([])
   const [slIdx, setSlIdx] = useState(0)
+  const [activeSession, setActiveSession] = useState("")
   const [scrollOffset, setScrollOffset] = useState(0)
   const [retryCount, setRetryCount] = useState(0)
   const [inputHistory, setInputHistory] = useState<string[]>([])
@@ -124,8 +130,10 @@ export function ApexApp() {
       if (state.agent) setActiveAgent(state.agent)
     })
     sync.on("theme_changed", (data: any) => {
-      // Theme was changed externally — update local state
-      setConnectionError(`Theme changed: ${data.theme}`)
+      // Theme was changed externally — apply it locally too.
+      if (data.theme && setTheme(data.theme)) {
+        setConnectionError(`Theme changed: ${data.theme}`)
+      }
     })
     sync.on("chat_complete", (data: any) => {
       // Chat completed — update tokens if available
@@ -179,7 +187,7 @@ export function ApexApp() {
 
   const handleSlashCommand = useCallback((cmd: string, arg: string) => {
     switch (cmd) {
-      case "/new": case "/clear": setMessages([]); setInputValue(""); setTotalPromptTokens(0); setTotalCompletionTokens(0); setTotalSpent(0); setScrollOffset(0); return true
+      case "/new": case "/clear": setMessages([]); setInputValue(""); setTotalPromptTokens(0); setTotalCompletionTokens(0); setTotalSpent(0); setScrollOffset(0); setActiveSession(""); return true
       case "/help": setShowHelp(true); return true
       case "/models": setShowMS(true); setMsSearch(""); setMsIdx(0); return true
       case "/themes": fetchThemes(); setShowTS(true); setTsIdx(0); return true
@@ -199,10 +207,102 @@ export function ApexApp() {
       case "/undo": fetch(`${API_BASE}/api/v1/undo`, { method: "POST" }).then(r => r.json()).then((d: any) => { setConnectionError(d.error ? null : null) }).catch(() => { setConnectionError("Undo failed — backend unreachable") }); return true
       case "/redo": fetch(`${API_BASE}/api/v1/redo`, { method: "POST" }).then(r => r.json()).then((_d: any) => {}).catch(() => { setConnectionError("Redo failed — backend unreachable") }); return true
       case "/compact": fetch(`${API_BASE}/api/v1/compact`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(() => {}).catch(() => { setConnectionError("Compact failed — backend unreachable") }); return true
-      case "/share": case "/unshare": case "/export": case "/editor": case "/init": case "/connect": return false
+      case "/theme": {
+        if (!arg) { fetchThemes(); setShowTS(true); setTsIdx(0); return true }
+        if (!hasTheme(arg)) { setConnectionError(`Unknown theme: ${arg}`); return true }
+        setTheme(arg)
+        syncRef.current?.rpc("theme_changed", { theme: arg })
+        setConnectionError(`Theme: ${arg}`)
+        return true
+      }
+      case "/session": {
+        if (!arg) { fetchSessions(); setShowSL(true); setSlIdx(0); return true }
+        setConnectionError(`Loading session ${arg}...`)
+        fetch(`${API_BASE}/api/v1/sessions/${encodeURIComponent(arg)}/load`, { method: "POST" })
+          .then((r) => r.json())
+          .then((d: any) => {
+            if (d.error) { setConnectionError(`Session error: ${d.error}`); return }
+            setActiveSession(arg)
+            return fetch(`${API_BASE}/api/v1/sessions/${encodeURIComponent(arg)}/history`)
+              .then((r) => r.json())
+              .then((h: any) => {
+                const msgs: ChatMessage[] = (h.messages ?? [])
+                  .filter((m: any) => m?.role === "user" || m?.role === "assistant")
+                  .map((m: any, i: number) => ({
+                    id: `msg-${i}-loaded`,
+                    role: m.role,
+                    content: typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? ""),
+                    agent: activeAgent,
+                    model: h.model ?? activeModel,
+                    timestamp: Date.now(),
+                    promptTokens: 0,
+                    completionTokens: 0,
+                    cost: 0,
+                  }))
+                setMessages(msgs)
+                setScrollOffset(0)
+                setConnectionError(`Session "${arg}" loaded (${msgs.length} messages)`)
+              })
+          })
+          .catch(() => setConnectionError("Session load failed — backend unreachable"))
+        return true
+      }
+      case "/export": {
+        fetch(`${API_BASE}/api/v1/export`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: activeSession }),
+        }).then((r) => r.json())
+          .then((d: any) => setConnectionError(d.path ? `Exported to ${d.path}` : `Export failed: ${d.error ?? "unknown"}`))
+          .catch(() => setConnectionError("Export failed — backend unreachable"))
+        return true
+      }
+      case "/share": {
+        fetch(`${API_BASE}/api/v1/share`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: activeSession, title: arg }),
+        }).then((r) => r.json())
+          .then((d: any) => setConnectionError(d.url ? `Shared: ${d.url}` : `Share failed: ${d.error ?? "unknown"}`))
+          .catch(() => setConnectionError("Share failed — backend unreachable"))
+        return true
+      }
+      case "/unshare": {
+        if (!arg) { setConnectionError("Usage: /unshare <share_id>"); return true }
+        fetch(`${API_BASE}/api/v1/share/${encodeURIComponent(arg)}`, { method: "DELETE" })
+          .then((r) => r.json())
+          .then((d: any) => setConnectionError(d.ok ? `Unshared ${arg}` : `Share not found: ${arg}`))
+          .catch(() => setConnectionError("Unshare failed — backend unreachable"))
+        return true
+      }
+      case "/editor": {
+        const editor = process.env.EDITOR || process.env.VISUAL || "vi"
+        const dir = mkdtempSync(join(tmpdir(), "apex-editor-"))
+        const file = join(dir, "prompt.md")
+        try {
+          writeFileSync(file, "# Enter your prompt\n\n")
+          // Leave the alternate screen so the editor gets a clean terminal.
+          process.stdout.write("\x1b[?1049l")
+          try {
+            spawnSync(editor, [file], { stdio: "inherit" })
+          } catch {
+            setConnectionError(`Could not launch editor: ${editor}`)
+          }
+          process.stdout.write("\x1b[?1049h\x1b[2J\x1b[H")
+          const content = readFileSync(file, "utf8")
+          const prompt = content
+            .split("\n")
+            .filter((l) => !l.startsWith("#"))
+            .join("\n")
+            .trim()
+          if (prompt) sendMessageRef.current?.(prompt)
+        } finally {
+          try { rmSync(dir, { recursive: true, force: true }) } catch {}
+        }
+        return true
+      }
+      case "/init": case "/connect": return false
       default: return false
     }
-  }, [exit])
+  }, [exit, activeSession, activeAgent, activeModel])
 
   const sendMessage = useCallback(async (userMessage: string) => {
     if (userMessage.startsWith("/")) {
@@ -256,6 +356,9 @@ export function ApexApp() {
       setMessages((p) => [...p, { id: aid, role: "assistant", content: `Error: ${msg}`, agent: activeAgent, model: activeModel, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 }])
     } finally { setIsGenerating(false); setLivePromptTokens(0); setLiveCompletionTokens(0) }
   }, [activeAgent, activeModel, livePromptTokens, liveCompletionTokens])
+
+  // Allow slash commands declared above to dispatch prompts (used by /editor).
+  sendMessageRef.current = sendMessage as (message: string) => Promise<void>
 
   const sendBash = useCallback(async (cmd: string) => {
     setIsGenerating(true); setConnectionError(null)

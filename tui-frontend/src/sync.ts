@@ -7,6 +7,25 @@
  *   - Falls back to HTTP polling if WS fails
  */
 
+import { createRequire } from "node:module"
+
+/**
+ * Node < 22 has no global `WebSocket`. Fall back to the `ws` package so the
+ * TUI works on older Node runtimes as well.
+ */
+function resolveWebSocket(): typeof WebSocket | null {
+  const globalWs = (globalThis as { WebSocket?: typeof WebSocket }).WebSocket
+  if (globalWs) return globalWs
+  try {
+    const require_ = createRequire(import.meta.url)
+    return require_("ws") as typeof WebSocket
+  } catch {
+    return null
+  }
+}
+
+const WebSocketImpl = resolveWebSocket()
+
 export interface SyncEvent {
   event: string
   data: Record<string, unknown>
@@ -85,12 +104,16 @@ export class SyncClient {
   }
 
   private _connectWs(): void {
-    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
+    if (!WebSocketImpl) {
+      this.emit("disconnected")
+      return
+    }
+    if (this.ws?.readyState === WebSocketImpl.OPEN || this.ws?.readyState === WebSocketImpl.CONNECTING) {
       return
     }
 
     try {
-      this.ws = new WebSocket(this.url)
+      this.ws = new WebSocketImpl(this.url)
     } catch {
       this._scheduleReconnect()
       return
