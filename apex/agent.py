@@ -391,7 +391,11 @@ class Agent:
         for round_num in range(max_rounds):
             try:
                 response = litellm.completion(
-                    model=model_str, messages=messages, tools=get_all_tool_schemas(), timeout=120, **_extra
+                    model=model_str,
+                    messages=messages,
+                    tools=get_all_tool_schemas(),
+                    timeout=120,
+                    **_extra,
                 )
                 self._update_usage(response.usage)
                 if not response.choices[0].message.tool_calls:
