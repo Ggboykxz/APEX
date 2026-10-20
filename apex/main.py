@@ -20,19 +20,23 @@ import webbrowser
 from pathlib import Path
 from typing import Any
 
-from rich.panel import Panel
-from rich.table import Table
-
 from . import __version__
 from .agent import Agent
-from .commands_manager import commands_manager
 from .config import MODELS
-from .config_v2 import apex_config
-from .context import get_language_stats, get_repo_map
-from .http_api import start_tui_server, stop_tui_server
+from .ui import UI
 from .memory import Memory
 from .session import SessionManager
-from .ui import UI
+from .context import get_repo_map, get_language_stats
+from .http_api import start_tui_server, stop_tui_server
+from .config_v2 import apex_config, tui_config
+from .commands_manager import commands_manager
+from .theme_manager import theme_manager
+from .share import share_manager
+from .formatter import formatter_manager
+from .watcher import watcher
+from .agents import agent_manager
+from rich.panel import Panel
+from rich.table import Table
 
 memory = Memory()
 logger = logging.getLogger("apex")
@@ -667,8 +671,7 @@ def handle_command(
             return True
 
         case "/editor":
-            import subprocess
-            import tempfile
+            import subprocess, tempfile
             editor = os.environ.get("EDITOR", "vim")
             prompt_file = tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False)
             prompt_file.write("# Enter your prompt\n\n")
@@ -676,7 +679,7 @@ def handle_command(
             try:
                 subprocess.call([editor, prompt_file.name])
                 content = Path(prompt_file.name).read_text()
-                lines = [line for line in content.split("\n") if not line.startswith("#")]
+                lines = [l for l in content.split("\n") if not l.startswith("#")]
                 prompt = "\n".join(lines).strip()
                 if prompt:
                     ui.print_user(prompt)
@@ -737,11 +740,6 @@ def handle_command(
 
 
 def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
-    from prompt_toolkit import PromptSession
-    from prompt_toolkit.history import FileHistory
-    from prompt_toolkit.key_binding import KeyBindings
-    from prompt_toolkit.styles import Style
-
     history_file = Path.home() / ".apex" / "history"
     history_file.parent.mkdir(parents=True, exist_ok=True)
     bindings = KeyBindings()
@@ -1060,7 +1058,7 @@ def run_apex_tui(agent: Agent, ui: UI, resume: bool = False,
     finally:
         stop_tui_server(server)
 
-    ui.print_error("TUI failed. Run: apex install-tui")
+    ui.print_error(f"TUI failed. Run: apex install-tui")
     sys.exit(1)
 
 
@@ -1129,8 +1127,8 @@ def _install_tui_command(ui: UI) -> None:
             ui.print_info("Downloading TUI frontend from GitHub...")
             try:
                 # Use tarball download instead of full git clone (much smaller)
-                import tarfile
                 import tempfile
+                import tarfile
                 import urllib.request
                 tarball_url = "https://api.github.com/repos/Ggboykxz/APEX/tarball/main"
                 with tempfile.TemporaryDirectory() as tmp_dir:
@@ -1205,6 +1203,7 @@ def _cmd_serve(args: argparse.Namespace, ui: UI) -> None:
         host = args.hostname or apex_config.server.get("hostname", "127.0.0.1")
         port = args.port or apex_config.server.get("port", 8080)
         ui.print_info(f"Starting APEX HTTP API server on {host}:{port}...")
+        agent = Agent(apex_config)
         server = HTTPServer(host=host, port=port)
         ui.print_success(f"Server running at http://{host}:{port}")
         server.run()
@@ -1219,6 +1218,7 @@ def _cmd_web(args: argparse.Namespace, ui: UI) -> None:
         host = args.hostname or apex_config.server.get("hostname", "127.0.0.1")
         port = args.port or apex_config.server.get("port", 8080)
         ui.print_info(f"Starting APEX web server on {host}:{port}...")
+        agent = Agent(apex_config)
         server = HTTPServer(host=host, port=port)
         url = f"http://{host}:{port}"
         ui.print_success(f"Opening {url} in browser...")
@@ -1316,7 +1316,7 @@ def _cmd_auth(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_agent(args: argparse.Namespace, ui: UI) -> None:
-    from .agents import agent_manager
+    from .agents import agent_manager, AgentConfig
 
     if args.agent_subcommand == "list":
         agents = agent_manager.list_agents()
@@ -1464,7 +1464,7 @@ def _cmd_session(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_stats(args: argparse.Namespace, ui: UI) -> None:
-    from .cost_local import MODEL_PRICING
+    from .cost_local import cost_tracker, MODEL_PRICING
     sm = SessionManager()
     sessions = sm.list_sessions()
 
@@ -1679,7 +1679,7 @@ def _cmd_uninstall(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_mcp(args: argparse.Namespace, ui: UI) -> None:
-    from .mcp import MCPServerConfig, mcp_manager
+    from .mcp import mcp_manager, MCPServerConfig
 
     if args.mcp_subcommand == "list":
         servers = mcp_manager.list_servers() if hasattr(mcp_manager, "list_servers") else []
@@ -1706,7 +1706,7 @@ def _cmd_mcp(args: argparse.Namespace, ui: UI) -> None:
         if not command:
             ui.print_error("Command required")
             sys.exit(1)
-        ui.input("Arguments (comma-separated, optional): ").strip()
+        args_input = ui.input("Arguments (comma-separated, optional): ").strip()
         env_vars = ui.input("Environment variables (KEY=VAL, comma-separated, optional): ").strip()
 
         mcp_config = MCPServerConfig(
@@ -1805,10 +1805,8 @@ def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
 
 def _cmd_key(args: argparse.Namespace, ui: UI) -> None:
     """Quick setup: set OpenRouter API key."""
-    import json
-    import os
-    import time
     from pathlib import Path
+    import os, json, time
     key = getattr(args, "key_value", None) or args.prompt or ""
     if not key:
         key = ui.input("OpenRouter API key (sk-or-v1-...): ").strip()
@@ -1989,7 +1987,6 @@ def _cmd_debug(args: argparse.Namespace, ui: UI) -> None:
         ui.console.print()
         ui.console.print("[bold]Resolved config:[/]")
         import json
-
         from .config_v2 import apex_config
         ui.console.print(json.dumps(apex_config.raw(), indent=2, default=str)[:2000])
         return
@@ -2038,7 +2035,7 @@ def _cmd_plugin(args: argparse.Namespace, ui: UI) -> None:
             ui.print_info("No plugins installed. Use 'apex plugin <module>' to install one.")
         return
 
-    from .plugins import load_plugins_from_config, plugin_manager
+    from .plugins import plugin_manager, load_plugins_from_config
     ui.print_info(f"Installing plugin: {module}")
     try:
         # Try to pip-install the specified module first
@@ -2085,9 +2082,8 @@ def _cmd_gateway(parsed: argparse.Namespace, ui: UI) -> None:
     sub = args[0].lower() if args else "help"
 
     if sub == "start":
-        import asyncio
         import os
-
+        import asyncio
         from .gateway import GatewayServer
         from .gateway.config import GatewayConfig
         if not os.environ.get("APEX_GATEWAY_KEY") and not os.environ.get("OPENROUTER_API_KEY"):
@@ -2205,13 +2201,14 @@ def main() -> None:
     }
 
     if verb in subcommand_map:
-        _attr_name, sub_val = subcommand_map[verb]
+        attr_name, sub_val = subcommand_map[verb]
         # Build modified args for dispatch
         modified = [verb]
         if verb == "db":
             modified = ["db", "path"]
         elif verb in ("auth", "agent", "session", "mcp"):
             # If sub_val is a flag (--something), treat as the verb action
+            idx = 1
             if len(raw_args) > 1 and not raw_args[1].startswith("-"):
                 modified.append(raw_args[1])
             else:

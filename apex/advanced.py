@@ -2,9 +2,8 @@
 
 import asyncio
 import time
-from collections.abc import Callable
+from typing import Any, Callable, Optional
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass
@@ -139,7 +138,7 @@ class ToolTimeout:
 class ContextOptimizer:
     @staticmethod
     def prioritize_messages(
-        messages: list[dict[str, Any]], priority_keywords: list[str] | None = None
+        messages: list[dict[str, Any]], priority_keywords: list[str] = None
     ) -> list[dict[str, Any]]:
         priority_keywords = priority_keywords or ["error", "fix", "bug", "important", "critical"]
         high_priority = []
@@ -208,7 +207,7 @@ class FileOperationCache:
         self._max_size = max_size
         self._access_times = {}
 
-    def get(self, path: str) -> str | None:
+    def get(self, path: str) -> Optional[str]:
         if path in self._cache:
             self._access_times[path] = time.time()
             return self._cache[path]
@@ -233,8 +232,8 @@ class FileOperationCache:
         self._access_times.clear()
 
 
-_retry_handler: RetryHandler | None = None
-_file_cache: FileOperationCache | None = None
+_retry_handler: Optional[RetryHandler] = None
+_file_cache: Optional[FileOperationCache] = None
 
 
 def get_retry_handler() -> RetryHandler:

@@ -1,22 +1,19 @@
 """Session persistence for APEX - save and load conversation sessions."""
 
-import base64
 import json
-import logging
 import os
 import re
+import logging
+import base64
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    from cryptography.fernet import Fernet
+from typing import Any, Optional
 
 from .agent import Agent
 
 logger = logging.getLogger(__name__)
 
-_FERNET_KEY: bytes | None = None
+_FERNET_KEY: Optional[bytes] = None
 
 
 def _get_fernet() -> "Fernet":
@@ -79,14 +76,14 @@ class UndoManager:
             self._undo_stack.pop(0)
         self._redo_stack.clear()
 
-    def undo(self) -> dict[str, Any] | None:
+    def undo(self) -> Optional[dict[str, Any]]:
         if not self._undo_stack:
             return None
         action = self._undo_stack.pop()
         self._redo_stack.append(action)
         return action
 
-    def redo(self) -> dict[str, Any] | None:
+    def redo(self) -> Optional[dict[str, Any]]:
         if not self._redo_stack:
             return None
         action = self._redo_stack.pop()
