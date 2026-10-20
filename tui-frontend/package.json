@@ -15,12 +15,12 @@
     "ink-text-input": "^6.0.0",
     "react": "^18.3.1",
     "react-reconciler": "^0.29.2",
-    "ws": "^8.22.0"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.5",
+    "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
-    "tsx": "^4.23.15",
+    "tsx": "^4.22.0",
     "typescript": "^5.7.0"
   }
 }

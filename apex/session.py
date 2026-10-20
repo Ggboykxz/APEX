@@ -1,13 +1,13 @@
 """Session persistence for APEX - save and load conversation sessions."""
 
+import base64
 import json
+import logging
 import os
 import re
-import logging
-import base64
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from cryptography.fernet import Fernet
@@ -16,7 +16,7 @@ from .agent import Agent
 
 logger = logging.getLogger(__name__)
 
-_FERNET_KEY: Optional[bytes] = None
+_FERNET_KEY: bytes | None = None
 
 
 def _get_fernet() -> "Fernet":
@@ -37,7 +37,6 @@ def _get_fernet() -> "Fernet":
         # If the old key was a raw 32-byte SHA-256 hash, derive a proper Fernet key from it
         if len(raw) == 32:
             import hashlib
-
             _FERNET_KEY = base64.urlsafe_b64encode(hashlib.sha256(raw + b":fernet").digest())
         else:
             # Already a valid Fernet key (url-safe base64 of 32 bytes)
@@ -80,14 +79,14 @@ class UndoManager:
             self._undo_stack.pop(0)
         self._redo_stack.clear()
 
-    def undo(self) -> Optional[dict[str, Any]]:
+    def undo(self) -> dict[str, Any] | None:
         if not self._undo_stack:
             return None
         action = self._undo_stack.pop()
         self._redo_stack.append(action)
         return action
 
-    def redo(self) -> Optional[dict[str, Any]]:
+    def redo(self) -> dict[str, Any] | None:
         if not self._redo_stack:
             return None
         action = self._redo_stack.pop()
@@ -238,7 +237,6 @@ class SessionManager:
         encrypted_payload = _encrypt(payload)
 
         import hashlib as _hl
-
         encoded = _hl.sha256(payload + os.urandom(16)).hexdigest()[:16]
         share_id = encoded
 
@@ -265,7 +263,6 @@ class SessionManager:
             raw = filepath.read_bytes()
             if filepath.suffix == ".json":
                 import base64
-
                 wrapper = json.loads(raw)
                 compressed = wrapper.get("data", "")
                 json_str = base64.b64decode(compressed.encode()).decode()
