@@ -146,14 +146,23 @@ class SessionManager:
         with open(filepath, "wb") as f:
             f.write(encrypted)
 
-        # Atomically update the "latest" symlink using temp-link + rename
+        # Atomically update the "latest" pointer using a temp symlink + rename.
+        # Some platforms (Windows without Developer Mode/admin) cannot create
+        # symlinks — fall back to a plain pointer file in that case.
         latest_link = self._sessions_dir / f"latest_{name}.json"
         tmp_link = self._sessions_dir / f".latest_{name}.tmp"
-        # Remove stale temp link if it exists
-        if tmp_link.exists() or tmp_link.is_symlink():
-            tmp_link.unlink()
-        tmp_link.symlink_to(filepath.name)
-        os.replace(str(tmp_link), str(latest_link))
+        try:
+            if tmp_link.exists() or tmp_link.is_symlink():
+                tmp_link.unlink()
+            tmp_link.symlink_to(filepath.name)
+            os.replace(str(tmp_link), str(latest_link))
+        except OSError:
+            try:
+                if tmp_link.exists() or tmp_link.is_symlink():
+                    tmp_link.unlink()
+            except OSError:
+                pass
+            latest_link.write_text(filepath.name, encoding="utf-8")
 
         return filepath
 
@@ -167,7 +176,12 @@ class SessionManager:
                 return False
             filepath = max(matching, key=lambda p: p.stat().st_mtime)
         else:
-            resolved = (self._sessions_dir / latest_link.readlink()).resolve()
+            try:
+                resolved = (self._sessions_dir / latest_link.readlink()).resolve()
+            except OSError:
+                # Plain pointer file fallback (symlinks unavailable).
+                pointer = latest_link.read_text(encoding="utf-8").strip()
+                resolved = (self._sessions_dir / pointer).resolve()
             if not str(resolved).startswith(str(self._sessions_dir.resolve())):
                 return False
             filepath = resolved

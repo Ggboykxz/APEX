@@ -827,7 +827,7 @@ class TestV1Endpoints:
     @pytest.mark.asyncio
     async def test_v1_agents_by_name(self, server):
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.get("/api/v1/agents/coder")
+            resp = await client.get("/api/v1/agents/build")
             assert resp.status == 200
             data = await resp.json()
             assert data["name"] == "build"
@@ -1543,7 +1543,7 @@ class TestTuiServerCleanup:
         loop.shutdown_asyncgens = MagicMock(return_value=None)
         loop.close = MagicMock(wraps=loop.close)
 
-        with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+        with patch("apex.http_api.asyncio.new_event_loop", return_value=loop), patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
             with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
@@ -1559,7 +1559,7 @@ class TestTuiServerCleanup:
         loop.shutdown_asyncgens = MagicMock(return_value=None)
         loop.close = MagicMock(wraps=loop.close)
 
-        with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+        with patch("apex.http_api.asyncio.new_event_loop", return_value=loop), patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
             with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
@@ -1581,7 +1581,7 @@ class TestTuiServerCleanup:
         task = loop.create_task(dummy())
 
         with patch("asyncio.all_tasks", return_value={task}):
-            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop), patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
                 with patch("threading.Thread") as mock_thread_cls:
                     mock_thread_instance = MagicMock()
                     mock_thread_cls.return_value = mock_thread_instance
@@ -1601,7 +1601,7 @@ class TestTuiServerCleanup:
         loop.close = MagicMock()
 
         with patch("asyncio.all_tasks", return_value=set()):
-            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop), patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
                 with patch("threading.Thread") as mock_thread_cls:
                     mock_thread_instance = MagicMock()
                     mock_thread_cls.return_value = mock_thread_instance
@@ -1780,6 +1780,10 @@ class TestV1AuthLogoutLowercase:
     """Test auth_logout lowercase env var handling."""
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="os.environ is case-insensitive on Windows (no distinct lowercase key)",
+    )
     async def test_logout_lowercase_env_var(self):
         server = HTTPServer(require_auth=False)
         with patch.dict(

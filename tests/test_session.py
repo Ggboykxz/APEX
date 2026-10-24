@@ -9,6 +9,17 @@ from apex.agent import Agent
 from apex.config import Config
 from apex.session import SessionManager, UndoManager
 
+
+def _resolve_latest(session_mgr: SessionManager, name: str) -> Path:
+    """Resolve the latest_<name>.json pointer (symlink or plain pointer file)."""
+    link = session_mgr._sessions_dir / f"latest_{name}.json"
+    try:
+        return session_mgr._sessions_dir / link.readlink()
+    except OSError:
+        target = link.read_text(encoding="utf-8").strip()
+        return session_mgr._sessions_dir / target
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -180,18 +191,18 @@ class TestSessionManagerSave:
         from apex.session import _decrypt
 
         raw = filepath.read_bytes()
-        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
-        data = json.loads(_decrypt(nonce, ciphertext, tag))
+        data = json.loads(_decrypt(raw))
         assert data["name"] == "test_contents"
         assert data["model"] == "gpt-4o-mini"
         assert len(data["history"]) == 1
         assert "timestamp" in data
 
-    def test_save_creates_symlink(self, session_mgr, agent):
+    def test_save_creates_latest_pointer(self, session_mgr, agent):
         session_mgr.save(agent, "test_symlink")
-        symlink = session_mgr._sessions_dir / "latest_test_symlink.json"
-        assert symlink.exists()
-        assert symlink.is_symlink()
+        pointer = session_mgr._sessions_dir / "latest_test_symlink.json"
+        assert pointer.exists()
+        # Symlink (POSIX) or plain pointer file (Windows without privileges).
+        assert pointer.is_symlink() or bool(pointer.read_text(encoding="utf-8").strip())
 
     def test_save_sanitizes_name(self, session_mgr, agent):
         filepath = session_mgr.save(agent, "test special!chars")
@@ -302,26 +313,22 @@ class TestSessionManagerSessionDataIntegrity:
         agent._usage = {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150}
         session_mgr.save(agent, "test_usage")
         # Check the saved file (encrypted .enc format)
-        symlink = session_mgr._sessions_dir / "latest_test_usage.json"
-        target = session_mgr._sessions_dir / symlink.readlink()
+        target = _resolve_latest(session_mgr, "test_usage")
         from apex.session import _decrypt
 
         raw = target.read_bytes()
-        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
-        data = json.loads(_decrypt(nonce, ciphertext, tag))
+        data = json.loads(_decrypt(raw))
         assert data["usage"]["prompt_tokens"] == 100
 
     def test_cwd_preserved(self, session_mgr, agent):
         agent.cwd = Path("/tmp/test_dir")
         session_mgr.save(agent, "test_cwd")
-        symlink = session_mgr._sessions_dir / "latest_test_cwd.json"
-        target = session_mgr._sessions_dir / symlink.readlink()
+        target = _resolve_latest(session_mgr, "test_cwd")
         from apex.session import _decrypt
 
         raw = target.read_bytes()
-        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
-        data = json.loads(_decrypt(nonce, ciphertext, tag))
-        assert data["cwd"] == "/tmp/test_dir"
+        data = json.loads(_decrypt(raw))
+        assert data["cwd"] == str(Path("/tmp/test_dir"))
 
 
 class TestSessionEdgeCases:
