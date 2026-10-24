@@ -181,7 +181,8 @@ class TestSessionManagerSave:
         from apex.session import _decrypt
 
         raw = filepath.read_bytes()
-        data = json.loads(_decrypt(raw))
+        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
+        data = json.loads(_decrypt(nonce, ciphertext, tag))
         assert data["name"] == "test_contents"
         assert data["model"] == "gpt-4o-mini"
         assert len(data["history"]) == 1
@@ -307,7 +308,8 @@ class TestSessionManagerSessionDataIntegrity:
         from apex.session import _decrypt
 
         raw = target.read_bytes()
-        data = json.loads(_decrypt(raw))
+        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
+        data = json.loads(_decrypt(nonce, ciphertext, tag))
         assert data["usage"]["prompt_tokens"] == 100
 
     def test_cwd_preserved(self, session_mgr, agent):
@@ -318,7 +320,8 @@ class TestSessionManagerSessionDataIntegrity:
         from apex.session import _decrypt
 
         raw = target.read_bytes()
-        data = json.loads(_decrypt(raw))
+        nonce, tag, ciphertext = raw[:12], raw[12:28], raw[28:]
+        data = json.loads(_decrypt(nonce, ciphertext, tag))
         assert data["cwd"] == "/tmp/test_dir"
 
 
