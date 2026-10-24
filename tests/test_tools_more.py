@@ -1,5 +1,7 @@
 """Tests for APEX tools - command execution, web, images, test runner, formatting, packages."""
 
+import sys
+
 import pytest
 
 from apex.tools import ToolExecutor
@@ -20,6 +22,7 @@ def test_run_command_echo(executor):
     assert "hello_world" in result
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="no pwd on cmd.exe")
 def test_run_command_pwd(executor, tmp_path):
     result = executor.execute("run_command", {"command": "pwd"})
     assert str(tmp_path / "project") in result or "tmp" in result.lower()
@@ -37,6 +40,7 @@ def test_run_command_stderr(executor):
     assert len(result) > 0
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="no true on cmd.exe")
 def test_run_command_no_output(executor, tmp_path):
     # true command produces no output and exits 0
     result = executor.execute("run_command", {"command": "true"})

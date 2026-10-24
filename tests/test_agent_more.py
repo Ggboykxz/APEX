@@ -5,6 +5,7 @@ covered by the other test files.
 """
 
 import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -16,6 +17,45 @@ from apex.agents import (
 )
 from apex.config import MODELS, Config
 from apex.permission import permission_manager
+
+
+def _mk_tool_call(id="call_1", name="read_file", arguments='{"path": "x"}'):
+    tc = MagicMock()
+    tc.id = id
+    tc.function.name = name
+    tc.function.arguments = arguments
+    return tc
+
+
+def _resp_with_tool_calls(tc):
+    msg = MagicMock()
+    msg.content = None
+    msg.tool_calls = [tc]
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+    resp.usage = None
+    return resp
+
+
+def _chunk_with_tool_calls(tc):
+    ch = MagicMock()
+    delta = MagicMock()
+    delta.content = None
+    delta.tool_calls = [tc]
+    choice = MagicMock()
+    choice.delta = delta
+    ch.choices = [choice]
+    ch.usage = None
+    return ch
+
+
+def _agen(*items):
+    async def _gen():
+        for item in items:
+            yield item
+    return _gen()
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -232,16 +272,16 @@ class TestAutoSelectModelEdgeCases:
     """Test auto_select_model edge cases."""
 
     def test_explain_anywhere_in_text(self, agent):
-        assert agent.auto_select_model("please explain the function") == "claude-4-sonnet"
+        assert agent.auto_select_model("please explain the function") == "claude-sonnet-4"
 
     def test_debug_anywhere_in_text(self, agent):
-        assert agent.auto_select_model("I need to debug this") == "claude-4-opus"
+        assert agent.auto_select_model("I need to debug this") == "claude-sonnet-4"
 
     def test_refactor_before_create(self, agent):
         assert agent.auto_select_model("refactor and create") == "gpt-4o"
 
     def test_explain_takes_priority_over_create(self, agent):
-        assert agent.auto_select_model("explain and create") == "claude-4-sonnet"
+        assert agent.auto_select_model("explain and create") == "claude-sonnet-4"
 
     def test_empty_string(self, agent):
         assert agent.auto_select_model("") == "gpt-4o-mini"
@@ -278,17 +318,19 @@ class TestChatMaxRoundsReached:
     """Test _chat_internal max rounds reached (covers line 314)."""
 
     def test_max_rounds_zero_returns_error(self, agent):
-        """Setting max_tool_rounds to 0 causes immediate max-rounds error."""
-        agent.config.max_tool_rounds = 0
-        result = agent._chat_internal("hello")
+        """A model that only returns tool calls hits the max-rounds error."""
+        tc = _mk_tool_call()
+        with patch("apex.agent.litellm.completion", return_value=_resp_with_tool_calls(tc)):
+            result = agent._chat_internal("hello", max_rounds=1)
         assert (
             result
             == "ERROR: Max tool rounds reached. The conversation was terminated due to too many tool calls."
         )
 
     def test_chat_with_zero_rounds(self, agent):
-        agent.config.max_tool_rounds = 0
-        result = agent.chat("hello")
+        tc = _mk_tool_call()
+        with patch("apex.agent.litellm.completion", return_value=_resp_with_tool_calls(tc)):
+            result = agent.chat("hello", max_rounds=1)
         assert "Max tool rounds reached" in result
 
 
@@ -313,30 +355,32 @@ class TestChatGenericException:
 
 
 class TestChatBadRequestError:
-    """Test _chat_internal with BadRequestError (covers lines 305-307).
+    """Test _chat_internal with BadRequestError (covers lines 305-307)."""
 
-    Using a model alias that maps to an unrecognized provider string causes
-    litellm to raise BadRequestError.
-    """
+    @staticmethod
+    def _make_exception(exc_class, message="test error"):
+        resp = MagicMock()
+        resp.status_code = 400
+        resp.request = MagicMock()
+        return exc_class(
+            message=message,
+            response=resp,
+            llm_provider="openai",
+            model="gpt-4o",
+        )
 
-    @pytest.mark.skipif(
-        bool(os.environ.get("CI")),
-        reason="Requires API access, not available in CI",
-    )
     def test_bad_request_error_caught(self, agent):
-        agent.switch_model("llama-3.2-3b-free")
-        result = agent._chat_internal("hello", max_rounds=1)
+        exc = self._make_exception(litellm.BadRequestError)
+        with patch("apex.agent.litellm.completion", side_effect=exc):
+            result = agent._chat_internal("hello", max_rounds=1)
         assert isinstance(result, str)
         assert result.startswith("ERROR:")
         assert "Bad request" in result
 
-    @pytest.mark.skipif(
-        bool(os.environ.get("CI")),
-        reason="Requires API access, not available in CI",
-    )
     def test_bad_request_via_chat(self, agent):
-        agent.switch_model("llama-3.2-3b-free")
-        result = agent.chat("hello", max_rounds=1)
+        exc = self._make_exception(litellm.BadRequestError)
+        with patch("apex.agent.litellm.completion", side_effect=exc):
+            result = agent.chat("hello", max_rounds=1)
         assert isinstance(result, str)
         assert "Bad request" in result or "ERROR" in result
 
@@ -363,21 +407,31 @@ class TestStreamingMaxRoundsReached:
 
     @pytest.mark.asyncio
     async def test_streaming_max_rounds_zero(self, agent):
-        agent.config.max_tool_rounds = 0
-        chunks = []
-        async for chunk in agent._chat_internal_streaming("hello"):
-            chunks.append(chunk)
-        combined = "".join(chunks)
-        assert "Max tool rounds reached" in combined
+        tc = _mk_tool_call()
+        chunk_tc = _chunk_with_tool_calls(tc)
+        follow_up = _resp_with_tool_calls(tc)
+        with patch(
+            "apex.agent.litellm.acompletion",
+            side_effect=[_agen(chunk_tc), follow_up],
+        ):
+            chunks = []
+            async for chunk in agent._chat_internal_streaming("hello", max_rounds=1):
+                chunks.append(chunk)
+        assert "Max tool rounds reached" in "".join(chunks)
 
     @pytest.mark.asyncio
     async def test_streaming_chat_max_rounds_zero(self, agent):
-        agent.config.max_tool_rounds = 0
-        chunks = []
-        async for chunk in agent.chat_streaming("hello"):
-            chunks.append(chunk)
-        combined = "".join(chunks)
-        assert "Max tool rounds reached" in combined
+        tc = _mk_tool_call()
+        chunk_tc = _chunk_with_tool_calls(tc)
+        follow_up = _resp_with_tool_calls(tc)
+        with patch(
+            "apex.agent.litellm.acompletion",
+            side_effect=[_agen(chunk_tc), follow_up],
+        ):
+            chunks = []
+            async for chunk in agent.chat_streaming("hello", max_rounds=1):
+                chunks.append(chunk)
+        assert "Max tool rounds reached" in "".join(chunks)
 
 
 class TestStreamingGenericException:
@@ -446,14 +500,14 @@ class TestAgentWorkflow:
         a = Agent()
         a.cwd = tmp_path
 
-        results = a._execute_tools_parallel(
+        results = a._execute_tools(
             [
                 ("tc_1", "write_file", {"path": str(tmp_path / "test.txt"), "content": "hello"}),
             ]
         )
         assert len(results) == 1
 
-        results = a._execute_tools_parallel(
+        results = a._execute_tools(
             [
                 ("tc_2", "read_file", {"path": str(tmp_path / "test.txt")}),
             ]

@@ -115,11 +115,17 @@ class TestHandleCommandMore:
         """Test /cwd with APEX_ALLOW_OUTSIDE_CWD=true."""
         from apex.main import handle_command
 
+        old_cwd = os.getcwd()
         os.environ["APEX_ALLOW_OUTSIDE_CWD"] = "true"
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
-                result = handle_command(f"/cwd {tmpdir}", real_agent, real_ui)
-                assert result is True
+                try:
+                    result = handle_command(f"/cwd {tmpdir}", real_agent, real_ui)
+                    assert result is True
+                finally:
+                    # /cwd may chdir the process; restore before the temp dir
+                    # is removed (Windows forbids deleting the current cwd).
+                    os.chdir(old_cwd)
         finally:
             del os.environ["APEX_ALLOW_OUTSIDE_CWD"]
 

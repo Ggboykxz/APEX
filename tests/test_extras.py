@@ -63,12 +63,12 @@ class TestShellExpander:
 
     def test_expand_path_absolute(self):
         result = ShellExpander.expand_path("/tmp/test")
-        assert result == "/tmp/test"
+        assert result == os.path.abspath("/tmp/test")
 
     def test_expand_path_with_env(self):
         os.environ["MY_APEX_DIR"] = "/tmp"
         result = ShellExpander.expand_path("$MY_APEX_DIR/sub")
-        assert result == "/tmp/sub"
+        assert result == os.path.abspath("/tmp/sub")
         del os.environ["MY_APEX_DIR"]
 
     def test_expand_command(self):

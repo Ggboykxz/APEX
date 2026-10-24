@@ -317,6 +317,7 @@ class TestFileWatcher:
 
     def test_handler_on_modified(self, tmp_path, monkeypatch):
         """Hit lines 281-283 — FileWatcher Handler.on_modified."""
+        pytest.importorskip("watchdog")  # optional dependency, not installed in this env
         import watchdog
         from watchdog.events import FileModifiedEvent
 

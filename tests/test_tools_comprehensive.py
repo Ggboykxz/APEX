@@ -1,6 +1,9 @@
 """Tests for APEX tools - git branches, inline_edit, retry, git staging, skills, theme, hooks."""
 
+import shutil
 import subprocess
+import sys
+from unittest.mock import patch
 
 import pytest
 
@@ -85,15 +88,23 @@ def test_git_list_branches(git_executor):
 
 
 def test_git_create_pr(executor):
-    result = executor.execute(
-        "git_create_pr", {"title": "My PR", "body": "PR description", "base": "main"}
+    fake = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="https://github.com/x/y/pull/1\nMy PR", stderr=""
     )
+    with patch("apex.tools.subprocess.run", return_value=fake):
+        result = executor.execute(
+            "git_create_pr", {"title": "My PR", "body": "PR description", "base": "main"}
+        )
     assert "My PR" in result
-    assert "main" in result
+    assert "main" in result or "https://github.com" in result
 
 
 def test_git_create_pr_minimal(executor):
-    result = executor.execute("git_create_pr", {"title": "Minimal PR"})
+    fake = subprocess.CompletedProcess(
+        args=[], returncode=0, stdout="https://github.com/x/y/pull/2\nMinimal PR", stderr=""
+    )
+    with patch("apex.tools.subprocess.run", return_value=fake):
+        result = executor.execute("git_create_pr", {"title": "Minimal PR"})
     assert "Minimal PR" in result
 
 

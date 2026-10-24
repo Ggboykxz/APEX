@@ -103,7 +103,10 @@ class MentionParser:
             resolved = self.resolve_file(fm.path)
             if resolved.exists() and resolved.is_file():
                 try:
-                    content = resolved.read_text()
+                    # Explicit UTF-8 so binary files raise UnicodeDecodeError and are
+                    # skipped on every platform (the locale default, e.g. cp1252 on
+                    # Windows, would decode arbitrary bytes instead of rejecting them).
+                    content = resolved.read_text(encoding="utf-8")
                     result[fm.path] = content[:5000]
                 except Exception:
                     pass

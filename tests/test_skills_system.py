@@ -1,5 +1,7 @@
 """Tests for apex/skills_system.py — SkillsManager, CustomCommand, CommandRegistry."""
 
+import sys
+
 import pytest
 
 from apex.skills_system import (
@@ -228,6 +230,10 @@ class TestSkillsManagerEdgeCases:
         skill = mgr.get_skill("Trig Skill") or mgr.get_skill("trig_skill")
         assert skill is not None
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX chmod permissions are not enforced on Windows",
+    )
     def test_parse_skill_file_exception(self, tmp_path, monkeypatch):
         """Hit lines 153-154 — return None on exception."""
         skills_dir = tmp_path / "skills_bad"
