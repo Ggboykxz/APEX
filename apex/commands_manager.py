@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .config_v2 import apex_config
+from .shell_security import CommandCategory, shell_analyzer
 
 if TYPE_CHECKING:
     from .agent import Agent
@@ -124,9 +125,19 @@ def _render_template(template: str, args: list[str], project_dir: str) -> str:
 
     def _exec_shell(m: re.Match) -> str:
         cmd = m.group(1).strip()
+        analysis = shell_analyzer.analyze(cmd)
+        if analysis.category == CommandCategory.DANGEROUS:
+            return f"[blocked by security: {'; '.join(analysis.warnings)}]"
+        if analysis.requires_confirmation and analysis.category not in [
+            CommandCategory.WORKING_DIR,
+            CommandCategory.FILE_READ,
+            CommandCategory.BUILD,
+        ]:
+            return f"[blocked by security: {analysis.category.value} requires confirmation]"
         try:
             proc = subprocess.run(
                 cmd,
+                check=False,
                 shell=True,
                 capture_output=True,
                 text=True,

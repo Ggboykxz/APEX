@@ -115,7 +115,10 @@ class ShellSecurityAnalyzer:
     ]
 
     GIT_PATTERNS = [
-        r"\bgit\s+(?!init|status|diff|log|show|branch|checkout|add|commit|push|pull|clone|fetch|merge|rebase|config|remote|stash)\w+",
+        # Note: "push" is intentionally NOT in the safe list so that any
+        # `git push` (plain or forced) is classified GIT and triggers the
+        # `if "push" in command` confirmation branch below.
+        r"\bgit\s+(?!init|status|diff|log|show|branch|checkout|add|commit|pull|clone|fetch|merge|rebase|config|remote|stash)\w+",
         r"\bgit\s+push\s+-f\b",
         r"\bgit\s+push\s+--force\b",
         r"\bgit\s+filter-branch\b",

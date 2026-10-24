@@ -348,9 +348,10 @@ class TestShellSecurityAnalyzerDangerous:
         assert analysis.category == CommandCategory.DANGEROUS
 
     def test_openssl_rand(self, analyzer):
+        # openssl rand is a benign randomness generator; no dangerous pattern matches.
         analysis = analyzer.analyze("openssl rand -hex 32")
-        assert analysis.safe is False
-        assert analysis.category == CommandCategory.DANGEROUS
+        assert analysis.safe is True
+        assert analysis.category == CommandCategory.WORKING_DIR
 
     def test_disk_write_sda(self, analyzer):
         analysis = analyzer.analyze("> /dev/sda")
@@ -373,14 +374,17 @@ class TestShellSecurityAnalyzerDangerous:
     def test_is_safe_returns_false_for_dangerous(self, analyzer):
         assert analyzer.is_safe("rm -rf /") is False
 
-    def test_sh_in_command_matches_dangerous(self, analyzer):
-        """Commands containing words ending in 'sh' (like push, bash) can trigger
-        the pipe-to-shell dangerous patterns due to sh\\b matching."""
-        # "git push" triggers DANGEROUS because "push" contains "sh\b"
+    def test_git_push_is_not_dangerous(self, analyzer):
+        """`git push` is a normal git operation — never DANGEROUS.
+
+        Historical bug: `sh\b` matched inside "push" (ending in "sh"),
+        misclassifying routine `git push` as dangerous. The pipe-to-shell
+        patterns require an actual pipe (`|`), so this is now GIT + confirmation.
+        """
         analysis = analyzer.analyze("git push origin main")
-        # This is known behavior: sh\b matches in "push"
-        assert analysis.safe is False
-        assert analysis.category == CommandCategory.DANGEROUS
+        assert analysis.safe is True
+        assert analysis.category == CommandCategory.GIT
+        assert analysis.requires_confirmation is True
 
 
 class TestShellSecurityAnalyzerNetwork:
@@ -426,10 +430,11 @@ class TestShellSecurityAnalyzerNetwork:
         assert analysis.category == CommandCategory.NETWORK
 
     def test_ssh(self, analyzer):
-        # "ssh" contains "sh\b" which triggers DANGEROUS patterns first
+        # `ssh user@host` is a network operation (confirmation), not DANGEROUS.
         analysis = analyzer.analyze("ssh user@host")
-        assert analysis.category == CommandCategory.DANGEROUS
-        assert analysis.safe is False
+        assert analysis.category == CommandCategory.NETWORK
+        assert analysis.safe is True
+        assert analysis.requires_confirmation is True
 
     def test_scp(self, analyzer):
         analysis = analyzer.analyze("scp file user@host:/path")
@@ -670,9 +675,9 @@ class TestShellSecurityAnalyzerGit:
 
     def test_git_push_all(self, analyzer):
         analysis = analyzer.analyze("git push --all")
-        # Note: "push" contains "sh\b" which triggers DANGEROUS patterns
-        # So this will be classified as DANGEROUS, not GIT
-        assert analysis.safe is False
+        assert analysis.safe is True
+        assert analysis.category == CommandCategory.GIT
+        assert analysis.requires_confirmation is True
 
     def test_git_reset(self, analyzer):
         """git reset is NOT in the safe git commands list."""
@@ -732,10 +737,10 @@ class TestShellSecurityAnalyzerBuild:
         assert analysis.category == CommandCategory.BUILD
 
     def test_npm_publish(self, analyzer):
-        # "publish" contains "sh\b" which triggers DANGEROUS patterns first
+        # `npm publish` is a build/package operation, not DANGEROUS.
         analysis = analyzer.analyze("npm publish")
-        assert analysis.category == CommandCategory.DANGEROUS
-        assert analysis.safe is False
+        assert analysis.category == CommandCategory.BUILD
+        assert analysis.safe is True
 
     def test_yarn_run(self, analyzer):
         analysis = analyzer.analyze("yarn run build")
@@ -820,11 +825,12 @@ class TestShellSecurityAnalyzerContainer:
         analysis = analyzer.analyze("podman ps")
         assert "Container operation" in analysis.warnings
 
-    def test_docker_run_with_bash_is_dangerous(self, analyzer):
-        """docker run ... bash triggers DANGEROUS because bash contains 'sh\\b'."""
+    def test_docker_run_with_bash_is_container(self, analyzer):
+        """docker run ... bash is a container operation (confirmation), not DANGEROUS."""
         analysis = analyzer.analyze("docker run -it ubuntu bash")
-        # "bash" contains "sh\b" which matches the pipe-to-shell dangerous patterns
-        assert analysis.safe is False
+        assert analysis.safe is True
+        assert analysis.category == CommandCategory.CONTAINER
+        assert analysis.requires_confirmation is True
 
 
 class TestShellSecurityAnalyzerChainedCommands:
