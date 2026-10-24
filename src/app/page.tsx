@@ -246,13 +246,13 @@ export default function Home() {
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] }} className="text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-8">
-              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />v2.0.0 — OpenCode Architecture 🚀
+              <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />{APP_VERSION_TAG} — OpenCode Architecture 🚀
             </div>
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold font-mono leading-tight mb-6">
               The Universal <span className="animated-gradient-text">AI Coding</span><br />Agent
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Every model. One terminal. APEX runs in your terminal with 170+ models from 21 providers, 75+ tools, and 5 specialized agents. WebSocket EventBus for real-time sync. Snapshots, custom commands, and OpenCode architecture built in.
+              Every model. One terminal. APEX runs in your terminal with 170+ models from 21 providers, 75+ tools, and 11 specialized agents. WebSocket EventBus for real-time sync. Snapshots, custom commands, and OpenCode architecture built in.
             </p>
 
             {/* Install Tabs */}
@@ -466,7 +466,7 @@ export default function Home() {
               <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Features
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4 font-mono">Everything You Need</h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">APEX combines the power of 170+ models, 75+ tools, 5 specialized agents, and OpenCode architecture in one terminal-native experience.</p>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">APEX combines the power of 170+ models, 75+ tools, 11 specialized agents, and OpenCode architecture in one terminal-native experience.</p>
           </motion.div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((feature, i) => (
@@ -496,7 +496,7 @@ export default function Home() {
               </div>
               <div className="md:px-8 pt-6 md:pt-0">
                 <p className="eyebrow mb-2">02 · Sandbox Protection</p>
-                <h3 className="text-lg font-bold font-mono mb-3">Five agents, one approval system</h3>
+                <h3 className="text-lg font-bold font-mono mb-3">Eleven agents, one approval system</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">Coder asks, Architect reads, Planner observes. Sandboxed via landlock (Linux), seatbelt (macOS), restricted tokens (Windows).</p>
               </div>
               <div className="md:pl-8 pt-6 md:pt-0">

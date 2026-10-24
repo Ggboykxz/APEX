@@ -199,10 +199,10 @@ The HTTP API server (`apex.http_api`) includes:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.3.x   | ✅ Current         |
-| 1.2.x   | ⚠️ Maintained      |
-| 1.0.x   | ⚠️ Maintained      |
-| < 1.0   | ❌ Not supported   |
+| 2.0.x   | ✅ Current         |
+| 1.4.x   | ⚠️ Maintained      |
+| 1.3.x   | ⚠️ Maintained      |
+| < 1.3   | ❌ Not supported   |
 
 ---
 

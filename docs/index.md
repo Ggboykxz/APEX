@@ -82,3 +82,13 @@ apex
 - [Tools](tools.md)
 - [API Reference](api.md)
 - [Troubleshooting](troubleshooting.md)
+
+### Architecture Decision Records (ADR)
+
+- [ADR-0001 — Rust `shell_security`: git lookahead deviation](adr/ADR-0001-rust-shell-security-lookahead.md)
+- [ADR-0002 — Rust `permission`: constructor initialization](adr/ADR-0002-rust-permission-init.md)
+- [ADR-0003 — Rust `rate_limiter`: memory-first storage](adr/ADR-0003-rust-rate-limiter-storage.md)
+
+### ECC Agent-Sort
+
+- [ECC Agent-Sort report](ecc-agent-sort.md)
