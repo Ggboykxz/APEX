@@ -300,7 +300,7 @@ class MCPManager:
         # multi-underscore tool names resolve correctly.
         name = full_name
         if name.startswith("mcp_"):
-            name = name[len("mcp_"):]
+            name = name[len("mcp_") :]
         parts = name.split("_", 1)
         if len(parts) != 2:
             return "ERROR: Invalid tool name format"
