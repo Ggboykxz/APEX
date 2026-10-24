@@ -10,10 +10,21 @@ import { Sidebar } from "./Sidebar.js"
 import { apexTheme, hasTheme, setTheme } from "../theme/apex.js"
 import { APEX_AGENTS, APEX_MODELS, type ChatMessage } from "../data/apex-data.js"
 import { SyncClient } from "../sync.js"
+import { api } from "../api/client.js"
+import {
+  AgentSelector,
+  CommandPalette,
+  FileFinder,
+  HelpOverlay,
+  ModelSelector,
+  SessionList,
+  StatusOverlay,
+  ThemeSelector,
+} from "./overlays.js"
 
-const HTTP_PORT = parseInt(process.env.APEX_HTTP_PORT ?? "0", 10)
-const API_BASE = `http://127.0.0.1:${HTTP_PORT}`
-const WS_URL = `ws://127.0.0.1:${HTTP_PORT}/ws/events`
+const HTTP_PORT = Number(process.env.APEX_HTTP_PORT ?? "0") || 8765
+const API_BASE = api.baseUrl
+const WS_URL = api.wsUrl
 const DEFAULT_LEADER_TIMEOUT = 2000
 const MAX_VISIBLE = 20
 
@@ -39,11 +50,6 @@ const LEADER_CMDS: Record<string, { action: string; cmd?: string }> = {
   x: { action: "cmd", cmd: "/export" }, b: { action: "sidebar" },
   a: { action: "overlay", cmd: "agent" }, l: { action: "overlay", cmd: "session" },
   y: { action: "cmd", cmd: "/copy" }, q: { action: "quit" },
-}
-
-function parseSSE(data: string) {
-  if (data.startsWith("data: ")) { try { return JSON.parse(data.slice(6)) } catch { return {} } }
-  return {}
 }
 
 function calcMessageCost(pt: number, ct: number, mid: string) {
@@ -108,7 +114,7 @@ export function ApexApp() {
   const [thinkingMode, setThinkingMode] = useState<"show" | "hide" | "off">("show")
   const [showSO, setShowSO] = useState(false)
   const [showSL, setShowSL] = useState(false)
-  const [sessions, setSessions] = useState<{ id: string; name: string; model: string }[]>([])
+  const [sessions, setSessions] = useState<{ id: string; name: string; model?: string }[]>([])
   const [slIdx, setSlIdx] = useState(0)
   const [activeSession, setActiveSession] = useState("")
   const [scrollOffset, setScrollOffset] = useState(0)
@@ -173,10 +179,7 @@ export function ApexApp() {
 
   useEffect(() => { if (connectionError) { const t = setTimeout(() => { setConnectionError(null); setIsReconnecting(false) }, 5000); return () => clearTimeout(t) } }, [connectionError])
   useEffect(() => {
-    fetch(`${API_BASE}/api/v1/tui-config`).then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      return r.json()
-    }).then((cfg: any) => {
+    api.getTuiConfig().then((cfg) => {
       try {
         (globalThis as any).__TUI_CONFIG__ = cfg
         if (cfg.leader_timeout) setLeaderTimeout(cfg.leader_timeout)
@@ -211,9 +214,9 @@ export function ApexApp() {
       }
       case "/exit": case "/quit": case "/q": exit(); return true
       case "/sessions": fetchSessions(); setShowSL(true); setSlIdx(0); return true
-      case "/undo": fetch(`${API_BASE}/api/v1/undo`, { method: "POST" }).then(r => r.json()).then((d: any) => { setConnectionError(d.error ? null : null) }).catch(() => { setConnectionError("Undo failed — backend unreachable") }); return true
-      case "/redo": fetch(`${API_BASE}/api/v1/redo`, { method: "POST" }).then(r => r.json()).then((_d: any) => {}).catch(() => { setConnectionError("Redo failed — backend unreachable") }); return true
-      case "/compact": fetch(`${API_BASE}/api/v1/compact`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(() => {}).catch(() => { setConnectionError("Compact failed — backend unreachable") }); return true
+      case "/undo": api.undo().then((d) => { setConnectionError(d.error ? null : null) }).catch(() => { setConnectionError("Undo failed — backend unreachable") }); return true
+      case "/redo": api.redo().then(() => {}).catch(() => { setConnectionError("Redo failed — backend unreachable") }); return true
+      case "/compact": api.compact().then(() => {}).catch(() => { setConnectionError("Compact failed — backend unreachable") }); return true
       case "/theme": {
         if (!arg) { fetchThemes(); setShowTS(true); setTsIdx(0); return true }
         if (!hasTheme(arg)) { setConnectionError(`Unknown theme: ${arg}`); return true }
@@ -225,14 +228,12 @@ export function ApexApp() {
       case "/session": {
         if (!arg) { fetchSessions(); setShowSL(true); setSlIdx(0); return true }
         setConnectionError(`Loading session ${arg}...`)
-        fetch(`${API_BASE}/api/v1/sessions/${encodeURIComponent(arg)}/load`, { method: "POST" })
-          .then((r) => r.json())
-          .then((d: any) => {
+        api.loadSession(arg)
+          .then((d) => {
             if (d.error) { setConnectionError(`Session error: ${d.error}`); return }
             setActiveSession(arg)
-            return fetch(`${API_BASE}/api/v1/sessions/${encodeURIComponent(arg)}/history`)
-              .then((r) => r.json())
-              .then((h: any) => {
+            return api.sessionHistory(arg)
+              .then((h) => {
                 const msgs: ChatMessage[] = (h.messages ?? [])
                   .filter((m: any) => m?.role === "user" || m?.role === "assistant")
                   .map((m: any, i: number) => ({
@@ -255,28 +256,21 @@ export function ApexApp() {
         return true
       }
       case "/export": {
-        fetch(`${API_BASE}/api/v1/export`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: activeSession }),
-        }).then((r) => r.json())
-          .then((d: any) => setConnectionError(d.path ? `Exported to ${d.path}` : `Export failed: ${d.error ?? "unknown"}`))
+        api.exportSession(activeSession)
+          .then((d) => setConnectionError(d.path ? `Exported to ${d.path}` : `Export failed: ${d.error ?? "unknown"}`))
           .catch(() => setConnectionError("Export failed — backend unreachable"))
         return true
       }
       case "/share": {
-        fetch(`${API_BASE}/api/v1/share`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: activeSession, title: arg }),
-        }).then((r) => r.json())
-          .then((d: any) => setConnectionError(d.url ? `Shared: ${d.url}` : `Share failed: ${d.error ?? "unknown"}`))
+        api.share(activeSession, arg)
+          .then((d) => setConnectionError(d.url ? `Shared: ${d.url}` : `Share failed: ${d.error ?? "unknown"}`))
           .catch(() => setConnectionError("Share failed — backend unreachable"))
         return true
       }
       case "/unshare": {
         if (!arg) { setConnectionError("Usage: /unshare <share_id>"); return true }
-        fetch(`${API_BASE}/api/v1/share/${encodeURIComponent(arg)}`, { method: "DELETE" })
-          .then((r) => r.json())
-          .then((d: any) => setConnectionError(d.ok ? `Unshared ${arg}` : `Share not found: ${arg}`))
+        api.unshare(arg)
+          .then((d) => setConnectionError(d.ok ? `Unshared ${arg}` : `Share not found: ${arg}`))
           .catch(() => setConnectionError("Unshare failed — backend unreachable"))
         return true
       }
@@ -307,13 +301,13 @@ export function ApexApp() {
         return true
       }
       case "/cost": {
-        fetch(`${API_BASE}/api/v1/cost`).then((r) => r.json()).then((d: any) => {
+        api.cost().then((d) => {
           const usage = d.usage ?? {}
           const content = [
             "Token usage (session):",
-            `  Input: ${usage.prompt_tokens ?? d.input_tokens ?? 0}`,
-            `  Output: ${usage.completion_tokens ?? d.output_tokens ?? 0}`,
-            `  Total tokens: ${usage.total_tokens ?? d.total_tokens ?? 0}`,
+            `  Input: ${usage.prompt_tokens ?? 0}`,
+            `  Output: ${usage.completion_tokens ?? 0}`,
+            `  Total tokens: ${usage.total_tokens ?? 0}`,
             `  Cost: $${(d.total_cost ?? 0).toFixed(6)} (${d.currency ?? "USD"}, model ${d.model ?? activeModelRef.current})`,
           ].join("\n")
           setMessages((prev) => [...prev, { id: `msg-${Date.now()}-c`, role: "assistant", content, agent: "build", model: activeModelRef.current, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 }])
@@ -338,40 +332,19 @@ export function ApexApp() {
     const userMsg: ChatMessage = { id: `msg-${Date.now()}-u`, role: "user", content: userMessage, timestamp: Date.now() }
     setMessages((p) => [...p, userMsg])
     const aid = `msg-${Date.now()}-a`
+    setMessages((p) => [...p, { id: aid, role: "assistant", content: "", agent: activeAgent, model: activeModel, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 }])
     try {
-      const resp = await fetch(`${API_BASE}/chat/stream`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage, model: activeModel }),
+      const { full, usage } = await api.chatStream({
+        message: userMessage,
+        model: activeModel,
+        onChunk: (fullText) => {
+          setMessages((prev) => { const l = prev[prev.length - 1]; if (l?.id === aid) return [...prev.slice(0, -1), { ...l, content: fullText }]; return prev })
+        },
       })
-      if (!resp.ok) { setConnectionError(`Server error ${resp.status}: ${await resp.text()}`); setIsGenerating(false); return }
-      if (!resp.body) { setConnectionError("Empty response"); setIsGenerating(false); return }
-      let full = ""
-      setMessages((p) => [...p, { id: aid, role: "assistant", content: "", agent: activeAgent, model: activeModel, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 }])
-      const reader = resp.body.getReader()
-      const decoder = new TextDecoder()
-      let buf = ""
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        const lines = buf.split("\n")
-        buf = lines.pop() ?? ""
-        for (const line of lines) {
-          if (!line.trim() || line.startsWith(":")) continue
-          const p = parseSSE(line)
-          if (p.chunk) {
-            full += p.chunk
-            setMessages((prev) => { const l = prev[prev.length - 1]; if (l?.id === aid) return [...prev.slice(0, -1), { ...l, content: full }]; return prev })
-          }
-          if (p.usage) {
-            const u = { pt: p.usage.prompt_tokens ?? 0, ct: p.usage.completion_tokens ?? 0 }
-            liveUsageRef.current = u
-            setLivePromptTokens(u.pt); setLiveCompletionTokens(u.ct)
-          }
-        }
-      }
-      if (buf.trim()) { const p = parseSSE(buf); if (p.chunk) full += p.chunk }
-      const { pt: fp, ct: fc } = liveUsageRef.current
+      const fp = usage.prompt_tokens ?? 0
+      const fc = usage.completion_tokens ?? 0
+      liveUsageRef.current = { pt: fp, ct: fc }
+      setLivePromptTokens(fp); setLiveCompletionTokens(fc)
       const mc = calcMessageCost(fp, fc, activeModel)
       setMessages((prev) => { const l = prev[prev.length - 1]; if (l?.id === aid) return [...prev.slice(0, -1), { ...l, content: full || "(empty)", promptTokens: fp, completionTokens: fc, cost: mc }]; return prev })
       setTotalPromptTokens((p) => p + fp); setTotalCompletionTokens((c) => c + fc); setTotalSpent((s) => s + mc)
@@ -393,8 +366,7 @@ export function ApexApp() {
     setMessages((p) => [...p, { id: `msg-${Date.now()}-u`, role: "user", content: `! ${cmd}`, timestamp: Date.now() }])
     const rid = `msg-${Date.now()}-bash`
     try {
-      const resp = await fetch(`${API_BASE}/api/v1/bash`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: cmd }) })
-      const d: any = await resp.json()
+      const d = await api.bash(cmd)
       setMessages((p) => [...p, { id: rid, role: "assistant", content: "```\n" + (d.stdout ?? d.output ?? d.result ?? JSON.stringify(d)) + "\n```", agent: "shell", timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 }])
     } catch (e: any) { setConnectionError(`Bash error: ${e.message}`); setMessages((p) => [...p, { id: rid, role: "assistant", content: `Bash error: ${e.message}`, agent: "shell", timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 }]) }
     finally { setIsGenerating(false) }
@@ -402,17 +374,17 @@ export function ApexApp() {
 
   const fetchFiles = useCallback(async () => {
     if (ffCache.current.length > 0) return
-    try { const r = await fetch(`${API_BASE}/api/v1/files`); if (r.ok) { const d: any = await r.json(); ffCache.current = d.files ?? d ?? [] } }
+    try { ffCache.current = await api.listFiles() }
     catch { ffCache.current = ["src/", "README.md", "package.json", "tsconfig.json"] }
   }, [])
 
   const fetchThemes = useCallback(async () => {
-    try { const r = await fetch(`${API_BASE}/api/v1/themes`); if (r.ok) { const d: any = await r.json(); setThemes(d.themes ?? d ?? []) } else setThemes([{ id: "default", name: "Default" }, { id: "light", name: "Light" }]) }
+    try { setThemes(await api.listThemes()) }
     catch { setThemes([{ id: "default", name: "Default" }, { id: "light", name: "Light" }]) }
   }, [])
 
   const fetchSessions = useCallback(async () => {
-    try { const r = await fetch(`${API_BASE}/api/v1/sessions`); if (r.ok) { const d: any = await r.json(); setSessions(d.sessions ?? d ?? []) } }
+    try { setSessions(await api.listSessions()) }
     catch { setSessions([]) }
   }, [])
 
@@ -581,107 +553,61 @@ export function ApexApp() {
       </Box>
 
       {showCP && (
-        <Box flexDirection="column" flexGrow={1} padding={1}>
-          <Text color={apexTheme.cyan} bold>Command Palette </Text><Text color={apexTheme.gray}>(type, Enter select, Esc close)</Text>
-          <Box borderStyle="single" borderColor={apexTheme.border} paddingX={1}><Text color={apexTheme.accent}>&gt; </Text><Text color={apexTheme.fg}>{cpSearch}</Text><Text color={apexTheme.gray}>▎</Text></Box>
-          <Box flexDirection="column" marginTop={1}>
-            {filteredCommands.length === 0 && <Text color={apexTheme.gray}>No matches</Text>}
-            {filteredCommands.slice(0, 15).map((c, i) => (
-              <Text key={c.id} color={i === cpIdx % filteredCommands.length ? apexTheme.cyan : apexTheme.fg} bold={i === cpIdx % filteredCommands.length}>
-                {i === cpIdx % filteredCommands.length ? "▸ " : "  "}{c.id} <Text color={apexTheme.gray}>— {c.desc}</Text>
-              </Text>
-            ))}
-          </Box>
-        </Box>
+        <CommandPalette
+          commands={COMMANDS}
+          query={cpSearch}
+          index={cpIdx}
+          onSelect={(id) => { setShowCP(false); setCpSearch(""); sendMessage(id) }}
+        />
       )}
       {showHelp && (
-        <Box flexDirection="column" flexGrow={1} padding={1}>
-          <Text color={apexTheme.cyan} bold>HELP — Keyboard Shortcuts</Text>
-          <Text color={apexTheme.green} bold>Navigation</Text>
-          <Text color={apexTheme.fg}>  Tab          Switch agent        PgUp/PgDown   Scroll messages</Text>
-          <Text color={apexTheme.fg}>  ?            Help                 @             File finder</Text>
-          <Text color={apexTheme.green} bold>Commands</Text>
-          <Text color={apexTheme.fg}>  Ctrl+P       Command palette     Ctrl+K        Model selector</Text>
-          <Text color={apexTheme.fg}>  Ctrl+O       Toggle sidebar      Ctrl+L        Clear chat</Text>
-          <Text color={apexTheme.fg}>  Ctrl+T       Thinking mode       Ctrl+Q        Quit</Text>
-          <Text color={apexTheme.green} bold>Leader Key (Ctrl+X then...)</Text>
-          <Text color={apexTheme.fg}>  N  /new      U  /undo           R  /redo      C  /compact</Text>
-          <Text color={apexTheme.fg}>  M  /models   T  /themes         S  Status     E  /editor</Text>
-          <Text color={apexTheme.fg}>  X  /export   B  Sidebar         A  Agents     L  Sessions</Text>
-          <Text color={apexTheme.fg}>  Q  Quit</Text>
-          <Text color={apexTheme.green} bold>System</Text>
-          <Text color={apexTheme.fg}>  Enter        Send               !command     Bash execute</Text>
-          <Text color={apexTheme.gray}>  Press Escape to close</Text>
-        </Box>
+        <HelpOverlay onClose={() => setShowHelp(false)} />
       )}
       {showMS && (
-        <Box flexDirection="column" flexGrow={1} padding={1}>
-          <Text color={apexTheme.cyan} bold>Model Selector </Text><Text color={apexTheme.gray}>({filteredModels.length} — type, Enter select, Esc close)</Text>
-          <Box borderStyle="single" borderColor={apexTheme.border} paddingX={1}><Text color={apexTheme.accent}>&gt; </Text><Text color={apexTheme.fg}>{msSearch}</Text><Text color={apexTheme.gray}>▎</Text></Box>
-          <Box flexDirection="column" marginTop={1}>
-            {filteredModels.length === 0 && <Text color={apexTheme.gray}>No matches</Text>}
-            {filteredModels.slice(0, 15).map((m, i) => (
-              <Text key={m.id} color={i === msIdx % filteredModels.length ? apexTheme.cyan : apexTheme.fg} bold={i === msIdx % filteredModels.length}>
-                {i === msIdx % filteredModels.length ? "▸ " : "  "}{m.name} <Text color={apexTheme.gray}>({m.provider} · {(m.contextWindow / 1000).toFixed(0)}k ctx · ${m.inputCostPer1K}/${m.outputCostPer1K} per 1K)</Text>
-              </Text>
-            ))}
-          </Box>
-        </Box>
+        <ModelSelector
+          models={APEX_MODELS}
+          query={msSearch}
+          index={msIdx}
+          onSelect={(id) => { setActiveModel(id); setShowMS(false); setMsSearch("") }}
+        />
       )}
       {showTS && (
-        <Box flexDirection="column" flexGrow={1} padding={1}>
-          <Text color={apexTheme.cyan} bold>Theme Selector </Text><Text color={apexTheme.gray}>(Enter select, Esc close)</Text>
-          <Box flexDirection="column" marginTop={1}>
-            {themes.length === 0 && <Text color={apexTheme.gray}>Loading...</Text>}
-            {themes.map((t, i) => (
-              <Text key={t.id} color={i === tsIdx % themes.length ? apexTheme.cyan : apexTheme.fg} bold={i === tsIdx % themes.length}>
-                {i === tsIdx % themes.length ? "▸ " : "  "}{t.name} <Text color={apexTheme.gray}>({t.id})</Text>
-              </Text>
-            ))}
-          </Box>
-        </Box>
+        <ThemeSelector
+          themes={themes}
+          index={tsIdx}
+          onSelect={(id) => { setShowTS(false); sendMessage(`/theme ${id}`) }}
+        />
       )}
       {showAS && (
-        <Box flexDirection="column" flexGrow={1} padding={1}>
-          <Text color={apexTheme.cyan} bold>Agent Selector </Text><Text color={apexTheme.gray}>(Enter select, Esc close)</Text>
-          <Box flexDirection="column" marginTop={1}>
-            {APEX_AGENTS.map((a, i) => (
-              <Text key={a.id} color={i === asIdx % APEX_AGENTS.length ? (a.color ?? apexTheme.cyan) : apexTheme.fg} bold={i === asIdx % APEX_AGENTS.length}>
-                {i === asIdx % APEX_AGENTS.length ? "▸ " : "  "}{a.mode === "subagent" ? "@ " : "  "}{a.name} <Text color={apexTheme.gray}>— {a.description}</Text>
-              </Text>
-            ))}
-          </Box>
-        </Box>
+        <AgentSelector
+          agents={APEX_AGENTS}
+          index={asIdx}
+          onSelect={(id) => { setActiveAgent(id); setShowAS(false) }}
+        />
       )}
       {showSO && (
-        <Box flexDirection="column" flexGrow={1} padding={2}>
-          <Text color={apexTheme.cyan} bold>Session Status</Text>
-          <Text color={apexTheme.gray}>Agent:    </Text><Text color={agent.color} bold>{agent.name}</Text>
-          <Text color={apexTheme.gray}>Model:    </Text><Text color={apexTheme.fg}>{model?.name ?? activeModel}</Text>
-          <Text color={apexTheme.gray}>Provider: </Text><Text color={apexTheme.fg}>{model?.provider ?? "—"}</Text>
-          <Text color={apexTheme.gray}>Context:  </Text><Text color={apexTheme.fg}>{model?.contextWindow?.toLocaleString() ?? "—"} tokens</Text>
-          <Text color={apexTheme.gray}>Messages: </Text><Text color={apexTheme.fg}>{messages.length}</Text>
-          <Text color={apexTheme.gray}>Tokens — P: {totalPromptTokens.toLocaleString()} / C: {totalCompletionTokens.toLocaleString()} / T: {totalTokens.toLocaleString()}</Text>
-          <Text color={apexTheme.gray}>Cost:     </Text><Text color={apexTheme.green}>${totalSpent.toFixed(4)}</Text>
-          <Text color={apexTheme.gray}>Duration: </Text><Text color={apexTheme.fg}>{sessionDuration}</Text>
-          <Text color={apexTheme.gray}>Thinking: </Text><Text color={apexTheme.fg}>{thinkingMode}</Text>
-          <Text color={apexTheme.gray}>Context:  </Text><Text color={contextPct > 80 ? apexTheme.warning : apexTheme.fg}>{contextPct.toFixed(1)}%</Text>
-          <Text color={apexTheme.gray} bold>  Git Changes</Text>
-          <Text color={apexTheme.dimGray}>(Fetched on open)</Text>
-        </Box>
+        <StatusOverlay
+          agentName={agent.name}
+          agentColor={agent.color}
+          modelName={model?.name ?? activeModel}
+          provider={model?.provider ?? "—"}
+          contextWindow={model?.contextWindow ?? 0}
+          messageCount={messages.length}
+          totalPromptTokens={totalPromptTokens}
+          totalCompletionTokens={totalCompletionTokens}
+          totalTokens={totalTokens}
+          totalSpent={totalSpent}
+          sessionDuration={sessionDuration}
+          thinkingMode={thinkingMode}
+          contextPct={contextPct}
+        />
       )}
       {showSL && (
-        <Box flexDirection="column" flexGrow={1} padding={1}>
-          <Text color={apexTheme.cyan} bold>Sessions </Text><Text color={apexTheme.gray}>(Enter switch, Esc close)</Text>
-          <Box flexDirection="column" marginTop={1}>
-            {sessions.length === 0 && <Text color={apexTheme.gray}>No saved sessions</Text>}
-            {sessions.map((s, i) => (
-              <Text key={s.id} color={i === slIdx % sessions.length ? apexTheme.cyan : apexTheme.fg} bold={i === slIdx % sessions.length}>
-                {i === slIdx % sessions.length ? "▸ " : "  "}{s.name} <Text color={apexTheme.gray}>({s.model ?? "—"})</Text>
-              </Text>
-            ))}
-          </Box>
-        </Box>
+        <SessionList
+          sessions={sessions}
+          index={slIdx}
+          onSelect={(id) => { setShowSL(false); sendMessage(`/session ${id}`) }}
+        />
       )}
 
       {!anyOverlay && mainContent}
@@ -694,18 +620,16 @@ export function ApexApp() {
       )}
 
       {showFF && (
-        <Box borderStyle="single" borderColor={apexTheme.border} paddingX={1}>
-          <Text color={apexTheme.cyan} bold>@ File Reference </Text><Text color={apexTheme.gray}>(filter, Tab/Enter select, Esc close)</Text>
-          <Text color={apexTheme.fg}>@{ffQuery}<Text color={apexTheme.gray}>▎</Text></Text>
-          <Box flexDirection="column" marginTop={1}>
-            {filteredFiles.length === 0 && <Text color={apexTheme.gray}>No files</Text>}
-            {filteredFiles.slice(0, 8).map((f, i) => (
-              <Text key={f} color={i === ffIdx % filteredFiles.length ? apexTheme.cyan : f.endsWith("/") ? apexTheme.yellow : apexTheme.fg} bold={i === ffIdx % filteredFiles.length}>
-                {i === ffIdx % filteredFiles.length ? "▸ " : "  "}{f.endsWith("/") ? "[DIR] " : "[FILE] "}{f}
-              </Text>
-            ))}
-          </Box>
-        </Box>
+        <FileFinder
+          files={ffResults}
+          query={ffQuery}
+          index={ffIdx}
+          onSelect={(f) => {
+            const at = inputValue.lastIndexOf("@")
+            setInputValue((at >= 0 ? inputValue.slice(0, at) : inputValue) + "@" + f)
+            setShowFF(false); setFfQuery("")
+          }}
+        />
       )}
 
       <StatusBar activeAgent={activeAgent} activeModel={activeModel} totalTokens={totalTokens} totalPromptTokens={totalPromptTokens} totalCompletionTokens={totalCompletionTokens} totalSpent={totalSpent} contextPct={contextPct} messageCount={messages.length} sessionDuration={sessionDuration} livePromptTokens={livePromptTokens} liveCompletionTokens={liveCompletionTokens} thinkingMode={thinkingMode} />

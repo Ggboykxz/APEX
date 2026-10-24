@@ -7,7 +7,12 @@
   "private": true,
   "scripts": {
     "dev": "tsx src/App.tsx",
-    "start": "tsx src/App.tsx"
+    "start": "tsx src/App.tsx",
+    "dev:bun": "bun --bun run src/App.tsx",
+    "start:bun": "bun --bun run src/App.tsx",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "bun test"
   },
   "dependencies": {
     "ink": "^5.2.1",
