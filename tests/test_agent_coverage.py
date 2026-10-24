@@ -7,10 +7,9 @@ import litellm
 import pytest
 
 from apex.agent import Agent
-from apex.config import Config, MODELS
 from apex.agents import agent_manager
+from apex.config import MODELS, Config
 from apex.permission import permission_manager
-
 
 # ---------------------------------------------------------------------------
 # Helpers: build mock litellm responses

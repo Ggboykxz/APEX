@@ -1,9 +1,11 @@
 """Tests for apex/project.py — ProjectInitializer, FileWatcher, get_project_initializer."""
 
-import pytest
 import json
 from pathlib import Path
-from apex.project import ProjectInitializer, FileWatcher, get_project_initializer
+
+import pytest
+
+from apex.project import FileWatcher, ProjectInitializer, get_project_initializer
 
 
 class TestProjectInitializer:

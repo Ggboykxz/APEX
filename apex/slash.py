@@ -1,7 +1,8 @@
 """Slash commands for APEX - OpenCode-style command system."""
 
-from typing import Callable, Any
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass

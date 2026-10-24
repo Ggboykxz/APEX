@@ -1,10 +1,12 @@
 """Tests for apex/workspace_rollback.py — WorkspaceRollback, TurnTracker with real git operations."""
 
-import pytest
-import tempfile
 import subprocess
+import tempfile
 from pathlib import Path
-from apex.workspace_rollback import WorkspaceRollback, TurnTracker
+
+import pytest
+
+from apex.workspace_rollback import TurnTracker, WorkspaceRollback
 
 
 def _git_init(path):

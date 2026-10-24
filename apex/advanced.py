@@ -2,8 +2,9 @@
 
 import asyncio
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -207,7 +208,7 @@ class FileOperationCache:
         self._max_size = max_size
         self._access_times = {}
 
-    def get(self, path: str) -> Optional[str]:
+    def get(self, path: str) -> str | None:
         if path in self._cache:
             self._access_times[path] = time.time()
             return self._cache[path]
@@ -232,8 +233,8 @@ class FileOperationCache:
         self._access_times.clear()
 
 
-_retry_handler: Optional[RetryHandler] = None
-_file_cache: Optional[FileOperationCache] = None
+_retry_handler: RetryHandler | None = None
+_file_cache: FileOperationCache | None = None
 
 
 def get_retry_handler() -> RetryHandler:

@@ -11,7 +11,6 @@ litellm = pytest.importorskip("litellm")
 from apex.agent import Agent
 from apex.permission import permission_manager
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

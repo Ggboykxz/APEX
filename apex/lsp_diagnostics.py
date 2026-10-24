@@ -3,9 +3,9 @@
 import json
 import subprocess
 import time
-from pathlib import Path
-from typing import Any, Optional
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -40,7 +40,7 @@ class LSPDiagnostics:
         self._initialized = False
         self._last_diagnostics: dict[str, list[Diagnostic]] = {}
 
-    def detect_language(self, filepath: Path) -> Optional[str]:
+    def detect_language(self, filepath: Path) -> str | None:
         """Detect language from file extension."""
         ext_map = {
             ".py": "python",
@@ -116,7 +116,7 @@ class LSPDiagnostics:
 
         return False
 
-    def _send_request(self, language: str, request: dict) -> Optional[dict]:
+    def _send_request(self, language: str, request: dict) -> dict | None:
         """Send request to LSP server."""
         if language not in self._servers:
             return None

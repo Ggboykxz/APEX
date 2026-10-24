@@ -9,13 +9,12 @@ import pytest
 from apex.rate_limiter import (
     MemoryStorage,
     RateLimitConfig,
-    RateLimitResult,
     RateLimiter,
+    RateLimitResult,
     SQLiteStorage,
     StorageBackend,
     create_rate_limiter,
 )
-
 
 # ---------------------------------------------------------------------------
 # RateLimitConfig

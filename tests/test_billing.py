@@ -5,6 +5,7 @@ import time
 import pytest
 
 from apex.billing import (
+    MODEL_COSTS,
     BillingAccount,
     BillingManager,
     BillingPlan,
@@ -16,9 +17,7 @@ from apex.billing import (
     UsageRecord,
     billing_manager,
     calculate_cost,
-    MODEL_COSTS,
 )
-
 
 # ---------------------------------------------------------------------------
 # PlanType enum

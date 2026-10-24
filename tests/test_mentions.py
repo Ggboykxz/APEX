@@ -1,14 +1,16 @@
 """Tests for apex/mentions.py — MentionParser, FileMentionCompleter, singleton functions."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from apex.mentions import (
-    FileMention,
     AgentMention,
-    MentionParser,
+    FileMention,
     FileMentionCompleter,
-    get_mention_parser,
+    MentionParser,
     get_file_completer,
+    get_mention_parser,
 )
 
 

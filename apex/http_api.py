@@ -6,34 +6,34 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from aiohttp import web, WSMsgType
+from aiohttp import WSMsgType, web
 
 from .agent import Agent
-from .rate_limiter import (
-    create_rate_limiter,
-    RateLimitConfig,
-    RateLimitResult,
-)
+from .agents import agent_manager
 from .api_key import (
-    key_manager,
     InvalidKeyError,
-    KeyExpiredError,
     KeyDisabledError,
+    KeyExpiredError,
+    key_manager,
 )
 from .billing import (
     billing_manager,
 )
-from .config_v2 import apex_config
-from .share import share_manager, SENSITIVE_PATTERNS
-from .theme_manager import theme_manager
-from .formatter import formatter_manager
 from .commands_manager import commands_manager
-from .agents import agent_manager
-from .session import SessionManager, UndoManager
+from .config import MODEL_PROVIDERS, MODELS
+from .config_v2 import apex_config
+from .formatter import formatter_manager
 from .project import ProjectInitializer
-from .config import MODELS, MODEL_PROVIDERS
+from .rate_limiter import (
+    RateLimitConfig,
+    RateLimitResult,
+    create_rate_limiter,
+)
+from .session import SessionManager, UndoManager
+from .share import SENSITIVE_PATTERNS, share_manager
+from .theme_manager import theme_manager
 
 logger = logging.getLogger(__name__)
 
@@ -145,9 +145,7 @@ class AuthMiddleware:
         self.require_auth = require_auth
         self.key_manager = key_manager
 
-    async def authenticate(
-        self, request: web.Request
-    ) -> tuple[bool, Optional[str], Optional[dict]]:
+    async def authenticate(self, request: web.Request) -> tuple[bool, str | None, dict | None]:
         """Authenticate request and return (success, api_key, key_info)."""
         if not self.require_auth:
             return True, None, None
@@ -218,7 +216,7 @@ class HTTPServer:
         host: str = "127.0.0.1",
         port: int = 8080,
         require_auth: bool = True,
-        rate_limit_config: Optional[RateLimitConfig] = None,
+        rate_limit_config: RateLimitConfig | None = None,
         use_sqlite_storage: bool = False,
     ):
         self.host = host
@@ -317,35 +315,43 @@ class HTTPServer:
         self.event_bus.subscribe(ws)
         try:
             # Send initial state
-            await ws.send_json({
-                "event": "connected",
-                "data": {
-                    "version": __import__('apex', fromlist=['__version__']).__version__,
-                    "model": self.agent.model,
-                    "agent": self.agent.current_agent,
-                    "cwd": str(self.agent.cwd),
-                },
-                "timestamp": time.time(),
-            })
+            await ws.send_json(
+                {
+                    "event": "connected",
+                    "data": {
+                        "version": __import__("apex", fromlist=["__version__"]).__version__,
+                        "model": self.agent.model,
+                        "agent": self.agent.current_agent,
+                        "cwd": str(self.agent.cwd),
+                    },
+                    "timestamp": time.time(),
+                }
+            )
             async for msg in ws:
                 if msg.type == WSMsgType.TEXT:
                     try:
                         cmd = json.loads(msg.data)
                         # Handle RPC-like commands from TUI
                         if cmd.get("method") == "ping":
-                            await ws.send_json({"event": "pong", "data": {}, "timestamp": time.time()})
+                            await ws.send_json(
+                                {"event": "pong", "data": {}, "timestamp": time.time()}
+                            )
                         elif cmd.get("method") == "state":
-                            await ws.send_json({
-                                "event": "state",
-                                "data": {
-                                    "model": self.agent.model,
-                                    "agent": self.agent.current_agent,
-                                    "history_length": len(self.agent.history) if hasattr(self.agent, "history") else 0,
-                                    "undo_available": self.undo_manager.can_undo(),
-                                    "redo_available": self.undo_manager.can_redo(),
-                                },
-                                "timestamp": time.time(),
-                            })
+                            await ws.send_json(
+                                {
+                                    "event": "state",
+                                    "data": {
+                                        "model": self.agent.model,
+                                        "agent": self.agent.current_agent,
+                                        "history_length": len(self.agent.history)
+                                        if hasattr(self.agent, "history")
+                                        else 0,
+                                        "undo_available": self.undo_manager.can_undo(),
+                                        "redo_available": self.undo_manager.can_redo(),
+                                    },
+                                    "timestamp": time.time(),
+                                }
+                            )
                     except json.JSONDecodeError:
                         pass
                 elif msg.type in (WSMsgType.ERROR, WSMsgType.CLOSE):
@@ -356,9 +362,7 @@ class HTTPServer:
             self.event_bus.unsubscribe(ws)
         return ws
 
-    async def _check_auth(
-        self, request: web.Request
-    ) -> tuple[Optional[web.Response], Optional[dict]]:
+    async def _check_auth(self, request: web.Request) -> tuple[web.Response | None, dict | None]:
         """Check authentication, returns error response if failed."""
         success, api_key, key_info = await self.auth_middleware.authenticate(request)
         if self.require_auth and not success:
@@ -369,8 +373,8 @@ class HTTPServer:
         return None, key_info
 
     async def _check_rate_limit(
-        self, key_info: Optional[dict]
-    ) -> tuple[Optional[web.Response], Optional[RateLimitResult]]:
+        self, key_info: dict | None
+    ) -> tuple[web.Response | None, RateLimitResult | None]:
         """Check rate limit, returns error response if exceeded."""
         key = f"key:{key_info['key_id']}" if key_info else "anonymous"
         result = self.rate_limiter.check_rate_limit(key)
@@ -560,10 +564,13 @@ class HTTPServer:
             async for chunk in self.agent.chat_streaming(message):
                 await response.write(f"data: {json.dumps({'chunk': chunk})}\n\n".encode())
 
-            await self.event_bus.publish("chat_complete", {
-                "model": self.agent.model,
-                "usage": self.agent.usage or {},
-            })
+            await self.event_bus.publish(
+                "chat_complete",
+                {
+                    "model": self.agent.model,
+                    "usage": self.agent.usage or {},
+                },
+            )
 
             usage = self.agent.usage or {}
             if key_info:
@@ -1422,7 +1429,7 @@ class HTTPServer:
             )
             while True:
                 await asyncio.sleep(30)
-                await response.write(": keepalive\n\n".encode())
+                await response.write(b": keepalive\n\n")
         except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError):
             pass
         finally:

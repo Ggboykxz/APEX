@@ -1,8 +1,9 @@
 """Additional coverage tests for apex/tools.py - covering remaining uncovered lines."""
 
-import pytest
 import subprocess
 from pathlib import Path
+
+import pytest
 
 
 # Helper: create minimal .git dir
@@ -436,6 +437,7 @@ def test_get_context_info_with_agent(executor, monkeypatch):
 
 def test_async_executor_exception_handler():
     import asyncio
+
     from apex.tools import AsyncToolExecutor
 
     e = AsyncToolExecutor()
@@ -445,6 +447,7 @@ def test_async_executor_exception_handler():
 
 def test_async_executor_parallel():
     import asyncio
+
     from apex.tools import AsyncToolExecutor
 
     e = AsyncToolExecutor()

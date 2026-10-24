@@ -1,12 +1,14 @@
 """Tests for apex/telemetry.py — Logger, TelemetryEvent, EventType, PerformanceMonitor."""
 
-import pytest
 import json
+
+import pytest
+
 from apex.telemetry import (
     EventType,
-    TelemetryEvent,
     Logger,
     PerformanceMonitor,
+    TelemetryEvent,
     logger,
     perf_monitor,
 )

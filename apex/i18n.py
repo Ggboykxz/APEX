@@ -2,7 +2,6 @@
 
 import os
 
-
 LOCALES = {
     "en": {
         "app_name": "APEX",

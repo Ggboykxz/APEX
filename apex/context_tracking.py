@@ -1,7 +1,7 @@
 """Context tracking and compaction for 1M token context support."""
 
-from typing import Any
 from datetime import datetime
+from typing import Any
 
 
 class ContextManager:

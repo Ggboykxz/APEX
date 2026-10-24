@@ -1,12 +1,12 @@
 """Tests for apex/github_integration.py — GitHubClient, GitHubAutomation with no network calls."""
 
 from apex.github_integration import (
+    GitHubAutomation,
+    GitHubClient,
     GitHubIssue,
     GitHubPR,
-    GitHubClient,
-    GitHubAutomation,
-    gh_client,
     gh_automation,
+    gh_client,
 )
 
 
@@ -211,8 +211,8 @@ class TestGitHubIntegrationEdgeCases:
 
     def test_api_request_success(self, monkeypatch):
         """Hit line 75 — successful API request with JSON response."""
-        import urllib.request
         import json
+        import urllib.request
 
         class FakeResponse:
             def read(self):
@@ -235,8 +235,8 @@ class TestGitHubIntegrationEdgeCases:
 
     def test_api_request_post_sets_content_type(self, monkeypatch):
         """Regression: POST/PATCH bodies used to be sent without Content-Type."""
-        import urllib.request
         import json as json_mod
+        import urllib.request
 
         seen = {}
 

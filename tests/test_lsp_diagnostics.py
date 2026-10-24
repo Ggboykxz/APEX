@@ -6,12 +6,11 @@ from pathlib import Path
 import pytest
 
 from apex.lsp_diagnostics import (
-    Diagnostic,
     LANGUAGE_SERVERS,
-    LSPDiagnostics,
+    Diagnostic,
     DiagnosticContextBuilder,
+    LSPDiagnostics,
 )
-
 
 # ---------------------------------------------------------------------------
 # Diagnostic dataclass

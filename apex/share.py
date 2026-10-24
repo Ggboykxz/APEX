@@ -3,9 +3,9 @@
 import json
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from . import __version__
 
@@ -33,7 +33,7 @@ ENVVAR_PATTERNS: list[re.Pattern] = [
 
 
 class ShareManager:
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         self._shares_dir = Path.home() / ".config" / "apex" / "shares"
         self._shares_dir.mkdir(parents=True, exist_ok=True)
         self._config_path = config_path
@@ -103,7 +103,7 @@ class ShareManager:
             return ""
 
         share_id = self._generate_id()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         url = f"https://apex-ai.dev/s/{share_id}"
 
         session_data = self._load_session_data(session_id)
@@ -178,7 +178,7 @@ class ShareManager:
             return {}
         safe = self.sanitize_session_data(data)
         export = {
-            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "exported_at": datetime.now(UTC).isoformat(),
             "session_id": session_id,
             "apex_version": __version__,
             "data": safe,

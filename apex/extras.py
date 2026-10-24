@@ -1,11 +1,11 @@
 """Extra features for APEX - shell expansion, task queue, history search."""
 
+import asyncio
 import os
 import re
-import asyncio
-from pathlib import Path
-from typing import Any, Optional
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 class ShellExpander:
@@ -109,7 +109,7 @@ class TaskQueue:
             task.error = str(e)
             task.status = "failed"
 
-    def get(self, task_id: str) -> Optional[Task]:
+    def get(self, task_id: str) -> Task | None:
         return self._tasks.get(task_id)
 
     def list(self) -> list[dict]:
@@ -266,9 +266,9 @@ class SecurityAuditor:
         return results
 
 
-_env_manager: Optional[EnvManager] = None
-_task_queue: Optional[TaskQueue] = None
-_history_search: Optional[HistorySearch] = None
+_env_manager: EnvManager | None = None
+_task_queue: TaskQueue | None = None
+_history_search: HistorySearch | None = None
 
 
 def get_env_manager(cwd: str) -> EnvManager:

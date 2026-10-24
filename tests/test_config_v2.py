@@ -17,7 +17,6 @@ import pytest
 # module-level globals that depend on Path.home()).
 from apex.config_v2 import parse_jsonc, read_jsonc, strip_jsonc_comments
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures
 # ═══════════════════════════════════════════════════════════════════════

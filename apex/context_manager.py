@@ -1,8 +1,8 @@
 """Context Manager for APEX - Handle long conversations with summarization."""
 
 import json
-from typing import Any
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass

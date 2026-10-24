@@ -3,13 +3,12 @@ APEX Server - HTTP/WebSocket server for multi-client connections.
 Can be run with Bun/Node.js or standalone Python.
 """
 
-import json
 import asyncio
 import hashlib
+import json
 import logging
 import os
 from datetime import datetime
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class APEXClient:
     _window = 60
     _request_times: dict[str, list[float]] = {}
 
-    def __init__(self, client_id: str, name: str = "anonymous", token: Optional[str] = None):
+    def __init__(self, client_id: str, name: str = "anonymous", token: str | None = None):
         self.id = client_id
         self.name = name
         self.token = token
@@ -98,7 +97,7 @@ class APEXServer:
         """Set the agent instance for this server."""
         self._agent = agent
 
-    async def handle_websocket(self, ws, path: str = "/ws", token: Optional[str] = None):
+    async def handle_websocket(self, ws, path: str = "/ws", token: str | None = None):
         """Handle WebSocket connections."""
         if self._key_manager._require_auth and not self._key_manager.is_valid(token):
             logger.warning("Unauthorized WebSocket connection attempt")

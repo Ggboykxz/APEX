@@ -1,10 +1,12 @@
 """Tests for apex/git_undo.py — GitUndoManager with real git operations."""
 
-import pytest
-import tempfile
 import subprocess
+import tempfile
 from pathlib import Path
-from apex.git_undo import UndoSnapshot, GitUndoManager
+
+import pytest
+
+from apex.git_undo import GitUndoManager, UndoSnapshot
 
 
 def _git_init(path):

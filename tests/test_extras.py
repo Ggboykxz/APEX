@@ -1,24 +1,27 @@
 """Tests for apex/extras.py — ShellExpander, EnvManager, Task, TaskQueue, HistorySearch, WorkspaceValidator, SecurityAuditor."""
 
-import pytest
-import tempfile
-import os
 import asyncio
+import os
+import tempfile
 import time
 from pathlib import Path
-from apex.extras import (
-    ShellExpander,
-    EnvManager,
-    Task,
-    TaskQueue as ExtrasTaskQueue,
-    HistorySearch,
-    WorkspaceValidator,
-    SecurityAuditor,
-    get_env_manager,
-    get_task_queue,
-    get_history_search,
-)
 
+import pytest
+
+from apex.extras import (
+    EnvManager,
+    HistorySearch,
+    SecurityAuditor,
+    ShellExpander,
+    Task,
+    WorkspaceValidator,
+    get_env_manager,
+    get_history_search,
+    get_task_queue,
+)
+from apex.extras import (
+    TaskQueue as ExtrasTaskQueue,
+)
 
 # ---------------------------------------------------------------------------
 # ShellExpander

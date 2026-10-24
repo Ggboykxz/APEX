@@ -14,7 +14,6 @@ litellm = pytest.importorskip("litellm")
 from apex.agent import Agent
 from apex.config import Config
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

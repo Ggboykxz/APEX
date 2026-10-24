@@ -5,26 +5,25 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
+from apex.agent import Agent
+from apex.config import Config
 from apex.http_api import (
     APEXHTTPServer,
     HTTPServer,
     RateLimitConfig,
+    _check_provider_configured,
+    _get_configured_providers,
     _sanitize_config,
     _sanitize_string,
-    _get_configured_providers,
-    _check_provider_configured,
     run_server,
     start_tui_server,
     stop_tui_server,
 )
-from apex.agent import Agent
-from apex.config import Config
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1645,19 +1644,21 @@ class TestChatBilling:
     async def test_chat_with_billing(self):
         server = HTTPServer(require_auth=True)
         key_info = {"key_id": "test123", "workspace_id": "ws1"}
-        with patch.object(
-            server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+        with (
+            patch.object(
+                server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+            ),
+            patch.object(server.agent, "chat", return_value="response"),
         ):
-            with patch.object(server.agent, "chat", return_value="response"):
-                with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
-                    async with TestClient(TestServer(server.app)) as client:
-                        resp = await client.post(
-                            "/chat",
-                            json={"message": "hi"},
-                            headers={"Authorization": "Bearer test-key"},
-                        )
-                        assert resp.status == 200
-                        mock_billing.assert_called_once()
+            with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
+                async with TestClient(TestServer(server.app)) as client:
+                    resp = await client.post(
+                        "/chat",
+                        json={"message": "hi"},
+                        headers={"Authorization": "Bearer test-key"},
+                    )
+                    assert resp.status == 200
+                    mock_billing.assert_called_once()
 
 
 class TestChatStreamBilling:
@@ -1671,19 +1672,21 @@ class TestChatStreamBilling:
         async def mock_stream(msg):
             yield "token"
 
-        with patch.object(
-            server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+        with (
+            patch.object(
+                server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+            ),
+            patch.object(server.agent, "chat_streaming", mock_stream),
         ):
-            with patch.object(server.agent, "chat_streaming", mock_stream):
-                with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
-                    async with TestClient(TestServer(server.app)) as client:
-                        resp = await client.post(
-                            "/chat/stream",
-                            json={"message": "hi"},
-                            headers={"Authorization": "Bearer test-key"},
-                        )
-                        assert resp.status == 200
-                        mock_billing.assert_called_once()
+            with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
+                async with TestClient(TestServer(server.app)) as client:
+                    resp = await client.post(
+                        "/chat/stream",
+                        json={"message": "hi"},
+                        headers={"Authorization": "Bearer test-key"},
+                    )
+                    assert resp.status == 200
+                    mock_billing.assert_called_once()
 
 
 class TestV1SessionsDeleteDetailedFull:

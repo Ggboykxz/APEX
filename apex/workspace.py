@@ -1,8 +1,8 @@
 """Workspace awareness for APEX - Git context, branch, PR information."""
 
 import subprocess
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass

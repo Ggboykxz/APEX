@@ -1,7 +1,7 @@
 """GitHub integration - PRs, Issues, and automation."""
 
-import os
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime
@@ -58,8 +58,8 @@ class GitHubClient:
 
     def _api_request(self, method: str, path: str, data: dict | None = None) -> dict | None:
         """Make GitHub API request."""
-        import urllib.request
         import urllib.parse
+        import urllib.request
 
         url = f"{self._api_base}{path}"
         headers = self._get_headers()

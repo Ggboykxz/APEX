@@ -10,7 +10,6 @@ import pytest
 
 from apex.server import APEXClient, APEXServer, APIKeyManager, run_server
 
-
 # =========================================================================
 # Helper: async-iterable mock WebSocket for handle_websocket tests
 # =========================================================================

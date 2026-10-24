@@ -1,8 +1,8 @@
 """Skills system for APEX - reusable prompt templates."""
 
-from pathlib import Path
-from typing import Optional, Dict, Any
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -16,7 +16,7 @@ class Skill:
 class SkillManager:
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
-        self._skills: Dict[str, Skill] = {}
+        self._skills: dict[str, Skill] = {}
         self._load_skills()
 
     def _load_skills(self):
@@ -56,7 +56,7 @@ class SkillManager:
         except Exception:
             pass
 
-    def get(self, name: str) -> Optional[Skill]:
+    def get(self, name: str) -> Skill | None:
         return self._skills.get(name)
 
     def list_skills(self) -> list[dict[str, str]]:
@@ -65,7 +65,7 @@ class SkillManager:
             for skill in self._skills.values()
         ]
 
-    def render(self, name: str, **kwargs) -> Optional[str]:
+    def render(self, name: str, **kwargs) -> str | None:
         skill = self.get(name)
         if not skill:
             return None
@@ -136,7 +136,7 @@ class SearchReplace:
 
     def replace_in_files(
         self, pattern: str, replacement: str, patterns: list[str], dry_run: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         import re
 
         results = {"files_modified": [], "replacements": 0, "errors": []}
@@ -174,7 +174,7 @@ class CodeAnalyzer:
     def __init__(self, cwd: str):
         self.cwd = Path(cwd)
 
-    def analyze_file(self, path: str) -> Dict[str, Any]:
+    def analyze_file(self, path: str) -> dict[str, Any]:
         filepath = self.cwd / path
         if not filepath.exists():
             return {"error": "File not found"}
@@ -238,7 +238,7 @@ Imports: {", ".join(analysis["imports"][:10])}
 """
 
 
-_skill_manager: Optional[SkillManager] = None
+_skill_manager: SkillManager | None = None
 
 
 def get_skill_manager(cwd: str) -> SkillManager:
