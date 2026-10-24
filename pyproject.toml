@@ -42,7 +42,7 @@ dependencies = [
     "aiohttp>=3.9.0,<4.0.0",
     "pyperclip>=1.8.0,<3.0.0",
     "click>=8.1.0,<9.0.0",
-    "cryptography>=42.0.0,<49.0.0",
+    "cryptography>=42.0.0,<51.0.0",
 ]
 
 [project.optional-dependencies]
@@ -86,7 +86,8 @@ extend-exclude = [
 ]
 
 [tool.ruff.lint]
-ignore = ["E402"]
+select = ["E", "F"]
+ignore = ["E402", "E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
