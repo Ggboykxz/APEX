@@ -92,3 +92,6 @@ site/
 
 # Build artifacts (should not be tracked)
 apex_agent.egg-info/
+
+# Python coverage artifacts (accidentally tracked historically)
+*.py,cover
