@@ -10,9 +10,12 @@ mod plugins;
 mod jsonrpc;
 mod lsp;
 mod mcp_client;
+mod permission;
+mod rate_limiter;
 mod server;
 mod session_crypto;
 mod share;
+mod shell_security;
 mod skills;
 mod tools;
 
