@@ -176,7 +176,6 @@ APEX has **11 specialized agents** in three categories:
 | **Build** | Cyan `#00e5ff` | primary | ALL | Full-access development agent |
 | **Plan** | Purple `#a855f7` | primary | Read-only | Architecture & planning analysis |
 | **Shell** | Orange `#f97316` | primary | ASK for edits | Infrastructure, DevOps, CI/CD |
-| **Shell** | Orange `#f97316` | primary | ASK for edits | Infrastructure, DevOps, CI/CD |
 
 ### Subagents (@mention to invoke)
 
@@ -961,8 +960,8 @@ result = limiter.check_rate_limit("user_123")
 
 ## Project Status
 
-- **Version**: 1.5.0
-- **Tests**: 2094 passing
+- **Version**: 2.0.0
+- **Tests**: suite pytest (`tests/`) — run `pytest -q` from the repo root
 - **License**: Proprietary — All rights reserved (see [LICENSE](LICENSE))
 
 ## Installation

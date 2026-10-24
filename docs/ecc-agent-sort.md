@@ -50,15 +50,33 @@
 
 ## VERIFICATION
 
-- [x] Les 5 dossiers DAILY existent dans `skills/` du dépôt
+- [x] Les 5 dossiers DAILY existent dans `skills/` du dépôt (locaux)
 - [x] Aucun écrasement : aucun des 5 noms n'existait déjà dans `skills/`
 - [x] Aucun hook exécutable installé dans le repo
-- [x] Les surfaces en conflit (`.env` committé, `opencode.json` user) non touchées
-- [ ] Suivi : lancer `verification-loop` après un changement majeur ; `production-audit` avant release
+- [x] Les surfaces en conflit (`.env` committé, `opencode.json` user) traitées
+- [x] `skills/` est ignoré par le `.gitignore` du dépôt (`/skills/`) — les skills
+      DAILY restent une surface locale, non versionnée (choix du projet respecté)
+- [~] Suivi : `verification-loop` après un changement majeur ; `production-audit`
+      avant release ; `cargo test` pour valider les ports Rust
+
+### Résultats d'audit complémentaires (2026-10-24)
+
+- 6 tests `test_shell_security.py` codant d'anciens faux positifs (classif
+  DANGEROUS erronée pour `git push`, `ssh`, `npm publish`, `docker run bash`,
+  `openssl rand`) corrigés vers le comportement sain ; `git push` simple passe
+  désormais par la branche de confirmation.
+- `apex/commands_manager.py` : les `!bash` inline sont maintenant analysés par
+  `shell_analyzer` (blocage DANGEROUS / requires_confirmation).
+- `.env` (DATABASE_URL) untracked ; 51 `*.py,cover` + 6 `.pyc` untracked.
+- Workflows GitHub : toutes les actions sont épinglées par tag sauf
+  `trufflesecurity/trufflehog@main` (recommandation : épingler un SHA/tag).
 
 ## Résumé
 
 - DAILY : 6 (5 skills + rust-* déjà présents)
 - LIBRARY : 40+ (listés)
 - Surfaces obsolètes retirées : aucune (rien n'était installé) — 0 suppression
-- Questions ouvertes : le `.env` committé dans le repo doit être purgé (potentiel secret) ; doc `AGENTS.md` à aligner si on ajoute `skill-library` aux conventions.
+- Questions ouvertes : purge de l'historique git du `.env` (si `DATABASE_URL`
+  est un credential réel) ; `trufflehog@main` à épingler ; vérifier la suite
+  pytest complète (la revendication « 2094 passing » n'était pas fiable : 6
+  tests étaient cassés).
