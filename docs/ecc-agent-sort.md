@@ -71,6 +71,12 @@
 - Workflows GitHub : toutes les actions sont épinglées par tag sauf
   `trufflesecurity/trufflehog@main` (recommandation : épingler un SHA/tag).
 - `trufflesecurity/trufflehog@main` → `@v3.99.7` (épinglé).
+- Dependabot (API GitHub) : **51 alertes ouvertes** sur la branche par défaut
+  — 6 critiques, 25 hautes, 17 modérées, 3 basses. Principales :
+  `next@npm` ~16.0.0–16.4.0 (critique), `sharp@npm` <0.35.5 (haute),
+  `source-map-js@npm` <1.2.2 (haute), `brace-expansion@npm` (moyenne).
+  Action recommandée : `npm audit fix` côté site + TUI puis vérification
+  (`npm run build`, `npm run lint`).
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
@@ -87,4 +93,4 @@
   est un credential réel) ; vérifier la suite pytest complète (la revendication
   « 2094 passing » n'était pas fiable : 6 tests étaient cassés) ; les 12
   échecs Rust environnementaux Windows (outils Unix absents) à résoudre si la
-  cible inclut Windows CI.
+  cible inclut Windows CI ; réduire les 51 alertes Dependabot (npm audit fix).
