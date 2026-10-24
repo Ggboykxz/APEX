@@ -77,6 +77,28 @@
   `source-map-js@npm` <1.2.2 (haute), `brace-expansion@npm` (moyenne).
   Action recommandée : `npm audit fix` côté site + TUI puis vérification
   (`npm run build`, `npm run lint`).
+
+### Bilan suite pytest complet (2026-10-24, par fichier, timeout 180 s)
+
+Exécution fichier par fichier (contournement des blocages) :
+
+- ✅ Verts : test_api_key (56), test_billing (81), test_commands_manager (68),
+  test_permission (92), test_shell_security (175), test_ui (50), test_slash (51),
+  test_mcp (40), test_memory (32), test_structured_message (29), test_telemetry (34),
+  test_theme_manager (66), test_watcher (64), test_snapshot (34), test_rlm (57),
+  test_git_undo (27), test_github_integration (41), test_http_api_security (35),
+  test_lsp_diagnostics (46), test_new_tools (47), test_plugins_full (63),
+  test_task_queue (23), test_sandbox (33)…
+- ⚠️ Échecs significatifs (préexistants, à traiter séparément) :
+  test_agent_coverage (25), test_formatter (21), test_share (18), test_session (14),
+  test_agent_more (10), test_agent (8), test_agent_full (8), test_tools (7),
+  test_config_v2 (4), test_mentions (4), test_config_tools (2), test_skills (2),
+  test_tools_coverage (3), test_main_full (3), test_extras (2)…
+- ⛔ TIMEOUT (180 s) : test_http_api.py, test_modular_tools.py — à isoler
+  (tests de serveur HTTP/outils modulaires potentiellement bloquants).
+
+> Conclusion : la revendication historique « 2094 passing » n'était pas fiable.
+> Les zones touchées par nos correctifs sont vertes (shell_security, commands_manager).
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
