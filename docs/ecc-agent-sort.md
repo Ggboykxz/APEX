@@ -70,6 +70,13 @@
 - `.env` (DATABASE_URL) untracked ; 51 `*.py,cover` + 6 `.pyc` untracked.
 - Workflows GitHub : toutes les actions sont épinglées par tag sauf
   `trufflesecurity/trufflehog@main` (recommandation : épingler un SHA/tag).
+- `trufflesecurity/trufflehog@main` → `@v3.99.7` (épinglé).
+- Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
+  préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
+  (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
+  (mcp_client), lecture ligne délimitée (jsonrpc), `docs_generators` (codegen),
+  `list_files_skips_vcs_and_hidden` (server). Aucun échec sur les modules
+  portés (`shell_security`, `permission`, `rate_limiter`).
 
 ## Résumé
 
@@ -77,6 +84,7 @@
 - LIBRARY : 40+ (listés)
 - Surfaces obsolètes retirées : aucune (rien n'était installé) — 0 suppression
 - Questions ouvertes : purge de l'historique git du `.env` (si `DATABASE_URL`
-  est un credential réel) ; `trufflehog@main` à épingler ; vérifier la suite
-  pytest complète (la revendication « 2094 passing » n'était pas fiable : 6
-  tests étaient cassés).
+  est un credential réel) ; vérifier la suite pytest complète (la revendication
+  « 2094 passing » n'était pas fiable : 6 tests étaient cassés) ; les 12
+  échecs Rust environnementaux Windows (outils Unix absents) à résoudre si la
+  cible inclut Windows CI.
