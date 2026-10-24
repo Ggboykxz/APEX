@@ -1,0 +1,30 @@
+name: Welcome
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    name: Greet new contributors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/greetings@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Merci d'avoir ouvert cette issue ! 🎉
+            Avant de soumettre, vérifiez que le problème n'est pas déjà traité
+            (recherche dans les issues ouvertes) et fournissez les étapes de
+            reproduction si c'est un bug.
+          pr-message: |
+            Merci pour cette pull request ! 🎉
+            La CI s'exécute automatiquement. Assurez-vous que les checks
+            passent et que le commit suit le format Conventional Commits
+            (ex. `fix(security): ...`, `feat(rust): ...`).
