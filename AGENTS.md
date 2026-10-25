@@ -1098,16 +1098,25 @@ cargo test
   - Suite pytest (`tests/`) — run `pytest -q` from the repo root
   - Rust (`rust/apex-rs/`) — `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`
   - TUI (`tui-frontend/`) — run `bun test` (API client, SSE streaming); `npm run typecheck` pour tsc
+  - NPM wrapper (`integrations/npm/`) — `npm test` (node:test, zéro dépendance runtime)
   - Site web (`src/`) — `npm run lint` (bloquant dans `website.yml`) et `npm run build`
 - **License**: Proprietary — All rights reserved (see [LICENSE](LICENSE))
 
 ## Installation
 
 ```bash
+npm install -g apex-ai      # npm wrapper — provisions the Python package on first run
 pip install apex-ai
 pipx install apex-ai
 git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e .
 ```
+
+The npm package (`integrations/npm/`, published as `apex-ai` on npm) is a
+zero-dependency wrapper: it resolves an existing `apex` on PATH, or installs
+the Python package via `pipx` > `uv` > `pip` on first run, then execs it.
+`APEX_BINARY`, `APEX_VERSION`, `APEX_INSTALL_METHOD` and `APEX_SKIP_INSTALL`
+control the behavior. Published from the `Release` workflow on `v*` tags
+(requires the `NPM_TOKEN` secret; the package version must match the tag).
 
 ## Launch
 

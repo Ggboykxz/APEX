@@ -75,7 +75,7 @@ server.log
 local-*
 .claude
 .z-ai-config
-test
+/test
 prompt
 
 # Skills directory
