@@ -84,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
               mcp add           Add MCP server
               mcp list          List MCP servers
               mcp auth          Authenticate MCP server
+              mcp serve         Expose tools over MCP stdio (read-only by default)
               db                Database tools
               pr <number>       Fetch and checkout a PR
               attach <url>      Attach TUI to remote backend
@@ -124,6 +125,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("prompt", nargs="?", default=None, help="One-shot prompt to execute")
     parser.add_argument("--model", "-m", dest="model", default=None, help="Model alias to use")
     parser.add_argument("--cwd", "-C", dest="cwd", default=None, help="Working directory")
+    parser.add_argument(
+        "--allow-tool",
+        dest="allow_tool",
+        action="append",
+        default=None,
+        help="Expose a tool on the MCP server (repeatable; replaces the read-only default profile)",
+    )
     parser.add_argument("--version", "-v", action="version", version=f"APEX {__version__}")
     parser.add_argument("--list-models", action="store_true", help="List available models")
     parser.add_argument("--one-shot", "-1", action="store_true", help="One-shot mode")
@@ -1867,7 +1875,13 @@ def _cmd_mcp(args: argparse.Namespace, ui: UI) -> None:
         ui.print_success(f"Authenticated with MCP server: {args.mcp_name}")
         return
 
-    ui.print_error("Usage: apex mcp <add|list|auth>")
+    if args.mcp_subcommand == "serve":
+        from .mcp_server import serve as mcp_serve
+
+        cwd = Path(args.cwd) if getattr(args, "cwd", None) else None
+        sys.exit(mcp_serve(cwd=cwd, allow_tools=getattr(args, "allow_tool", None)))
+
+    ui.print_error("Usage: apex mcp <add|list|auth|serve>")
     sys.exit(1)
 
 
@@ -2344,6 +2358,29 @@ def main() -> None:
         sys.exit(0)
 
     raw_args = sys.argv[1:]
+
+    # MCP server mode runs before argparse: it owns stdout for the protocol
+    # and must never be contaminated by help/usage output.
+    if len(raw_args) >= 2 and raw_args[0].lower() == "mcp" and raw_args[1] == "serve":
+        if len(raw_args) == 3 and raw_args[2] in ("--help", "-h"):
+            sys.stderr.write("usage: apex mcp serve [--cwd PATH] [--allow-tool NAME]...\n")
+            sys.exit(0)
+        cwd: str | None = None
+        allow_tools: list[str] = []
+        i = 2
+        while i < len(raw_args):
+            if raw_args[i] in ("--cwd", "-C") and i + 1 < len(raw_args):
+                cwd = raw_args[i + 1]
+                i += 2
+            elif raw_args[i] == "--allow-tool" and i + 1 < len(raw_args):
+                allow_tools.append(raw_args[i + 1])
+                i += 2
+            else:
+                sys.stderr.write(f"apex: unknown mcp serve argument: {raw_args[i]}\n")
+                sys.exit(2)
+        from .mcp_server import serve as mcp_serve
+
+        sys.exit(mcp_serve(cwd=Path(cwd) if cwd else None, allow_tools=allow_tools))
 
     # Intercept positional subcommands: `apex models`, etc.
     if raw_args and raw_args[0].lower() in _SUBCOMMANDS:
