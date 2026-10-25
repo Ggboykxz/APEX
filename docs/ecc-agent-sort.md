@@ -146,6 +146,16 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
 - Alertes Dependabot (API) : re-mesure post-push (les alertes npm fermées
   automatiquement après résolution).
 
+#### Python (`pip-audit`)
+
+- `cryptography` 48.0.1 → **50.0.2** (plancher pyproject `>=50.0.2,<51`) :
+  4 advisories PYSEC-2026-3552/3553/3554 corrigées.
+- `filelock` 3.32.7 → **4.2.4** (plancher explicite pour la chaîne
+  litellm / huggingface_hub) : CVE-2026-112907/112913/112940 corrigées.
+- `pip` (outil du venv) 26.1.1 → 26.2.2 : PYSEC-2026-196 / 3721.
+- Résultat : **No known vulnerabilities found** ; `pip check` OK ;
+  tests session/share (Fernet) : 108 passed.
+
 ### Intégration finale (2026-10-25)
 
 - Branche par défaut : `dev` ; `main` protégée (PR requises, checks CI /
