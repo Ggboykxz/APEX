@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn shares_dir() -> PathBuf {
-    dirs::home_dir()
+    crate::config::home_dir()
         .unwrap_or_default()
         .join(".config")
         .join("apex")
@@ -18,7 +18,7 @@ pub fn shares_dir() -> PathBuf {
 }
 
 pub fn sessions_dir() -> PathBuf {
-    dirs::home_dir()
+    crate::config::home_dir()
         .unwrap_or_default()
         .join(".apex")
         .join("sessions")

@@ -1,5 +1,21 @@
 use std::env;
 
+/// Resolve the user's home directory.
+///
+/// `HOME`/`USERPROFILE` take precedence over the platform lookup so hermetic
+/// CLI tests can redirect `~/.apex` by setting the usual variables.
+/// `dirs::home_dir()` remains the fallback (Windows known-folder API, etc.).
+pub fn home_dir() -> Option<std::path::PathBuf> {
+    for key in ["HOME", "USERPROFILE"] {
+        if let Ok(value) = env::var(key) {
+            if !value.trim().is_empty() {
+                return Some(std::path::PathBuf::from(value));
+            }
+        }
+    }
+    dirs::home_dir()
+}
+
 #[derive(Clone)]
 pub struct Config {
     pub model: String,

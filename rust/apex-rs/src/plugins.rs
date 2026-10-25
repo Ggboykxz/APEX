@@ -108,7 +108,7 @@ fn plugins_dir() -> PathBuf {
             return PathBuf::from(dir);
         }
     }
-    dirs::home_dir()
+    crate::config::home_dir()
         .unwrap_or_default()
         .join(".apex")
         .join("plugins")
@@ -168,10 +168,6 @@ pub fn load_manifests_from(base: &Path) -> Vec<PluginInfo> {
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
     out
-}
-
-pub fn plugin_count() -> usize {
-    discover_plugins().len()
 }
 
 fn sanitize(name: &str) -> String {

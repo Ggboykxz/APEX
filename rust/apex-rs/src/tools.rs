@@ -242,6 +242,15 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             if is_dangerous_command(cmd) {
                 return "ERROR: Command blocked by safety policy".to_string();
             }
+            // The shell-security port catches a wider set of destructive
+            // patterns than the legacy denylist above.
+            let analysis = crate::shell_security::SHELL_ANALYZER.analyze(cmd);
+            if !analysis.safe {
+                return format!(
+                    "ERROR: Command blocked by safety policy: {}",
+                    analysis.warnings.join("; ")
+                );
+            }
             match shell_command(cmd).current_dir(cwd).output() {
                 Ok(o) => {
                     let mut s = String::from_utf8_lossy(&o.stdout).to_string();
