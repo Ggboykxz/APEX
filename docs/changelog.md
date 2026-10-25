@@ -4,6 +4,13 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### v2.5 — Wave 1 (Repository Map, TUI streaming, governance)
+
+- **Repository map** — new `apex/repomap.py` engine: symbol-level extraction (Python AST + JS/TS/Rust/Go heuristics), reference-based ranking, token budget, per-root cache, and a `repo_map` tool. 29 new tests.
+- **TUI streaming & diff** — typed normalization of EventBus payloads, pure streaming reducer (assistant deltas, tool lifecycle, session isolation), unified-diff parser, `DiffPreview` overlay with local accept/reject, and `/diff`. 25 new tests.
+- **Governance** — issue forms, PR template, CODEOWNERS, ADR-0004 (Rust distribution deferred), v2.5 milestones/board, and a Delivery & Governance section in `AGENTS.md`.
+- **Lint scope** — all first-party Python (`apex/`, `tests/`, `scripts/`) is linted; vendored `skills/` is explicitly excluded and audited separately.
+
 ### Rust Port (`rust/apex-rs`)
 
 Full rewrite of the backend in Rust. The Python implementation stays the reference until parity is reached.

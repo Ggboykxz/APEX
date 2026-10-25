@@ -109,7 +109,15 @@ tui-frontend/src/
 │   ├── ChatPanel.tsx       # Message thread with streaming, @refs, !bash
 │   ├── StatusBar.tsx       # In/Out/Total tokens, ctx%, $spent, agent
 │   ├── Sidebar.tsx         # Agent list, session info
+│   ├── DiffPreview.tsx     # Diff overlay (keyboard + controller)
 │   └── overlays.tsx        # Stateless overlay components (palette, selectors, help…)
+├── streaming/
+│   ├── events.ts           # Wire event normalization (typed union)
+│   ├── reducer.ts          # Pure streaming state machine
+│   └── useStream.ts        # React adapters
+├── diff/
+│   ├── parser.ts           # Unified-diff parser
+│   └── preview.ts          # Accept/reject state machine
 ├── data/
 │   └── apex-data.ts        # Agents + models data
 └── theme/
@@ -120,7 +128,8 @@ tui-frontend/src/
 - **Client / serveur** : le TUI est un client léger ; `api/client.ts` centralise tous les appels HTTP/SSE vers le backend Python (POST /chat/stream en SSE, /api/v1/*, WebSocket /ws/events pour l'EventBus).
 - **Composants stateless** : `overlays.tsx` expose CommandPalette, ModelSelector, ThemeSelector, AgentSelector, SessionList, FileFinder, HelpOverlay, StatusOverlay — la navigation clavier reste dans ApexApp, les overlays ne font que rendre l'état.
 - **Runtime** : exécutable via `tsx` (Node) ou **Bun** (`bun run src/App.tsx` / scripts `dev:bun`/`start:bun`).
-- **Tests** : `bun test` (tests/api-client.test.ts — streaming SSE, erreurs HTTP, construction d'URL) ; `npm run typecheck`.
+- **Streaming & diff** : `src/sync.ts` normalise les événements EventBus en union typée ; `src/streaming/reducer.ts` gère deltas, cycle de vie des outils et isolation de session ; `src/diff/` + `DiffPreview.tsx` fournissent l'aperçu de diff avec accept/reject local, exposé via `/diff`.
+- **Tests** : `bun test` (API client, SSE streaming, reducer, parseur de diff, preview) ; `npm run typecheck`.
 
 **HTTP SSE Flow:**
 ```
@@ -442,6 +451,7 @@ class Message:
 | `read_directory` | List directory | Read-only |
 | `search` | Web search | Read-only |
 | `format_file` | Auto-format code | Via formatter system |
+| `repo_map` | Token-budgeted symbol map | Read-only, cache in `~/.apex` |
 | `mcp_*` | MCP tools | Via MCP client |
 
 ### Tool Call Flow
