@@ -64,6 +64,39 @@ describe("APIClient", () => {
     await assert.rejects(() => client.chatStream({ message: "hi", model: "m" }), /Server error 500: boom/)
   })
 
+  it("posts diff decisions to the session decision endpoint", async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = []
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init })
+      return new Response(
+        JSON.stringify({ status: "rejected", files: ["a.ts"], reverted: ["a.ts"], failed: [] }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }) as typeof fetch
+
+    const client = new APIClient(4242)
+    const payload = {
+      decision: "reject" as const,
+      files: ["a.ts"],
+      fingerprint: "abc123",
+    }
+    const result = await client.decideDiff("session/1", payload)
+
+    assert.equal(calls.length, 1)
+    assert.equal(
+      calls[0]!.url,
+      "http://127.0.0.1:4242/api/v1/session/session%2F1/diff/decision",
+    )
+    assert.equal(calls[0]!.init?.method, "POST")
+    assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), payload)
+    assert.deepEqual(result, {
+      status: "rejected",
+      files: ["a.ts"],
+      reverted: ["a.ts"],
+      failed: [],
+    })
+  })
+
   it("centralizes API endpoints with ports/encoding", () => {
     const client = new APIClient(4242)
     assert.equal(client.baseUrl, "http://127.0.0.1:4242")

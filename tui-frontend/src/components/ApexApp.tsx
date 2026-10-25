@@ -5,13 +5,14 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { ChatPanel } from "./ChatPanel.js"
-import { DiffPreview } from "./DiffPreview.js"
+import { DiffPreview, type DiffPreviewHandle } from "./DiffPreview.js"
 import { StatusBar } from "./StatusBar.js"
 import { Sidebar } from "./Sidebar.js"
 import { apexTheme, hasTheme, setTheme } from "../theme/apex.js"
 import { APEX_AGENTS, APEX_MODELS, type ChatMessage } from "../data/apex-data.js"
 import { SyncClient } from "../sync.js"
 import { api } from "../api/client.js"
+import type { DiffDecision } from "../diff/preview.js"
 import { useStreamingState } from "../streaming/useStream.js"
 import { streamActionFromEvent } from "../streaming/reducer.js"
 import {
@@ -88,6 +89,11 @@ export function ApexApp() {
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const [showDiff, setShowDiff] = useState(false)
   const [diffText, setDiffText] = useState("")
+  const [diffFingerprint, setDiffFingerprint] = useState("")
+  const [diffPaths, setDiffPaths] = useState<string[]>([])
+  const [diffSubmitting, setDiffSubmitting] = useState(false)
+  const [diffError, setDiffError] = useState<string | undefined>(undefined)
+  const diffPreviewRef = useRef<DiffPreviewHandle>(null)
   const { state: streamState, dispatch: dispatchStream, reset: resetStream, complete: completeStream } =
     useStreamingState()
   const [sessionStart] = useState(Date.now())
@@ -336,6 +342,10 @@ export function ApexApp() {
               return
             }
             setDiffText(d.diff ?? "")
+            setDiffFingerprint(d.fingerprint ?? "")
+            setDiffPaths(d.paths ?? [])
+            setDiffError(undefined)
+            setDiffSubmitting(false)
             setShowDiff(true)
           })
           .catch(() => setConnectionError("Diff request failed — backend unreachable"))
@@ -345,6 +355,40 @@ export function ApexApp() {
       default: return false
     }
   }, [exit, activeSession, activeAgent, activeModel])
+
+  const handleDiffDecision = useCallback(async (decision: DiffDecision) => {
+    setDiffSubmitting(true)
+    setDiffError(undefined)
+    try {
+      const result = await api.decideDiff(activeSession || "current", {
+        decision,
+        files: diffPaths,
+        fingerprint: diffFingerprint,
+      })
+      if (result.error) throw new Error(result.error)
+      const failed = result.failed ?? []
+      if (decision === "reject" && failed.length > 0) {
+        setDiffError(
+          `Reverted ${result.reverted?.length ?? 0} file(s); failed: ${failed.join(", ")} — reopen /diff to review`,
+        )
+        diffPreviewRef.current?.reset()
+        return
+      }
+      setShowDiff(false)
+      setConnectionError(
+        decision === "accept"
+          ? "Diff accepted — changes kept"
+          : `Diff rejected — ${result.reverted?.length ?? diffPaths.length} file(s) restored`,
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setDiffError(message)
+      // Keep the preview open and allow a retry (e.g. after a 409).
+      diffPreviewRef.current?.reset()
+    } finally {
+      setDiffSubmitting(false)
+    }
+  }, [activeSession, diffPaths, diffFingerprint])
 
   const sendMessage = useCallback(async (userMessage: string) => {
     if (userMessage.startsWith("/")) {
@@ -594,16 +638,12 @@ export function ApexApp() {
       )}
       {showDiff && (
         <DiffPreview
+          ref={diffPreviewRef}
           diff={diffText}
           title="Working-tree diff"
-          onDecision={(decision) => {
-            setShowDiff(false)
-            setConnectionError(
-              decision === "accept"
-                ? "Diff accepted — preview only, nothing applied"
-                : "Diff rejected — nothing applied",
-            )
-          }}
+          submitting={diffSubmitting}
+          error={diffError}
+          onDecision={handleDiffDecision}
         />
       )}
       {showMS && (
