@@ -1,10 +1,6 @@
 mod agent;
 mod codegen;
 mod config;
-// Ported repository-context helpers (repo map, tree, language stats) but no
-// caller yet — the file was previously not even declared in the module tree.
-// TODO(v2.6): expose `context repo-map|tree|stats` CLI commands.
-#[allow(dead_code)]
 mod context;
 mod cost;
 mod formatter;
@@ -33,6 +29,7 @@ mod tools;
 use clap::{Parser, Subcommand};
 use config::Config;
 use std::io::Write;
+use std::path::Path;
 
 #[derive(Parser, Debug)]
 #[command(name = "apex-rs", version, about = "APEX backend rewritten in Rust")]
@@ -86,6 +83,11 @@ enum Commands {
         #[command(subcommand)]
         action: SecurityAction,
     },
+    /// Repository context: repo map, git info, stats, ctags, tree, glob
+    Context {
+        #[command(subcommand)]
+        action: ContextAction,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -124,6 +126,43 @@ enum SecurityAction {
     Check { command: String },
     /// List commands allowed without confirmation
     Allowed,
+}
+
+#[derive(Subcommand, Debug)]
+enum ContextAction {
+    /// Print the repository map (directories, source/config/doc files, git info)
+    RepoMap {
+        #[arg(default_value = ".")]
+        path: String,
+    },
+    /// Print git branch and change count (empty when not a repository)
+    Git {
+        #[arg(default_value = ".")]
+        path: String,
+    },
+    /// Print per-language file statistics as JSON
+    Stats {
+        #[arg(default_value = ".")]
+        path: String,
+    },
+    /// List the first code files tracked by git (ctags input)
+    Ctags {
+        #[arg(default_value = ".")]
+        path: String,
+    },
+    /// Print an ASCII file tree (directories first, dotfiles skipped)
+    Tree {
+        #[arg(default_value = ".")]
+        path: String,
+        #[arg(short, long, default_value_t = 3)]
+        depth: usize,
+    },
+    /// List files and directories matching a glob pattern (e.g. `**/*.py`)
+    Glob {
+        pattern: String,
+        #[arg(default_value = ".")]
+        path: String,
+    },
 }
 
 fn load_mcp_servers() {
@@ -365,6 +404,51 @@ async fn main() {
             SecurityAction::Allowed => {
                 for cmd in shell_security::SHELL_ANALYZER.get_allowed_commands() {
                     println!("{cmd}");
+                }
+            }
+        },
+        Some(Commands::Context { action }) => match action {
+            ContextAction::RepoMap { path } => {
+                println!("{}", context::get_repo_map(Path::new(&path)));
+            }
+            ContextAction::Git { path } => {
+                let info = context::get_git_info(Path::new(&path));
+                if info.is_empty() {
+                    println!("(not a git repository)");
+                } else {
+                    println!("{info}");
+                }
+            }
+            ContextAction::Stats { path } => {
+                let stats = context::get_language_stats(Path::new(&path));
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&stats).unwrap_or_default()
+                );
+            }
+            ContextAction::Ctags { path } => {
+                println!("{}", context::generate_ctags(Path::new(&path)));
+            }
+            ContextAction::Tree { path, depth } => {
+                match context::file_tree(Path::new(&path), depth) {
+                    Ok(tree) => println!("{tree}"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            ContextAction::Glob { pattern, path } => {
+                match context::glob_search(Path::new(&path), &pattern) {
+                    Ok(matches) => {
+                        for m in matches {
+                            println!("{m}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
                 }
             }
         },
