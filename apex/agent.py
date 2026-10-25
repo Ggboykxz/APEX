@@ -29,6 +29,7 @@ from .context_budget import (
 from .permission import get_tool_permission, permission_manager
 from .tools import AsyncToolExecutor, ToolExecutor, get_all_tool_schemas
 from .ui import UI
+from .vision import VisionNotSupportedError, check_vision_support, prepare_vision_input
 
 
 class Agent:
@@ -164,8 +165,11 @@ class Agent:
         self._system_message = {**self._system_message, "content": injected}
         self._repo_map_tokens = tokens
 
-    def _request_messages(self, user_input: str) -> list[dict[str, Any]]:
-        """Build the message list for a model request, repo map included."""
+    def _request_messages(self, user_input: str | list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Build the message list for a model request, repo map included.
+
+        *user_input* may be multi-part (text + image_url parts) for vision.
+        """
         self._ensure_repo_map_context()
         return [self._system_message, *self.history, {"role": "user", "content": user_input}]
 
@@ -432,29 +436,43 @@ class Agent:
             kwargs["reasoning_effort"] = effort
         return kwargs
 
-    def chat(self, user_input: str, max_rounds: int | None = None) -> str:
+    def chat(
+        self,
+        user_input: str,
+        max_rounds: int | None = None,
+        images: list[str] | None = None,
+    ) -> str:
         subagent_name, actual_input = self._parse_subagent_invocation(user_input)
 
         if subagent_name:
-            return self._chat_as_subagent(subagent_name, actual_input, max_rounds)
+            return self._chat_as_subagent(subagent_name, actual_input, max_rounds, images)
 
-        return self._chat_internal(actual_input, max_rounds)
+        return self._chat_internal(actual_input, max_rounds, images)
 
     def _chat_as_subagent(
-        self, subagent_name: str, task: str, max_rounds: int | None = None
+        self,
+        subagent_name: str,
+        task: str,
+        max_rounds: int | None = None,
+        images: list[str] | None = None,
     ) -> str:
         original_agent = self._current_agent
         self._current_agent = subagent_name
         self._set_agent_system_prompt()
 
         try:
-            result = self._chat_internal(task, max_rounds)
+            result = self._chat_internal(task, max_rounds, images)
             return f"[@{subagent_name}]: {result}"
         finally:
             self._current_agent = original_agent
             self._set_agent_system_prompt()
 
-    def _chat_internal(self, user_input: str, max_rounds: int | None = None) -> str:
+    def _chat_internal(
+        self,
+        user_input: str,
+        max_rounds: int | None = None,
+        images: list[str] | None = None,
+    ) -> str:
         if not _LITELLM_AVAILABLE:
             return "ERROR: litellm is not installed. Run: pip install litellm"
         max_rounds = max_rounds or 10
@@ -466,8 +484,14 @@ class Agent:
                 self.compact_context(strategy=_strategy)
         except Exception:
             pass
-        messages = self._request_messages(user_input)
         model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
+        # Fail fast, before any LLM call, when images outpace model capability.
+        try:
+            check_vision_support(model_str, len(images) if images else 0)
+        except VisionNotSupportedError as exc:
+            return f"ERROR: {exc}"
+        user_content: str | list[dict[str, Any]] = prepare_vision_input(user_input, images)
+        messages = self._request_messages(user_content)
         _extra = self._completion_kwargs()
 
         for round_num in range(max_rounds):
@@ -483,7 +507,7 @@ class Agent:
                 self._update_usage(response.usage)
                 if not response.choices[0].message.tool_calls:
                     assistant_text = response.choices[0].message.content or ""
-                    self.history.append({"role": "user", "content": user_input})
+                    self.history.append({"role": "user", "content": user_content})
                     self.history.append({"role": "assistant", "content": assistant_text})
                     return assistant_text
 
