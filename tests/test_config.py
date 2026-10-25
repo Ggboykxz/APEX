@@ -3,11 +3,11 @@
 import json
 import os
 import tempfile
-import pytest
 from pathlib import Path
 
-from apex.config import Config, MODELS, MODEL_PROVIDERS, DEFAULT_MODEL, SYSTEM_PROMPT
+import pytest
 
+from apex.config import DEFAULT_MODEL, MODEL_PROVIDERS, MODELS, SYSTEM_PROMPT, Config
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -275,7 +275,7 @@ class TestConfigCwd:
     def test_cwd_setter_and_getter(self, config):
         config.cwd = Path("/tmp")
         result = config.cwd
-        assert str(result) == "/tmp"
+        assert str(result) == os.path.abspath("/tmp")
 
     def test_cwd_expands_user(self, config):
         config.cwd = Path("~")

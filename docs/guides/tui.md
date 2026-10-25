@@ -23,12 +23,13 @@ The Python backend runs as the worker thread, handling all agent logic, tool exe
 The Ink + React TUI runs as the main thread, rendering the terminal UI at full speed:
 
 - **Terminal Renderer** — Ink-based React renderer optimized for terminal output
+- **APIClient** (`src/api/client.ts`) — a single typed client owns every HTTP/SSE call to the backend (`POST /chat/stream` SSE streaming, `/api/v1/*` REST, WebSocket `/ws/events` EventBus). Components never call `fetch` directly.
+- **Stateless overlays** (`src/components/overlays.tsx`) — CommandPalette, ModelSelector, ThemeSelector, AgentSelector, SessionList, FileFinder, HelpOverlay, StatusOverlay render state; keyboard navigation lives in `ApexApp`.
 - **Theme Detection** — Automatic dark/light mode detection from terminal settings
-- **Mouse Support** — Click, scroll, and hover interactions in supported terminals
-- **Router** — Home view (/) and Session view (/session/:id) with navigation
 - **SyncProvider** — Real-time state synchronization via WebSocket EventBus
 - **@ Autocomplete** — File, agent, and MCP server autocomplete when typing @
 - **/ Slash Commands** — Built-in and custom command palette
+- **Runtimes** — `tsx` (Node) or Bun (`bun run src/App.tsx`; scripts `dev:bun` / `start:bun`)
 
 ## Layout
 

@@ -3,9 +3,9 @@
 import json
 import shutil
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import Any
-from datetime import datetime
 
 
 class WorkspaceRollback:
@@ -133,8 +133,7 @@ class WorkspaceRollback:
             return False
 
         target_idx = len(snapshots) - turns_ago
-        if target_idx < 0:
-            target_idx = 0
+        target_idx = max(target_idx, 0)
 
         return self.restore_snapshot(snapshots[target_idx]["name"])
 

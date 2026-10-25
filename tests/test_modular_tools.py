@@ -1,8 +1,10 @@
 """Tests for APEX tools - AsyncToolExecutor, batch ops, timeouts, file watch, expand_vars, shells."""
 
+import sys
+
 import pytest
 
-from apex.tools import ToolExecutor, AsyncToolExecutor, TOOL_SCHEMAS
+from apex.tools import TOOL_SCHEMAS, AsyncToolExecutor, ToolExecutor
 
 
 @pytest.fixture
@@ -210,6 +212,10 @@ def test_close_shell_no_session(executor):
     assert "ERROR" in result or "No shell session" in result
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="interactive POSIX bash shell is not available on Windows",
+)
 def test_shell_lifecycle(executor):
     """Test full shell lifecycle: start -> run -> close."""
     start_result = executor.execute("start_shell", {"shell": "bash"})

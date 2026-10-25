@@ -118,7 +118,7 @@ function DocOverview() {
       <DocsHeading id="philosophy">Philosophy</DocsHeading>
       <p className="text-muted-foreground leading-relaxed">APEX is built by a Gabonese developer for the world. Every developer deserves a world-class coding agent — regardless of which model they can afford. The core principles are: <strong className="text-foreground">complete code, no truncation</strong>, <strong className="text-foreground">production-ready</strong> with full error handling, tests, and type hints, <strong className="text-foreground">language-agnostic</strong> support for Python, JavaScript, Rust, Go, and more, and a <strong className="text-foreground">senior developer mindset</strong> that is opinionated but effective.</p>
       <div className="mt-8 grid sm:grid-cols-3 gap-4">
-        {[{ href: '/agents', title: 'Agents Guide', desc: '5 specialized agents for every workflow' }, { href: '/models', title: 'Models Guide', desc: '170+ models from every provider' }, { href: '/tools', title: 'Tools Reference', desc: '75+ built-in tools catalog' }].map(l => (
+        {[{ href: '/agents', title: 'Agents Guide', desc: '11 specialized agents for every workflow' }, { href: '/models', title: 'Models Guide', desc: '170+ models from every provider' }, { href: '/tools', title: 'Tools Reference', desc: '75+ built-in tools catalog' }].map(l => (
           <a key={l.href} href={l.href} className="group p-4 rounded-lg border border-border/50 bg-card/30 hover:border-apex-cyan/30 transition-all"><h4 className="font-mono font-bold text-apex-cyan mb-1">{l.title}</h4><p className="text-xs text-muted-foreground">{l.desc}</p><ArrowRight className="w-4 h-4 mt-2 text-muted-foreground group-hover:text-apex-cyan transition-colors" /></a>
         ))}
       </div>

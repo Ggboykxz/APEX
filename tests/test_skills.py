@@ -1,12 +1,15 @@
 """Tests for apex/skills.py — SkillManager, DiffTool, SearchReplace, CodeAnalyzer."""
 
+import sys
+
 import pytest
+
 from apex.skills import (
-    Skill,
-    SkillManager,
+    CodeAnalyzer,
     DiffTool,
     SearchReplace,
-    CodeAnalyzer,
+    Skill,
+    SkillManager,
     get_skill_manager,
 )
 
@@ -107,6 +110,10 @@ class TestDiffTool:
     def diff_tool(self, tmp_path):
         return DiffTool(str(tmp_path))
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX 'diff' binary is not available on Windows",
+    )
     def test_diff_identical(self, diff_tool, tmp_path):
         (tmp_path / "a.txt").write_text("hello\nworld\n")
         (tmp_path / "b.txt").write_text("hello\nworld\n")
@@ -265,6 +272,10 @@ class TestSkillEdgeCases:
         assert len(result.get("errors", [])) >= 1
         f.chmod(0o644)
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX chmod permissions are not enforced on Windows",
+    )
     def test_analyze_file_exception(self, tmp_path):
         """Hit lines 215-216 — exception in analyze_file."""
         ca = CodeAnalyzer(str(tmp_path))

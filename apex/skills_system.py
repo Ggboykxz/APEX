@@ -1,8 +1,8 @@
 """Skills and custom commands system for APEX."""
 
-from pathlib import Path
-from typing import Callable
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -328,7 +328,6 @@ class CommandRegistry:
 
     def _register_builtins(self):
         """Register built-in custom commands."""
-        pass
 
     def register(self, cmd: CustomCommand):
         """Register a command."""

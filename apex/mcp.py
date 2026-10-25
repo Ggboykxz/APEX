@@ -3,10 +3,11 @@
 import asyncio
 import json
 import subprocess
-from pathlib import Path
-from typing import Any, Callable
-from dataclasses import dataclass, field
 import uuid
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -299,8 +300,7 @@ class MCPManager:
         # leading ``mcp_`` prefix before splitting off the server name so that
         # multi-underscore tool names resolve correctly.
         name = full_name
-        if name.startswith("mcp_"):
-            name = name[len("mcp_"):]
+        name = name.removeprefix("mcp_")
         parts = name.split("_", 1)
         if len(parts) != 2:
             return "ERROR: Invalid tool name format"

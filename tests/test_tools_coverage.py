@@ -1,8 +1,10 @@
 """Additional coverage tests for apex/tools.py - covering remaining uncovered lines."""
 
-import pytest
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 
 # Helper: create minimal .git dir
@@ -22,7 +24,7 @@ def executor(tmp_path):
     return ToolExecutor(cwd=cwd)
 
 
-# ─── run_command: stderr + nonzero exit (lines 1497, 1499) ────────────────
+# â”€â”€â”€ run_command: stderr + nonzero exit (lines 1497, 1499) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_run_command_full_output(executor, monkeypatch):
@@ -49,7 +51,7 @@ def test_run_command_only_stderr(executor, monkeypatch):
     assert "STDERR" in result
 
 
-# ─── list_files: stat exception (1518-1519) ──────────────────────────────
+# â”€â”€â”€ list_files: stat exception (1518-1519) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_list_files_stat_exception(executor, monkeypatch):
@@ -71,7 +73,7 @@ def test_list_files_stat_exception(executor, monkeypatch):
     assert "ok_file.txt" in result
 
 
-# ─── list_files: outer exception (1522-1523) ─────────────────────────────
+# â”€â”€â”€ list_files: outer exception (1522-1523) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_list_files_outer_exception(executor, monkeypatch):
@@ -82,7 +84,7 @@ def test_list_files_outer_exception(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── search_in_files: outer exception (1545-1546) ────────────────────────
+# â”€â”€â”€ search_in_files: outer exception (1545-1546) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_search_in_files_re_error(executor, monkeypatch):
@@ -92,7 +94,7 @@ def test_search_in_files_re_error(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── create_directory: exception (1568-1569) ────────────────────────────
+# â”€â”€â”€ create_directory: exception (1568-1569) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_create_directory_on_file(executor, tmp_path):
@@ -102,7 +104,7 @@ def test_create_directory_on_file(executor, tmp_path):
     assert "ERROR" in result
 
 
-# ─── glob_search: exception (1585-1586) ──────────────────────────────────
+# â”€â”€â”€ glob_search: exception (1585-1586) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_glob_search_relative_to_fail(executor, monkeypatch):
@@ -121,7 +123,7 @@ def test_glob_search_relative_to_fail(executor, monkeypatch):
     assert isinstance(result, str)
 
 
-# ─── get_file_tree: depth limit (1598), hidden skip (1607, 1612-1613) ───
+# â”€â”€â”€ get_file_tree: depth limit (1598), hidden skip (1607, 1612-1613) â”€â”€â”€
 
 
 def test_get_file_tree_depth_and_hidden(executor, tmp_path):
@@ -136,7 +138,7 @@ def test_get_file_tree_depth_and_hidden(executor, tmp_path):
     assert isinstance(result, str)
 
 
-# ─── get_file_tree: PermissionError (1601-1602) ─────────────────────────
+# â”€â”€â”€ get_file_tree: PermissionError (1601-1602) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_get_file_tree_permission_error(executor, tmp_path):
@@ -152,7 +154,7 @@ def test_get_file_tree_permission_error(executor, tmp_path):
         r.chmod(0o755)
 
 
-# ─── diff_files: file not found (1624, 1626) ────────────────────────────
+# â”€â”€â”€ diff_files: file not found (1624, 1626) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_diff_files_not_found(executor):
@@ -160,7 +162,7 @@ def test_diff_files_not_found(executor):
     assert "ERROR" in result
 
 
-# ─── git_status exception (1647-1655) ────────────────────────────────────
+# â”€â”€â”€ git_status exception (1647-1655) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_status_exception(executor, monkeypatch):
@@ -178,7 +180,7 @@ def test_git_status_clean(executor):
     assert isinstance(result, str)
 
 
-# ─── git_log exception (1661-1670) ───────────────────────────────────────
+# â”€â”€â”€ git_log exception (1661-1670) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_log_exception(executor, monkeypatch):
@@ -196,7 +198,7 @@ def test_git_log_empty(executor):
     assert isinstance(result, str)
 
 
-# ─── git_diff exception (1676-1683) ──────────────────────────────────────
+# â”€â”€â”€ git_diff exception (1676-1683) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_diff_exception(executor, monkeypatch):
@@ -214,7 +216,7 @@ def test_git_diff_with_ref(executor):
     assert isinstance(result, str)
 
 
-# ─── web_search: snippet fallback (1703-1704) ────────────────────────────
+# â”€â”€â”€ web_search: snippet fallback (1703-1704) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_web_search_snippet_empty(executor, monkeypatch):
@@ -228,7 +230,7 @@ def test_web_search_snippet_empty(executor, monkeypatch):
     assert isinstance(result, str)
 
 
-# ─── format_file: python returncode paths (1867-1869) ────────────────────
+# â”€â”€â”€ format_file: python returncode paths (1867-1869) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_format_file_python_success(executor, tmp_path, monkeypatch):
@@ -253,7 +255,7 @@ def test_format_file_python_error(executor, tmp_path, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── format_file: non-python returncode paths (1872-1874) ────────────────
+# â”€â”€â”€ format_file: non-python returncode paths (1872-1874) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_format_file_rs_success(executor, tmp_path, monkeypatch):
@@ -276,7 +278,7 @@ def test_format_file_rs_error(executor, tmp_path, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── install_package: success/failure (1899-1900) ────────────────────────
+# â”€â”€â”€ install_package: success/failure (1899-1900) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_install_package_success(executor, monkeypatch):
@@ -295,9 +297,12 @@ def test_install_package_failure(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── read_image: exception (1803-1804) ──────────────────────────────────
+# â”€â”€â”€ read_image: exception (1803-1804) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_read_image_exception(executor, tmp_path):
     f = tmp_path / "img.png"
     f.touch()
@@ -309,9 +314,12 @@ def test_read_image_exception(executor, tmp_path):
         f.chmod(0o644)
 
 
-# ─── read_image_data: exception (2398, 2403-2404) ───────────────────────
+# â”€â”€â”€ read_image_data: exception (2398, 2403-2404) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_read_image_data_exception(executor, tmp_path):
     f = tmp_path / "img.dat"
     f.touch()
@@ -323,7 +331,7 @@ def test_read_image_data_exception(executor, tmp_path):
         f.chmod(0o644)
 
 
-# ─── inline_edit: exception (2424-2425) ──────────────────────────────────
+# â”€â”€â”€ inline_edit: exception (2424-2425) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_inline_edit_exception(executor, tmp_path):
@@ -337,7 +345,7 @@ def test_inline_edit_exception(executor, tmp_path):
         f.chmod(0o644)
 
 
-# ─── git_commit: failure stderr (2468) ───────────────────────────────────
+# â”€â”€â”€ git_commit: failure stderr (2468) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_commit_failure_stderr(executor, monkeypatch):
@@ -351,7 +359,7 @@ def test_git_commit_failure_stderr(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── git_pre_commit: with staged changes (2600-2606) ─────────────────────
+# â”€â”€â”€ git_pre_commit: with staged changes (2600-2606) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_pre_commit_with_changes(executor, monkeypatch):
@@ -370,7 +378,7 @@ def test_git_pre_commit_with_changes(executor, monkeypatch):
     assert isinstance(result, str)
 
 
-# ─── add_git_hook: success path (2639-2647) ─────────────────────────────
+# â”€â”€â”€ add_git_hook: success path (2639-2647) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_add_git_hook_success(executor):
@@ -380,7 +388,7 @@ def test_add_git_hook_success(executor):
     assert (executor.cwd / ".git" / "hooks" / "pre-commit").exists()
 
 
-# ─── batch_read: success (2656-2663) ────────────────────────────────────
+# â”€â”€â”€ batch_read: success (2656-2663) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_batch_read_success(executor, monkeypatch):
@@ -394,7 +402,7 @@ def test_batch_read_success(executor, monkeypatch):
     assert "Read 2 files" in result
 
 
-# ─── retry_tool: error/exception (2694-2696) ────────────────────────────
+# â”€â”€â”€ retry_tool: error/exception (2694-2696) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_retry_tool_exception(executor, monkeypatch):
@@ -412,7 +420,7 @@ def test_retry_tool_exception(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── get_context_info: with agent (2727-2735) ──────────────────────────
+# â”€â”€â”€ get_context_info: with agent (2727-2735) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_get_context_info_with_agent(executor, monkeypatch):
@@ -431,11 +439,12 @@ def test_get_context_info_with_agent(executor, monkeypatch):
     assert "a.py" in result
 
 
-# ─── AsyncToolExecutor: execute_async exception (2996-2997) + parallel (3000-3001) ────
+# â”€â”€â”€ AsyncToolExecutor: execute_async exception (2996-2997) + parallel (3000-3001) â”€â”€â”€â”€
 
 
 def test_async_executor_exception_handler():
     import asyncio
+
     from apex.tools import AsyncToolExecutor
 
     e = AsyncToolExecutor()
@@ -445,6 +454,7 @@ def test_async_executor_exception_handler():
 
 def test_async_executor_parallel():
     import asyncio
+
     from apex.tools import AsyncToolExecutor
 
     e = AsyncToolExecutor()
@@ -454,7 +464,7 @@ def test_async_executor_parallel():
     assert len(results) == 2
 
 
-# ─── run_command: restricted command warning (1485-1486) ──────────────────
+# â”€â”€â”€ run_command: restricted command warning (1485-1486) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_run_command_restricted(executor, monkeypatch):
@@ -470,7 +480,7 @@ def test_run_command_restricted(executor, monkeypatch):
     assert "WARNING" in result
 
 
-# ─── diff_files: file not found paths (1624, 1626) ──────────────────────
+# â”€â”€â”€ diff_files: file not found paths (1624, 1626) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_diff_files_both_not_found(executor):
@@ -478,7 +488,7 @@ def test_diff_files_both_not_found(executor):
     assert "ERROR" in result
 
 
-# ─── git_status: with output (1653) ──────────────────────────────────────
+# â”€â”€â”€ git_status: with output (1653) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_status_with_output(executor, monkeypatch):
@@ -492,7 +502,7 @@ def test_git_status_with_output(executor, monkeypatch):
     assert "f.txt" in result
 
 
-# ─── read_image_data: exception handlers (2398, 2403-2404) ──────────────
+# â”€â”€â”€ read_image_data: exception handlers (2398, 2403-2404) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_read_image_data_path_not_found(executor):
@@ -500,7 +510,7 @@ def test_read_image_data_path_not_found(executor):
     assert "ERROR" in result
 
 
-# ─── inline_edit: not found (2415) ──────────────────────────────────────
+# â”€â”€â”€ inline_edit: not found (2415) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_inline_edit_not_found(executor):
@@ -508,7 +518,7 @@ def test_inline_edit_not_found(executor):
     assert "ERROR" in result
 
 
-# ─── preview_edit: not found path (1922) ─────────────────────────────────
+# â”€â”€â”€ preview_edit: not found path (1922) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_preview_edit_path_not_found(executor):
@@ -518,7 +528,7 @@ def test_preview_edit_path_not_found(executor):
     assert "ERROR" in result
 
 
-# ─── apply_patch: cleanup + success/error (2136-2140) ───────────────────
+# â”€â”€â”€ apply_patch: cleanup + success/error (2136-2140) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_apply_patch_patch_failure(executor, monkeypatch):
@@ -537,7 +547,7 @@ def test_apply_patch_patch_failure(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── restore_bookmark: not found (2051) ─────────────────────────────────
+# â”€â”€â”€ restore_bookmark: not found (2051) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_restore_bookmark_not_found_direct(executor):
@@ -546,7 +556,7 @@ def test_restore_bookmark_not_found_direct(executor):
     assert "ERROR" in result
 
 
-# ─── undo: nothing to undo (2086-2087) & redo: nothing (2094-2097) ──────
+# â”€â”€â”€ undo: nothing to undo (2086-2087) & redo: nothing (2094-2097) â”€â”€â”€â”€â”€â”€
 
 
 def test_undo_nothing(executor):
@@ -569,7 +579,7 @@ def test_redo_nothing(executor):
     assert "Nothing" in result or "ERROR" in result
 
 
-# ─── git command exceptions (2333-2362) ────────────────────────────────
+# â”€â”€â”€ git command exceptions (2333-2362) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_create_branch_exception(executor, monkeypatch):
@@ -604,7 +614,7 @@ def test_git_list_branches_exception(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── git stage/unstage/commit exceptions (2443-2468) ─────────────────────
+# â”€â”€â”€ git stage/unstage/commit exceptions (2443-2468) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_stage_exception(executor, monkeypatch):
@@ -631,7 +641,7 @@ def test_git_commit_exception(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── git_pre_commit: clean tree path (2601) ────────────────────────────
+# â”€â”€â”€ git_pre_commit: clean tree path (2601) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_pre_commit_clean(executor, monkeypatch):
@@ -645,7 +655,7 @@ def test_git_pre_commit_clean(executor, monkeypatch):
     assert "clean" in result or isinstance(result, str)
 
 
-# ─── analyze_code: full result formatting (2527-2544) ───────────────────
+# â”€â”€â”€ analyze_code: full result formatting (2527-2544) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_analyze_code_full_result(executor, monkeypatch):
@@ -670,7 +680,7 @@ def test_analyze_code_full_result(executor, monkeypatch):
     assert "20" in result
 
 
-# ─── generate_docs: api with missing path → error (2952) ────────────────
+# â”€â”€â”€ generate_docs: api with missing path â†’ error (2952) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_generate_docs_api_no_path(executor, monkeypatch):
@@ -683,7 +693,7 @@ def test_generate_docs_api_no_path(executor, monkeypatch):
     assert "ERROR" in result or isinstance(result, str)
 
 
-# ─── convert_bookmark → search_history without conv_manager (2055-2071) ──
+# â”€â”€â”€ convert_bookmark â†’ search_history without conv_manager (2055-2071) â”€â”€
 
 
 def test_search_history_no_conv_manager(executor):
@@ -691,7 +701,7 @@ def test_search_history_no_conv_manager(executor):
     assert "ERROR" in result or isinstance(result, str)
 
 
-# ─── run_test: with program output (1826-1831) ─────────────────────────
+# â”€â”€â”€ run_test: with program output (1826-1831) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_run_test_with_output(executor, monkeypatch):
@@ -716,7 +726,7 @@ def test_run_test_with_stderr(executor, monkeypatch):
     assert isinstance(result, str)
 
 
-# ─── apply_patch: success path (2138) ──────────────────────────────────
+# â”€â”€â”€ apply_patch: success path (2138) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_apply_patch_success(executor, monkeypatch):
@@ -734,7 +744,7 @@ def test_apply_patch_success(executor, monkeypatch):
     assert "SUCCESS" in result
 
 
-# ─── clipboard tests using fake pyperclip that raises ImportError ────────
+# â”€â”€â”€ clipboard tests using fake pyperclip that raises ImportError â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_clipboard_read_xclip_fallback(executor, monkeypatch):
@@ -849,7 +859,7 @@ def test_git_list_branches_with_repo_exception(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── git_stage/unstage/commit with .git dir + mock exception ──────────
+# â”€â”€â”€ git_stage/unstage/commit with .git dir + mock exception â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_stage_with_repo_exception(executor, monkeypatch):
@@ -879,7 +889,7 @@ def test_git_commit_with_repo_exception(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── read_image_data: inner try block (2403-2404) ──────────────────────
+# â”€â”€â”€ read_image_data: inner try block (2403-2404) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_read_image_data_not_found_early(executor):
@@ -887,7 +897,7 @@ def test_read_image_data_not_found_early(executor):
     assert "ERROR" in result
 
 
-# ─── retry_tool: success path (2694) ───────────────────────────────────
+# â”€â”€â”€ retry_tool: success path (2694) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_retry_tool_success(executor, monkeypatch):
@@ -903,10 +913,10 @@ def test_retry_tool_success(executor, monkeypatch):
     assert "SUCCESS" in result
 
 
-# ─── (search_history first definition is dead code - overridden) ─────────
+# â”€â”€â”€ (search_history first definition is dead code - overridden) â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-# ─── redo: with result (2097) ─────────────────────────────────────────
+# â”€â”€â”€ redo: with result (2097) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_redo_with_action(executor, monkeypatch):
@@ -919,9 +929,12 @@ def test_redo_with_action(executor, monkeypatch):
     assert "REDONE" in result or isinstance(result, str)
 
 
-# ─── read_image: exception handler deeper path ─────────────────────────
+# â”€â”€â”€ read_image: exception handler deeper path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_read_image_cannot_read(executor, tmp_path):
     f = tmp_path / "img.png"
     f.write_bytes(b"\x89PNG\r\n\x1a\n")
@@ -933,7 +946,7 @@ def test_read_image_cannot_read(executor, tmp_path):
         f.chmod(0o644)
 
 
-# ─── read_image: not found (1801) ──────────────────────────────────────
+# â”€â”€â”€ read_image: not found (1801) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_read_image_not_found(executor):
@@ -941,7 +954,7 @@ def test_read_image_not_found(executor):
     assert "ERROR" in result
 
 
-# ─── git_unstage without files (line 2453-2454) ────────────────────────
+# â”€â”€â”€ git_unstage without files (line 2453-2454) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_git_unstage_no_files(executor, monkeypatch):
@@ -953,7 +966,7 @@ def test_git_unstage_no_files(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── generate_docs: invalid type error at line 2952 ────────────────────
+# â”€â”€â”€ generate_docs: invalid type error at line 2952 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_generate_docs_type_error(executor, monkeypatch):
@@ -966,7 +979,7 @@ def test_generate_docs_type_error(executor, monkeypatch):
     assert "ERROR" in result
 
 
-# ─── diff_files: path_b not found (1626) ────────────────────────────────
+# â”€â”€â”€ diff_files: path_b not found (1626) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_diff_files_only_b_not_found(executor, tmp_path):
@@ -976,7 +989,7 @@ def test_diff_files_only_b_not_found(executor, tmp_path):
     assert "ERROR" in result
 
 
-# ─── git switch/delete/list/stage/unstage with .git AND mock success ────
+# â”€â”€â”€ git switch/delete/list/stage/unstage with .git AND mock success â”€â”€â”€â”€
 
 
 def test_git_switch_branch_mocked_success(executor, monkeypatch):

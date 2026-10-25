@@ -13,7 +13,6 @@ from apex.formatter import (
     formatter_manager,
 )
 
-
 # ---------------------------------------------------------------------------
 # FormatterConfig dataclass
 # ---------------------------------------------------------------------------
@@ -53,8 +52,8 @@ class TestFormatterConfig:
 
 
 class TestBuiltinFormatters:
-    def test_eleven_formatters(self):
-        assert len(BUILTIN_FORMATTERS) == 11
+    def test_twenty_formatters(self):
+        assert len(BUILTIN_FORMATTERS) == 20
 
     def test_each_has_name_command_extensions(self):
         for fmt in BUILTIN_FORMATTERS:
@@ -67,59 +66,84 @@ class TestBuiltinFormatters:
         f = BUILTIN_FORMATTERS[0]
         assert f.name == "ruff"
         assert f.command == ["ruff", "format", "$FILE"]
-        assert f.extensions == [".py"]
+        assert f.extensions == [".py", ".pyi"]
 
     def test_prettier(self):
         f = BUILTIN_FORMATTERS[1]
         assert f.name == "prettier"
         assert f.command == ["npx", "prettier", "--write", "$FILE"]
-        assert f.extensions == [".js", ".ts", ".jsx", ".tsx", ".json", ".yaml", ".md"]
+        assert f.extensions == [
+            ".js",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            ".json",
+            ".yaml",
+            ".md",
+            ".html",
+            ".css",
+        ]
+
+    def test_biome(self):
+        f = BUILTIN_FORMATTERS[2]
+        assert f.name == "biome"
+        assert f.extensions == [".js", ".jsx", ".ts", ".tsx", ".json", ".css", ".html", ".md"]
 
     def test_rustfmt(self):
-        f = BUILTIN_FORMATTERS[2]
+        f = BUILTIN_FORMATTERS[3]
         assert f.name == "rustfmt"
         assert f.extensions == [".rs"]
 
+    def test_cargofmt(self):
+        f = BUILTIN_FORMATTERS[4]
+        assert f.name == "cargofmt"
+        assert f.extensions == [".rs"]
+
     def test_gofmt(self):
-        f = BUILTIN_FORMATTERS[3]
+        f = BUILTIN_FORMATTERS[5]
         assert f.name == "gofmt"
         assert f.extensions == [".go"]
 
     def test_google_java_format(self):
-        f = BUILTIN_FORMATTERS[4]
+        f = BUILTIN_FORMATTERS[6]
         assert f.name == "google-java-format"
         assert f.extensions == [".java"]
 
     def test_clang_format(self):
-        f = BUILTIN_FORMATTERS[5]
+        f = BUILTIN_FORMATTERS[7]
         assert f.name == "clang-format"
-        assert f.extensions == [".c", ".h", ".cpp"]
+        assert f.extensions == [".c", ".h", ".cpp", ".hpp", ".ino"]
 
     def test_rubocop(self):
-        f = BUILTIN_FORMATTERS[6]
+        f = BUILTIN_FORMATTERS[8]
         assert f.name == "rubocop"
-        assert f.extensions == [".rb"]
+        assert f.extensions == [".rb", ".rake", ".gemspec", ".ru"]
 
     def test_scalafmt(self):
-        f = BUILTIN_FORMATTERS[7]
+        f = BUILTIN_FORMATTERS[9]
         assert f.name == "scalafmt"
         assert f.extensions == [".scala"]
 
     def test_ktlint(self):
-        f = BUILTIN_FORMATTERS[8]
+        f = BUILTIN_FORMATTERS[10]
         assert f.name == "ktlint"
-        assert f.extensions == [".kt"]
+        assert f.extensions == [".kt", ".kts"]
 
     def test_swift_format(self):
-        f = BUILTIN_FORMATTERS[9]
+        f = BUILTIN_FORMATTERS[11]
         assert f.name == "swift-format"
         assert f.extensions == [".swift"]
 
     def test_zig_fmt(self):
-        f = BUILTIN_FORMATTERS[10]
+        f = BUILTIN_FORMATTERS[12]
         assert f.name == "zig-fmt"
-        assert f.extensions == [".zig"]
+        assert f.extensions == [".zig", ".zon"]
         assert f.command == ["zig", "fmt", "$FILE"]
+
+    def test_extended_formatters_registered(self):
+        names = [f.name for f in BUILTIN_FORMATTERS]
+        for expected in ["dart", "shfmt", "terraform", "mix", "nixfmt", "standardrb", "uv"]:
+            assert expected in names
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +156,7 @@ class TestFormatterManagerSingleton:
         assert isinstance(formatter_manager, FormatterManager)
 
     def test_singleton_has_initial_state(self):
-        assert len(formatter_manager._formatters) == 11
+        assert len(formatter_manager._formatters) == 20
         assert formatter_manager._loaded is False
         assert formatter_manager._available == {}
 
@@ -205,7 +229,9 @@ class TestGetFormatterFor:
             manager._available[fmt.name] = True
             result = manager.get_formatter_for(f"/path/file{ext}")
             assert result is not None, f"No formatter for {ext} ({fmt.name})"
-            assert result.name == fmt.name
+            # Several formatters share extensions (e.g. .js, .py) — the first
+            # matching available formatter wins.
+            assert result.name in {f.name for f in manager._formatters if ext in f.extensions}
 
     def test_returns_none_for_unsupported_extension(self, manager):
         assert manager.get_formatter_for("/path/file.xyz") is None
@@ -231,8 +257,8 @@ class TestGetFormatterFor:
             assert m._loaded is False
             result = m.get_formatter_for("/path/file.py")
             assert m._loaded is True
-            # ruff not installed, so None
-            assert result is None
+            # At least one .py formatter exists (ruff/uv) once config is loaded.
+            assert result is not None
 
 
 # ---------------------------------------------------------------------------
@@ -497,7 +523,7 @@ class TestLoadFromConfig:
             m = FormatterManager()
             m.load_from_config()
 
-        assert len(m._formatters) == 12
+        assert len(m._formatters) == 21
         custom = next((f for f in m._formatters if f.name == "my-fmt"), None)
         assert custom is not None
         assert custom.command == ["my-tool", "$FILE"]
@@ -575,7 +601,7 @@ class TestLoadFromConfig:
 
         names = [f.name for f in m._formatters]
         assert "ghost" not in names
-        assert len(m._formatters) == 11
+        assert len(m._formatters) == 20
 
     def test_custom_formatter_missing_extensions_not_added(self):
         with patch("apex.config_v2.apex_config") as mock_cfg:
@@ -603,7 +629,15 @@ class TestDiscoverAvailable:
             manager.discover_available()
             assert manager._available["ruff"] is True
 
-    def test_npx_formatter_checks_node(self, manager):
+    def test_npx_formatter_checks_node(self, manager, tmp_path, monkeypatch):
+        # prettier requires a package.json declaring it; satisfy the requirement
+        # in an isolated directory before checking the npx/node detection path.
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "package.json").write_text(
+            '{"devDependencies":{"prettier":"*"}}',
+            encoding="utf-8",
+        )
+
         def _which_side(binary):
             return "/usr/bin/node" if binary == "node" else None
 
@@ -644,7 +678,7 @@ class TestListAvailable:
         manager._formatters[0].disabled = True
 
         avail = manager.list_available()
-        assert len(avail) == 10
+        assert len(avail) == 19
         assert all(not f.disabled for f in avail)
 
     def test_returns_empty_when_all_disabled(self, manager):
@@ -716,12 +750,12 @@ class TestFormatterManagerProperties:
     def test_formatters_property_returns_copy(self):
         m = FormatterManager()
         fmts = m.formatters
-        assert len(fmts) == 11
+        assert len(fmts) == 20
         fmts.clear()
-        assert len(m.formatters) == 11
+        assert len(m.formatters) == 20
 
     def test_formatter_manager_initial_state(self):
         m = FormatterManager()
         assert m._loaded is False
         assert m._available == {}
-        assert len(m._formatters) == 11
+        assert len(m._formatters) == 20

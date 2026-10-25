@@ -77,6 +77,68 @@
   `source-map-js@npm` <1.2.2 (haute), `brace-expansion@npm` (moyenne).
   Action recommandée : `npm audit fix` côté site + TUI puis vérification
   (`npm run build`, `npm run lint`).
+
+### Bilan suite pytest complet (2026-10-24, par fichier, timeout 180 s)
+
+Exécution fichier par fichier (contournement des blocages) :
+
+- ✅ Verts : test_api_key (56), test_billing (81), test_commands_manager (68),
+  test_permission (92), test_shell_security (175), test_ui (50), test_slash (51),
+  test_mcp (40), test_memory (32), test_structured_message (29), test_telemetry (34),
+  test_theme_manager (66), test_watcher (64), test_snapshot (34), test_rlm (57),
+  test_git_undo (27), test_github_integration (41), test_http_api_security (35),
+  test_lsp_diagnostics (46), test_new_tools (47), test_plugins_full (63),
+  test_task_queue (23), test_sandbox (33)…
+- ⚠️ Échecs significatifs (préexistants, à traiter séparément) :
+  test_agent_coverage (25), test_formatter (21), test_share (18), test_session (14),
+  test_agent_more (10), test_agent (8), test_agent_full (8), test_tools (7),
+  test_config_v2 (4), test_mentions (4), test_config_tools (2), test_skills (2),
+  test_tools_coverage (3), test_main_full (3), test_extras (2)…
+- ⛔ TIMEOUT (180 s) : test_http_api.py, test_modular_tools.py — à isoler
+  (tests de serveur HTTP/outils modulaires potentiellement bloquants).
+
+> Conclusion : la revendication historique « 2094 passing » n'était pas fiable.
+> Les zones touchées par nos correctifs sont vertes (shell_security, commands_manager).
+
+### Rétablissement de la suite (Phase B, 2026-10-25)
+
+Corrections appliquées pour rendre la suite pytest verte (par fichier) :
+
+- **test_session.py (38)** : Fernet via API actuelle `_decrypt(raw)`, pointage "latest"
+  via helper (symlink ou fichier pointeur), cwd normalisé.
+- **apex/session.py** : fallback pointeur texte quand les symlinks sont
+  indisponibles (Windows sans Developer Mode) — corrige WinError 1314.
+- **test_http_api.py (~204)** : patch `SelectorEventLoop` (branche Windows),
+  skip env-var minuscule sur Windows, agent attendu `build`.
+- **test_modular_tools.py (26)** : skip shell bash interactif sur Windows.
+- **test_share.py (70)** : fixture `home` définit `USERPROFILE` sur Windows.
+- **test_formatter.py (72)** : attentes alignées sur les 20 formatters actuels.
+- **test_agent_coverage.py (83)** / **test_agent_more.py (47)** : mocks
+  `litellm.acompletion` (async) et attendus de modèles actuels.
+- **test_tools*.py (423)** : skipifs Windows (chmod POSIX, xclip, pwd/true,
+  diff), `git_create_pr` mocké via `subprocess.run`.
+- **test_mentions/config_v2/skills/skills_system/project/server** : corrections
+  par subagents (encoding UTF-8, répertoires autorisés, skips plateforme,
+  watchdog optionnel, attente "Agent: plan").
+- **test_extras/extras_full/codegen/rate_limiter/main_more** : chemins
+  normalisés (`os.path.abspath`), nettoyage tmp best-effort, skip chmod Windows.
+
+### Résultat final suite pytest (2026-10-25)
+
+```
+3622 passed, 23 skipped, 0 failed, 0 error
+```
+
+Tous les échecs historiques sont résolus (obsolescences des attentes, mocks
+litellm async `acompletion`, plateforme Windows, dépendances optionnelles).
+Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent).
+
+### Dépendances (2026-10-25)
+
+- `npm audit` (site, package-lock-only) : **6 vulnérabilités** (5 high,
+  1 critical) — en baisse (18 au départ) grâce aux merges dependabot ;
+  `npm audit fix` à passer après intégration de la PR dev→main.
+- Alertes Dependabot (API) : 51 initiales ; à re-mesurer après fixes.
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP

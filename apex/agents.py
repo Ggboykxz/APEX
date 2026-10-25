@@ -687,9 +687,7 @@ class AgentManager:
         for key, value in permission.items():
             if key.startswith("bash:") or key == "bash":
                 pattern = key.split(":", 1)[1] if ":" in key else "*"
-                if fnmatch.fnmatch(command, pattern):
-                    best_match = value
-                elif pattern == "*":
+                if fnmatch.fnmatch(command, pattern) or pattern == "*":
                     best_match = value
 
         # Fallback to wildcard "*"

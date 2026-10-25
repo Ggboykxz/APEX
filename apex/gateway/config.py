@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -82,9 +81,9 @@ class GatewayConfig:
     data_dir: Path = Path.home() / ".apex" / "gateway"
     tiers: dict[str, TierConfig] = field(default_factory=lambda: DEFAULT_TIERS)
     upstream_base: str = "https://openrouter.ai/api/v1"
-    upstream_api_key: Optional[str] = None
+    upstream_api_key: str | None = None
     default_tier: str = "free"
-    admin_key: Optional[str] = None
+    admin_key: str | None = None
     register_enabled: bool = True
 
     @classmethod

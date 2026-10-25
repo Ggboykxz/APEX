@@ -1,9 +1,11 @@
 """Tests for apex/project.py — ProjectInitializer, FileWatcher, get_project_initializer."""
 
-import pytest
 import json
 from pathlib import Path
-from apex.project import ProjectInitializer, FileWatcher, get_project_initializer
+
+import pytest
+
+from apex.project import FileWatcher, ProjectInitializer, get_project_initializer
 
 
 class TestProjectInitializer:
@@ -315,6 +317,7 @@ class TestFileWatcher:
 
     def test_handler_on_modified(self, tmp_path, monkeypatch):
         """Hit lines 281-283 — FileWatcher Handler.on_modified."""
+        pytest.importorskip("watchdog")  # optional dependency, not installed in this env
         import watchdog
         from watchdog.events import FileModifiedEvent
 

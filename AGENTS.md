@@ -97,19 +97,29 @@ APEX is an **autonomous agent** capable of:
 
 ### TUI Architecture (Ink + React)
 
-```
+```text
 tui-frontend/src/
-├── App.tsx                # Root — render ApexApp
+├── App.tsx                 # Root — render ApexApp (Ink)
+├── types.ts                # Shared types (ChatMessage, ModelInfo, OverlayState…)
+├── api/
+│   └── client.ts           # APIClient — all HTTP/SSE wire calls (chat stream, sessions…)
 ├── components/
-│   ├── ApexApp.tsx        # Main layout — titlebar, chat, leader keys, palettes
-│   ├── ChatPanel.tsx      # Message thread with streaming, @refs, !bash
-│   ├── StatusBar.tsx      # In/Out/Total tokens, ctx%, $spent, agent
-│   ├── Sidebar.tsx        # Agent list, session info
+│   ├── ApexApp.tsx         # Main layout — state machine, leader keys, keyboard handling
+│   ├── ChatPanel.tsx       # Message thread with streaming, @refs, !bash
+│   ├── StatusBar.tsx       # In/Out/Total tokens, ctx%, $spent, agent
+│   ├── Sidebar.tsx         # Agent list, session info
+│   └── overlays.tsx        # Stateless overlay components (palette, selectors, help…)
 ├── data/
-│   └── apex-data.ts      # 35+ models, 8 agents, keybinds
+│   └── apex-data.ts        # Agents + models data
 └── theme/
-    └── apex.ts            # Base theme colors
+    └── apex.ts             # Base theme colors
 ```
+
+**Architecture (suivant OpenCode) :**
+- **Client / serveur** : le TUI est un client léger ; `api/client.ts` centralise tous les appels HTTP/SSE vers le backend Python (POST /chat/stream en SSE, /api/v1/*, WebSocket /ws/events pour l'EventBus).
+- **Composants stateless** : `overlays.tsx` expose CommandPalette, ModelSelector, ThemeSelector, AgentSelector, SessionList, FileFinder, HelpOverlay, StatusOverlay — la navigation clavier reste dans ApexApp, les overlays ne font que rendre l'état.
+- **Runtime** : exécutable via `tsx` (Node) ou **Bun** (`bun run src/App.tsx` / scripts `dev:bun`/`start:bun`).
+- **Tests** : `bun test` (tests/api-client.test.ts — streaming SSE, erreurs HTTP, construction d'URL) ; `npm run typecheck`.
 
 **HTTP SSE Flow:**
 ```
@@ -961,7 +971,10 @@ result = limiter.check_rate_limit("user_123")
 ## Project Status
 
 - **Version**: 2.0.0
-- **Tests**: suite pytest (`tests/`) — run `pytest -q` from the repo root
+- **Tests**:
+  - Suite pytest (`tests/`) — run `pytest -q` from the repo root
+  - Rust (`rust/apex-rs/`) — run `cargo test`
+  - TUI (`tui-frontend/`) — run `bun test` (API client, SSE streaming); `npm run typecheck` pour tsc
 - **License**: Proprietary — All rights reserved (see [LICENSE](LICENSE))
 
 ## Installation

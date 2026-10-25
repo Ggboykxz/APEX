@@ -1,24 +1,27 @@
 """Tests for apex/extras.py — ShellExpander, EnvManager, Task, TaskQueue, HistorySearch, WorkspaceValidator, SecurityAuditor."""
 
-import pytest
-import tempfile
-import os
 import asyncio
+import os
+import tempfile
 import time
 from pathlib import Path
-from apex.extras import (
-    ShellExpander,
-    EnvManager,
-    Task,
-    TaskQueue as ExtrasTaskQueue,
-    HistorySearch,
-    WorkspaceValidator,
-    SecurityAuditor,
-    get_env_manager,
-    get_task_queue,
-    get_history_search,
-)
 
+import pytest
+
+from apex.extras import (
+    EnvManager,
+    HistorySearch,
+    SecurityAuditor,
+    ShellExpander,
+    Task,
+    WorkspaceValidator,
+    get_env_manager,
+    get_history_search,
+    get_task_queue,
+)
+from apex.extras import (
+    TaskQueue as ExtrasTaskQueue,
+)
 
 # ---------------------------------------------------------------------------
 # ShellExpander
@@ -60,12 +63,12 @@ class TestShellExpander:
 
     def test_expand_path_absolute(self):
         result = ShellExpander.expand_path("/tmp/test")
-        assert result == "/tmp/test"
+        assert result == os.path.abspath("/tmp/test")
 
     def test_expand_path_with_env(self):
         os.environ["MY_APEX_DIR"] = "/tmp"
         result = ShellExpander.expand_path("$MY_APEX_DIR/sub")
-        assert result == "/tmp/sub"
+        assert result == os.path.abspath("/tmp/sub")
         del os.environ["MY_APEX_DIR"]
 
     def test_expand_command(self):

@@ -1,19 +1,21 @@
 """Session persistence for APEX - save and load conversation sessions."""
 
+import base64
 import json
+import logging
 import os
 import re
-import logging
-import base64
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
+
+from cryptography.fernet import Fernet
 
 from .agent import Agent
 
 logger = logging.getLogger(__name__)
 
-_FERNET_KEY: Optional[bytes] = None
+_FERNET_KEY: bytes | None = None
 
 
 def _get_fernet() -> "Fernet":
@@ -23,7 +25,6 @@ def _get_fernet() -> "Fernet":
     encryption instead of a custom XOR stream cipher.
     """
     global _FERNET_KEY
-    from cryptography.fernet import Fernet
 
     if _FERNET_KEY is not None:
         return Fernet(_FERNET_KEY)
@@ -34,6 +35,7 @@ def _get_fernet() -> "Fernet":
         # If the old key was a raw 32-byte SHA-256 hash, derive a proper Fernet key from it
         if len(raw) == 32:
             import hashlib
+
             _FERNET_KEY = base64.urlsafe_b64encode(hashlib.sha256(raw + b":fernet").digest())
         else:
             # Already a valid Fernet key (url-safe base64 of 32 bytes)
@@ -76,14 +78,14 @@ class UndoManager:
             self._undo_stack.pop(0)
         self._redo_stack.clear()
 
-    def undo(self) -> Optional[dict[str, Any]]:
+    def undo(self) -> dict[str, Any] | None:
         if not self._undo_stack:
             return None
         action = self._undo_stack.pop()
         self._redo_stack.append(action)
         return action
 
-    def redo(self) -> Optional[dict[str, Any]]:
+    def redo(self) -> dict[str, Any] | None:
         if not self._redo_stack:
             return None
         action = self._redo_stack.pop()
@@ -144,14 +146,23 @@ class SessionManager:
         with open(filepath, "wb") as f:
             f.write(encrypted)
 
-        # Atomically update the "latest" symlink using temp-link + rename
+        # Atomically update the "latest" pointer using a temp symlink + rename.
+        # Some platforms (Windows without Developer Mode/admin) cannot create
+        # symlinks — fall back to a plain pointer file in that case.
         latest_link = self._sessions_dir / f"latest_{name}.json"
         tmp_link = self._sessions_dir / f".latest_{name}.tmp"
-        # Remove stale temp link if it exists
-        if tmp_link.exists() or tmp_link.is_symlink():
-            tmp_link.unlink()
-        tmp_link.symlink_to(filepath.name)
-        os.replace(str(tmp_link), str(latest_link))
+        try:
+            if tmp_link.exists() or tmp_link.is_symlink():
+                tmp_link.unlink()
+            tmp_link.symlink_to(filepath.name)
+            os.replace(str(tmp_link), str(latest_link))
+        except OSError:
+            try:
+                if tmp_link.exists() or tmp_link.is_symlink():
+                    tmp_link.unlink()
+            except OSError:
+                pass
+            latest_link.write_text(filepath.name, encoding="utf-8")
 
         return filepath
 
@@ -165,7 +176,12 @@ class SessionManager:
                 return False
             filepath = max(matching, key=lambda p: p.stat().st_mtime)
         else:
-            resolved = (self._sessions_dir / latest_link.readlink()).resolve()
+            try:
+                resolved = (self._sessions_dir / latest_link.readlink()).resolve()
+            except OSError:
+                # Plain pointer file fallback (symlinks unavailable).
+                pointer = latest_link.read_text(encoding="utf-8").strip()
+                resolved = (self._sessions_dir / pointer).resolve()
             if not str(resolved).startswith(str(self._sessions_dir.resolve())):
                 return False
             filepath = resolved
@@ -234,6 +250,7 @@ class SessionManager:
         encrypted_payload = _encrypt(payload)
 
         import hashlib as _hl
+
         encoded = _hl.sha256(payload + os.urandom(16)).hexdigest()[:16]
         share_id = encoded
 
@@ -260,6 +277,7 @@ class SessionManager:
             raw = filepath.read_bytes()
             if filepath.suffix == ".json":
                 import base64
+
                 wrapper = json.loads(raw)
                 compressed = wrapper.get("data", "")
                 json_str = base64.b64decode(compressed.encode()).decode()

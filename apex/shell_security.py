@@ -4,7 +4,6 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +31,15 @@ class CommandAnalysis:
     args: list[str]
     warnings: list[str]
     requires_confirmation: bool
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class ShellSecurityAnalyzer:
     DANGEROUS_PATTERNS = [
-        (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?", "Destructive system-wide deletion"),
+        (
+            r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?",
+            "Destructive system-wide deletion",
+        ),
         (r":\(\)\{\s*:\|:\s*&\s*\};:.*", "Fork bomb"),
         (r">\s*/dev/sd[a-z]", "Direct disk write detected"),
         (r"dd\s+if=.*of=/dev/", "Direct device write"),

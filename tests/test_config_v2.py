@@ -17,7 +17,6 @@ import pytest
 # module-level globals that depend on Path.home()).
 from apex.config_v2 import parse_jsonc, read_jsonc, strip_jsonc_comments
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Fixtures
 # ═══════════════════════════════════════════════════════════════════════
@@ -144,7 +143,9 @@ class TestSubstituteVars:
         assert cfg.model == ""
 
     def test_file_var_substitution(self, mod, tmp_path):
-        secret_file = tmp_path / "secrets" / "key.txt"
+        # {file:...} substitution is restricted to config-owned directories
+        # (~/.config/apex, ~/.apex), so the secret file must live there.
+        secret_file = tmp_path / ".config" / "apex" / "secrets" / "key.txt"
         secret_file.parent.mkdir(parents=True, exist_ok=True)
         secret_file.write_text("sk-my-secret-key", encoding="utf-8")
         _write(
@@ -163,7 +164,9 @@ class TestSubstituteVars:
         assert cfg.shell == ""
 
     def test_circular_file_reference_returns_empty(self, mod, tmp_path):
-        shared = tmp_path / "shared.txt"
+        # File must live under an allowed config dir (see _is_path_allowed).
+        shared = tmp_path / ".config" / "apex" / "shared.txt"
+        shared.parent.mkdir(parents=True, exist_ok=True)
         shared.write_text("real-content", encoding="utf-8")
         _write(
             tmp_path / ".config" / "apex" / "apex.json",
@@ -263,8 +266,9 @@ class TestDeepMerge:
         target = {"compaction": {"auto": True}}
         mod.ApexConfig._deep_merge_defaults(target, mod.DEFAULTS)
         assert target["compaction"]["auto"] is True
-        assert target["compaction"]["prune"] is False
-        assert target["compaction"]["reserved"] == 10
+        # Defaults were updated: prune/reserved now use these values.
+        assert target["compaction"]["prune"] is True
+        assert target["compaction"]["reserved"] == 10000
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -363,7 +367,8 @@ class TestAutoMigration:
         assert cfg._migrated is True
         assert cfg.model == "gpt-4o"
         assert cfg.theme == "nord"
-        assert mod.GLOBAL_JSON.is_file()
+        # Migration now writes the JSONC variant (GLOBAL_JSONC), not GLOBAL_JSON.
+        assert not mod.GLOBAL_JSON.is_file()
         assert mod.GLOBAL_JSONC.is_file()
         backup = old.with_suffix(".json.bak")
         assert backup.is_file()

@@ -1,19 +1,19 @@
 """Tests for theme_manager.py — 100% line coverage."""
 
 import json
-import pytest
 from pathlib import Path
 
+import pytest
+
 from apex.theme_manager import (
-    ThemeManager,
-    theme_manager,
     BUILTIN_THEMES,
     REQUIRED_KEYS,
-    _resolve_ref,
+    ThemeManager,
     _detect_terminal_mode,
     _load_theme_files,
+    _resolve_ref,
+    theme_manager,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

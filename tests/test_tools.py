@@ -1,10 +1,12 @@
 """Tests for APEX tools - core file operations and ToolExecutor basics."""
 
-import pytest
 from pathlib import Path
 
-from apex.tools import ToolExecutor, TOOL_SCHEMAS
+import sys
 
+import pytest
+
+from apex.tools import TOOL_SCHEMAS, ToolExecutor
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -309,6 +311,9 @@ def test_execute_catches_method_exception(executor):
 # ─── write_file error path ───────────────────────────────────────────────────
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_write_file_readonly_path(executor, tmp_path):
     """Test write_file when target is not writable (e.g., read-only directory)."""
     readonly_dir = tmp_path / "readonly"
@@ -466,6 +471,9 @@ def test_delete_file_path_not_found(executor):
     assert "ERROR" in result
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_delete_file_exception(executor, tmp_path):
     """Cover exception handler line 1560-1561."""
     d = tmp_path / "del_no_perm"
@@ -809,6 +817,9 @@ def test_read_image_not_found(executor):
     assert "ERROR" in result
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_read_image_exception(executor, tmp_path):
     """Cover exception handler line 1805-1806."""
     f = tmp_path / "img.png"
@@ -975,6 +986,9 @@ def test_preview_edit_string_not_found(executor, tmp_path):
     assert "ERROR" in result
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_preview_edit_exception(executor, tmp_path):
     """Cover lines 1957-1958."""
     f = tmp_path / "preview_exc.txt"
@@ -1060,6 +1074,7 @@ def test_clipboard_read_pyperclip(executor, monkeypatch):
     assert isinstance(result, str)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="xclip fallback path is POSIX-only")
 def test_clipboard_read_exception(executor, monkeypatch):
     """Cover main exception handler line 1995-1996."""
     import subprocess
@@ -1089,6 +1104,7 @@ def test_clipboard_write_success_pyperclip(executor, monkeypatch):
     assert isinstance(result, str)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="xclip fallback path is POSIX-only")
 def test_clipboard_write_exception(executor, monkeypatch):
     """Cover exception handler line 2014-2015."""
     import subprocess
@@ -1591,6 +1607,9 @@ def test_read_image_data_not_found(executor):
     assert "ERROR" in result
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_read_image_data_exception(executor, tmp_path):
     """Cover lines 2405-2406."""
     f = tmp_path / "img_data.bin"

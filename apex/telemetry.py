@@ -1,12 +1,12 @@
 """Telemetry and logging system for APEX."""
 
-import time
 import json
-from pathlib import Path
-from typing import Any
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 
 class EventType(Enum):
@@ -126,7 +126,7 @@ class Logger:
                         "***"
                         if any(
                             s in key_lower
-                            for s in {"key", "secret", "password", "token", "credential", "api_key"}
+                            for s in ("key", "secret", "password", "token", "credential", "api_key")
                         )
                         else str(v)[:100]
                     )
@@ -137,18 +137,18 @@ class Logger:
     def save(self) -> None:
         log_file = self._log_dir / f"session_{self._current_session}.jsonl"
         with open(log_file, "w") as f:
-            for event in self._events:
-                f.write(
-                    json.dumps(
-                        {
-                            "timestamp": event.timestamp,
-                            "event_type": event.event_type,
-                            "data": event.data,
-                            "duration_ms": event.duration_ms,
-                        }
-                    )
-                    + "\n"
+            f.writelines(
+                json.dumps(
+                    {
+                        "timestamp": event.timestamp,
+                        "event_type": event.event_type,
+                        "data": event.data,
+                        "duration_ms": event.duration_ms,
+                    }
                 )
+                + "\n"
+                for event in self._events
+            )
 
     def get_stats(self) -> dict[str, Any]:
         tool_counts = {}

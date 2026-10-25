@@ -1,14 +1,18 @@
 """Tests for apex/mentions.py — MentionParser, FileMentionCompleter, singleton functions."""
 
-import pytest
+import os
+import sys
 from pathlib import Path
+
+import pytest
+
 from apex.mentions import (
-    FileMention,
     AgentMention,
-    MentionParser,
+    FileMention,
     FileMentionCompleter,
-    get_mention_parser,
+    MentionParser,
     get_file_completer,
+    get_mention_parser,
 )
 
 
@@ -180,6 +184,10 @@ class TestMentionParser:
         resolved = parser.resolve_file("test.py")
         assert resolved == (parser.cwd / "test.py").resolve()
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX absolute path semantics (/tmp) do not apply on Windows",
+    )
     def test_resolve_absolute(self, parser):
         resolved = parser.resolve_file("/tmp/test.py")
         assert resolved == Path("/tmp/test.py")
@@ -272,7 +280,9 @@ class TestFileMentionCompleter:
         sub.mkdir()
         (sub / "helper.py").write_text("")
         results = completer.complete("helper")
-        assert "subdir/helper.py" in results
+        # complete() returns paths joined with the platform separator
+        # (e.g. "subdir\helper.py" on Windows).
+        assert os.path.normpath("subdir/helper.py") in results
 
     def test_complete_limit_20(self, completer, tmp_path):
         for i in range(25):
@@ -329,8 +339,9 @@ class TestFileMentionCompleter:
         (tmp_path / "src" / "index.js").parent.mkdir(parents=True)
         (tmp_path / "src" / "index.js").write_text("")
         results = completer.complete("index")
-        assert "src/index.js" in results
-        assert "node_modules/pkg/index.js" not in results
+        # Use the platform separator so the expectation holds on both POSIX and Windows.
+        assert os.path.normpath("src/index.js") in results
+        assert os.path.normpath("node_modules/pkg/index.js") not in results
 
 
 class TestGetMentionParser:

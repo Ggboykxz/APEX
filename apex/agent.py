@@ -1,26 +1,27 @@
 """Core agent loop for APEX - litellm integration and tool orchestration with multi-agent support."""
 
 import json
-import re
 import logging
+import re
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator
+from typing import Any
 
 try:
     import litellm
-    from litellm import BadRequestError, RateLimitError, AuthenticationError
+    from litellm import AuthenticationError, BadRequestError, RateLimitError
 
     _LITELLM_AVAILABLE = True
 except ImportError:
     _LITELLM_AVAILABLE = False
     BadRequestError = RateLimitError = AuthenticationError = Exception
 
-from .config import Config, MODELS
-from .tools import ToolExecutor, AsyncToolExecutor, get_all_tool_schemas
-from .ui import UI
 from .agents import agent_manager
-from .permission import permission_manager, get_tool_permission
+from .config import MODELS, Config
 from .config_v2 import apex_config
+from .permission import get_tool_permission, permission_manager
+from .tools import AsyncToolExecutor, ToolExecutor, get_all_tool_schemas
+from .ui import UI
 
 
 class Agent:
@@ -391,7 +392,11 @@ class Agent:
         for round_num in range(max_rounds):
             try:
                 response = litellm.completion(
-                    model=model_str, messages=messages, tools=get_all_tool_schemas(), timeout=120, **_extra
+                    model=model_str,
+                    messages=messages,
+                    tools=get_all_tool_schemas(),
+                    timeout=120,
+                    **_extra,
                 )
                 self._update_usage(response.usage)
                 if not response.choices[0].message.tool_calls:

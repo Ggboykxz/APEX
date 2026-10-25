@@ -5,26 +5,25 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
+from apex.agent import Agent
+from apex.config import Config
 from apex.http_api import (
     APEXHTTPServer,
     HTTPServer,
     RateLimitConfig,
+    _check_provider_configured,
+    _get_configured_providers,
     _sanitize_config,
     _sanitize_string,
-    _get_configured_providers,
-    _check_provider_configured,
     run_server,
     start_tui_server,
     stop_tui_server,
 )
-from apex.agent import Agent
-from apex.config import Config
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -828,7 +827,7 @@ class TestV1Endpoints:
     @pytest.mark.asyncio
     async def test_v1_agents_by_name(self, server):
         async with TestClient(TestServer(server.app)) as client:
-            resp = await client.get("/api/v1/agents/coder")
+            resp = await client.get("/api/v1/agents/build")
             assert resp.status == 200
             data = await resp.json()
             assert data["name"] == "build"
@@ -1544,7 +1543,10 @@ class TestTuiServerCleanup:
         loop.shutdown_asyncgens = MagicMock(return_value=None)
         loop.close = MagicMock(wraps=loop.close)
 
-        with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+        with (
+            patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
+            patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+        ):
             with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
@@ -1560,7 +1562,10 @@ class TestTuiServerCleanup:
         loop.shutdown_asyncgens = MagicMock(return_value=None)
         loop.close = MagicMock(wraps=loop.close)
 
-        with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+        with (
+            patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
+            patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+        ):
             with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
@@ -1582,7 +1587,10 @@ class TestTuiServerCleanup:
         task = loop.create_task(dummy())
 
         with patch("asyncio.all_tasks", return_value={task}):
-            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+            with (
+                patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
+                patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+            ):
                 with patch("threading.Thread") as mock_thread_cls:
                     mock_thread_instance = MagicMock()
                     mock_thread_cls.return_value = mock_thread_instance
@@ -1602,7 +1610,10 @@ class TestTuiServerCleanup:
         loop.close = MagicMock()
 
         with patch("asyncio.all_tasks", return_value=set()):
-            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+            with (
+                patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
+                patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+            ):
                 with patch("threading.Thread") as mock_thread_cls:
                     mock_thread_instance = MagicMock()
                     mock_thread_cls.return_value = mock_thread_instance
@@ -1645,19 +1656,21 @@ class TestChatBilling:
     async def test_chat_with_billing(self):
         server = HTTPServer(require_auth=True)
         key_info = {"key_id": "test123", "workspace_id": "ws1"}
-        with patch.object(
-            server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+        with (
+            patch.object(
+                server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+            ),
+            patch.object(server.agent, "chat", return_value="response"),
         ):
-            with patch.object(server.agent, "chat", return_value="response"):
-                with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
-                    async with TestClient(TestServer(server.app)) as client:
-                        resp = await client.post(
-                            "/chat",
-                            json={"message": "hi"},
-                            headers={"Authorization": "Bearer test-key"},
-                        )
-                        assert resp.status == 200
-                        mock_billing.assert_called_once()
+            with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
+                async with TestClient(TestServer(server.app)) as client:
+                    resp = await client.post(
+                        "/chat",
+                        json={"message": "hi"},
+                        headers={"Authorization": "Bearer test-key"},
+                    )
+                    assert resp.status == 200
+                    mock_billing.assert_called_once()
 
 
 class TestChatStreamBilling:
@@ -1671,19 +1684,21 @@ class TestChatStreamBilling:
         async def mock_stream(msg):
             yield "token"
 
-        with patch.object(
-            server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+        with (
+            patch.object(
+                server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
+            ),
+            patch.object(server.agent, "chat_streaming", mock_stream),
         ):
-            with patch.object(server.agent, "chat_streaming", mock_stream):
-                with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
-                    async with TestClient(TestServer(server.app)) as client:
-                        resp = await client.post(
-                            "/chat/stream",
-                            json={"message": "hi"},
-                            headers={"Authorization": "Bearer test-key"},
-                        )
-                        assert resp.status == 200
-                        mock_billing.assert_called_once()
+            with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
+                async with TestClient(TestServer(server.app)) as client:
+                    resp = await client.post(
+                        "/chat/stream",
+                        json={"message": "hi"},
+                        headers={"Authorization": "Bearer test-key"},
+                    )
+                    assert resp.status == 200
+                    mock_billing.assert_called_once()
 
 
 class TestV1SessionsDeleteDetailedFull:
@@ -1777,6 +1792,10 @@ class TestV1AuthLogoutLowercase:
     """Test auth_logout lowercase env var handling."""
 
     @pytest.mark.asyncio
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="os.environ is case-insensitive on Windows (no distinct lowercase key)",
+    )
     async def test_logout_lowercase_env_var(self):
         server = HTTPServer(require_auth=False)
         with patch.dict(

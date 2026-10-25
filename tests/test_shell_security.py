@@ -1,13 +1,13 @@
 """Comprehensive tests for shell_security.py module — no mocks."""
 
 import pytest
+
 from apex.shell_security import (
-    ShellSecurityAnalyzer,
-    CommandCategory,
     CommandAnalysis,
+    CommandCategory,
+    ShellSecurityAnalyzer,
     shell_analyzer,
 )
-
 
 # ---------------------------------------------------------------------------
 # CommandCategory enum

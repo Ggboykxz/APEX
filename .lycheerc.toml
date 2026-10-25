@@ -39,9 +39,7 @@ exclude = [
 ]
 
 # HTTP headers (lychee >= 0.15: `header` list + `user_agent`)
-header = [
-  "User-Agent: APEX-LinkChecker/1.0",
-]
+header = ["User-Agent: APEX-LinkChecker/1.0"]
 user_agent = "APEX-LinkChecker/1.0"
 
 # Timeout per request (seconds)

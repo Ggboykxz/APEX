@@ -1,6 +1,7 @@
 """Tests for apex/slash.py — SlashCommandManager, Command, get_slash_command_manager."""
 
 import pytest
+
 from apex.slash import Command, SlashCommandManager, get_slash_command_manager
 
 

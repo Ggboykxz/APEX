@@ -1,4 +1,4 @@
-"""Tests for apex/agent.py — Agent initialization, properties, and switching.
+"""Tests for apex/agent.py â€” Agent initialization, properties, and switching.
 
 Uses real objects only (no mocks). The Agent class requires litellm but we
 only test methods that do NOT trigger network calls here.
@@ -13,7 +13,6 @@ litellm = pytest.importorskip("litellm")
 
 from apex.agent import Agent
 from apex.config import Config
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -140,7 +139,7 @@ class TestAgentSwitchModel:
         reason="Requires API keys / running services not available in CI",
     )
     def test_switch_to_valid_model(self, agent):
-        for model_alias in ["gpt-4o", "gpt-4o-mini", "claude-3.5-sonnet", "deepseek-r1"]:
+        for model_alias in ["gpt-4o", "gpt-4o-mini", "claude-3.5-sonnet", "deepseek-reasoner"]:
             result = agent.switch_model(model_alias)
             assert result is True
             assert agent.model == model_alias
@@ -289,10 +288,10 @@ class TestAgentAutoSelectModel:
     """Test Agent.auto_select_model()."""
 
     def test_explain_selects_claude_sonnet(self, agent):
-        assert agent.auto_select_model("explain this code") == "claude-4-sonnet"
+        assert agent.auto_select_model("explain this code") == "claude-sonnet-4"
 
     def test_debug_selects_claude_opus(self, agent):
-        assert agent.auto_select_model("debug this error") == "claude-4-opus"
+        assert agent.auto_select_model("debug this error") == "claude-sonnet-4"
 
     def test_refactor_selects_gpt4o(self, agent):
         assert agent.auto_select_model("refactor this function") == "gpt-4o"
@@ -301,25 +300,25 @@ class TestAgentAutoSelectModel:
         assert agent.auto_select_model("create a new module") == "gpt-4o"
 
     def test_reason_selects_deepseek(self, agent):
-        assert agent.auto_select_model("reason about this algorithm") == "deepseek-r1"
+        assert agent.auto_select_model("reason about this algorithm") == "deepseek-reasoner"
 
     def test_long_input_selects_claude_sonnet(self, agent):
         long_text = "a" * 3000
-        assert agent.auto_select_model(long_text) == "claude-4-sonnet"
+        assert agent.auto_select_model(long_text) == "claude-sonnet-4"
 
     def test_short_default_selects_gpt4o_mini(self, agent):
         assert agent.auto_select_model("simple hello") == "gpt-4o-mini"
 
     def test_case_insensitive(self, agent):
-        assert agent.auto_select_model("EXPLAIN this") == "claude-4-sonnet"
+        assert agent.auto_select_model("EXPLAIN this") == "claude-sonnet-4"
 
     def test_boundary_length(self, agent):
-        # Exactly 2000 chars — should NOT trigger long input
+        # Exactly 2000 chars â€” should NOT trigger long input
         text_2000 = "a" * 2000
         assert agent.auto_select_model(text_2000) == "gpt-4o-mini"
-        # 2001 chars — should trigger
+        # 2001 chars â€” should trigger
         text_2001 = "a" * 2001
-        assert agent.auto_select_model(text_2001) == "claude-4-sonnet"
+        assert agent.auto_select_model(text_2001) == "claude-sonnet-4"
 
 
 # ---------------------------------------------------------------------------

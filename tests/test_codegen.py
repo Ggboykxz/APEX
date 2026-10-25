@@ -1,20 +1,20 @@
 """Tests for codegen module — no mocks, real file system."""
 
 import json
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
 from apex.codegen import (
+    APIClientGenerator,
     CodeRefactorer,
     DatabaseManager,
     DockerManager,
-    APIClientGenerator,
     DocumentationGenerator,
     PerformanceProfiler,
 )
-
 
 # ---------------------------------------------------------------------------
 # CodeRefactorer
@@ -312,6 +312,9 @@ class TestCodeRefactorerExceptions:
         assert "error" in result
         d.chmod(0o644)
 
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+    )
     def test_convert_to_class_exception(self, refactorer, temp_cwd):
         """Trigger exception by making file read-only (chmod)."""
         f = temp_cwd / "test.py"

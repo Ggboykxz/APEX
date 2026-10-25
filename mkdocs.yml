@@ -88,6 +88,13 @@ nav:
       - API: reference/api.md
       - HTTP Endpoints: reference/http-api.md
   - Contributing: contributing.md
+  - Engineering:
+      - Git Workflow: git-workflow.md
+      - ECC Agent-Sort: ecc-agent-sort.md
+      - Architecture Decision Records:
+          - ADR-0001: adr/ADR-0001-rust-shell-security-lookahead.md
+          - ADR-0002: adr/ADR-0002-rust-permission-init.md
+          - ADR-0003: adr/ADR-0003-rust-rate-limiter-storage.md
   - Changelog: changelog.md
 
 extra:

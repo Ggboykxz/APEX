@@ -1,11 +1,10 @@
-"""Tests for gateway router — rate limiting, model validation."""
+"""Tests for gateway router â€” rate limiting, model validation."""
 
 import tempfile
 from pathlib import Path
 
-
 from apex.gateway.auth import AuthManager
-from apex.gateway.config import GatewayConfig, DEFAULT_TIERS
+from apex.gateway.config import DEFAULT_TIERS, GatewayConfig
 from apex.gateway.router import RateLimiter
 
 
@@ -60,10 +59,10 @@ class TestModelValidation:
         free_tier = cfg.tiers["free"]
         pro_tier = cfg.tiers["pro"]
 
-        from apex.gateway.router import RequestRouter
         from apex.gateway.auth import AuthManager
+        from apex.gateway.router import RequestRouter
 
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             db_path = Path(tmp) / "test.db"
             auth = AuthManager(db_path)
             router = RequestRouter(cfg, auth)
@@ -75,7 +74,7 @@ class TestModelValidation:
 
 class TestAuthzIntegration:
     def test_api_key_generation_and_validate(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             db_path = Path(tmp) / "test.db"
             auth = AuthManager(db_path)
 
@@ -92,7 +91,7 @@ class TestAuthzIntegration:
             assert tier.daily_requests == 500
 
     def test_free_key_cannot_access_pro_models(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             db_path = Path(tmp) / "test.db"
             auth = AuthManager(db_path)
             cfg = GatewayConfig()

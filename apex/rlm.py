@@ -2,9 +2,9 @@
 
 import asyncio
 import time
-from dataclasses import asdict, dataclass
-from typing import Callable, Optional
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict, dataclass
 
 import litellm
 
@@ -29,7 +29,7 @@ class RLM:
         "day": 86400,
     }
 
-    def __init__(self, config: Optional[RLMConfig] = None):
+    def __init__(self, config: RLMConfig | None = None):
         self.config = config or RLMConfig()
         self._counts: dict[str, dict[str, tuple[int, float]]] = {}
 

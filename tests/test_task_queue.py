@@ -1,9 +1,11 @@
 """Tests for apex/task_queue.py — TaskQueue, Task, TaskStatus with real file operations."""
 
-import pytest
 import json
 import time
-from apex.task_queue import TaskStatus, Task, TaskQueue
+
+import pytest
+
+from apex.task_queue import Task, TaskQueue, TaskStatus
 
 
 class TestTaskStatus:

@@ -1,9 +1,8 @@
 """@Mention system for APEX - OpenCode-style file/agent mentions."""
 
 import re
-from pathlib import Path
-from typing import Optional
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -104,7 +103,10 @@ class MentionParser:
             resolved = self.resolve_file(fm.path)
             if resolved.exists() and resolved.is_file():
                 try:
-                    content = resolved.read_text()
+                    # Explicit UTF-8 so binary files raise UnicodeDecodeError and are
+                    # skipped on every platform (the locale default, e.g. cp1252 on
+                    # Windows, would decode arbitrary bytes instead of rejecting them).
+                    content = resolved.read_text(encoding="utf-8")
                     result[fm.path] = content[:5000]
                 except Exception:
                     pass
@@ -145,8 +147,8 @@ class FileMentionCompleter:
         return any(part in ignore for part in path.parts)
 
 
-_mention_parser: Optional[MentionParser] = None
-_file_completer: Optional[FileMentionCompleter] = None
+_mention_parser: MentionParser | None = None
+_file_completer: FileMentionCompleter | None = None
 
 
 def get_mention_parser(cwd: str) -> MentionParser:

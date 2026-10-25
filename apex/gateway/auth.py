@@ -5,7 +5,6 @@ import secrets
 import sqlite3
 import time
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ class AuthManager:
         logger.info(f"Generated {tier} key: {key_id} ({label})")
         return api_key
 
-    def validate_key(self, api_key: str) -> Optional[dict]:
+    def validate_key(self, api_key: str) -> dict | None:
         with sqlite3.connect(str(self.db_path)) as conn:
             row = conn.execute(
                 "SELECT key_id, tier, is_active FROM keys WHERE api_key = ?", (api_key,)

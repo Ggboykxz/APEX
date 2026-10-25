@@ -2,11 +2,11 @@
 
 import json
 import re
+import sys
 
 import pytest
 
 from apex.share import ShareManager, share_manager
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -17,6 +17,9 @@ from apex.share import ShareManager, share_manager
 def home(tmp_path, monkeypatch):
     """Redirect home directory to tmp_path for isolated file operations."""
     monkeypatch.setenv("HOME", str(tmp_path))
+    if sys.platform == "win32":
+        # pathlib.Path.home() prefers USERPROFILE on Windows.
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
     return tmp_path
 
 

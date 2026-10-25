@@ -1,13 +1,14 @@
 """Tests for apex/extras.py — full coverage edge cases."""
 
-import tempfile
 import os
+import tempfile
 from pathlib import Path
+
 from apex.extras import (
-    ShellExpander,
     EnvManager,
-    WorkspaceValidator,
     SecurityAuditor,
+    ShellExpander,
+    WorkspaceValidator,
 )
 
 
@@ -23,7 +24,7 @@ class TestShellExpanderFull:
     def test_expand_path_with_vars(self):
         os.environ["APEX_BASE_DIR"] = "/tmp"
         result = ShellExpander.expand_path("$APEX_BASE_DIR/subdir")
-        assert result == "/tmp/subdir"
+        assert result == os.path.abspath("/tmp/subdir")
         del os.environ["APEX_BASE_DIR"]
 
     def test_expand_command_just_text(self):

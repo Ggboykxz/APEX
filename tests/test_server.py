@@ -10,7 +10,6 @@ import pytest
 
 from apex.server import APEXClient, APEXServer, APIKeyManager, run_server
 
-
 # =========================================================================
 # Helper: async-iterable mock WebSocket for handle_websocket tests
 # =========================================================================
@@ -492,7 +491,8 @@ class TestAPEXServerHandleMessage:
             "c1", json.dumps({"type": "switch_agent", "agent": "plan"}), ws
         )
         server._agent.switch_agent.assert_called_once_with("plan")
-        ws.send_json.assert_called_once_with({"type": "success", "message": "Agent: architect"})
+        # Server echoes back the agent name that was switched to ("plan"), not "architect"
+        ws.send_json.assert_called_once_with({"type": "success", "message": "Agent: plan"})
         assert server.clients["c1"].agent_mode == "plan"
 
     @pytest.mark.asyncio

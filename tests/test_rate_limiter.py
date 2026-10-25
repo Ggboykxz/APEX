@@ -9,13 +9,12 @@ import pytest
 from apex.rate_limiter import (
     MemoryStorage,
     RateLimitConfig,
-    RateLimitResult,
     RateLimiter,
+    RateLimitResult,
     SQLiteStorage,
     StorageBackend,
     create_rate_limiter,
 )
-
 
 # ---------------------------------------------------------------------------
 # RateLimitConfig
@@ -285,10 +284,10 @@ class TestSQLiteStorage:
         os.unlink(db_path)  # remove so SQLiteStorage creates fresh
         storage = SQLiteStorage(db_path)
         yield storage
-        # cleanup
+        # cleanup (best-effort: Windows may briefly hold the file open)
         try:
             os.unlink(db_path)
-        except FileNotFoundError:
+        except OSError:
             pass
 
     def test_get_counts_initial(self, storage):
@@ -554,7 +553,7 @@ class TestRateLimiter:
         finally:
             try:
                 os.unlink(db_path)
-            except FileNotFoundError:
+            except OSError:
                 pass
 
 

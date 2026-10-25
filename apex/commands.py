@@ -1,9 +1,9 @@
 """Custom commands system for APEX - User and project commands."""
 
 import os
-from pathlib import Path
-from typing import Optional, Callable, Dict, List
+from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -25,10 +25,10 @@ class CommandManager:
     USER_COMMANDS_DIR = Path.home() / ".apex" / "commands"
     PROJECT_COMMANDS_DIR = Path(".apex") / "commands"
 
-    def __init__(self, cwd: Optional[Path] = None):
+    def __init__(self, cwd: Path | None = None):
         self.cwd = cwd or Path.cwd()
-        self._commands: Dict[str, Command] = {}
-        self._handlers: Dict[str, Callable] = {}
+        self._commands: dict[str, Command] = {}
+        self._handlers: dict[str, Callable] = {}
         self._load_commands()
 
     def _load_commands(self) -> None:
@@ -58,7 +58,7 @@ class CommandManager:
             except Exception:
                 pass
 
-    def _parse_command(self, content: str, name: str, category: str) -> Optional[Command]:
+    def _parse_command(self, content: str, name: str, category: str) -> Command | None:
         """Parse a command from markdown content."""
         lines = content.strip().split("\n")
         if not lines:
@@ -83,11 +83,11 @@ class CommandManager:
             category=category,
         )
 
-    def get_command(self, trigger: str) -> Optional[Command]:
+    def get_command(self, trigger: str) -> Command | None:
         """Get a command by trigger."""
         return self._commands.get(trigger)
 
-    def execute(self, trigger: str, context: Dict) -> Optional[str]:
+    def execute(self, trigger: str, context: dict) -> str | None:
         """Execute a command."""
         if trigger in self._handlers:
             return self._handlers[trigger](context)
@@ -98,7 +98,7 @@ class CommandManager:
 
         return None
 
-    def _expand_template(self, content: str, context: Dict) -> str:
+    def _expand_template(self, content: str, context: dict) -> str:
         """Expand template variables in command content."""
         result = content
 
@@ -112,14 +112,14 @@ class CommandManager:
 
         return result
 
-    def list_commands(self, category: Optional[str] = None) -> List[Command]:
+    def list_commands(self, category: str | None = None) -> list[Command]:
         """List all commands, optionally filtered by category."""
         commands = list(self._commands.values())
         if category:
             commands = [c for c in commands if c.category == category]
         return commands
 
-    def search(self, query: str) -> List[Command]:
+    def search(self, query: str) -> list[Command]:
         """Search commands by name or description."""
         query_lower = query.lower()
         return [
@@ -147,6 +147,6 @@ class CommandManager:
         self._commands[command.trigger] = command
 
 
-def create_command_manager(cwd: Optional[Path] = None) -> CommandManager:
+def create_command_manager(cwd: Path | None = None) -> CommandManager:
     """Factory function to create a command manager."""
     return CommandManager(cwd)

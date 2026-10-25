@@ -16,7 +16,6 @@ from apex.commands_manager import (
 )
 from apex.config_v2 import apex_config
 
-
 # ──────────────────────────────────────────────
 # Helpers — directly manipulate config storage
 # to avoid triggering the property setter/save.
@@ -206,7 +205,7 @@ class TestRenderTemplate:
         d.mkdir()
         f = d / "data.txt"
         f.write_text("included content")
-        result = _render_template("content: @{}".format(f), [], str(tmp_path))
+        result = _render_template(f"content: @{f}", [], str(tmp_path))
         assert "included content" in result
 
     def test_file_inclusion_relative_path(self, tmp_path):

@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import fnmatch
 import os
-import time
 import threading
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 from .config_v2 import apex_config
 

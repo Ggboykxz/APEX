@@ -1,5 +1,6 @@
 """Tools for APEX - file operations, command execution, git, web, and more."""
 
+import asyncio
 import base64
 import json
 import logging
@@ -8,9 +9,8 @@ import re
 import subprocess
 from pathlib import Path
 from typing import Any
-import asyncio
 
-from .shell_security import shell_analyzer, CommandCategory
+from .shell_security import CommandCategory, shell_analyzer
 
 logger = logging.getLogger(__name__)
 
@@ -1400,6 +1400,7 @@ class ToolExecutor:
         method = getattr(self, f"_execute_{tool_name}", None)
         if not method:
             from .config_tools import custom_tool_manager, ensure_tools_loaded
+
             ensure_tools_loaded()
             result = custom_tool_manager.execute(tool_name, args)
             if not result.startswith("ERROR: Unknown custom tool"):
@@ -1407,6 +1408,7 @@ class ToolExecutor:
             if tool_name.startswith("mcp_"):
                 try:
                     import asyncio
+
                     from .mcp import mcp_manager
 
                     try:
@@ -1416,7 +1418,9 @@ class ToolExecutor:
                             import concurrent.futures
 
                             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                                fut = pool.submit(asyncio.run, mcp_manager.call_tool(tool_name, args))
+                                fut = pool.submit(
+                                    asyncio.run, mcp_manager.call_tool(tool_name, args)
+                                )
                                 return fut.result()
                         return loop.run_until_complete(mcp_manager.call_tool(tool_name, args))
                     except RuntimeError:
@@ -1451,24 +1455,48 @@ class ToolExecutor:
             return f"ERROR: File not found: {path}"
         name = path.name.lower()
         blocked = {
-            ".env", ".env.local", ".env.production", ".env.development",
-            "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
-            "credentials.json", "credentials.yaml", "credentials.yml",
-            "service-account.json", "service-account.key",
-            ".netrc", ".pgp", ".gpg", ".asc", ".key", ".p12", ".pfx",
-            ".dockerconfigjson", "dockercfg",
-            "kubeconfig", "kubeconfig.yaml",
-            ".npmrc", ".yarnrc", ".gemrc",
-            "authorized_keys", "known_hosts",
-            ".htpasswd", ".pgpass",
+            ".env",
+            ".env.local",
+            ".env.production",
+            ".env.development",
+            "id_rsa",
+            "id_dsa",
+            "id_ecdsa",
+            "id_ed25519",
+            "credentials.json",
+            "credentials.yaml",
+            "credentials.yml",
+            "service-account.json",
+            "service-account.key",
+            ".netrc",
+            ".pgp",
+            ".gpg",
+            ".asc",
+            ".key",
+            ".p12",
+            ".pfx",
+            ".dockerconfigjson",
+            "dockercfg",
+            "kubeconfig",
+            "kubeconfig.yaml",
+            ".npmrc",
+            ".yarnrc",
+            ".gemrc",
+            "authorized_keys",
+            "known_hosts",
+            ".htpasswd",
+            ".pgpass",
         }
         # Only block config files in known secret locations (home dir, .ssh, .aws, etc.)
         secret_config_dirs = {".ssh", ".aws", ".kube", ".gnupg", ".config"}
-        is_secret_config = (
-            name in {"config.json", "config.yaml", "config.yml"}
-            and any(part in secret_config_dirs for part in path.parts)
+        is_secret_config = name in {"config.json", "config.yaml", "config.yml"} and any(
+            part in secret_config_dirs for part in path.parts
         )
-        if name in blocked or is_secret_config or (name.startswith(".env.") and not name.endswith(".example")):
+        if (
+            name in blocked
+            or is_secret_config
+            or (name.startswith(".env.") and not name.endswith(".example"))
+        ):
             return f"ERROR: Reading {name} is blocked by default (contains secrets)."
         try:
             lines = path.read_text().splitlines()
@@ -1748,8 +1776,8 @@ class ToolExecutor:
                 return f"ERROR: Web search failed: {e}"
 
     def _web_search_duckduckgo(self, query: str) -> str:
-        import urllib.parse
         import re
+        import urllib.parse
 
         url = f"https://duckduckgo.com/html/?q={urllib.parse.quote(query)}"
         result = subprocess.run(
@@ -1765,10 +1793,12 @@ class ToolExecutor:
         return "\n\n".join(output) if output else "[no results]"
 
     def _web_search_brave(self, query: str, api_key: str) -> str:
-        import urllib.parse
         import json
+        import urllib.parse
 
-        url = f"https://api.search.brave.com/res/v1/web/search?q={urllib.parse.quote(query)}&count=5"
+        url = (
+            f"https://api.search.brave.com/res/v1/web/search?q={urllib.parse.quote(query)}&count=5"
+        )
         result = subprocess.run(
             ["curl", "-s", "-L", url, "-H", f"X-Subscription-Token: {api_key}"],
             capture_output=True,
@@ -1789,7 +1819,16 @@ class ToolExecutor:
 
         payload = json.dumps({"api_key": api_key, "query": query, "max_results": 5})
         result = subprocess.run(
-            ["curl", "-s", "-L", "https://api.tavily.com/search", "-H", "Content-Type: application/json", "-d", payload],
+            [
+                "curl",
+                "-s",
+                "-L",
+                "https://api.tavily.com/search",
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                payload,
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -1808,7 +1847,18 @@ class ToolExecutor:
 
         payload = json.dumps({"query": query, "numResults": 5})
         result = subprocess.run(
-            ["curl", "-s", "-L", "https://api.exa.ai/search", "-H", f"x-api-key: {api_key}", "-H", "Content-Type: application/json", "-d", payload],
+            [
+                "curl",
+                "-s",
+                "-L",
+                "https://api.exa.ai/search",
+                "-H",
+                f"x-api-key: {api_key}",
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                payload,
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -1894,6 +1944,7 @@ class ToolExecutor:
             return f"ERROR: File not found: {path}"
 
         from .formatter import formatter_manager
+
         success = formatter_manager.format_file(str(path))
         if success:
             return f"SUCCESS: Formatted {path}"
@@ -2229,8 +2280,9 @@ class ToolExecutor:
         return f"REJECTED: Plan rejected. Reason: {reason}"
 
     def _execute_get_repo_map(self, args: dict[str, Any]) -> str:
-        from .context import get_repo_map
         from pathlib import Path
+
+        from .context import get_repo_map
 
         return get_repo_map(Path(self.cwd))
 
@@ -2388,9 +2440,9 @@ class ToolExecutor:
                     return result.stdout.strip() or "PR created."
                 return f"ERROR: gh pr create failed: {result.stderr.strip()}"
             # Fallback: GitHub REST API using GITHUB_TOKEN/GH_TOKEN.
+            import json as _json
             import os
             import urllib.request
-            import json as _json
 
             token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
             if not token:
@@ -2408,9 +2460,14 @@ class ToolExecutor:
             # Determine head branch.
             if not head:
                 head = subprocess.run(
-                    ["git", "branch", "--show-current"], cwd=self.cwd, capture_output=True, text=True
+                    ["git", "branch", "--show-current"],
+                    cwd=self.cwd,
+                    capture_output=True,
+                    text=True,
                 ).stdout.strip()
-            payload = _json.dumps({"title": title, "body": body, "base": base, "head": head}).encode()
+            payload = _json.dumps(
+                {"title": title, "body": body, "base": base, "head": head}
+            ).encode()
             req = urllib.request.Request(
                 f"https://api.github.com/repos/{repo}/pulls",
                 data=payload,
@@ -2628,7 +2685,7 @@ class ToolExecutor:
 
         if framework == "pytest":
             module_path = path.replace(os.sep, ".").rsplit(".py", 1)[0]
-            lines = ['"""Tests for {}"""'.format(module_path)]
+            lines = [f'"""Tests for {module_path}"""']
             lines.append("")
             lines.append("import pytest")
             lines.append(f"from {module_path} import *")
@@ -2691,13 +2748,27 @@ Ctrl+R     - Search history
         command = args["command"]
 
         valid_hooks = {
-            "applypatch-msg", "pre-applypatch", "post-applypatch",
-            "pre-commit", "pre-merge-commit", "prepare-commit-msg",
-            "commit-msg", "post-commit", "pre-rebase",
-            "post-checkout", "post-merge", "pre-push",
-            "pre-receive", "update", "post-receive", "post-update",
-            "push-to-checkout", "pre-auto-gc", "post-rewrite",
-            "sendemail-validate", "fsmonitor-watchman",
+            "applypatch-msg",
+            "pre-applypatch",
+            "post-applypatch",
+            "pre-commit",
+            "pre-merge-commit",
+            "prepare-commit-msg",
+            "commit-msg",
+            "post-commit",
+            "pre-rebase",
+            "post-checkout",
+            "post-merge",
+            "pre-push",
+            "pre-receive",
+            "update",
+            "post-receive",
+            "post-update",
+            "push-to-checkout",
+            "pre-auto-gc",
+            "post-rewrite",
+            "sendemail-validate",
+            "fsmonitor-watchman",
         }
         if hook not in valid_hooks:
             return f"ERROR: Invalid git hook name: {hook}. Valid hooks: {', '.join(sorted(valid_hooks))}"
@@ -2868,8 +2939,9 @@ Ctrl+R     - Search history
         return "\n".join(lines)
 
     def _execute_submit_task(self, args: dict[str, Any]) -> str:
-        from .extras import get_task_queue
         import asyncio
+
+        from .extras import get_task_queue
 
         name = args["name"]
         command = args["command"]
@@ -3090,6 +3162,7 @@ class AsyncToolExecutor(ToolExecutor):
 
 def get_all_tool_schemas() -> list[dict]:
     from .config_tools import custom_tool_manager, ensure_tools_loaded
+
     ensure_tools_loaded()
     schemas = list(TOOL_SCHEMAS) + custom_tool_manager.get_schemas()
     # Expose connected MCP server tools (if any) to the model.
