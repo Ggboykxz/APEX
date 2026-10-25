@@ -1,8 +1,10 @@
 """Tests for http_api module — full coverage."""
 
 import asyncio
+import hashlib
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -38,6 +40,26 @@ def _make_agent(tmp_path):
     # Pre-set usage so handler code doesn't need a real LLM response
     agent._usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
     return agent
+
+
+def _init_diff_repo(tmp_path):
+    """Create a temp git repo with two committed files."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*args):
+        return subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True)
+
+    git("init")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test User")
+    git("config", "commit.gpgsign", "false")
+    git("config", "core.autocrlf", "false")
+    (repo / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    (repo / "beta.txt").write_text("beta\n", encoding="utf-8")
+    git("add", ".")
+    git("commit", "-m", "initial")
+    return repo
 
 
 # ---------------------------------------------------------------------------
@@ -652,6 +674,14 @@ class TestV1AuthRequiredEndpoints:
             resp = await client.post("/api/v1/import", json={"data": {}})
             assert resp.status == 401
 
+    @pytest.mark.asyncio
+    async def test_v1_session_diff_decision_requires_auth(self, server):
+        async with TestClient(TestServer(server.app)) as client:
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision", json={"decision": "accept"}
+            )
+            assert resp.status == 401
+
 
 # ---------------------------------------------------------------------------
 # Chat handler with rate limiting
@@ -963,6 +993,215 @@ class TestV1Endpoints:
         async with TestClient(TestServer(server.app)) as client:
             resp = await client.post("/api/v1/share")
             assert resp.status in (200, 403)
+
+
+class TestSessionDiffDecision:
+    """Accept/reject decisions for the previewed working-tree diff."""
+
+    @pytest.fixture
+    def repo(self, tmp_path):
+        return _init_diff_repo(tmp_path)
+
+    @pytest.fixture
+    def server(self, repo):
+        server = HTTPServer(require_auth=False)
+        server.agent.cwd = repo
+        return server
+
+    @staticmethod
+    def _modify(repo):
+        (repo / "alpha.txt").write_text("alpha changed\n", encoding="utf-8")
+        (repo / "beta.txt").write_text("beta changed\n", encoding="utf-8")
+
+    @staticmethod
+    async def _preview(client):
+        resp = await client.get("/api/v1/session/test/diff")
+        assert resp.status == 200
+        return await resp.json()
+
+    @pytest.mark.asyncio
+    async def test_diff_exposes_fingerprint_and_tracked_paths(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            data = await self._preview(client)
+        assert data["paths"] == ["alpha.txt", "beta.txt"]
+        assert data["fingerprint"] == hashlib.sha256(data["diff"].encode("utf-8")).hexdigest()
+        assert data["session_id"] == "test"
+        assert "alpha.txt" in data["files"]
+
+    @pytest.mark.asyncio
+    async def test_accept_is_a_noop(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision",
+                json={
+                    "decision": "accept",
+                    "files": preview["paths"],
+                    "fingerprint": preview["fingerprint"],
+                },
+            )
+            assert resp.status == 200
+            data = await resp.json()
+        assert data["status"] == "accepted"
+        assert data["files"] == preview["paths"]
+        assert data["fingerprint"] == preview["fingerprint"]
+        assert (repo / "alpha.txt").read_text(encoding="utf-8") == "alpha changed\n"
+        assert (repo / "beta.txt").read_text(encoding="utf-8") == "beta changed\n"
+
+    @pytest.mark.asyncio
+    async def test_reject_restores_only_requested_files(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision",
+                json={
+                    "decision": "reject",
+                    "files": ["alpha.txt"],
+                    "fingerprint": preview["fingerprint"],
+                },
+            )
+            assert resp.status == 200
+            data = await resp.json()
+        assert data["status"] == "rejected"
+        assert data["files"] == ["alpha.txt"]
+        assert data["reverted"] == ["alpha.txt"]
+        assert data["failed"] == []
+        assert (repo / "alpha.txt").read_text(encoding="utf-8") == "alpha\n"
+        assert (repo / "beta.txt").read_text(encoding="utf-8") == "beta changed\n"
+
+    @pytest.mark.asyncio
+    async def test_reject_fingerprint_mismatch_is_409_without_writing(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision",
+                json={
+                    "decision": "reject",
+                    "files": ["alpha.txt"],
+                    "fingerprint": "0" * 64,
+                },
+            )
+            assert resp.status == 409
+            data = await resp.json()
+            assert data["error"] == "diff_changed"
+            assert data["fingerprint"] == preview["fingerprint"]
+        assert (repo / "alpha.txt").read_text(encoding="utf-8") == "alpha changed\n"
+
+    @pytest.mark.asyncio
+    async def test_reject_requires_fingerprint(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision",
+                json={"decision": "reject", "files": ["alpha.txt"]},
+            )
+            assert resp.status == 400
+            data = await resp.json()
+            assert data["error"] == "fingerprint required"
+        assert (repo / "alpha.txt").read_text(encoding="utf-8") == "alpha changed\n"
+
+    @pytest.mark.asyncio
+    async def test_unknown_path_is_400_without_partial_write(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision",
+                json={
+                    "decision": "reject",
+                    "files": ["alpha.txt", "missing.txt"],
+                    "fingerprint": preview["fingerprint"],
+                },
+            )
+            assert resp.status == 400
+            data = await resp.json()
+            assert "missing.txt" in data["error"]
+        assert (repo / "alpha.txt").read_text(encoding="utf-8") == "alpha changed\n"
+
+    @pytest.mark.asyncio
+    async def test_unknown_path_is_400_for_accept(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision",
+                json={
+                    "decision": "accept",
+                    "files": ["missing.txt"],
+                    "fingerprint": preview["fingerprint"],
+                },
+            )
+            assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_invalid_decision_is_400(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            for decision in ("apply", "", None):
+                resp = await client.post(
+                    "/api/v1/session/test/diff/decision",
+                    json={"decision": decision, "fingerprint": preview["fingerprint"]},
+                )
+                assert resp.status == 400
+                data = await resp.json()
+                assert "decision" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_reject_defaults_to_all_diff_paths(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision",
+                json={"decision": "reject", "fingerprint": preview["fingerprint"]},
+            )
+            assert resp.status == 200
+            data = await resp.json()
+        assert data["files"] == preview["paths"]
+        assert data["reverted"] == preview["paths"]
+        assert data["failed"] == []
+        assert (repo / "alpha.txt").read_text(encoding="utf-8") == "alpha\n"
+        assert (repo / "beta.txt").read_text(encoding="utf-8") == "beta\n"
+
+    @pytest.mark.asyncio
+    async def test_path_traversal_is_rejected(self, server, repo):
+        self._modify(repo)
+        outside = repo.parent / "outside.txt"
+        outside.write_text("outside\n", encoding="utf-8")
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            for path in ("../outside.txt", "..\\outside.txt", str(outside)):
+                resp = await client.post(
+                    "/api/v1/session/test/diff/decision",
+                    json={
+                        "decision": "reject",
+                        "files": [path],
+                        "fingerprint": preview["fingerprint"],
+                    },
+                )
+                assert resp.status == 400
+        assert outside.read_text(encoding="utf-8") == "outside\n"
+        assert (repo / "alpha.txt").read_text(encoding="utf-8") == "alpha changed\n"
+
+    @pytest.mark.asyncio
+    async def test_non_list_files_is_400(self, server, repo):
+        self._modify(repo)
+        async with TestClient(TestServer(server.app)) as client:
+            preview = await self._preview(client)
+            resp = await client.post(
+                "/api/v1/session/test/diff/decision",
+                json={
+                    "decision": "accept",
+                    "files": "alpha.txt",
+                    "fingerprint": preview["fingerprint"],
+                },
+            )
+            assert resp.status == 400
 
 
 class TestV1ShareDetailed:

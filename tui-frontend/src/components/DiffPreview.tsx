@@ -1,10 +1,12 @@
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useReducer,
   useRef,
+  useState,
 } from "react"
 import { Box, Text, useInput } from "ink"
 import { apexTheme } from "../theme/apex.js"
@@ -16,9 +18,11 @@ import {
 } from "../diff/parser.js"
 import {
   createDiffPreviewState,
+  diffDecisionBanner,
   reduceDiffPreview,
+  reduceRejectConfirmation,
+  type DiffBannerTone,
   type DiffDecision,
-  type DiffPreviewStatus,
 } from "../diff/preview.js"
 
 export interface DiffPreviewHandle {
@@ -39,6 +43,10 @@ export interface DiffPreviewProps {
   onDecision?: (decision: DiffDecision, parsed: ParsedDiff) => void
   onAccept?: (parsed: ParsedDiff) => void
   onReject?: (parsed: ParsedDiff) => void
+  /** True while the backend decision request is in flight. */
+  submitting?: boolean
+  /** Server error shown in the decision banner (keeps the preview open). */
+  error?: string
 }
 
 type RowKind = "file" | "hunk" | "line" | "note" | "warning"
@@ -112,17 +120,19 @@ function rowMarker(row: DisplayRow): string {
   return " "
 }
 
-function statusBanner(status: DiffPreviewStatus): { text: string; color: string } {
-  if (status === "accepted") return { text: "✓ accepted (preview only — not applied)", color: apexTheme.green }
-  if (status === "rejected") return { text: "✗ rejected (preview only — nothing applied)", color: apexTheme.red }
-  return { text: "a accept · r reject · ↑↓ scroll · PgUp/PgDn page", color: apexTheme.dimGray }
+const BANNER_COLORS: Record<DiffBannerTone, string> = {
+  error: apexTheme.red,
+  warning: apexTheme.yellow,
+  success: apexTheme.green,
+  muted: apexTheme.dimGray,
 }
 
 /**
  * Terminal diff preview.
  *
- * Keyboard: `a`/`y` accept, `r`/`n` reject, arrows/PgUp/PgDn scroll. The
- * component never touches the filesystem; accept/reject only invoke callbacks.
+ * Keyboard: `a`/`y` accept, `r` twice reject (the first press asks for
+ * confirmation), arrows/PgUp/PgDn scroll. The component never touches the
+ * filesystem; accept/reject only invoke callbacks.
  */
 export const DiffPreview = forwardRef<DiffPreviewHandle, DiffPreviewProps>(function DiffPreview(
   {
@@ -133,6 +143,8 @@ export const DiffPreview = forwardRef<DiffPreviewHandle, DiffPreviewProps>(funct
     onDecision,
     onAccept,
     onReject,
+    submitting = false,
+    error,
   },
   ref,
 ) {
@@ -142,10 +154,15 @@ export const DiffPreview = forwardRef<DiffPreviewHandle, DiffPreviewProps>(funct
   )
   const rows = useMemo(() => flattenDiff(parsed), [parsed])
   const [state, dispatch] = useReducer(reduceDiffPreview, undefined, createDiffPreviewState)
+  const [confirmReject, setConfirmReject] = useState(false)
   const stateRef = useRef(state)
   stateRef.current = state
   const callbacksRef = useRef({ onDecision, onAccept, onReject })
   callbacksRef.current = { onDecision, onAccept, onReject }
+
+  useEffect(() => {
+    setConfirmReject(false)
+  }, [diff])
 
   const decide = useCallback(
     (decision: DiffDecision) => {
@@ -154,6 +171,7 @@ export const DiffPreview = forwardRef<DiffPreviewHandle, DiffPreviewProps>(funct
       // call in the same tick cannot fire the callback twice.
       stateRef.current = reduceDiffPreview(stateRef.current, { type: decision })
       dispatch({ type: decision })
+      setConfirmReject(false)
       callbacksRef.current.onDecision?.(decision, parsed)
       if (decision === "accept") callbacksRef.current.onAccept?.(parsed)
       else callbacksRef.current.onReject?.(parsed)
@@ -164,6 +182,7 @@ export const DiffPreview = forwardRef<DiffPreviewHandle, DiffPreviewProps>(funct
   const reset = useCallback(() => {
     stateRef.current = reduceDiffPreview(stateRef.current, { type: "reset" })
     dispatch({ type: "reset" })
+    setConfirmReject(false)
   }, [])
 
   useImperativeHandle(ref, () => ({
@@ -177,13 +196,22 @@ export const DiffPreview = forwardRef<DiffPreviewHandle, DiffPreviewProps>(funct
 
   useInput(
     (input, key) => {
+      if (submitting) return
       if (state.status === "pending") {
+        if (confirmReject) {
+          // Destructive action: only a second `r` reverts; every other key
+          // cancels the confirmation and is consumed.
+          const result = reduceRejectConfirmation("confirm", input)
+          setConfirmReject(false)
+          if (result.decision) decide(result.decision)
+          return
+        }
         if (input === "a" || input === "y") {
           decide("accept")
           return
         }
-        if (input === "r" || input === "n" || key.escape) {
-          decide("reject")
+        if (reduceRejectConfirmation("idle", input).confirmation === "confirm") {
+          setConfirmReject(true)
           return
         }
       }
@@ -207,7 +235,7 @@ export const DiffPreview = forwardRef<DiffPreviewHandle, DiffPreviewProps>(funct
   )
 
   const visible = rows.slice(state.scrollOffset, state.scrollOffset + viewport)
-  const banner = statusBanner(state.status)
+  const banner = diffDecisionBanner({ status: state.status, confirmReject, submitting, error })
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={apexTheme.cyan} paddingX={1}>
@@ -251,7 +279,7 @@ export const DiffPreview = forwardRef<DiffPreviewHandle, DiffPreviewProps>(funct
         </Text>
       )}
 
-      <Text color={banner.color} bold={state.status !== "pending"}>
+      <Text color={BANNER_COLORS[banner.tone]} bold={state.status !== "pending" || submitting || !!error}>
         {banner.text}
       </Text>
     </Box>
