@@ -36,6 +36,15 @@ exclude = [
   
   # Dynamic/sponsor links
   "https://github.com/sponsors/*",
+
+  # Font CDN roots and placeholder URLs (return 404 at root by design)
+  "https://fonts.googleapis.com/*",
+  "https://fonts.gstatic.com/*",
+  "https://search.brave.com/help/*",
+  "https://support.google.com/websearch/answer/*",
+
+  # GitHub /stargazers badge paths (403/404 for automated agents)
+  "*://github.com/*/stargazers",
 ]
 
 # HTTP headers (lychee v0.15.1 expects a sequence of key=value entries)
