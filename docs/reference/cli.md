@@ -31,7 +31,8 @@ APEX supports convenient subcommands as positional arguments:
 | `--cwd <path>` | `-C` | Set the working directory for the session. APEX will scope all file and shell operations to this directory. | Current directory |
 | `--one-shot` | `-1` | Run in non-interactive mode. APEX processes the given prompt, outputs the result, and exits. Ideal for scripting and CI. | Interactive |
 | `--stream` | `-s` | Stream the model's response to stdout in real time. Most useful with `--one-shot` for piping output. | Buffered |
-| `--auto-commit` | | Auto commit after successful task. | Disabled |
+| `--auto-commit` | | Commit the working tree after a successful one-shot task using an AI-generated conventional-commit message. | Disabled |
+| `--image <path>` | `-i` | Attach a local image to the one-shot prompt (repeatable; `png`, `jpg`, `jpeg`, `webp`, `gif`, max 10 MB). Requires a vision-capable model. | — |
 | `-p <prompt>` | | Direct prompt for CI/CD mode (no TUI). | — |
 | `-f {text,json}` | `--format` | Output format for CI/CD mode. | `text` |
 | `-q` | `--quiet` | Quiet mode (less output). | Verbose |
@@ -79,3 +80,21 @@ Pipe input for automated workflows:
 ```bash
 echo "Summarize the changes in the last 5 commits" | apex --one-shot --model gpt-4o
 ```
+
+Attach an image to a one-shot prompt (vision-capable models only):
+```bash
+apex -p "Describe this screenshot" -i shot.png
+apex -p "Compare these two mockups" -i before.png -i after.png
+```
+
+Commit the result of a one-shot task automatically:
+```bash
+apex -p "Fix the failing parser test" --auto-commit
+apex -p "Fix the failing parser test" -f json --auto-commit
+```
+
+`--auto-commit` reports its outcome in JSON mode through the top-level
+`auto_commit` object (`status` is one of `committed`, `no-changes`,
+`not-a-repo`, `error`, plus `sha`/`message`/`detail` where applicable). It only
+applies to one-shot runs (`-p` / `--one-shot`); interactive sessions never
+auto-commit.

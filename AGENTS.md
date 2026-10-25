@@ -96,6 +96,10 @@ APEX is an **autonomous agent** capable of:
 | `formatter.py` | 11 auto-formatters |
 | `watcher.py` | Configurable file watcher |
 | `commands_manager.py` | Custom commands via markdown |
+| `repomap.py` | Symbol-level repository map (token-budgeted) |
+| `mcp_server.py` | MCP stdio server exposing native tools |
+| `vision.py` | Image attachment validation and vision content blocks |
+| `auto_commit.py` | AI-generated conventional-commit autocommit for one-shot runs |
 
 ### TUI Architecture (Ink + React)
 
@@ -182,6 +186,8 @@ apex              # Launch TUI (default)
 apex -p "Fix the auth bug"          # Quick prompt
 apex -p "Generate tests" -f json    # JSON output
 apex -p "Review code" -q            # Quiet mode
+apex -p "Describe this screenshot" -i shot.png   # Vision input
+apex -p "Fix the parser test" --auto-commit      # Commit the result
 ```
 
 ---
@@ -332,6 +338,8 @@ Or via JSON config:
 | `--print-logs` | | Print logs |
 | `--log-level` | | Log level |
 | `--pure` | | No tools mode |
+| `--image` | `-i` | Attach a local image to a one-shot prompt (repeatable, vision models) |
+| `--auto-commit` | | Commit the working tree after a successful one-shot task |
 
 ---
 
@@ -640,6 +648,17 @@ mcp_config = {
 
 MCP tools available as native tools via `apex mcp add/list/auth`.
 
+APEX can also act as an MCP **server**:
+
+```bash
+apex mcp serve [--cwd PATH] [--allow-tool NAME]...
+```
+
+It exposes the native tool registry over JSON-RPC 2.0 on stdin/stdout
+(`initialize`, `tools/list`, `tools/call`, `ping`, batches) to any MCP client.
+See [ADR-0006](docs/adr/ADR-0006-mcp-server-stdio.md) and the
+[MCP server reference](docs/reference/mcp-server.md).
+
 ---
 
 ## 15. Sessions & Sharing
@@ -712,6 +731,12 @@ apex run "Review this code" --agent reviewer
 | `--model` | Model to use |
 | `--agent` | Agent to use |
 | `--continue` | Continue last session |
+| `-i, --image <path>` | Attach an image (repeatable; vision-capable model required) |
+| `--auto-commit` | Commit the working tree after success |
+
+In `-f json` mode a successful run that used `--auto-commit` adds a top-level
+`auto_commit` object: `status` is `committed`, `no-changes`, `not-a-repo`, or
+`error`, with `sha`, `message`, and `detail` where applicable.
 
 ---
 
@@ -1015,12 +1040,12 @@ advisory on Prisma 6.
 
 ### v2.5 milestones
 
-| Milestone | Scope |
-|-----------|-------|
-| M1 — Repository Map & Context | symbol-level repository map, context-window optimization |
-| M2 — Rust GA (internal) | remove crate-level `#![allow(dead_code)]`, parity matrix, binary E2E; no publishing (ADR-0004) |
-| M3 — TUI Streaming & Diff | SSE/WS streaming, tool-call lifecycle, diff preview |
-| M4 — MCP, Vision, VS Code | MCP server mode, vision input, auto-commit, VS Code extension |
+| Milestone | Scope | Status |
+|-----------|-------|--------|
+| M1 — Repository Map & Context | symbol-level repository map, context-window optimization | Done (v2.5) |
+| M2 — Rust GA (internal) | remove crate-level `#![allow(dead_code)]`, parity matrix, binary E2E; no publishing (ADR-0004) | Done (v2.5) |
+| M3 — TUI Streaming & Diff | SSE/WS streaming, tool-call lifecycle, diff preview | Done (v2.5) |
+| M4 — MCP, Vision, VS Code | MCP server mode, vision input, auto-commit, VS Code extension | Done (v2.5) |
 
 ### Definition of Done
 
@@ -1059,7 +1084,7 @@ surface change.
 - Allows are scoped to a module or item and carry a justification plus a
   `TODO(v2.6)` exit criterion.
 - Ported modules without a caller are declared and allowed explicitly
-  (`context`, `permission`, `rate_limiter`) instead of silently disappearing.
+  (`permission`, `rate_limiter`) instead of silently disappearing.
 
 ### Shell security
 
@@ -1074,13 +1099,31 @@ apex-rs security allowed            # allow-listed commands
 - `POST /api/v1/security/analyze` — JSON `{ "command": "..." }` → verdict
 - `/api/v1/bash` and the `run_command` tool are both guarded
 
+### Repository context
+
+`context.rs` mirrors `apex/context.py` and is wired on both surfaces:
+
+```bash
+apex-rs context repo-map [PATH]      # directories, source/config/doc files, git info
+apex-rs context git [PATH]           # branch and change count
+apex-rs context stats [PATH]         # per-language file statistics (JSON)
+apex-rs context ctags [PATH]         # first tracked code files
+apex-rs context tree [PATH] --depth 3
+apex-rs context glob <PATTERN> [PATH]
+```
+
+`GET /api/v1/context/{repo-map,git,stats,ctags,tree,glob}` mirrors the CLI with
+`?path=` (relative paths resolve from the working directory, absolute paths pass
+through), `?depth=` for `tree`, and `?pattern=` for `glob`. Invalid input returns
+`{"error": …}` instead of a panic.
+
 ### Hermetic tests
 
 `config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,
 so `tests/cli_e2e.rs` can point `~/.apex` at a temp directory. The E2E suite
 runs the compiled binary and covers help, tool listing, cost, memory and
-encrypted session lifecycles, security verdicts, and the no-crate-level-allow
-regression.
+encrypted session lifecycles, security verdicts, the repository-context
+commands, and the no-crate-level-allow regression.
 
 ```bash
 cd rust/apex-rs
