@@ -8,6 +8,9 @@ The map is designed for LLM context windows. It gives the agent enough
 structural knowledge to navigate a repository without spending thousands of
 tokens on full files.
 
+The design rationale and rejected alternatives are recorded in
+[ADR-0005](../adr/ADR-0005-symbolic-repo-map.md).
+
 ## Quick start
 
 ```python
