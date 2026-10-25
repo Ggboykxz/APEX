@@ -14,6 +14,8 @@ use base64::Engine;
 use cbc::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::io::Read;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 

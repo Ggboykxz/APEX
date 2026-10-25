@@ -183,6 +183,17 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
 - Le job **ESLint** de `website.yml` n'est plus `continue-on-error` : le lint
   du site est désormais bloquant, et `eslint.config.mjs` déclenche le workflow.
 
+### Correctifs CI Linux (2026-10-25)
+
+- `tests/test_agent.py` : l'assertion du prompt système utilise `startswith`
+  (les règles projet/globales sont légitimement ajoutées quand `AGENTS.md`
+  est présent — comportement dépendant du `cwd`).
+- `apex/sandbox.py` (`ShellSession`) : lecture stdout via thread lecteur +
+  `queue` et marqueur de fin de commande ; plus de `readline()` bloquant.
+  `test_shell_lifecycle` passe sur Linux au lieu de timeouter (>120 s).
+- `session_crypto.rs` : `use std::io::Read` sous `cfg(unix)` (compilation
+  Linux de `read_exact`).
+
 ### Intégration finale (2026-10-25)
 
 - Branche par défaut : `dev` ; `main` protégée (PR requises, checks CI /
