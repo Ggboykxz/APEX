@@ -87,6 +87,7 @@ nav:
       - Config File: reference/config.md
       - API: reference/api.md
       - HTTP Endpoints: reference/http-api.md
+      - Repository Map: reference/repomap.md
   - Contributing: contributing.md
   - Engineering:
       - Git Workflow: git-workflow.md

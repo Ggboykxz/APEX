@@ -27,6 +27,8 @@ The Ink + React TUI runs as the main thread, rendering the terminal UI at full s
 - **Stateless overlays** (`src/components/overlays.tsx`) — CommandPalette, ModelSelector, ThemeSelector, AgentSelector, SessionList, FileFinder, HelpOverlay, StatusOverlay render state; keyboard navigation lives in `ApexApp`.
 - **Theme Detection** — Automatic dark/light mode detection from terminal settings
 - **SyncProvider** — Real-time state synchronization via WebSocket EventBus
+- **Streaming layer** (`src/streaming/`) — pure reducer for assistant deltas, tool-call lifecycle, and session isolation, plus React adapters; normalizes backend EventBus payloads into a typed event union
+- **Diff preview** (`src/diff/`, `components/DiffPreview.tsx`) — unified-diff parser and accept/reject state machine; `/diff` previews the working tree without writing to disk
 - **@ Autocomplete** — File, agent, and MCP server autocomplete when typing @
 - **/ Slash Commands** — Built-in and custom command palette
 - **Runtimes** — `tsx` (Node) or Bun (`bun run src/App.tsx`; scripts `dev:bun` / `start:bun`)
@@ -101,9 +103,46 @@ APEX supports built-in and custom slash commands:
 - `/undo` — Undo last change
 - `/redo` — Redo last undone change
 - `/compact` — Compact context window
+- `/diff` — Preview the working-tree diff with accept/reject controls
 - `/clear` — Clear conversation history
 - `/help` — Show all commands
 - Custom commands via `.apex/commands/*.md`
+
+## Streaming & Diff Preview
+
+The TUI consumes two channels: HTTP SSE for chat text and the WebSocket EventBus
+for state. `src/sync.ts` normalizes wire events into a typed
+`AgentStreamEvent` union (`src/streaming/events.ts`), and
+`src/streaming/reducer.ts` is a pure reducer that:
+
+- appends assistant deltas to the current draft
+- tracks tool calls from start to success/error (duration, output, errors)
+- isolates sessions and ignores stale or out-of-order sequences
+- finalizes the turn on `chat_complete` or stream errors
+
+The reducer is framework-free and covered by Bun tests; React components use the
+thin `useStreamingState` / `useSyncStream` adapters. The HTTP polling fallback is
+preserved when the WebSocket is unavailable.
+
+Backend compatibility: the Python EventBus currently publishes `connected`,
+`state`, `chat_complete`, `pong`, `undo`, `redo`, `compact`, and
+`theme_changed`. The TUI also accepts `assistant_delta` / `message_delta` /
+`text_delta`, `tool_start` / `tool_end`, and session aliases so token and tool
+events can be enabled server-side without a TUI change.
+
+### Diff preview
+
+`/diff` fetches the read-only working-tree diff from
+`GET /api/v1/session/{id}/diff` and renders it in an overlay:
+
+- unified-diff parser with multi-file support, CRLF, `\ No newline at end of file`,
+  and graceful handling of truncated or malformed hunks
+- additions/deletions summary per file and in total
+- keyboard accept/reject and a programmatic controller callback
+
+The preview is intentionally local: it never writes to disk and does not call a
+decision endpoint. Wiring accept/reject to the backend is tracked as a
+follow-up.
 
 ## Connection Error Handling
 
