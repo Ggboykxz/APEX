@@ -11,6 +11,7 @@
 //! token classification in [`ShellSecurityAnalyzer::git_category`].
 
 use regex::{Regex, RegexBuilder};
+use serde_json::{json, Value};
 use std::sync::LazyLock;
 
 // ────────────────────────────────────────────────────────────
@@ -29,6 +30,9 @@ pub enum CommandCategory {
     Process,
     Git,
     Build,
+    // Python parity: the reference classifier never returns `package` either.
+    // TODO(v2.6): classify pip/npm install separately, then remove this allow.
+    #[allow(dead_code)]
     Package,
     Container,
     Dangerous,
@@ -68,6 +72,21 @@ pub struct CommandAnalysis {
     pub warnings: Vec<String>,
     pub requires_confirmation: bool,
     pub description: Option<String>,
+}
+
+impl CommandAnalysis {
+    /// JSON projection shared by the CLI (`security check`) and the HTTP API.
+    pub fn to_json(&self) -> Value {
+        json!({
+            "safe": self.safe,
+            "category": self.category.value(),
+            "command": self.command,
+            "args": self.args,
+            "warnings": self.warnings,
+            "requires_confirmation": self.requires_confirmation,
+            "description": self.description,
+        })
+    }
 }
 
 // ────────────────────────────────────────────────────────────

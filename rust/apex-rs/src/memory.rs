@@ -114,6 +114,9 @@ impl Memory {
         false
     }
 
+    // Test-only today; the CLI report needs tags, so it uses `get_all`.
+    // TODO(v2.6): expose a script-friendly `memory list --names` view.
+    #[allow(dead_code)]
     pub fn list_facts(&self) -> Vec<String> {
         self.facts
             .iter()
@@ -138,10 +141,6 @@ impl Memory {
             .cloned()
             .collect()
     }
-
-    pub fn path(&self) -> &PathBuf {
-        &self.path
-    }
 }
 
 /// `~/.apex/memory.json` (override with `APEX_MEMORY_FILE`, used by tests).
@@ -151,7 +150,7 @@ pub fn memory_file() -> PathBuf {
             return PathBuf::from(p);
         }
     }
-    dirs::home_dir()
+    crate::config::home_dir()
         .unwrap_or_default()
         .join(".apex")
         .join("memory.json")

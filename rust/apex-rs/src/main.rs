@@ -1,10 +1,11 @@
-// The Rust port exposes the full module surface before every module is wired
-// into the CLI. Keep the public API available without dead-code noise.
-#![allow(dead_code)]
-
 mod agent;
 mod codegen;
 mod config;
+// Ported repository-context helpers (repo map, tree, language stats) but no
+// caller yet — the file was previously not even declared in the module tree.
+// TODO(v2.6): expose `context repo-map|tree|stats` CLI commands.
+#[allow(dead_code)]
+mod context;
 mod cost;
 mod formatter;
 mod github;
@@ -13,8 +14,14 @@ mod jsonrpc;
 mod lsp;
 mod mcp_client;
 mod memory;
+// Ported but not consulted by the agent loop yet (no permission gate).
+// TODO(v2.6): route tool dispatch through this manager and persist decisions.
+#[allow(dead_code)]
 mod permission;
 mod plugins;
+// Ported but not attached to any HTTP route or agent call yet.
+// TODO(v2.6): enforce per-key limits from `serve` before handling chat requests.
+#[allow(dead_code)]
 mod rate_limiter;
 mod server;
 mod session_crypto;
@@ -74,6 +81,11 @@ enum Commands {
         #[command(subcommand)]
         action: SessionAction,
     },
+    /// Inspect shell-command safety (shell_security parity)
+    Security {
+        #[command(subcommand)]
+        action: SecurityAction,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -88,6 +100,8 @@ enum MemoryAction {
     },
     /// Search facts by substring (case-insensitive)
     Search { query: String },
+    /// Print the prompt context for a project (last 5 relevant facts)
+    Context { project: String },
     /// Remove a fact by index
     Remove { index: usize },
     /// Delete all facts
@@ -104,11 +118,19 @@ enum SessionAction {
     Save { name: String },
 }
 
+#[derive(Subcommand, Debug)]
+enum SecurityAction {
+    /// Analyze a command and print the verdict as JSON
+    Check { command: String },
+    /// List commands allowed without confirmation
+    Allowed,
+}
+
 fn load_mcp_servers() {
     // Run discovery on a dedicated thread: `main` is itself async, so creating
     // and blocking on another runtime from there would panic.
     let _ = std::thread::spawn(|| {
-        let base = dirs::home_dir()
+        let base = config::home_dir()
             .unwrap_or_default()
             .join(".apex")
             .join("mcp.json");
@@ -279,6 +301,14 @@ async fn main() {
                         }
                     }
                 }
+                MemoryAction::Context { project } => {
+                    let context = mem.get_context_for_prompt(&project);
+                    if context.is_empty() {
+                        println!("No relevant memory facts");
+                    } else {
+                        println!("{context}");
+                    }
+                }
                 MemoryAction::Remove { index } => {
                     if mem.remove(index) {
                         println!("Removed fact {index}");
@@ -318,6 +348,23 @@ async fn main() {
                 match share::save_session(&name, &config.model, &cwd, &[]) {
                     Some(p) => println!("Saved {}", p.display()),
                     None => eprintln!("failed to save session"),
+                }
+            }
+        },
+        Some(Commands::Security { action }) => match action {
+            SecurityAction::Check { command } => {
+                let analysis = shell_security::SHELL_ANALYZER.analyze(&command);
+                let mut verdict = analysis.to_json();
+                verdict["allowed"] =
+                    serde_json::json!(shell_security::SHELL_ANALYZER.is_safe(&command));
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&verdict).unwrap_or_default()
+                );
+            }
+            SecurityAction::Allowed => {
+                for cmd in shell_security::SHELL_ANALYZER.get_allowed_commands() {
+                    println!("{cmd}");
                 }
             }
         },

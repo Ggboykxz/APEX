@@ -24,6 +24,9 @@ pub fn api_base_from_env() -> String {
     }
 }
 
+// Test-only today: `git_create_pr` talks to `gh`/REST directly.
+// TODO(v2.6): expose GitHub issue/PR operations through a `github` CLI group.
+#[allow(dead_code)]
 pub struct GitHubClient {
     pub token: String,
     pub owner: String,
@@ -31,6 +34,9 @@ pub struct GitHubClient {
     pub api_base: String,
 }
 
+// Methods are exercised by unit tests only while the CLI calls `gh` directly.
+// TODO(v2.6): remove with the `github` CLI group.
+#[allow(dead_code)]
 impl GitHubClient {
     pub fn new(token: Option<&str>, owner: &str, repo: &str) -> Self {
         let token = token
@@ -209,11 +215,17 @@ impl GitHubClient {
     }
 }
 
+// Test-only today: automated PR/issue flows are not part of any CLI command.
+// TODO(v2.6): add `apex-rs github automate` once credentials handling is agreed.
+#[allow(dead_code)]
 pub struct GitHubAutomation {
     pub client: GitHubClient,
     pub repo: Option<(String, String)>,
 }
 
+// Automated flows are covered by unit tests until the CLI exposes them.
+// TODO(v2.6): remove with the `github` CLI group.
+#[allow(dead_code)]
 impl GitHubAutomation {
     pub fn new(token: &str, cwd: &Path) -> Self {
         let mut client = if token.is_empty() {
@@ -290,6 +302,9 @@ impl GitHubAutomation {
 }
 
 /// `20261019071238` (Python: `strftime('%Y%m%d%H%M%S')`).
+// Only reached from `GitHubAutomation`, which is itself still unwired.
+// TODO(v2.6): remove this allow with the `github` CLI group.
+#[allow(dead_code)]
 fn compact_timestamp() -> String {
     now_iso8601_micros()
         .chars()

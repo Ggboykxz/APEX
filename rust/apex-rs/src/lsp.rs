@@ -216,10 +216,6 @@ impl LspManager {
     }
 }
 
-pub fn get_lsp_manager(_cwd: &str) -> LspManager {
-    LspManager::new()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
