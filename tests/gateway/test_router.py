@@ -1,4 +1,4 @@
-"""Tests for gateway router — rate limiting, model validation."""
+﻿"""Tests for gateway router â€” rate limiting, model validation."""
 
 import tempfile
 from pathlib import Path
@@ -62,7 +62,7 @@ class TestModelValidation:
         from apex.gateway.auth import AuthManager
         from apex.gateway.router import RequestRouter
 
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             db_path = Path(tmp) / "test.db"
             auth = AuthManager(db_path)
             router = RequestRouter(cfg, auth)
@@ -74,7 +74,7 @@ class TestModelValidation:
 
 class TestAuthzIntegration:
     def test_api_key_generation_and_validate(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             db_path = Path(tmp) / "test.db"
             auth = AuthManager(db_path)
 
@@ -91,7 +91,7 @@ class TestAuthzIntegration:
             assert tier.daily_requests == 500
 
     def test_free_key_cannot_access_pro_models(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             db_path = Path(tmp) / "test.db"
             auth = AuthManager(db_path)
             cfg = GatewayConfig()

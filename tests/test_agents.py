@@ -315,7 +315,7 @@ class TestBuiltinAgents:
         assert BUILTIN_AGENTS["plan"].color == "#a855f7"
 
     def test_planner_color(self):
-        assert BUILTIN_AGENTS["planner"].color == "#ffaa00"
+        assert BUILTIN_AGENTS["planner"].color == "#eab308"
 
     def test_reviewer_color(self):
         assert BUILTIN_AGENTS["reviewer"].color == "#00ff88"

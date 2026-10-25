@@ -209,7 +209,7 @@ class TestLoadCustomTools:
         (subdir / "marker.txt").write_text("present")
         p = tmp_path / "config.yaml"
         p.write_text(
-            "custom_tools:\n  lstool:\n    command: ls\n    cwd: "
+            "custom_tools:\n  lstool:\n    command: python -c \"import os;print(os.listdir('.'))\"\n    cwd: "
             + str(subdir).replace("\\", "/")
             + "\n"
         )
@@ -229,7 +229,7 @@ class TestLoadCustomTools:
         p.write_text(
             "custom_tools:\n  greeter:\n"
             "    description: Say hello\n"
-            "    command: echo Hello {name}\n"
+            "    command: python -c \"import sys;print('Hello '+sys.argv[1])\" {name}\n"
         )
         load_custom_tools(p)
         tool = custom_tool_manager.get("greeter")

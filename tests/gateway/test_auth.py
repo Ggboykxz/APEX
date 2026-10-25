@@ -10,7 +10,8 @@ from apex.gateway.auth import AuthManager
 
 @pytest.fixture
 def auth():
-    with tempfile.TemporaryDirectory() as tmp:
+    # ignore_cleanup_errors: Windows may briefly keep the sqlite file open.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         db_path = Path(tmp) / "test.db"
         yield AuthManager(db_path)
 

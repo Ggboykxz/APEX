@@ -1,7 +1,7 @@
-"""Comprehensive tests for apex/agent.py — Chat, subagent, permissions, tool execution.
+﻿"""Comprehensive tests for apex/agent.py â€” Chat, subagent, permissions, tool execution.
 
 Uses real objects only (no mocks).  Chat methods will trigger litellm calls that
-fail due to missing API keys — we verify that error handling works correctly.
+fail due to missing API keys â€” we verify that error handling works correctly.
 """
 
 import pytest
@@ -83,12 +83,12 @@ class TestSubagentParsing:
 
     def test_at_sign_without_task(self, agent):
         sub, task = agent._parse_subagent_invocation("@reviewer")
-        # No task after @reviewer — doesn't match pattern
+        # No task after @reviewer â€” doesn't match pattern
         assert sub is None
 
     def test_at_sign_at_end(self, agent):
         sub, task = agent._parse_subagent_invocation("@reviewer ")
-        # Trailing space — the regex requires ".+" after the name
+        # Trailing space â€” the regex requires ".+" after the name
         assert sub is None
 
 
@@ -180,7 +180,7 @@ class TestToolPermissionChecking:
         assert allowed is True
 
     def test_write_file_requires_permission(self, agent):
-        """write_file is not in default ALLOW rules — should require permission."""
+        """write_file is not in default ALLOW rules â€” should require permission."""
         allowed, msg = agent._check_tool_permission("write_file")
         assert allowed is False
         assert "permission" in msg.lower() or "Requires" in msg
@@ -192,12 +192,12 @@ class TestToolPermissionChecking:
 
 
 class TestExecuteToolsParallel:
-    """Test Agent._execute_tools_parallel() with real tool execution."""
+    """Test Agent._execute_tools() with real tool execution."""
 
     def test_execute_read_file(self, agent_in_tmpdir, tmp_path):
         test_file = tmp_path / "hello.txt"
         test_file.write_text("hello world")
-        results = agent_in_tmpdir._execute_tools_parallel(
+        results = agent_in_tmpdir._execute_tools(
             [("tc_1", "read_file", {"path": str(test_file)})]
         )
         assert len(results) == 1
@@ -207,7 +207,7 @@ class TestExecuteToolsParallel:
 
     def test_execute_write_file(self, agent_in_tmpdir, tmp_path):
         out_file = tmp_path / "output.txt"
-        results = agent_in_tmpdir._execute_tools_parallel(
+        results = agent_in_tmpdir._execute_tools(
             [("tc_1", "write_file", {"path": str(out_file), "content": "test content"})]
         )
         assert len(results) == 1
@@ -217,7 +217,7 @@ class TestExecuteToolsParallel:
     def test_execute_list_files(self, agent_in_tmpdir, tmp_path):
         (tmp_path / "a.py").write_text("print('a')")
         (tmp_path / "b.py").write_text("print('b')")
-        results = agent_in_tmpdir._execute_tools_parallel(
+        results = agent_in_tmpdir._execute_tools(
             [("tc_1", "list_files", {"path": str(tmp_path)})]
         )
         assert len(results) == 1
@@ -226,7 +226,7 @@ class TestExecuteToolsParallel:
 
     def test_execute_multiple_tools(self, agent_in_tmpdir, tmp_path):
         (tmp_path / "data.txt").write_text("some data")
-        results = agent_in_tmpdir._execute_tools_parallel(
+        results = agent_in_tmpdir._execute_tools(
             [
                 ("tc_1", "read_file", {"path": str(tmp_path / "data.txt")}),
                 ("tc_2", "list_files", {"path": str(tmp_path)}),
@@ -237,7 +237,7 @@ class TestExecuteToolsParallel:
         assert results[1][0] == "tc_2"
 
     def test_execute_invalid_tool(self, agent_in_tmpdir):
-        results = agent_in_tmpdir._execute_tools_parallel([("tc_1", "nonexistent_tool_xyz", {})])
+        results = agent_in_tmpdir._execute_tools([("tc_1", "nonexistent_tool_xyz", {})])
         assert len(results) == 1
         _, content = results[0]
         assert "ERROR" in content or "error" in content.lower()
@@ -336,7 +336,7 @@ class TestUpdateUsage:
 
 
 # ---------------------------------------------------------------------------
-# Chat (error handling — no API key)
+# Chat (error handling â€” no API key)
 # ---------------------------------------------------------------------------
 
 
@@ -361,7 +361,7 @@ class TestChatErrorHandling:
         assert result.startswith("ERROR:")
 
     def test_chat_does_not_raise_exception(self, agent):
-        """chat() must never raise — all errors should be caught."""
+        """chat() must never raise â€” all errors should be caught."""
         try:
             result = agent.chat("any input", max_rounds=1)
             assert isinstance(result, str)
@@ -399,7 +399,7 @@ class TestChatErrorHandling:
 
 
 # ---------------------------------------------------------------------------
-# Chat streaming (error handling — no API key)
+# Chat streaming (error handling â€” no API key)
 # ---------------------------------------------------------------------------
 
 
@@ -444,15 +444,15 @@ class TestChatStreamingErrorHandling:
 
 
 class TestSetAgentPrompt:
-    """Test _set_agent_prompt() — the alias used in streaming."""
+    """Test _set_agent_system_prompt() â€” the alias used in streaming."""
 
     def test_set_agent_prompt_matches_set_system_prompt(self, agent):
-        agent._set_agent_prompt()
+        agent._set_agent_system_prompt()
         assert agent._system_message["role"] == "system"
 
     def test_set_agent_prompt_for_planner(self, agent):
         agent._current_agent = "planner"
-        agent._set_agent_prompt()
+        agent._set_agent_system_prompt()
         from apex.agents import AGENT_PLANNER_PROMPT
 
         assert agent._system_message["content"] == AGENT_PLANNER_PROMPT
@@ -460,5 +460,5 @@ class TestSetAgentPrompt:
     def test_set_agent_prompt_for_nonexistent(self, agent):
         """If agent doesn't exist, system message content should be empty."""
         agent._current_agent = "nonexistent_agent"
-        agent._set_agent_prompt()
+        agent._set_agent_system_prompt()
         assert agent._system_message["content"] == ""

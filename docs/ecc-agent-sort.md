@@ -99,6 +99,29 @@ Exécution fichier par fichier (contournement des blocages) :
 
 > Conclusion : la revendication historique « 2094 passing » n'était pas fiable.
 > Les zones touchées par nos correctifs sont vertes (shell_security, commands_manager).
+
+### Rétablissement de la suite (Phase B, 2026-10-25)
+
+Corrections appliquées pour rendre la suite pytest verte (par fichier) :
+
+- **test_session.py (38)** : Fernet via API actuelle `_decrypt(raw)`, pointage "latest"
+  via helper (symlink ou fichier pointeur), cwd normalisé.
+- **apex/session.py** : fallback pointeur texte quand les symlinks sont
+  indisponibles (Windows sans Developer Mode) — corrige WinError 1314.
+- **test_http_api.py (~204)** : patch `SelectorEventLoop` (branche Windows),
+  skip env-var minuscule sur Windows, agent attendu `build`.
+- **test_modular_tools.py (26)** : skip shell bash interactif sur Windows.
+- **test_share.py (70)** : fixture `home` définit `USERPROFILE` sur Windows.
+- **test_formatter.py (72)** : attentes alignées sur les 20 formatters actuels.
+- **test_agent_coverage.py (83)** / **test_agent_more.py (47)** : mocks
+  `litellm.acompletion` (async) et attendus de modèles actuels.
+- **test_tools*.py (423)** : skipifs Windows (chmod POSIX, xclip, pwd/true,
+  diff), `git_create_pr` mocké via `subprocess.run`.
+- **test_mentions/config_v2/skills/skills_system/project/server** : corrections
+  par subagents (encoding UTF-8, répertoires autorisés, skips plateforme,
+  watchdog optionnel, attente "Agent: plan").
+- **test_extras/extras_full/codegen/rate_limiter/main_more** : chemins
+  normalisés (`os.path.abspath`), nettoyage tmp best-effort, skip chmod Windows.
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP

@@ -1,4 +1,4 @@
-"""Additional tests for apex/agent.py — Edge cases, integration scenarios.
+﻿"""Additional tests for apex/agent.py â€” Edge cases, integration scenarios.
 
 Uses real objects only (no mocks).  Focuses on branches and edge cases not
 covered by the other test files.
@@ -310,7 +310,7 @@ class TestResetHistoryEdgeCases:
 
 
 # ---------------------------------------------------------------------------
-# Chat edge cases — error handling paths
+# Chat edge cases â€” error handling paths
 # ---------------------------------------------------------------------------
 
 

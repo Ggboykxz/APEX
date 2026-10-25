@@ -275,7 +275,7 @@ class TestConfigCwd:
     def test_cwd_setter_and_getter(self, config):
         config.cwd = Path("/tmp")
         result = config.cwd
-        assert str(result) == "/tmp"
+        assert str(result) == os.path.abspath("/tmp")
 
     def test_cwd_expands_user(self, config):
         config.cwd = Path("~")
