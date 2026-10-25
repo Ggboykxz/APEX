@@ -311,7 +311,9 @@ class TestFileOperationCache:
 class TestBatchOperationErrorLines:
     """Hit lines 65-66 (batch_read exception) and 86-87 (batch_write exception)."""
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows")
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+    )
     def test_batch_read_exception(self, tmp_path):
         """batch_read with a file that triggers exception on read."""
         f = tmp_path / "secret.txt"

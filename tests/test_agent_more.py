@@ -1,4 +1,4 @@
-﻿"""Additional tests for apex/agent.py â€” Edge cases, integration scenarios.
+"""Additional tests for apex/agent.py â€” Edge cases, integration scenarios.
 
 Uses real objects only (no mocks).  Focuses on branches and edge cases not
 covered by the other test files.
@@ -55,7 +55,9 @@ def _agen(*items):
     async def _gen():
         for item in items:
             yield item
+
     return _gen()
+
 
 # ---------------------------------------------------------------------------
 # Fixtures

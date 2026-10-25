@@ -1,4 +1,4 @@
-﻿"""Tests for gateway router â€” rate limiting, model validation."""
+"""Tests for gateway router â€” rate limiting, model validation."""
 
 import tempfile
 from pathlib import Path

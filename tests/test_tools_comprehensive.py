@@ -1,8 +1,6 @@
 """Tests for APEX tools - git branches, inline_edit, retry, git staging, skills, theme, hooks."""
 
-import shutil
 import subprocess
-import sys
 from unittest.mock import patch
 
 import pytest

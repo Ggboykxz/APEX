@@ -1,4 +1,4 @@
-﻿"""Comprehensive tests for apex/agent.py â€” Chat, subagent, permissions, tool execution.
+"""Comprehensive tests for apex/agent.py â€” Chat, subagent, permissions, tool execution.
 
 Uses real objects only (no mocks).  Chat methods will trigger litellm calls that
 fail due to missing API keys â€” we verify that error handling works correctly.
@@ -197,9 +197,7 @@ class TestExecuteToolsParallel:
     def test_execute_read_file(self, agent_in_tmpdir, tmp_path):
         test_file = tmp_path / "hello.txt"
         test_file.write_text("hello world")
-        results = agent_in_tmpdir._execute_tools(
-            [("tc_1", "read_file", {"path": str(test_file)})]
-        )
+        results = agent_in_tmpdir._execute_tools([("tc_1", "read_file", {"path": str(test_file)})])
         assert len(results) == 1
         tc_id, content = results[0]
         assert tc_id == "tc_1"
@@ -217,9 +215,7 @@ class TestExecuteToolsParallel:
     def test_execute_list_files(self, agent_in_tmpdir, tmp_path):
         (tmp_path / "a.py").write_text("print('a')")
         (tmp_path / "b.py").write_text("print('b')")
-        results = agent_in_tmpdir._execute_tools(
-            [("tc_1", "list_files", {"path": str(tmp_path)})]
-        )
+        results = agent_in_tmpdir._execute_tools([("tc_1", "list_files", {"path": str(tmp_path)})])
         assert len(results) == 1
         _, content = results[0]
         assert "a.py" in content

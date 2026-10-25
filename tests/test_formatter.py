@@ -72,7 +72,17 @@ class TestBuiltinFormatters:
         f = BUILTIN_FORMATTERS[1]
         assert f.name == "prettier"
         assert f.command == ["npx", "prettier", "--write", "$FILE"]
-        assert f.extensions == [".js", ".ts", ".jsx", ".tsx", ".json", ".yaml", ".md", ".html", ".css"]
+        assert f.extensions == [
+            ".js",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            ".json",
+            ".yaml",
+            ".md",
+            ".html",
+            ".css",
+        ]
 
     def test_biome(self):
         f = BUILTIN_FORMATTERS[2]

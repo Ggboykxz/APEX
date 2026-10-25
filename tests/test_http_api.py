@@ -1543,7 +1543,10 @@ class TestTuiServerCleanup:
         loop.shutdown_asyncgens = MagicMock(return_value=None)
         loop.close = MagicMock(wraps=loop.close)
 
-        with patch("apex.http_api.asyncio.new_event_loop", return_value=loop), patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
+        with (
+            patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
+            patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+        ):
             with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
@@ -1559,7 +1562,10 @@ class TestTuiServerCleanup:
         loop.shutdown_asyncgens = MagicMock(return_value=None)
         loop.close = MagicMock(wraps=loop.close)
 
-        with patch("apex.http_api.asyncio.new_event_loop", return_value=loop), patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
+        with (
+            patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
+            patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+        ):
             with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
@@ -1581,7 +1587,10 @@ class TestTuiServerCleanup:
         task = loop.create_task(dummy())
 
         with patch("asyncio.all_tasks", return_value={task}):
-            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop), patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
+            with (
+                patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
+                patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+            ):
                 with patch("threading.Thread") as mock_thread_cls:
                     mock_thread_instance = MagicMock()
                     mock_thread_cls.return_value = mock_thread_instance
@@ -1601,7 +1610,10 @@ class TestTuiServerCleanup:
         loop.close = MagicMock()
 
         with patch("asyncio.all_tasks", return_value=set()):
-            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop), patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
+            with (
+                patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
+                patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+            ):
                 with patch("threading.Thread") as mock_thread_cls:
                     mock_thread_instance = MagicMock()
                     mock_thread_cls.return_value = mock_thread_instance

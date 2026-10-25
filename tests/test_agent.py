@@ -1,4 +1,4 @@
-﻿"""Tests for apex/agent.py â€” Agent initialization, properties, and switching.
+"""Tests for apex/agent.py â€” Agent initialization, properties, and switching.
 
 Uses real objects only (no mocks). The Agent class requires litellm but we
 only test methods that do NOT trigger network calls here.

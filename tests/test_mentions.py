@@ -184,7 +184,10 @@ class TestMentionParser:
         resolved = parser.resolve_file("test.py")
         assert resolved == (parser.cwd / "test.py").resolve()
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX absolute path semantics (/tmp) do not apply on Windows")
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="POSIX absolute path semantics (/tmp) do not apply on Windows",
+    )
     def test_resolve_absolute(self, parser):
         resolved = parser.resolve_file("/tmp/test.py")
         assert resolved == Path("/tmp/test.py")

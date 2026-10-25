@@ -1,4 +1,4 @@
-﻿"""Comprehensive tests for apex/agent.py â€” aiming for 100% line coverage."""
+"""Comprehensive tests for apex/agent.py â€” aiming for 100% line coverage."""
 
 import logging
 from unittest.mock import MagicMock, patch
@@ -598,6 +598,7 @@ class TestChatStreaming:
 # Lines 343-488 â€” _chat_internal_streaming
 # ---------------------------------------------------------------------------
 
+
 class TestChatInternalStreaming:
     """Streaming tests against the current litellm.acompletion async API."""
 
@@ -606,13 +607,16 @@ class TestChatInternalStreaming:
         async def _gen():
             for item in items:
                 yield item
+
         return _gen()
 
     @pytest.mark.asyncio
     async def test_streaming_text_response(self, agent):
         chunk1 = _make_chunk(content="Hello")
         chunk2 = _make_chunk(content=" world")
-        with patch("apex.agent.litellm.acompletion", return_value=self._async_chunks(chunk1, chunk2)):
+        with patch(
+            "apex.agent.litellm.acompletion", return_value=self._async_chunks(chunk1, chunk2)
+        ):
             chunks = []
             async for c in agent._chat_internal_streaming("say hi"):
                 chunks.append(c)
@@ -629,7 +633,9 @@ class TestChatInternalStreaming:
                 "apex.agent.litellm.acompletion",
                 side_effect=[self._async_chunks(chunk_tc), follow_up],
             ),
-            patch.object(agent, "_execute_tools_parallel_async", return_value=[("call_1", "x content")]),
+            patch.object(
+                agent, "_execute_tools_parallel_async", return_value=[("call_1", "x content")]
+            ),
         ):
             chunks = []
             async for c in agent._chat_internal_streaming("read x"):
@@ -682,7 +688,9 @@ class TestChatInternalStreaming:
                 "apex.agent.litellm.acompletion",
                 side_effect=[self._async_chunks(chunk_tc), follow_up],
             ),
-            patch.object(agent, "_execute_tools_parallel_async", return_value=[("call_1", "result")]),
+            patch.object(
+                agent, "_execute_tools_parallel_async", return_value=[("call_1", "result")]
+            ),
         ):
             chunks = []
             async for c in agent._chat_internal_streaming("read x", max_rounds=1):
@@ -713,6 +721,8 @@ class TestChatInternalStreaming:
             async for c in agent._chat_internal_streaming("hi"):
                 chunks.append(c)
         assert chunks == ["hello"]
+
+
 class TestExecuteToolsParallel:
     def test_execute_multiple_tools(self, agent):
         data = [("tc_1", "read_file", {"path": "a.txt"}), ("tc_2", "read_file", {"path": "b.txt"})]

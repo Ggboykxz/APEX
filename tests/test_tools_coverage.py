@@ -1,4 +1,4 @@
-﻿"""Additional coverage tests for apex/tools.py - covering remaining uncovered lines."""
+"""Additional coverage tests for apex/tools.py - covering remaining uncovered lines."""
 
 import subprocess
 import sys
@@ -300,7 +300,9 @@ def test_install_package_failure(executor, monkeypatch):
 # â”€â”€â”€ read_image: exception (1803-1804) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows")
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_read_image_exception(executor, tmp_path):
     f = tmp_path / "img.png"
     f.touch()
@@ -315,7 +317,9 @@ def test_read_image_exception(executor, tmp_path):
 # â”€â”€â”€ read_image_data: exception (2398, 2403-2404) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows")
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_read_image_data_exception(executor, tmp_path):
     f = tmp_path / "img.dat"
     f.touch()
@@ -928,7 +932,9 @@ def test_redo_with_action(executor, monkeypatch):
 # â”€â”€â”€ read_image: exception handler deeper path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows")
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="POSIX chmod permissions are not enforced on Windows"
+)
 def test_read_image_cannot_read(executor, tmp_path):
     f = tmp_path / "img.png"
     f.write_bytes(b"\x89PNG\r\n\x1a\n")
