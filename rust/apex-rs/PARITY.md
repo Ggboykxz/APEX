@@ -1,12 +1,12 @@
 # Rust / Python Parity
 
-Internal GA baseline for `rust/apex-rs` (increment 1). The reference is the
-Python package in `apex/` at commit `c41952c`. "Parity" here means that a
-behaviour is reachable from the Rust binary, HTTP server, or tool registry and
-has automated coverage - not that the implementations are line-for-line
-equivalent.
+Internal GA baseline for `rust/apex-rs` (last updated for the v2.6 context
+increment). The reference is the Python package in `apex/` on `dev`.
+"Parity" here means that a behaviour is reachable from the Rust binary, HTTP
+server, or tool registry and has automated coverage - not that the
+implementations are line-for-line equivalent.
 
-Scale at this baseline: ~19,160 lines of Python in `apex/*.py` versus ~9,225
+Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~9,430
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -42,7 +42,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 | Python | Rust | Status | Notes |
 | --- | --- | --- | --- |
-| `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security). Most of Python's command suite is not ported. |
+| `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security, context). Most of Python's command suite is not ported. |
 | `agent.py` | `agent.rs` | Partial | One-shot run, streaming REPL, tool-call loop, cost reporting. Session forking/rewind and some prompt features are absent. |
 | `agents.py` | - | Missing | No subagent registry, markdown agent loading, or parallel orchestration. |
 | `config.py`, `config_v2.py` | `config.rs` | Partial | Env/model/cwd config and shared home resolution. No JSONC hierarchy, migration, or validation layer. |
@@ -54,7 +54,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `formatter.py` | `formatter.rs` | Partial | `format_file` tool only. No format-on-write pipeline or formatter discovery parity. |
 | `github_integration.py` | `github.rs` | Partial | `git_*` tools and `git_create_pr` work through `gh`/REST. Issue automation and the `GitHubClient`/`GitHubAutomation` paths are not wired. |
 | hooks inside `plugins.py`/`tools.py` | `hooks.rs` | Wired | `trigger_hooks` runs on tool dispatch. Registration from config is not wired. |
-| `http_api.py`, `server.py` | `server.rs` | Partial | 34 routes, SSE/WebSocket streaming, shell guard. No auth middleware, full route parity, or API rate limiting. |
+| `http_api.py`, `server.py` | `server.rs` | Partial | 40 routes, SSE/WebSocket streaming, shell guard. No auth middleware, full route parity, or API rate limiting. |
 | `lsp.py`, `lsp_diagnostics.py` | `lsp.rs` | Partial | Definition, references, hover, diagnostics tools. No persistent per-workspace manager or completion/code-action tools. |
 | `mcp.py` | `mcp_client.rs`, `jsonrpc.rs` | Wired | Stdio JSON-RPC, server discovery, tool bridge, global registry; CLI and server use it. |
 | `memory.py` | `memory.rs` | Wired | CLI list/add/search/context/remove/clear, REPL `/memory`, session context injection. No automatic fact extraction. |
