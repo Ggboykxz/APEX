@@ -135,10 +135,34 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
 
 ### Dépendances (2026-10-25)
 
-- `npm audit` (site, package-lock-only) : **6 vulnérabilités** (5 high,
-  1 critical) — en baisse (18 au départ) grâce aux merges dependabot ;
-  `npm audit fix` à passer après intégration de la PR dev→main.
-- Alertes Dependabot (API) : 51 initiales ; à re-mesurer après fixes.
+- `npm audit` (site) : **0 vulnérabilité** après
+  - `next` 16.4.0 → 16.4.3 (corrige les advisories Next.js critiques/high),
+  - `zod` 4.0.2 → 4.6.7 (GHSA-mrhx-c7xc-m3w5),
+  - `overrides["@prisma/config"].deepmerge-ts` → `^8.0.2` (GHSA-ggr8-5vv4-36mx,
+    compatible CJS/ESM, vérifié via `prisma generate` + `next build`).
+- Prisma reste en 6.19.3 (la montée en 7.x reste un breaking change non requis :
+  le correctif deepmerge-ts suffit).
+- `npm audit --package-lock-only` : **found 0 vulnerabilities**.
+- Alertes Dependabot (API) : re-mesure post-push (les alertes npm fermées
+  automatiquement après résolution).
+
+#### Python (`pip-audit`)
+
+- `cryptography` 48.0.1 → **50.0.2** (plancher pyproject `>=50.0.2,<51`) :
+  4 advisories PYSEC-2026-3552/3553/3554 corrigées.
+- `filelock` 3.32.7 → **4.2.4** (plancher explicite pour la chaîne
+  litellm / huggingface_hub) : CVE-2026-112907/112913/112940 corrigées.
+- `pip` (outil du venv) 26.1.1 → 26.2.2 : PYSEC-2026-196 / 3721.
+- Résultat : **No known vulnerabilities found** ; `pip check` OK ;
+  tests session/share (Fernet) : 108 passed.
+
+#### TUI (`tui-frontend`)
+
+- `ws` 8.18.0 → **8.22.0** (GHSA-96hv-2xvq-fx4p / GHSA-58qx-3vcg-4xpx).
+- `tsx` 4.22.0 → **4.23.15** + override `esbuild ^0.28.1` → **0.28.2**
+  (GHSA-g7r4-m6w7-qqqr).
+- `npm audit` (TUI) : **found 0 vulnerabilities** ; `tsc --noEmit` OK ;
+  `bun test` : 3 pass.
 
 ### Intégration finale (2026-10-25)
 
@@ -148,7 +172,15 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
   sécurité (shell_security, `!bash` gate, git push confirmé), refonte TUI
   (API client + overlays + tests Bun), docs et workflows.
 - Post-merge : workflows relancés sur main ; Link Check re-dispatché avec la
-  config lychee corrigée (v0.15.1, `header` mono-ligne).
+  config lychee corrigée (v0.15.1, `header` en séquence key=value, exclusions
+  regex valides pour badges/stargazers/fonts).
+
+### État final « tout vert » (2026-10-25 ~01:57 UTC)
+
+Tous les workflows sur `main` sont **success** : CI, Coverage, TUI, Security,
+Website, Docs, Performance, Markdown Lint, Spellcheck, Dependency Audit et
+Link Check. Suite pytest : 3622 passed / 23 skipped / 0 failed. PR de
+rétablissement mergées : #228, #230, #231, #232, #233, #234, #235.
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
