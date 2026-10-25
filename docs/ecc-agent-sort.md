@@ -139,6 +139,16 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
   1 critical) — en baisse (18 au départ) grâce aux merges dependabot ;
   `npm audit fix` à passer après intégration de la PR dev→main.
 - Alertes Dependabot (API) : 51 initiales ; à re-mesurer après fixes.
+
+### Intégration finale (2026-10-25)
+
+- Branche par défaut : `dev` ; `main` protégée (PR requises, checks CI /
+  Commit Lint / TUI / Security, historique linéaire).
+- PR #228 (dev → main) **mergée** (`5896245`) — contient lint/tests/CI fixes,
+  sécurité (shell_security, `!bash` gate, git push confirmé), refonte TUI
+  (API client + overlays + tests Bun), docs et workflows.
+- Post-merge : workflows relancés sur main ; Link Check re-dispatché avec la
+  config lychee corrigée (v0.15.1, `header` mono-ligne).
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
