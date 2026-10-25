@@ -217,6 +217,7 @@ test("findBinary skips self npm shims via the isSelf predicate", () => {
   const dir = tmpDir();
   const shim = path.join(dir, APEX_NAME);
   fs.writeFileSync(shim, '@echo off\nnode "x/node_modules/apex-ai/bin/apex.js" %*\n');
+  if (!IS_WINDOWS) fs.chmodSync(shim, 0o755);
   assert.equal(resolver.findBinary("apex", dir), shim);
   assert.equal(resolver.findBinary("apex", dir, [], (f) => f === shim), null);
 });
