@@ -215,7 +215,9 @@ rétablissement mergées : #228, #230, #231, #232, #233, #234, #235.
 
 - `cargo fmt --all -- --check` : **OK** (rustfmt appliqué à tout le crate).
 - `cargo clippy --all-targets -- -D warnings` : **OK**.
-- `cargo test` : **103 passed / 0 failed** (Windows).
+- `cargo test` : **103 passed / 0 failed** (Windows) ; **110** sur la CI Ubuntu
+  (les tests `#[cfg(unix)]` — `sh`, `printf`, `diff`, faux serveur MCP — sont
+  alors exécutés).
 - Corrections multiplateformes :
   - `tools::shell_command` : `cmd /C` sur Windows, `sh -c` ailleurs (utilisé
     par `run_command` et `server::run_shell_capture`) ; `run_command_echo` et
