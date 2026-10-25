@@ -122,6 +122,16 @@ Corrections appliquées pour rendre la suite pytest verte (par fichier) :
   watchdog optionnel, attente "Agent: plan").
 - **test_extras/extras_full/codegen/rate_limiter/main_more** : chemins
   normalisés (`os.path.abspath`), nettoyage tmp best-effort, skip chmod Windows.
+
+### Résultat final suite pytest (2026-10-25)
+
+```
+3622 passed, 23 skipped, 0 failed, 0 error
+```
+
+Tous les échecs historiques sont résolus (obsolescences des attentes, mocks
+litellm async `acompletion`, plateforme Windows, dépendances optionnelles).
+Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent).
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
