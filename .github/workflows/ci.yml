@@ -66,7 +66,6 @@ jobs:
         run: pytest --tb=short -q --junitxml=test-results.xml
         env:
           CI: "true"
-        continue-on-error: true
 
       - name: Test summary
         if: always()
@@ -85,10 +84,42 @@ jobs:
           name: test-results-py${{ matrix.python-version }}
           path: test-results.xml
 
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust/apex-rs
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/apex-rs/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('rust/apex-rs/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test
+
   build-check:
     name: Build check (sdist + wheel)
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, rust]
     steps:
       - uses: actions/checkout@v6
 
