@@ -18,7 +18,14 @@ except ImportError:
 
 from .agents import agent_manager
 from .config import MODELS, Config
-from .config_v2 import apex_config
+from .config_v2 import apex_config, normalize_context_config
+from .context_budget import (
+    REPO_MAP_MARKER,
+    ContextStats,
+    count_message_tokens,
+    inject_repo_map,
+    prune_tool_outputs,
+)
 from .permission import get_tool_permission, permission_manager
 from .tools import AsyncToolExecutor, ToolExecutor, get_all_tool_schemas
 from .ui import UI
@@ -37,6 +44,9 @@ class Agent:
 
         self._current_agent = "build"
         self._set_agent_system_prompt()
+        self.last_context_stats = ContextStats()
+        self._repo_map_tokens = 0
+        self._repo_map_cache: dict[tuple[str, int], tuple[str, int]] = {}
         permission_manager.initialize()
 
     def _load_rules(self) -> str:
@@ -109,6 +119,77 @@ class Agent:
             "role": "system",
             "content": base_prompt,
         }
+
+    def get_context_stats(self) -> dict[str, int]:
+        """Return the stats from the most recent context-budget pass."""
+        return self.last_context_stats.to_dict()
+
+    def _context_settings(self) -> dict[str, Any]:
+        """Resolve validated ``context`` settings, tolerating older configs."""
+        try:
+            raw = apex_config.context
+        except Exception:
+            raw = None
+        return normalize_context_config(raw)
+
+    def _ensure_repo_map_context(self) -> None:
+        """Append the budgeted repository map once per session and root.
+
+        Scanning is cached per ``(root, budget)`` so switching agents or
+        starting another turn reuses the rendered map instead of rescanning.
+        An empty repository or a disabled budget simply appends nothing.
+        """
+        content = self._system_message.get("content", "")
+        if not isinstance(content, str):
+            content = ""
+        if REPO_MAP_MARKER in content:
+            return
+
+        settings = self._context_settings()
+        budget = settings["max_repo_map_tokens"]
+        if budget <= 0:
+            return
+
+        root = self.cwd
+        cache_key = (str(root), budget)
+        cached = self._repo_map_cache.get(cache_key)
+        if cached is None:
+            cached = inject_repo_map("", root, budget)
+            self._repo_map_cache[cache_key] = cached
+        block, tokens = cached
+        if not block:
+            return
+
+        injected = f"{content.rstrip()}\n\n{block}" if content.strip() else block
+        self._system_message = {**self._system_message, "content": injected}
+        self._repo_map_tokens = tokens
+
+    def _request_messages(self, user_input: str) -> list[dict[str, Any]]:
+        """Build the message list for a model request, repo map included."""
+        self._ensure_repo_map_context()
+        return [self._system_message, *self.history, {"role": "user", "content": user_input}]
+
+    def _apply_context_budget(self, messages: list[Any]) -> list[Any]:
+        """Prune old tool results from a request and record the stats."""
+        settings = self._context_settings()
+        if settings["prune_tool_outputs"]:
+            try:
+                pruned, stats = prune_tool_outputs(
+                    messages,
+                    max_chars_per_result=settings["tool_output_max_chars"],
+                    keep_recent=settings["keep_recent_tool_results"],
+                )
+            except Exception:
+                pruned = messages
+                tokens = count_message_tokens(messages)
+                stats = ContextStats(tokens_before=tokens, tokens_after=tokens)
+        else:
+            pruned = messages
+            tokens = count_message_tokens(messages)
+            stats = ContextStats(tokens_before=tokens, tokens_after=tokens)
+        stats.repo_map_tokens = self._repo_map_tokens
+        self.last_context_stats = stats
+        return pruned
 
     @property
     def current_agent(self) -> str:
@@ -385,12 +466,13 @@ class Agent:
                 self.compact_context(strategy=_strategy)
         except Exception:
             pass
-        messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
+        messages = self._request_messages(user_input)
         model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
         _extra = self._completion_kwargs()
 
         for round_num in range(max_rounds):
             try:
+                messages = self._apply_context_budget(messages)
                 response = litellm.completion(
                     model=model_str,
                     messages=messages,
@@ -560,12 +642,13 @@ class Agent:
                 self.compact_context(strategy=_strategy)
         except Exception:
             pass
-        messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
+        messages = self._request_messages(user_input)
         model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
         _extra = self._completion_kwargs()
 
         for round_num in range(max_rounds):
             try:
+                messages = self._apply_context_budget(messages)
                 response = await litellm.acompletion(
                     model=model_str,
                     messages=messages,
@@ -730,6 +813,7 @@ class Agent:
                     for tc_id, result in results:
                         messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
 
+                    messages = self._apply_context_budget(messages)
                     follow_up = await litellm.acompletion(
                         model=model_str,
                         messages=messages,

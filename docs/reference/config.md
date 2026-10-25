@@ -120,3 +120,31 @@ Model Context Protocol server connections for extending APEX's tool palette with
   }
 }
 ```
+
+## `context`
+
+Context-window budget for repository maps and tool output. Values are read from the nested `context` object after the normal config layers are merged (global → `$APEX_CONFIG` → project → `$APEX_CONFIG_CONTENT`, later wins). Missing keys use their defaults; a key with the wrong type is ignored and replaced by its default without discarding the other values.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `max_repo_map_tokens` | `integer` | `2000` | Token budget for the symbol map injected into the system prompt. `0` disables injection. |
+| `prune_tool_outputs` | `boolean` | `true` | Replace old, oversized tool results before each model request. |
+| `tool_output_max_chars` | `integer` | `4000` | Maximum characters kept for a non-recent tool result. |
+| `keep_recent_tool_results` | `integer` | `3` | Number of most recent tool results that are never pruned. |
+
+```json
+{
+  "context": {
+    "max_repo_map_tokens": 2000,
+    "prune_tool_outputs": true,
+    "tool_output_max_chars": 4000,
+    "keep_recent_tool_results": 3
+  }
+}
+```
+
+Behavior:
+
+- **Repository map.** On the first model request of a session, APEX renders a symbol-level map with `apex.repomap.build_repo_map` and appends it under `## Repository map`. The result is cached per repository root and budget, so later turns and agent switches do not rescan or duplicate the section. Empty repositories and `max_repo_map_tokens: 0` append nothing.
+- **Tool output pruning.** Before each request, tool messages older than the last `keep_recent_tool_results` are replaced with `[tool output pruned: N chars, sha256:xxxxxxxx]` when they exceed `tool_output_max_chars`. System, user and assistant messages are never modified, and a second pass is a no-op.
+- **Stats.** The last pass is available as `agent.last_context_stats` and `agent.get_context_stats()`, with `tokens_before`, `tokens_after`, `pruned_messages`, `pruned_chars` and `repo_map_tokens`.
