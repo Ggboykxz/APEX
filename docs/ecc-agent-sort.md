@@ -132,6 +132,13 @@ Corrections appliquées pour rendre la suite pytest verte (par fichier) :
 Tous les échecs historiques sont résolus (obsolescences des attentes, mocks
 litellm async `acompletion`, plateforme Windows, dépendances optionnelles).
 Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent).
+
+### Dépendances (2026-10-25)
+
+- `npm audit` (site, package-lock-only) : **6 vulnérabilités** (5 high,
+  1 critical) — en baisse (18 au départ) grâce aux merges dependabot ;
+  `npm audit fix` à passer après intégration de la PR dev→main.
+- Alertes Dependabot (API) : 51 initiales ; à re-mesurer après fixes.
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
