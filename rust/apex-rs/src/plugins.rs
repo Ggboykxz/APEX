@@ -95,7 +95,10 @@ impl PluginInfo {
     }
 
     pub fn tools(&self) -> &[PluginTool] {
-        self.manifest.as_ref().map(|m| m.tools.as_slice()).unwrap_or(&[])
+        self.manifest
+            .as_ref()
+            .map(|m| m.tools.as_slice())
+            .unwrap_or(&[])
     }
 }
 
@@ -105,7 +108,10 @@ fn plugins_dir() -> PathBuf {
             return PathBuf::from(dir);
         }
     }
-    dirs::home_dir().unwrap_or_default().join(".apex").join("plugins")
+    dirs::home_dir()
+        .unwrap_or_default()
+        .join(".apex")
+        .join("plugins")
 }
 
 /// Discover plugins: every subdirectory holding a `plugin.json`, plus top-level
@@ -117,7 +123,9 @@ pub fn discover_plugins() -> Vec<PluginInfo> {
 
 pub fn load_manifests_from(base: &Path) -> Vec<PluginInfo> {
     let mut out = Vec::new();
-    let Ok(rd) = fs::read_dir(base) else { return out };
+    let Ok(rd) = fs::read_dir(base) else {
+        return out;
+    };
     for e in rd.flatten() {
         let p = e.path();
         let dir_name = e.file_name().to_string_lossy().to_string();
@@ -138,7 +146,10 @@ pub fn load_manifests_from(base: &Path) -> Vec<PluginInfo> {
             let manifest = fs::read_to_string(&p)
                 .ok()
                 .and_then(|data| serde_json::from_str::<PluginManifest>(&data).ok());
-            let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            let stem = p
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default();
             out.push(PluginInfo {
                 name: manifest
                     .as_ref()
@@ -148,7 +159,11 @@ pub fn load_manifests_from(base: &Path) -> Vec<PluginInfo> {
                 manifest,
             });
         } else if p.extension().and_then(|x| x.to_str()) == Some("toml") {
-            out.push(PluginInfo { name: dir_name, path: p, manifest: None });
+            out.push(PluginInfo {
+                name: dir_name,
+                path: p,
+                manifest: None,
+            });
         }
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
@@ -161,13 +176,24 @@ pub fn plugin_count() -> usize {
 
 fn sanitize(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
 /// Full model-facing tool name for a plugin tool.
 pub fn tool_full_name(plugin: &str, tool: &str) -> String {
-    format!("{}{}_{}", PLUGIN_TOOL_PREFIX, sanitize(plugin), sanitize(tool))
+    format!(
+        "{}{}_{}",
+        PLUGIN_TOOL_PREFIX,
+        sanitize(plugin),
+        sanitize(tool)
+    )
 }
 
 /// OpenAI `tools` array entries for every enabled plugin tool.
@@ -181,9 +207,10 @@ pub fn plugin_tools() -> Vec<Value> {
             if tool.command.is_none() && tool.args.is_none() {
                 continue;
             }
-            let description = tool.description.clone().unwrap_or_else(|| {
-                format!("Plugin tool {} from {}", tool.name, plugin.name)
-            });
+            let description = tool
+                .description
+                .clone()
+                .unwrap_or_else(|| format!("Plugin tool {} from {}", tool.name, plugin.name));
             let parameters = tool
                 .parameters
                 .clone()
@@ -220,16 +247,15 @@ fn fill_template(template: &str, args: &Value, escape: bool) -> String {
     let mut out = String::new();
     let mut rest = template;
     while let Some(start) = rest.find('{') {
-        let Some(end_rel) = rest[start + 1..].find('}') else { break };
+        let Some(end_rel) = rest[start + 1..].find('}') else {
+            break;
+        };
         let end = start + 1 + end_rel;
         let key = &rest[start + 1..end];
         // Only substitute simple identifiers; leave other braces untouched.
         if !key.is_empty() && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
             out.push_str(&rest[..start]);
-            let raw = args
-                .get(key)
-                .map(substitute_value)
-                .unwrap_or_default();
+            let raw = args.get(key).map(substitute_value).unwrap_or_default();
             let value = if escape { shell_escape(&raw) } else { raw };
             out.push_str(&value);
             rest = &rest[end + 1..];
@@ -268,10 +294,7 @@ fn run_plugin_tool(
         if argv.is_empty() {
             return "ERROR: plugin tool has an empty 'args' array".to_string();
         }
-        let expanded: Vec<String> = argv
-            .iter()
-            .map(|a| fill_template(a, args, false))
-            .collect();
+        let expanded: Vec<String> = argv.iter().map(|a| fill_template(a, args, false)).collect();
         let mut cmd = Command::new(&expanded[0]);
         cmd.args(&expanded[1..]).current_dir(cwd);
         base_env(&mut cmd);
@@ -373,9 +396,13 @@ mod tests {
 
     #[test]
     fn tool_names_are_prefixed_and_sanitized() {
-        assert_eq!(tool_full_name("git-extras", "changed.files"), "plugin_git_extras_changed_files");
+        assert_eq!(
+            tool_full_name("git-extras", "changed.files"),
+            "plugin_git_extras_changed_files"
+        );
     }
 
+    #[cfg(unix)]
     #[test]
     fn executes_shell_command_with_substitution() {
         let dir = tempdir().unwrap();
@@ -403,9 +430,13 @@ mod tests {
         )
         .unwrap();
         assert!(out.contains("a'; rm -rf /tmp/nope; echo 'b"), "got: {out}");
-        assert!(!out.contains("hello b\n"), "injection should not execute twice: {out}");
+        assert!(
+            !out.contains("hello b\n"),
+            "injection should not execute twice: {out}"
+        );
     }
 
+    #[cfg(unix)]
     #[test]
     fn executes_argv_style_without_shell() {
         let dir = tempdir().unwrap();
@@ -441,6 +472,8 @@ mod tests {
     fn unknown_plugin_tool_returns_none() {
         let dir = tempdir().unwrap();
         let registry = load_manifests_from(dir.path());
-        assert!(execute_registered(&registry, "plugin_missing_x", &json!({}), dir.path()).is_none());
+        assert!(
+            execute_registered(&registry, "plugin_missing_x", &json!({}), dir.path()).is_none()
+        );
     }
 }

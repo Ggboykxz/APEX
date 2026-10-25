@@ -87,7 +87,8 @@ class TestAgentInit:
     def test_system_message_contains_build_prompt(self, agent):
         from apex.agents import AGENT_CODER_PROMPT
 
-        assert agent._system_message["content"] == AGENT_CODER_PROMPT
+        # Project/global rules may be appended when AGENTS.md is present.
+        assert agent._system_message["content"].startswith(AGENT_CODER_PROMPT)
 
 
 # ---------------------------------------------------------------------------

@@ -56,36 +56,59 @@ impl Agent {
         if usage.is_null() {
             return;
         }
-        let prompt = usage.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
-        let completion = usage.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+        let prompt = usage
+            .get("prompt_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
+        let completion = usage
+            .get("completion_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0);
         let total = usage
             .get("total_tokens")
             .and_then(|v| v.as_u64())
             .unwrap_or(prompt + completion);
         self.usage.add(prompt, completion, total);
         self.last_call_usage.add(prompt, completion, total);
-        self.cost.record_usage(&self.config.model, prompt, completion);
+        self.cost
+            .record_usage(&self.config.model, prompt, completion);
     }
 
     /// Expand @file mentions in user input by appending file contents.
     pub fn expand_mentions(&self, input: &str) -> String {
         let mut out = input.to_string();
         for token in input.split_whitespace() {
-            if !token.starts_with('@') { continue; }
+            if !token.starts_with('@') {
+                continue;
+            }
             let path = token.trim_start_matches('@');
-            if path.is_empty() { continue; }
+            if path.is_empty() {
+                continue;
+            }
             let full = if std::path::Path::new(path).is_absolute() {
                 std::path::PathBuf::from(path)
             } else {
                 self.config.cwd.join(path)
             };
-            let ext = full.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-            let is_image = matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp");
+            let ext = full
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            let is_image = matches!(
+                ext.as_str(),
+                "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp"
+            );
             if is_image {
                 if let Ok(bytes) = std::fs::read(&full) {
                     use base64::Engine;
                     let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
-                    out.push_str(&format!("\n\n[Image: {} (base64, {} bytes)]\n{}", full.display(), bytes.len(), b64));
+                    out.push_str(&format!(
+                        "\n\n[Image: {} (base64, {} bytes)]\n{}",
+                        full.display(),
+                        bytes.len(),
+                        b64
+                    ));
                 }
             } else if let Ok(content) = std::fs::read_to_string(&full) {
                 out.push_str(&format!("\n\n[File: {}]\n{}", full.display(), content));
@@ -122,7 +145,9 @@ impl Agent {
                         })
                         .collect::<Vec<_>>()
                         .join("\n");
-                    let mut new = vec![serde_json::json!({"role":"system","content": format!("[Previous conversation summary]\n{}", summary)})];
+                    let mut new = vec![
+                        serde_json::json!({"role":"system","content": format!("[Previous conversation summary]\n{}", summary)}),
+                    ];
                     new.extend(self.history[start..].to_vec());
                     self.history = new;
                 }
@@ -134,9 +159,15 @@ impl Agent {
                         let last_role = last.get("role").and_then(|r| r.as_str()).unwrap_or("");
                         let cur_role = m.get("role").and_then(|r| r.as_str()).unwrap_or("");
                         if last_role == cur_role {
-                            let last_content = last.get("content").and_then(|c| c.as_str()).unwrap_or("").to_string();
-                            let cur_content = m.get("content").and_then(|c| c.as_str()).unwrap_or("");
-                            last["content"] = serde_json::json!(format!("{}\n{}", last_content, cur_content));
+                            let last_content = last
+                                .get("content")
+                                .and_then(|c| c.as_str())
+                                .unwrap_or("")
+                                .to_string();
+                            let cur_content =
+                                m.get("content").and_then(|c| c.as_str()).unwrap_or("");
+                            last["content"] =
+                                serde_json::json!(format!("{}\n{}", last_content, cur_content));
                             continue;
                         }
                     }
@@ -151,7 +182,9 @@ impl Agent {
 
     pub fn session_path(&self, id: &str) -> std::path::PathBuf {
         let base = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-        base.join(".apex").join("sessions").join(format!("{id}.json"))
+        base.join(".apex")
+            .join("sessions")
+            .join(format!("{id}.json"))
     }
 
     /// Persist the session in the Python-compatible encrypted format.
@@ -186,7 +219,9 @@ impl Agent {
 
         let client = reqwest::Client::new();
         for _ in 0..10 {
-            let mut messages = vec![json!({"role":"system","content":"You are APEX, a helpful coding assistant."})];
+            let mut messages = vec![
+                json!({"role":"system","content":"You are APEX, a helpful coding assistant."}),
+            ];
             messages.extend(self.history.clone());
 
             let body = json!({
@@ -196,7 +231,10 @@ impl Agent {
                 "tool_choice": "auto"
             });
 
-            let url = format!("{}/chat/completions", self.config.base_url.trim_end_matches('/'));
+            let url = format!(
+                "{}/chat/completions",
+                self.config.base_url.trim_end_matches('/')
+            );
             let mut req = client.post(&url).json(&body);
             if !self.config.api_key.is_empty() {
                 req = req.bearer_auth(&self.config.api_key);
@@ -212,11 +250,16 @@ impl Agent {
                 self.record_api_usage(usage);
             }
             let choice = &data["choices"][0]["message"];
-            let assistant_text = choice.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let assistant_text = choice
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let tool_calls = choice.get("tool_calls").cloned().unwrap_or(Value::Null);
 
             if tool_calls.is_null() || tool_calls.as_array().map(|a| a.is_empty()).unwrap_or(true) {
-                self.history.push(json!({"role":"assistant","content":assistant_text}));
+                self.history
+                    .push(json!({"role":"assistant","content":assistant_text}));
                 return Ok(assistant_text);
             }
 
@@ -225,7 +268,9 @@ impl Agent {
             if let Some(arr) = tool_calls.as_array() {
                 for tc in arr {
                     let name = tc["function"]["name"].as_str().unwrap_or("");
-                    let args: Value = serde_json::from_str(tc["function"]["arguments"].as_str().unwrap_or("{}")).unwrap_or(json!({}));
+                    let args: Value =
+                        serde_json::from_str(tc["function"]["arguments"].as_str().unwrap_or("{}"))
+                            .unwrap_or(json!({}));
                     if self.config.denied_tools.iter().any(|d| d == name) {
                         let tool_call_id = tc["id"].as_str().unwrap_or("");
                         self.history.push(json!({"role":"tool","tool_call_id":tool_call_id,"content":"ERROR: Permission denied"}));
@@ -233,7 +278,8 @@ impl Agent {
                     }
                     let result = tools::execute_tool(name, &args, &self.config.cwd);
                     let tool_call_id = tc["id"].as_str().unwrap_or("");
-                    self.history.push(json!({"role":"tool","tool_call_id":tool_call_id,"content":result}));
+                    self.history
+                        .push(json!({"role":"tool","tool_call_id":tool_call_id,"content":result}));
                 }
             }
         }
@@ -307,7 +353,9 @@ impl Agent {
 
         let client = reqwest::Client::new();
         for _ in 0..10 {
-            let mut messages = vec![json!({"role":"system","content":"You are APEX, a helpful coding assistant."})];
+            let mut messages = vec![
+                json!({"role":"system","content":"You are APEX, a helpful coding assistant."}),
+            ];
             messages.extend(self.history.clone());
 
             let body = json!({
@@ -319,7 +367,10 @@ impl Agent {
                 "stream_options": {"include_usage": true}
             });
 
-            let url = format!("{}/chat/completions", self.config.base_url.trim_end_matches('/'));
+            let url = format!(
+                "{}/chat/completions",
+                self.config.base_url.trim_end_matches('/')
+            );
             let mut req = client.post(&url).json(&body);
             if !self.config.api_key.is_empty() {
                 req = req.bearer_auth(&self.config.api_key);
@@ -327,7 +378,9 @@ impl Agent {
             let resp = req.send().await?;
             if !resp.status().is_success() {
                 let text = resp.text().await.unwrap_or_default();
-                let _ = tx.send(StreamEvent::Error(format!("API error: {text}"))).await;
+                let _ = tx
+                    .send(StreamEvent::Error(format!("API error: {text}")))
+                    .await;
                 return Ok(());
             }
 
@@ -335,7 +388,8 @@ impl Agent {
             let mut stream = resp.bytes_stream();
             let mut content_acc = String::new();
             // tool_calls accumulator: index -> (id, name, args)
-            let mut tool_calls: std::collections::BTreeMap<usize, (String, String, String)> = std::collections::BTreeMap::new();
+            let mut tool_calls: std::collections::BTreeMap<usize, (String, String, String)> =
+                std::collections::BTreeMap::new();
             let mut finish_reason: Option<String> = None;
             // The provider sends `usage` in a trailing chunk *after* finish_reason,
             // so the stream is only interrupted on `[DONE]` or EOF.
@@ -379,14 +433,21 @@ impl Agent {
                     }
                     if let Some(tcs) = delta.get("tool_calls").and_then(|x| x.as_array()) {
                         for tc in tcs {
-                            let idx = tc.get("index").and_then(|x| x.as_u64()).unwrap_or(0) as usize;
-                            let entry = tool_calls.entry(idx).or_insert_with(|| (String::new(), String::new(), String::new()));
+                            let idx =
+                                tc.get("index").and_then(|x| x.as_u64()).unwrap_or(0) as usize;
+                            let entry = tool_calls
+                                .entry(idx)
+                                .or_insert_with(|| (String::new(), String::new(), String::new()));
                             if let Some(id) = tc.get("id").and_then(|x| x.as_str()) {
-                                if entry.0.is_empty() { entry.0 = id.to_string(); }
+                                if entry.0.is_empty() {
+                                    entry.0 = id.to_string();
+                                }
                             }
                             if let Some(f) = tc.get("function") {
                                 if let Some(n) = f.get("name").and_then(|x| x.as_str()) {
-                                    if entry.1.is_empty() { entry.1 = n.to_string(); }
+                                    if entry.1.is_empty() {
+                                        entry.1 = n.to_string();
+                                    }
                                 }
                                 if let Some(a) = f.get("arguments").and_then(|x| x.as_str()) {
                                     entry.2.push_str(a);
@@ -412,20 +473,22 @@ impl Agent {
                     json!({"id": id, "type": "function", "function": {"name": name, "arguments": args}})
                 }).collect();
                 self.history.push(json!({"role":"assistant","content": if content_acc.is_empty() { Value::Null } else { Value::String(content_acc.clone()) }, "tool_calls": tcs_json}));
-                for (_idx, (id, name, args)) in &tool_calls {
+                for (id, name, args) in tool_calls.values() {
                     let parsed_args: Value = serde_json::from_str(args).unwrap_or(json!({}));
                     if self.config.denied_tools.iter().any(|d| d == name) {
                         self.history.push(json!({"role":"tool","tool_call_id": id, "content": "ERROR: Permission denied"}));
                         continue;
                     }
                     let result = tools::execute_tool(name, &parsed_args, &self.config.cwd);
-                    self.history.push(json!({"role":"tool","tool_call_id": id, "content": result}));
+                    self.history
+                        .push(json!({"role":"tool","tool_call_id": id, "content": result}));
                 }
                 continue;
             }
 
             // final
-            self.history.push(json!({"role":"assistant","content": content_acc}));
+            self.history
+                .push(json!({"role":"assistant","content": content_acc}));
             let _ = tx.send(StreamEvent::Usage(self.last_usage_json())).await;
             let _ = tx.send(StreamEvent::Done).await;
             return Ok(());
@@ -453,8 +516,12 @@ mod tests {
         let cfg = Config::from_env();
         let mut agent = Agent::new(cfg);
         for i in 0..10 {
-            agent.history.push(serde_json::json!({"role":"user","content":format!("msg {}", i)}));
-            agent.history.push(serde_json::json!({"role":"assistant","content":format!("reply {}", i)}));
+            agent
+                .history
+                .push(serde_json::json!({"role":"user","content":format!("msg {}", i)}));
+            agent
+                .history
+                .push(serde_json::json!({"role":"assistant","content":format!("reply {}", i)}));
         }
         let before = agent.history.len();
         agent.compact_context("prune");
@@ -466,9 +533,15 @@ mod tests {
     fn compact_context_merge() {
         let cfg = Config::from_env();
         let mut agent = Agent::new(cfg);
-        agent.history.push(serde_json::json!({"role":"user","content":"a"}));
-        agent.history.push(serde_json::json!({"role":"user","content":"b"}));
-        agent.history.push(serde_json::json!({"role":"assistant","content":"c"}));
+        agent
+            .history
+            .push(serde_json::json!({"role":"user","content":"a"}));
+        agent
+            .history
+            .push(serde_json::json!({"role":"user","content":"b"}));
+        agent
+            .history
+            .push(serde_json::json!({"role":"assistant","content":"c"}));
         let before = agent.history.len();
         agent.compact_context("merge");
         assert_eq!(agent.history.len(), 2);
@@ -478,7 +551,9 @@ mod tests {
     /// Fake OpenAI-compatible API: first call asks for a `read_file` tool call,
     /// second call answers with plain text. Both report token usage.
     async fn fake_api(
-        axum::extract::State(calls): axum::extract::State<std::sync::Arc<std::sync::atomic::AtomicUsize>>,
+        axum::extract::State(calls): axum::extract::State<
+            std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        >,
         axum::Json(_body): axum::Json<serde_json::Value>,
     ) -> axum::Json<serde_json::Value> {
         use std::sync::atomic::Ordering;
@@ -559,10 +634,7 @@ mod tests {
         assert!(tool_msg["content"].as_str().unwrap().contains("file body"));
 
         // The assistant tool_call message must be part of the history too.
-        assert!(agent
-            .history
-            .iter()
-            .any(|m| m.get("tool_calls").is_some()));
+        assert!(agent.history.iter().any(|m| m.get("tool_calls").is_some()));
     }
 
     async fn fake_sse() -> axum::response::Response {

@@ -3,7 +3,11 @@ use std::process::Command;
 
 /// Run a known formatter on a file if available. Returns a status message.
 pub fn format_file(path: &Path) -> String {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     let (cmd, args): (&str, Vec<&str>) = match ext.as_str() {
         "rs" => ("rustfmt", vec![]),
         "py" => ("ruff", vec!["format"]),
@@ -21,7 +25,10 @@ pub fn format_file(path: &Path) -> String {
     c.args(&args).arg(path);
     match c.output() {
         Ok(o) if o.status.success() => format!("Formatted with {cmd}"),
-        Ok(o) => format!("Formatter {cmd} failed: {}", String::from_utf8_lossy(&o.stderr)),
+        Ok(o) => format!(
+            "Formatter {cmd} failed: {}",
+            String::from_utf8_lossy(&o.stderr)
+        ),
         Err(e) => format!("ERROR: {e}"),
     }
 }

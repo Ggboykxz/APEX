@@ -17,17 +17,26 @@ pub struct McpClient {
 
 impl McpClient {
     pub fn new(config: McpServerConfig) -> Self {
-        Self { config, client: None, tools: Vec::new() }
+        Self {
+            config,
+            client: None,
+            tools: Vec::new(),
+        }
     }
 
     pub async fn connect(&mut self) -> Result<()> {
         let args: Vec<&str> = self.config.args.iter().map(|s| s.as_str()).collect();
         let mut c = JsonRpcClient::spawn(&self.config.command, &args).await?;
-        let _ = c.request("initialize", json!({
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name":"apex-rs","version":"0.1"}
-        })).await;
+        let _ = c
+            .request(
+                "initialize",
+                json!({
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name":"apex-rs","version":"0.1"}
+                }),
+            )
+            .await;
         let _ = c.notify("notifications/initialized", json!({})).await;
         if let Ok(res) = c.request("tools/list", json!({})).await {
             if let Some(tools) = res.get("tools").and_then(|t| t.as_array()) {
@@ -39,8 +48,13 @@ impl McpClient {
     }
 
     pub async fn call_tool(&mut self, name: &str, args: Value) -> Result<String> {
-        let c = self.client.as_mut().ok_or_else(|| anyhow::anyhow!("not connected"))?;
-        let res = c.request("tools/call", json!({"name": name, "arguments": args})).await?;
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("not connected"))?;
+        let res = c
+            .request("tools/call", json!({"name": name, "arguments": args}))
+            .await?;
         // extract text content
         if let Some(content) = res.get("content").and_then(|c| c.as_array()) {
             let mut out = String::new();
@@ -50,7 +64,9 @@ impl McpClient {
                     out.push('\n');
                 }
             }
-            if !out.is_empty() { return Ok(out); }
+            if !out.is_empty() {
+                return Ok(out);
+            }
         }
         Ok(serde_json::to_string(&res).unwrap_or_default())
     }
@@ -81,7 +97,10 @@ pub fn set_global(manager: McpManager) {
 /// into the OpenAI function-calling schema expected by the model API.
 pub fn to_openai_tool(server: &str, tool: &Value) -> Value {
     let name = tool.get("name").and_then(|n| n.as_str()).unwrap_or("tool");
-    let desc = tool.get("description").and_then(|d| d.as_str()).unwrap_or("");
+    let desc = tool
+        .get("description")
+        .and_then(|d| d.as_str())
+        .unwrap_or("");
     let params = tool
         .get("inputSchema")
         .cloned()
@@ -153,10 +172,21 @@ pub fn call_tool_blocking(name: String, args: Value) -> Option<String> {
 }
 
 impl McpManager {
-    pub fn new() -> Self { Self { servers: HashMap::new() } }
+    pub fn new() -> Self {
+        Self {
+            servers: HashMap::new(),
+        }
+    }
 
     pub fn add_server(&mut self, name: String, command: String, args: Vec<String>) {
-        self.servers.insert(name.clone(), McpClient::new(McpServerConfig { name, command, args }));
+        self.servers.insert(
+            name.clone(),
+            McpClient::new(McpServerConfig {
+                name,
+                command,
+                args,
+            }),
+        );
     }
 
     pub async fn connect_all(&mut self) {
@@ -197,9 +227,13 @@ mod tests {
         assert_eq!(o["type"], "function");
         assert_eq!(o["function"]["name"], "mcp_srv_echo");
         assert_eq!(o["function"]["description"], "Echo text");
-        assert_eq!(o["function"]["parameters"]["properties"]["x"]["type"], "string");
+        assert_eq!(
+            o["function"]["parameters"]["properties"]["x"]["type"],
+            "string"
+        );
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn mcp_roundtrip_with_fake_server() {
         let dir = tempfile::tempdir().unwrap();
@@ -243,7 +277,10 @@ done
             panic!("connect failed: {e}");
         }
         assert_eq!(client.tools.len(), 1);
-        let out = client.call_tool("echo", json!({"text": "hi"})).await.unwrap();
+        let out = client
+            .call_tool("echo", json!({"text": "hi"}))
+            .await
+            .unwrap();
         assert!(out.contains("hello from mcp"));
         client.shutdown().await;
     }

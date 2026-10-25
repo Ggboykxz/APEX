@@ -74,7 +74,9 @@ fn list_files(root: &std::path::Path, max: usize) -> Vec<String> {
     let mut out = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in rd.flatten() {
             if out.len() >= max {
                 return out;
@@ -89,7 +91,8 @@ fn list_files(root: &std::path::Path, max: usize) -> Vec<String> {
                     stack.push(path);
                 }
             } else if let Ok(rel) = path.strip_prefix(root) {
-                out.push(rel.to_string_lossy().to_string());
+                // The HTTP API exposes POSIX-style paths on every platform.
+                out.push(rel.to_string_lossy().replace('\\', "/"));
             }
         }
     }
@@ -98,9 +101,7 @@ fn list_files(root: &std::path::Path, max: usize) -> Vec<String> {
 }
 
 fn run_shell_capture(command: &str, cwd: &std::path::Path) -> serde_json::Value {
-    match std::process::Command::new("sh")
-        .arg("-c")
-        .arg(command)
+    match crate::tools::shell_command(command)
         .current_dir(cwd)
         .output()
     {
@@ -394,7 +395,9 @@ async fn chat_stream_handler(
             a.config.model = model;
         }
         if let Err(e) = a.chat_stream(&prompt, tx.clone()).await {
-            let _ = tx.send(crate::agent::StreamEvent::Error(e.to_string())).await;
+            let _ = tx
+                .send(crate::agent::StreamEvent::Error(e.to_string()))
+                .await;
         }
         // Parity with Python's event_bus.publish("chat_complete", {...}).
         // Usage is per request here (the TUI accumulates its own session totals).
@@ -422,7 +425,10 @@ async fn chat_stream_handler(
     Sse::new(stream)
 }
 
-async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> impl axum::response::IntoResponse {
+async fn ws_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+) -> impl axum::response::IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
@@ -434,7 +440,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     // Outbound traffic = broadcast bus (chat_complete, …) + direct replies to
     // this client's messages, merged into a single sink task.
     let bcast_rx = state.events.subscribe();
-    let mut send_task = tokio::spawn(async move {
+    let send_task = tokio::spawn(async move {
         let bcast = futures::stream::unfold(bcast_rx, |mut rx| async move {
             loop {
                 match rx.recv().await {

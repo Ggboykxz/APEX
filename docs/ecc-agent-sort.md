@@ -170,6 +170,30 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
 - 24 PR brouillons obsolètes du bot « merge all dependabot PRs » fermées
   (superseded par la résolution directe des dépendances).
 
+### Lint du site (2026-10-25)
+
+- `eslint .` : **0 erreur** (les 13 817 « problèmes » incluaient 13 585
+  warnings et surtout les bundles JS de `.venv/`).
+- `eslint.config.mjs` : ignore désormais `.venv/`, `coverage/` (les bundles
+  litellm généraient 228 faux positifs).
+- Violations réelles corrigées via `useSyncExternalStore` :
+  `src/hooks/use-mobile.ts` (media query) et
+  `src/components/ui/carousel.tsx` (état de scroll Embla) — plus aucun
+  `setState` dans un effet.
+- Le job **ESLint** de `website.yml` n'est plus `continue-on-error` : le lint
+  du site est désormais bloquant, et `eslint.config.mjs` déclenche le workflow.
+
+### Correctifs CI Linux (2026-10-25)
+
+- `tests/test_agent.py` : l'assertion du prompt système utilise `startswith`
+  (les règles projet/globales sont légitimement ajoutées quand `AGENTS.md`
+  est présent — comportement dépendant du `cwd`).
+- `apex/sandbox.py` (`ShellSession`) : lecture stdout via thread lecteur +
+  `queue` et marqueur de fin de commande ; plus de `readline()` bloquant.
+  `test_shell_lifecycle` passe sur Linux au lieu de timeouter (>120 s).
+- `session_crypto.rs` : `use std::io::Read` sous `cfg(unix)` (compilation
+  Linux de `read_exact`).
+
 ### Intégration finale (2026-10-25)
 
 - Branche par défaut : `dev` ; `main` protégée (PR requises, checks CI /
@@ -187,12 +211,25 @@ Tous les workflows sur `main` sont **success** : CI, Coverage, TUI, Security,
 Website, Docs, Performance, Markdown Lint, Spellcheck, Dependency Audit et
 Link Check. Suite pytest : 3622 passed / 23 skipped / 0 failed. PR de
 rétablissement mergées : #228, #230, #231, #232, #233, #234, #235.
-- Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
-  préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
-  (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
-  (mcp_client), lecture ligne délimitée (jsonrpc), `docs_generators` (codegen),
-  `list_files_skips_vcs_and_hidden` (server). Aucun échec sur les modules
-  portés (`shell_security`, `permission`, `rate_limiter`).
+### Rust (`rust/apex-rs`) — 2026-10-25
+
+- `cargo fmt --all -- --check` : **OK** (rustfmt appliqué à tout le crate).
+- `cargo clippy --all-targets -- -D warnings` : **OK**.
+- `cargo test` : **103 passed / 0 failed** (Windows) ; **110** sur la CI Ubuntu
+  (les tests `#[cfg(unix)]` — `sh`, `printf`, `diff`, faux serveur MCP — sont
+  alors exécutés).
+- Corrections multiplateformes :
+  - `tools::shell_command` : `cmd /C` sur Windows, `sh -c` ailleurs (utilisé
+    par `run_command` et `server::run_shell_capture`) ; `run_command_echo` et
+    `shell_capture_works` passent donc sur Windows.
+  - `list_files` et `generate_markdoc` normalisent les chemins en `/`.
+  - `which` utilise `std::env::split_paths` + `PATHEXT` (Windows).
+- Tests dépendants d'outils POSIX (`sh`, `printf`, `diff`, faux serveur MCP
+  shell) explicitement `#[cfg(unix)]` : ils restent exécutés sur la CI Ubuntu.
+- `main.rs` : `#![allow(dead_code)]` documenté — le port expose ses modules
+  avant leur câblage complet dans le CLI.
+- Job CI **Rust** ajouté à `ci.yml` (fmt, clippy, test) et le job pytest n'est
+  plus `continue-on-error` : les tests Python et Rust gatent désormais la CI.
 
 ## Résumé
 
@@ -200,7 +237,6 @@ rétablissement mergées : #228, #230, #231, #232, #233, #234, #235.
 - LIBRARY : 40+ (listés)
 - Surfaces obsolètes retirées : aucune (rien n'était installé) — 0 suppression
 - Questions ouvertes : purge de l'historique git du `.env` (si `DATABASE_URL`
-  est un credential réel) ; vérifier la suite pytest complète (la revendication
-  « 2094 passing » n'était pas fiable : 6 tests étaient cassés) ; les 12
-  échecs Rust environnementaux Windows (outils Unix absents) à résoudre si la
-  cible inclut Windows CI ; réduire les 51 alertes Dependabot (npm audit fix).
+  est un credential réel) ; anciens échecs Rust Windows résolus (103 tests
+  verts) ; alertes Dependabot résolues (0 ouverte) ; site linté et buildé
+  (0 erreur ESLint).

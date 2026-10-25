@@ -18,7 +18,10 @@ pub fn shares_dir() -> PathBuf {
 }
 
 pub fn sessions_dir() -> PathBuf {
-    dirs::home_dir().unwrap_or_default().join(".apex").join("sessions")
+    dirs::home_dir()
+        .unwrap_or_default()
+        .join(".apex")
+        .join("sessions")
 }
 
 // ---------------------------------------------------------------- time utils
@@ -171,17 +174,18 @@ pub fn history_of(data: &Value) -> Vec<Value> {
 
 fn safe_session_name(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
 /// Write an encrypted session and refresh the `latest_<name>.json` symlink.
-pub fn save_session(
-    name: &str,
-    model: &str,
-    cwd: &str,
-    history: &[Value],
-) -> Option<PathBuf> {
+pub fn save_session(name: &str, model: &str, cwd: &str, history: &[Value]) -> Option<PathBuf> {
     let dir = sessions_dir();
     std::fs::create_dir_all(&dir).ok()?;
     let safe = safe_session_name(name);
@@ -221,7 +225,9 @@ pub fn save_session(
 pub fn list_sessions() -> Vec<Value> {
     let dir = sessions_dir();
     let mut sessions = Vec::new();
-    let Ok(rd) = std::fs::read_dir(&dir) else { return sessions };
+    let Ok(rd) = std::fs::read_dir(&dir) else {
+        return sessions;
+    };
     for e in rd.flatten() {
         let path = e.path();
         let is_symlink = std::fs::symlink_metadata(&path)
@@ -235,7 +241,9 @@ pub fn list_sessions() -> Vec<Value> {
         if !is_enc && !fname.ends_with(".json") {
             continue;
         }
-        let Some(data) = read_session_file(&path) else { continue };
+        let Some(data) = read_session_file(&path) else {
+            continue;
+        };
         sessions.push(json!({
             "id": fname.trim_end_matches(".enc").trim_end_matches(".json"),
             "name": data.get("name").and_then(|v| v.as_str()).unwrap_or("unknown"),
@@ -245,7 +253,10 @@ pub fn list_sessions() -> Vec<Value> {
         }));
     }
     sessions.sort_by(|a, b| {
-        b["timestamp"].as_str().unwrap_or("").cmp(a["timestamp"].as_str().unwrap_or(""))
+        b["timestamp"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(a["timestamp"].as_str().unwrap_or(""))
     });
     sessions
 }
@@ -253,12 +264,15 @@ pub fn list_sessions() -> Vec<Value> {
 // -------------------------------------------------------------------- shares
 
 /// Create a local share record. Returns (share_id, url).
-pub fn share_session(session_id: &str, title: &str, live_history: Option<Vec<Value>>) -> (String, String) {
+pub fn share_session(
+    session_id: &str,
+    title: &str,
+    live_history: Option<Vec<Value>>,
+) -> (String, String) {
     let share_id = now_nanos_hex();
     let url = format!("https://apex-ai.dev/s/{share_id}");
-    let raw = load_session(session_id).unwrap_or_else(|| {
-        json!({"history": live_history.clone().unwrap_or_default()})
-    });
+    let raw = load_session(session_id)
+        .unwrap_or_else(|| json!({"history": live_history.clone().unwrap_or_default()}));
     let safe = sanitize(&raw);
     let messages = history_of(&safe);
     let share = json!({
@@ -272,7 +286,10 @@ pub fn share_session(session_id: &str, title: &str, live_history: Option<Vec<Val
     });
     let _ = std::fs::create_dir_all(shares_dir());
     let path = shares_dir().join(format!("{share_id}.json"));
-    let _ = std::fs::write(&path, serde_json::to_string_pretty(&share).unwrap_or_default());
+    let _ = std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&share).unwrap_or_default(),
+    );
     (share_id, url)
 }
 
@@ -304,7 +321,10 @@ pub fn list_shares() -> Vec<Value> {
         }
     }
     out.sort_by(|a, b| {
-        b["created_at"].as_str().unwrap_or("").cmp(a["created_at"].as_str().unwrap_or(""))
+        b["created_at"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(a["created_at"].as_str().unwrap_or(""))
     });
     out
 }
@@ -315,15 +335,18 @@ pub fn export_session(
     cwd: &Path,
     live_history: Option<Vec<Value>>,
 ) -> Option<PathBuf> {
-    let raw = load_session(session_id)
-        .or_else(|| live_history.map(|h| json!({"history": h})))?;
+    let raw = load_session(session_id).or_else(|| live_history.map(|h| json!({"history": h})))?;
     let export = json!({
         "exported_at": now_iso_micro(),
         "session_id": session_id,
         "apex_version": env!("CARGO_PKG_VERSION"),
         "data": sanitize(&raw),
     });
-    let name = if session_id.is_empty() { "current" } else { session_id };
+    let name = if session_id.is_empty() {
+        "current"
+    } else {
+        session_id
+    };
     let path = cwd.join(format!("session_{name}.json"));
     std::fs::write(&path, serde_json::to_string_pretty(&export).ok()?).ok()?;
     Some(path)

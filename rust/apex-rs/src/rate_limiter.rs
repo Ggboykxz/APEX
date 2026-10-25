@@ -83,7 +83,11 @@ impl StorageBackend for MemoryStorage {
             return [0, 0, 0];
         };
         let now = now_secs();
-        let minute = if now - w.minute.1 > 60.0 { 0 } else { w.minute.0 };
+        let minute = if now - w.minute.1 > 60.0 {
+            0
+        } else {
+            w.minute.0
+        };
         let hour = if now - w.hour.1 > 3600.0 { 0 } else { w.hour.0 };
         let day = if now - w.day.1 > 86400.0 { 0 } else { w.day.0 };
         [minute, hour, day]
@@ -152,7 +156,10 @@ impl RateLimiter {
     }
 
     pub fn with_defaults() -> Self {
-        Self::new(RateLimitConfig::default(), Box::new(MemoryStorage::default()))
+        Self::new(
+            RateLimitConfig::default(),
+            Box::new(MemoryStorage::default()),
+        )
     }
 
     pub fn check_rate_limit(&mut self, key: &str) -> RateLimitResult {

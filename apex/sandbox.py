@@ -1,8 +1,11 @@
 """Code execution sandbox for APEX - Run code safely."""
 
 import os
+import queue
 import subprocess
 import tempfile
+import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -86,10 +89,20 @@ class CodeSandbox:
 
 
 class ShellSession:
+    """Persistent interactive shell with non-blocking, bounded reads.
+
+    A dedicated reader thread drains stdout into a queue so `run()` can wait
+    with a timeout instead of blocking forever on `readline()` (interactive
+    shells never close their stdout). A unique marker is echoed after every
+    command to detect completion without relying on a prompt.
+    """
+
     def __init__(self, cwd: Path | None = None, env: dict | None = None):
         self.cwd = cwd or Path.cwd()
         self.env = env or os.environ.copy()
         self.process: subprocess.Popen | None = None
+        self._lines: queue.Queue[str | None] = queue.Queue()
+        self._reader: threading.Thread | None = None
 
     def start(self, shell: str = "bash") -> bool:
         try:
@@ -103,28 +116,52 @@ class ShellSession:
                 text=True,
                 bufsize=1,
             )
-            return True
         except Exception:
             return False
+
+        self._lines = queue.Queue()
+        self._reader = threading.Thread(target=self._pump, daemon=True)
+        self._reader.start()
+        return True
+
+    def _pump(self) -> None:
+        """Forward stdout lines to the queue until EOF (runs in a thread)."""
+        try:
+            if self.process and self.process.stdout:
+                for line in self.process.stdout:
+                    self._lines.put(line)
+        except Exception:
+            pass
+        finally:
+            self._lines.put(None)
 
     def run(self, command: str, timeout: int = 30) -> str:
         if not self.process or not self.process.stdin:
             return "ERROR: Shell session not started"
 
         try:
-            self.process.stdin.write(command + "\n")
+            marker = f"__APEX_CMD_DONE_{uuid.uuid4().hex}__"
+            self.process.stdin.write(f"{command}\necho {marker}\n")
             self.process.stdin.flush()
 
-            output = []
-            import time
-
-            start = time.time()
-
-            while time.time() - start < timeout:
-                line = self.process.stdout.readline()
-                if not line:
+            output: list[str] = []
+            deadline = time.time() + timeout
+            while True:
+                remaining = deadline - time.time()
+                if remaining <= 0:
+                    output.append(f"[timeout after {timeout}s]")
                     break
-                output.append(line.rstrip())
+                try:
+                    line = self._lines.get(timeout=remaining)
+                except queue.Empty:
+                    output.append(f"[timeout after {timeout}s]")
+                    break
+                if line is None:
+                    break
+                text = line.rstrip()
+                if text == marker:
+                    break
+                output.append(text)
 
             return "\n".join(output) if output else "[no output]"
 
@@ -138,6 +175,19 @@ class ShellSession:
                 self.process.wait(timeout=5)
             except Exception:
                 self.process.kill()
+                try:
+                    self.process.wait(timeout=5)
+                except Exception:
+                    pass
+            for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
+                try:
+                    if stream:
+                        stream.close()
+                except Exception:
+                    pass
+            self.process = None
+        if self._reader and self._reader.is_alive():
+            self._reader.join(timeout=1)
 
 
 sandbox = CodeSandbox()

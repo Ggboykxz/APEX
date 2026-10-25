@@ -2,7 +2,6 @@
 
 import os
 import subprocess
-import time as time_module
 import uuid
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -234,42 +233,54 @@ class TestShellSession:
         assert "ERROR" in result
         assert "not started" in result
 
+    @staticmethod
+    def _answer_with_marker(ss):
+        """Echo the completion marker after the command is written."""
+
+        def respond(payload: str) -> None:
+            marker = payload.strip().splitlines()[-1].removeprefix("echo ").strip()
+            ss._lines.put(marker + "\n")
+
+        return respond
+
     def test_run_success(self, tmp_path):
         ss = ShellSession(cwd=tmp_path)
         mock_process = MagicMock()
         mock_process.stdin = MagicMock()
-        mock_stdout = MagicMock()
-        mock_stdout.readline.side_effect = ["line1", "line2", ""]
-        mock_process.stdout = mock_stdout
         ss.process = mock_process
+        ss._lines.put("line1\n")
+        ss._lines.put("line2\n")
+        mock_process.stdin.write.side_effect = self._answer_with_marker(ss)
+
         result = ss.run("echo hello", timeout=5)
+
         assert "line1" in result
         assert "line2" in result
-        mock_process.stdin.write.assert_called_once_with("echo hello\n")
+        payload = mock_process.stdin.write.call_args.args[0]
+        assert payload.startswith("echo hello\n")
+        assert "echo __APEX_CMD_DONE_" in payload
         mock_process.stdin.flush.assert_called_once()
 
     def test_run_no_output(self, tmp_path):
         ss = ShellSession(cwd=tmp_path)
         mock_process = MagicMock()
         mock_process.stdin = MagicMock()
-        mock_stdout = MagicMock()
-        mock_stdout.readline.return_value = ""
-        mock_process.stdout = mock_stdout
         ss.process = mock_process
+        mock_process.stdin.write.side_effect = self._answer_with_marker(ss)
+
         result = ss.run("echo hello", timeout=5)
+
         assert "[no output]" in result
 
     def test_run_timeout_exit(self, tmp_path):
         ss = ShellSession(cwd=tmp_path)
         mock_process = MagicMock()
         mock_process.stdin = MagicMock()
-        mock_stdout = MagicMock()
-        mock_stdout.readline.return_value = "still running"
-        mock_process.stdout = mock_stdout
         ss.process = mock_process
-        with patch.object(time_module, "time", side_effect=[0, 1, 31]):
-            result = ss.run("echo hello", timeout=30)
-        assert "still running" in result
+
+        result = ss.run("echo hello", timeout=0.05)
+
+        assert "timeout" in result
 
     def test_run_exception(self, tmp_path):
         ss = ShellSession(cwd=tmp_path)
@@ -296,7 +307,7 @@ class TestShellSession:
         ss.process = mock_process
         ss.close()
         mock_process.terminate.assert_called_once()
-        mock_process.wait.assert_called_once_with(timeout=5)
+        mock_process.wait.assert_any_call(timeout=5)
         mock_process.kill.assert_called_once()
 
     def test_close_no_process(self, tmp_path):

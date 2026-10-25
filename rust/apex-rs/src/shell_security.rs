@@ -75,24 +75,45 @@ pub struct CommandAnalysis {
 // ────────────────────────────────────────────────────────────
 
 const DANGEROUS_PATTERNS: &[(&str, &str)] = &[
-    (r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?", "Destructive system-wide deletion"),
+    (
+        r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?",
+        "Destructive system-wide deletion",
+    ),
     (r":\(\)\{\s*:\|:\s*&\s*\};:.*", "Fork bomb"),
     (r">\s*/dev/sd[a-z]", "Direct disk write detected"),
     (r"dd\s+if=.*of=/dev/", "Direct device write"),
     (r"mkfs\.", "Filesystem formatting"),
     (r"chattr\s+-i", "Immutable file removal"),
-    (r"wget\b.*\|\s*(sudo\s+)?(?:ba)?sh\b", "Download and pipe to shell (wget)"),
-    (r"curl\b.*\|\s*(sudo\s+)?(?:ba)?sh\b", "Download and pipe to shell (curl)"),
+    (
+        r"wget\b.*\|\s*(sudo\s+)?(?:ba)?sh\b",
+        "Download and pipe to shell (wget)",
+    ),
+    (
+        r"curl\b.*\|\s*(sudo\s+)?(?:ba)?sh\b",
+        "Download and pipe to shell (curl)",
+    ),
     (r"eval\s+\$\(", "Dynamic code execution"),
     (r"exec\s+\$\(", "Dynamic exec"),
     (r"\|\s*(?:sudo\s+)?bash\b", "Pipe to bash"),
     (r"\|\s*(?:sudo\s+)?sh\b", "Pipe to shell"),
-    (r">\s*/etc/(?:passwd|shadow|ssh|ssl|gshadow|hosts|sudoers)", "System file modification"),
+    (
+        r">\s*/etc/(?:passwd|shadow|ssh|ssl|gshadow|hosts|sudoers)",
+        "System file modification",
+    ),
     (r">\s*/etc/ssl/private/", "SSL private key modification"),
-    (r"chmod\s+777\s+/(?:etc|var|usr)", "Overly permissive permissions"),
+    (
+        r"chmod\s+777\s+/(?:etc|var|usr)",
+        "Overly permissive permissions",
+    ),
     (r"nc\s+-[el].*\d+", "Netcat listener (potential backdoor)"),
-    (r"curl.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh", "Download and execute script"),
-    (r"wget.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh", "Download and execute script"),
+    (
+        r"curl.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh",
+        "Download and execute script",
+    ),
+    (
+        r"wget.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh",
+        "Download and execute script",
+    ),
 ];
 
 const NETWORK_PATTERNS: &[&str] = &[
@@ -123,12 +144,7 @@ const SYSTEM_PATTERNS: &[&str] = &[
     r"\bpasswd\b",
 ];
 
-const FILE_DELETE_PATTERNS: &[&str] = &[
-    r"\brm\s+",
-    r"\brmdir\b",
-    r"\bunlink\b",
-    r"\bdel\b",
-];
+const FILE_DELETE_PATTERNS: &[&str] = &[r"\brm\s+", r"\brmdir\b", r"\bunlink\b", r"\bdel\b"];
 
 const FILE_WRITE_PATTERNS: &[&str] = &[
     r"\btee\b",
@@ -158,9 +174,8 @@ const PROCESS_PATTERNS: &[&str] = &[
 /// and triggers the `if "push" in command` confirmation branch (mirrors the
 /// Python fix in `apex/shell_security.py`).
 const GIT_SAFE_SUBCOMMANDS: &[&str] = &[
-    "init", "status", "diff", "log", "show", "branch", "checkout",
-    "add", "commit", "pull", "clone", "fetch", "merge",
-    "rebase", "config", "remote", "stash",
+    "init", "status", "diff", "log", "show", "branch", "checkout", "add", "commit", "pull",
+    "clone", "fetch", "merge", "rebase", "config", "remote", "stash",
 ];
 
 const GIT_RISKY_PATTERNS: &[&str] = &[
@@ -194,15 +209,12 @@ const CONTAINER_PATTERNS: &[&str] = &[
 ];
 
 const SAFE_COMMANDS: &[&str] = &[
-    "ls", "pwd", "cd", "echo", "cat", "head", "tail", "grep",
-    "find", "which", "whoami", "id", "uname", "date", "history",
-    "man", "help", "env", "printenv", "type", "alias", "export",
+    "ls", "pwd", "cd", "echo", "cat", "head", "tail", "grep", "find", "which", "whoami", "id",
+    "uname", "date", "history", "man", "help", "env", "printenv", "type", "alias", "export",
     "source", "read", "printf", "test", "true", "false",
 ];
 
-const ALLOWED_EXTRA: &[&str] = &[
-    "npm", "pip", "git", "make", "cargo", "go", "python", "node",
-];
+const ALLOWED_EXTRA: &[&str] = &["npm", "pip", "git", "make", "cargo", "go", "python", "node"];
 
 // ────────────────────────────────────────────────────────────
 // Compiled pattern tables
@@ -240,7 +252,8 @@ static DANGEROUS_RE: LazyLock<Vec<(Regex, &'static str)>> =
 
 static NETWORK_RE: LazyLock<Vec<Regex>> = LazyLock::new(|| compile_simple(NETWORK_PATTERNS));
 static SYSTEM_RE: LazyLock<Vec<Regex>> = LazyLock::new(|| compile_simple(SYSTEM_PATTERNS));
-static FILE_DELETE_RE: LazyLock<Vec<Regex>> = LazyLock::new(|| compile_simple(FILE_DELETE_PATTERNS));
+static FILE_DELETE_RE: LazyLock<Vec<Regex>> =
+    LazyLock::new(|| compile_simple(FILE_DELETE_PATTERNS));
 static FILE_WRITE_RE: LazyLock<Vec<Regex>> = LazyLock::new(|| compile_simple(FILE_WRITE_PATTERNS));
 static PROCESS_RE: LazyLock<Vec<Regex>> = LazyLock::new(|| compile_simple(PROCESS_PATTERNS));
 static GIT_RISKY_RE: LazyLock<Vec<Regex>> = LazyLock::new(|| compile_simple(GIT_RISKY_PATTERNS));
@@ -301,7 +314,10 @@ impl ShellSecurityAnalyzer {
         }
 
         // 3. System (only when still unclassified)
-        if safe && category == CommandCategory::WorkingDir && SYSTEM_RE.iter().any(|re| re.is_match(command)) {
+        if safe
+            && category == CommandCategory::WorkingDir
+            && SYSTEM_RE.iter().any(|re| re.is_match(command))
+        {
             category = CommandCategory::System;
             requires_confirmation = true;
             warnings.push("System modification".to_string());
@@ -334,7 +350,8 @@ impl ShellSecurityAnalyzer {
 
         // 7. Git
         if safe {
-            let risky_git = self.git_category(&tokens) || GIT_RISKY_RE.iter().any(|re| re.is_match(command));
+            let risky_git =
+                self.git_category(&tokens) || GIT_RISKY_RE.iter().any(|re| re.is_match(command));
             if risky_git {
                 category = CommandCategory::Git;
                 warnings.push("Git operation".to_string());
@@ -403,7 +420,8 @@ impl ShellSecurityAnalyzer {
 }
 
 /// Module-level analyzer, mirroring `shell_analyzer`.
-pub static SHELL_ANALYZER: LazyLock<ShellSecurityAnalyzer> = LazyLock::new(ShellSecurityAnalyzer::new);
+pub static SHELL_ANALYZER: LazyLock<ShellSecurityAnalyzer> =
+    LazyLock::new(ShellSecurityAnalyzer::new);
 
 // ────────────────────────────────────────────────────────────
 // Tests (port of `tests/test_shell_security.py` highlights)

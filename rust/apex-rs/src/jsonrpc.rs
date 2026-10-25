@@ -43,7 +43,13 @@ impl JsonRpcClient {
         let stdin = child.stdin.take().ok_or_else(|| anyhow!("no stdin"))?;
         let stdout = child.stdout.take().ok_or_else(|| anyhow!("no stdout"))?;
         let reader = BufReader::new(stdout);
-        Ok(Self { child, stdin, reader, next_id: 1, framing })
+        Ok(Self {
+            child,
+            stdin,
+            reader,
+            next_id: 1,
+            framing,
+        })
     }
 
     async fn write_message(&mut self, v: &Value) -> Result<()> {
@@ -70,7 +76,10 @@ impl JsonRpcClient {
         }
         let trimmed = first.trim_end_matches(['\r', '\n']);
         if let Some(rest) = trimmed.strip_prefix("Content-Length:") {
-            let len: usize = rest.trim().parse().map_err(|_| anyhow!("bad Content-Length"))?;
+            let len: usize = rest
+                .trim()
+                .parse()
+                .map_err(|_| anyhow!("bad Content-Length"))?;
             // Consume the remaining headers up to the blank line.
             loop {
                 let mut header = String::new();
@@ -137,12 +146,15 @@ mod tests {
         assert!(f.ends_with(r#"{"jsonrpc":"2.0"}"#));
     }
 
+    #[cfg(unix)]
     #[tokio::test]
     async fn reads_line_delimited_and_framed_messages() {
-        // A fake "server" that writes one line-delimited message…
+        // A fake "server" that writes one line-delimited message, one framed
+        // message, then keeps reading stdin so the client does not hit EPIPE
+        // when it sends the second request.
         let framed_body = r#"{"jsonrpc":"2.0","id":2,"result":"framed-mode"}"#;
         let script = format!(
-            "printf '{{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"line-mode\"}}\\n'\nprintf 'Content-Length: {}\\r\\n\\r\\n{}'",
+            "printf '{{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"line-mode\"}}\\n'\nprintf 'Content-Length: {}\\r\\n\\r\\n{}'\ncat >/dev/null",
             framed_body.len(),
             framed_body
         );
@@ -156,7 +168,11 @@ mod tests {
     #[tokio::test]
     async fn framed_client_writes_content_length_header() {
         // Minimal Content-Length framing server (Node); skipped when node is absent.
-        let node = std::env::var("PATH").unwrap_or_default().split(':').map(|d| std::path::Path::new(d).join("node")).find(|p| p.is_file());
+        let node = std::env::var_os("PATH").and_then(|paths| {
+            std::env::split_paths(&paths)
+                .map(|d| d.join(if cfg!(windows) { "node.exe" } else { "node" }))
+                .find(|p| p.is_file())
+        });
         let Some(node) = node else {
             eprintln!("skipping: node not installed");
             return;
@@ -184,12 +200,10 @@ process.stdin.on('data', (d) => {
 });
 "#).unwrap();
 
-        let mut c = JsonRpcClient::spawn_framed(
-            node.to_str().unwrap(),
-            &[script_path.to_str().unwrap()],
-        )
-        .await
-        .unwrap();
+        let mut c =
+            JsonRpcClient::spawn_framed(node.to_str().unwrap(), &[script_path.to_str().unwrap()])
+                .await
+                .unwrap();
         let res = c.request("initialize", json!({"x": 1})).await.unwrap();
         assert_eq!(res["echoed_method"], "initialize");
         let res = c.request("textDocument/hover", json!({})).await.unwrap();
