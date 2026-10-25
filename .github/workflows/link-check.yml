@@ -20,7 +20,7 @@ jobs:
         id: lychee
         uses: lycheeverse/lychee-action@v2
         with:
-          lychee-version: v0.15.1
+          lycheeVersion: v0.15.1
           args: >
             --config .lycheerc.toml
             --no-progress
