@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Ggboykxz/APEX/security/advisories/new
+    about: Report vulnerabilities privately. Do not open a public issue.
+  - name: Documentation
+    url: https://apex-ai.dev/docs
+    about: Installation, configuration, tools, and guides.
+  - name: Public roadmap
+    url: https://apex-ai.dev/roadmap
+    about: See what is shipped and what is planned for v2.5.

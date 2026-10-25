@@ -95,6 +95,7 @@ nav:
           - ADR-0001: adr/ADR-0001-rust-shell-security-lookahead.md
           - ADR-0002: adr/ADR-0002-rust-permission-init.md
           - ADR-0003: adr/ADR-0003-rust-rate-limiter-storage.md
+          - ADR-0004: adr/ADR-0004-rust-distribution-deferred.md
   - Changelog: changelog.md
 
 extra:

@@ -30,6 +30,7 @@
 20. [File Watcher](#20-file-watcher)
 21. [Configuration](#21-configuration)
 22. [Security](#22-security)
+23. [Delivery & Governance](#23-delivery--governance)
 
 ---
 
@@ -989,6 +990,41 @@ Current policy and floors (kept green):
 Do not bump Prisma to 7.x without an ADR: it is a breaking major
 (generator/output changes) and the deepmerge-ts override already removes the
 advisory on Prisma 6.
+
+---
+
+## 23. Delivery & Governance
+
+### Branching and review
+
+- `dev` is the integration and default branch; `main` is production.
+- Work lands via PRs (`feature/*`, `fix/*`, `chore/*` → `dev`), then `dev` → `main`.
+- PR titles follow Conventional Commits (`feat`, `fix`, `docs`, `ci`, `refactor`, ...), lowercase subject, no trailing punctuation.
+- Templates: `.github/ISSUE_TEMPLATE/*` for reports, `.github/PULL_REQUEST_TEMPLATE.md` for the Definition of Done.
+
+### v2.5 milestones
+
+| Milestone | Scope |
+|-----------|-------|
+| M1 — Repository Map & Context | symbol-level repository map, context-window optimization |
+| M2 — Rust GA (internal) | remove crate-level `#![allow(dead_code)]`, parity matrix, binary E2E; no publishing (ADR-0004) |
+| M3 — TUI Streaming & Diff | SSE/WS streaming, tool-call lifecycle, diff preview |
+| M4 — MCP, Vision, VS Code | MCP server mode, vision input, auto-commit, VS Code extension |
+
+### Definition of Done
+
+- Python: `ruff check`, `ruff format --check`, `pytest` green; new behavior covered by tests.
+- Rust: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` green.
+- TUI: `npm run typecheck`, `bun test` green.
+- Website: `eslint .`, `next build` green when `src/**` changes.
+- Docs: `AGENTS.md` and mkdocs updated; ADR added for architectural decisions.
+- Every required workflow green before merge.
+
+### ECC workflow
+
+- Large epics: `epic-decompose` → parallel units → `epic-validate` → `epic-review` → `epic-sync`.
+- Per feature: `orch-add-feature` / `tdd`, then the language triad (`rust-test` → `rust-build` → `rust-review`, `react-test` → `react-build` → `react-review`).
+- Close each wave with `verify`, `security-scan`, `update-docs`, then `learn` → `evolve`.
 
 ---
 
