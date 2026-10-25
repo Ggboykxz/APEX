@@ -48,6 +48,11 @@ jobs:
             mcp
             sandbox
             ui
+            link-check
+            welcome
+            audit
+            rust
+            gateway
           # Require a scope
           requireScope: false
           # Disallow breaking changes on certain types
