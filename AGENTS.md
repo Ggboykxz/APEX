@@ -31,6 +31,7 @@
 21. [Configuration](#21-configuration)
 22. [Security](#22-security)
 23. [Delivery & Governance](#23-delivery--governance)
+24. [Rust Port (Internal GA)](#24-rust-port-internal-ga)
 
 ---
 
@@ -1037,6 +1038,56 @@ advisory on Prisma 6.
 - Large epics: `epic-decompose` → parallel units → `epic-validate` → `epic-review` → `epic-sync`.
 - Per feature: `orch-add-feature` / `tdd`, then the language triad (`rust-test` → `rust-build` → `rust-review`, `react-test` → `react-build` → `react-review`).
 - Close each wave with `verify`, `security-scan`, `update-docs`, then `learn` → `evolve`.
+
+---
+
+## 24. Rust Port (Internal GA)
+
+`rust/apex-rs/` is the Rust rewrite of the backend. It is an **internal GA**:
+the binary, HTTP server, and tool registry are usable, but nothing is
+published (no crates.io, no GitHub Release binaries — see
+[ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
+
+The authoritative Python ↔ Rust matrix is
+[`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md). It records what is wired,
+partial, ported-but-unwired, and missing; update it in the same PR as any
+surface change.
+
+### Dead-code policy
+
+- No crate-level `#![allow(dead_code)]`.
+- Allows are scoped to a module or item and carry a justification plus a
+  `TODO(v2.6)` exit criterion.
+- Ported modules without a caller are declared and allowed explicitly
+  (`context`, `permission`, `rate_limiter`) instead of silently disappearing.
+
+### Shell security
+
+The Rust port applies the same safety policy as Python on every path that can
+execute a command:
+
+```bash
+apex-rs security check "rm -rf /"   # JSON verdict (safe, category, warnings, allowed)
+apex-rs security allowed            # allow-listed commands
+```
+
+- `POST /api/v1/security/analyze` — JSON `{ "command": "..." }` → verdict
+- `/api/v1/bash` and the `run_command` tool are both guarded
+
+### Hermetic tests
+
+`config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,
+so `tests/cli_e2e.rs` can point `~/.apex` at a temp directory. The E2E suite
+runs the compiled binary and covers help, tool listing, cost, memory and
+encrypted session lifecycles, security verdicts, and the no-crate-level-allow
+regression.
+
+```bash
+cd rust/apex-rs
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+```
 
 ---
 

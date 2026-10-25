@@ -10,6 +10,7 @@ All notable changes to APEX will be documented in this file.
 - **TUI streaming & diff** — typed normalization of EventBus payloads, pure streaming reducer (assistant deltas, tool lifecycle, session isolation), unified-diff parser, `DiffPreview` overlay with local accept/reject, and `/diff`. 25 new tests.
 - **Governance** — issue forms, PR template, CODEOWNERS, ADR-0004 (Rust distribution deferred), v2.5 milestones/board, and a Delivery & Governance section in `AGENTS.md`.
 - **Lint scope** — all first-party Python (`apex/`, `tests/`, `scripts/`) is linted; vendored `skills/` is explicitly excluded and audited separately.
+- **Rust internal GA** — crate-level `#![allow(dead_code)]` removed in favor of 23 scoped allows with exit criteria; shell security wired into the CLI (`security check|allowed`), `POST /api/v1/security/analyze`, the `run_command` tool, and `/api/v1/bash`; hermetic `config::home_dir()`; `tests/cli_e2e.rs` (7 binary tests); new `rust/apex-rs/PARITY.md` matrix. No publishing (ADR-0004).
 
 ### Rust Port (`rust/apex-rs`)
 
