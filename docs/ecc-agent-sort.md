@@ -148,7 +148,15 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
   sécurité (shell_security, `!bash` gate, git push confirmé), refonte TUI
   (API client + overlays + tests Bun), docs et workflows.
 - Post-merge : workflows relancés sur main ; Link Check re-dispatché avec la
-  config lychee corrigée (v0.15.1, `header` mono-ligne).
+  config lychee corrigée (v0.15.1, `header` en séquence key=value, exclusions
+  regex valides pour badges/stargazers/fonts).
+
+### État final « tout vert » (2026-10-25 ~01:57 UTC)
+
+Tous les workflows sur `main` sont **success** : CI, Coverage, TUI, Security,
+Website, Docs, Performance, Markdown Lint, Spellcheck, Dependency Audit et
+Link Check. Suite pytest : 3622 passed / 23 skipped / 0 failed. PR de
+rétablissement mergées : #228, #230, #231, #232, #233, #234, #235.
 - Ports Rust validés : `cargo test` → 98 passés / 12 échecs environnementaux
   préexistants (Windows) : `diff` introuvable (skills), `sh` introuvable
   (github/plugins/server/tools), timeout/kill (github), serveur fake MCP
