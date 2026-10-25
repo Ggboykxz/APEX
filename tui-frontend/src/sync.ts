@@ -8,6 +8,10 @@
  */
 
 import { createRequire } from "node:module"
+import { normalizeAgentEvent } from "./streaming/events.js"
+import type { AgentStreamEvent, SyncEvent, SyncState } from "./types.js"
+
+export type { SyncEvent, SyncState } from "./types.js"
 
 /**
  * Node < 22 has no global `WebSocket`. Fall back to the `ws` package so the
@@ -24,23 +28,17 @@ function resolveWebSocket(): typeof WebSocket | null {
   }
 }
 
-const WebSocketImpl = resolveWebSocket()
+const DefaultWebSocketImpl = resolveWebSocket()
 
-export interface SyncEvent {
-  event: string
-  data: Record<string, unknown>
-  timestamp: number
-}
+type WebSocketImpl = typeof WebSocket
 
-export interface SyncState {
-  model: string
-  agent: string
-  cwd: string
-  historyLength: number
-  undoAvailable: boolean
-  redoAvailable: boolean
-  connected: boolean
-  version: string
+export interface SyncClientOptions {
+  /**
+   * Injectable transport for tests (and for alternate runtimes). `undefined`
+   * keeps the auto-detected global/`ws` implementation; `null` disables the
+   * socket entirely so the HTTP/SSE fallback path is used.
+   */
+  webSocketImpl?: WebSocketImpl | null
 }
 
 type EventCallback = (...args: any[]) => void
@@ -54,11 +52,16 @@ export class SyncClient {
   private _reconnectAttempts = 0
   private _maxReconnectDelay = 30000
   private _listeners: Map<string, Set<EventCallback>> = new Map()
+  private readonly _wsImpl: WebSocketImpl | null
 
   constructor(
     private readonly url: string,
     private readonly httpBase: string,
-  ) {}
+    options: SyncClientOptions = {},
+  ) {
+    this._wsImpl =
+      options.webSocketImpl === undefined ? DefaultWebSocketImpl : options.webSocketImpl
+  }
 
   get state(): Partial<SyncState> {
     return this._state
@@ -77,6 +80,15 @@ export class SyncClient {
     this._listeners.get(event)?.delete(cb)
   }
 
+  /** Subscribe to normalized assistant/tool/session streaming events. */
+  onStream(cb: (event: AgentStreamEvent) => void): void {
+    this.on("stream", cb as EventCallback)
+  }
+
+  offStream(cb: (event: AgentStreamEvent) => void): void {
+    this.off("stream", cb as EventCallback)
+  }
+
   private emit(event: string, ...args: any[]): void {
     this._listeners.get(event)?.forEach((cb) => {
       try { cb(...args) } catch { /* ignore listener errors */ }
@@ -93,9 +105,13 @@ export class SyncClient {
 
   /** Send an RPC command to the backend via WebSocket */
   rpc(method: string, params?: Record<string, unknown>): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.ws?.readyState === this.OPEN) {
       this.ws.send(JSON.stringify({ method, params: params ?? {} }))
     }
+  }
+
+  private get OPEN(): number {
+    return this._wsImpl?.OPEN ?? 1
   }
 
   /** Fetch via HTTP (for non-real-time operations) */
@@ -104,16 +120,16 @@ export class SyncClient {
   }
 
   private _connectWs(): void {
-    if (!WebSocketImpl) {
+    if (!this._wsImpl) {
       this.emit("disconnected")
       return
     }
-    if (this.ws?.readyState === WebSocketImpl.OPEN || this.ws?.readyState === WebSocketImpl.CONNECTING) {
+    if (this.ws?.readyState === this.OPEN || this.ws?.readyState === this._wsImpl.CONNECTING) {
       return
     }
 
     try {
-      this.ws = new WebSocketImpl(this.url)
+      this.ws = new this._wsImpl(this.url)
     } catch {
       this._scheduleReconnect()
       return
@@ -125,7 +141,7 @@ export class SyncClient {
       this.emit("connected")
       // Start ping to keep connection alive
       this.pingTimer = setInterval(() => {
-        if (this.ws?.readyState === WebSocket.OPEN) {
+        if (this.ws?.readyState === this.OPEN) {
           this.ws.send(JSON.stringify({ method: "ping" }))
         }
       }, 30000)
@@ -155,6 +171,11 @@ export class SyncClient {
   }
 
   private _handleEvent(msg: SyncEvent): void {
+    // Emit the typed stream event first; the switch below keeps every legacy
+    // event name/emission intact for existing listeners and HTTP fallbacks.
+    const streamEvent = normalizeAgentEvent(msg)
+    if (streamEvent) this.emit("stream", streamEvent)
+
     switch (msg.event) {
       case "connected":
         this._state = {
@@ -171,7 +192,23 @@ export class SyncClient {
         // Heartbeat response, no action needed
         break
       case "state":
-        this._state = { ...this._state, ...msg.data, connected: true }
+        this._state = {
+          ...this._state,
+          ...msg.data,
+          historyLength:
+            (msg.data.history_length as number | undefined) ??
+            (msg.data.historyLength as number | undefined) ??
+            this._state.historyLength,
+          undoAvailable:
+            (msg.data.undo_available as boolean | undefined) ??
+            (msg.data.undoAvailable as boolean | undefined) ??
+            this._state.undoAvailable,
+          redoAvailable:
+            (msg.data.redo_available as boolean | undefined) ??
+            (msg.data.redoAvailable as boolean | undefined) ??
+            this._state.redoAvailable,
+          connected: true,
+        }
         this.emit("state", this._state)
         break
       case "chat_complete":
