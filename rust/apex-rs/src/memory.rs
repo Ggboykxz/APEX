@@ -117,7 +117,11 @@ impl Memory {
     pub fn list_facts(&self) -> Vec<String> {
         self.facts
             .iter()
-            .filter_map(|f| f.get("fact").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            .filter_map(|f| {
+                f.get("fact")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            })
             .collect()
     }
 
@@ -147,7 +151,10 @@ pub fn memory_file() -> PathBuf {
             return PathBuf::from(p);
         }
     }
-    dirs::home_dir().unwrap_or_default().join(".apex").join("memory.json")
+    dirs::home_dir()
+        .unwrap_or_default()
+        .join(".apex")
+        .join("memory.json")
 }
 
 /// Handle the REPL `/memory` slash command.
@@ -226,7 +233,11 @@ pub fn list_facts_report(mem: &Memory) -> String {
         let relevance: Vec<String> = f
             .get("relevance")
             .and_then(|r| r.as_array())
-            .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
         lines.push(format!(
             "  {i}: {} [relevance: {}]",
@@ -320,7 +331,10 @@ mod tests {
         }
         let ctx = m.get_context_for_prompt("p");
         assert!(ctx.contains("- fact 6"));
-        assert!(!ctx.contains("- fact 1\n"), "only the last five are kept: {ctx}");
+        assert!(
+            !ctx.contains("- fact 1\n"),
+            "only the last five are kept: {ctx}"
+        );
         assert_eq!(ctx.lines().count(), 6);
     }
 
@@ -350,12 +364,24 @@ mod tests {
         let found = repl_command_with(&mut m, "search multi");
         assert!(found.starts_with("Search results:"));
         assert!(found.contains("my multi word fact"));
-        assert_eq!(repl_command_with(&mut m, "search missing"), "No matching facts found");
-        assert_eq!(repl_command_with(&mut m, "search"), "Usage: /memory search <query>");
-        assert_eq!(repl_command_with(&mut m, "add"), "Usage: /memory add <fact> [--tags a,b]");
+        assert_eq!(
+            repl_command_with(&mut m, "search missing"),
+            "No matching facts found"
+        );
+        assert_eq!(
+            repl_command_with(&mut m, "search"),
+            "Usage: /memory search <query>"
+        );
+        assert_eq!(
+            repl_command_with(&mut m, "add"),
+            "Usage: /memory add <fact> [--tags a,b]"
+        );
 
         assert_eq!(repl_command_with(&mut m, "remove 9"), "Index out of range");
-        assert_eq!(repl_command_with(&mut m, "remove abc"), "Usage: /memory remove <index>");
+        assert_eq!(
+            repl_command_with(&mut m, "remove abc"),
+            "Usage: /memory remove <index>"
+        );
         assert_eq!(repl_command_with(&mut m, "remove 0"), "Removed fact 0");
         assert_eq!(m.list_facts(), vec!["plain fact"]);
 

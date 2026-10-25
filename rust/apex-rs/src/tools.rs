@@ -5,6 +5,25 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Mutex;
 
+/// Build a shell invocation for the current platform.
+///
+/// The Python backend runs on POSIX `sh`; the Rust port keeps the same
+/// behaviour on Unix and uses `cmd /C` on Windows so tools work everywhere.
+pub(crate) fn shell_command(command: &str) -> Command {
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("cmd");
+        cmd.args(["/C", command]);
+        cmd
+    }
+    #[cfg(not(windows))]
+    {
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", command]);
+        cmd
+    }
+}
+
 static BACKUP_STACK: Mutex<Vec<(PathBuf, String)>> = Mutex::new(Vec::new());
 static REDO_STACK: Mutex<Vec<(PathBuf, String, String)>> = Mutex::new(Vec::new());
 
@@ -103,7 +122,14 @@ pub fn tool_schemas() -> Value {
 
 fn is_dangerous_command(cmd: &str) -> bool {
     let lower = cmd.to_lowercase();
-    let blocked = ["rm -rf /", "rm -rf ~", ":(){:|:&};:", "mkfs", "dd if=", "> /dev/sd"];
+    let blocked = [
+        "rm -rf /",
+        "rm -rf ~",
+        ":(){:|:&};:",
+        "mkfs",
+        "dd if=",
+        "> /dev/sd",
+    ];
     blocked.iter().any(|b| lower.contains(b))
 }
 
@@ -160,7 +186,11 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         "git_undo" => {
             let path = args.get("path").and_then(|v| v.as_str());
             let mut cmd = vec!["checkout", "--"];
-            if let Some(p) = path { cmd.push(p); } else { cmd.push("."); }
+            if let Some(p) = path {
+                cmd.push(p);
+            } else {
+                cmd.push(".");
+            }
             match Command::new("git").args(&cmd).current_dir(cwd).output() {
                 Ok(o) if o.status.success() => "Reverted uncommitted changes".to_string(),
                 Ok(o) => format!("ERROR: {}", String::from_utf8_lossy(&o.stderr)),
@@ -212,7 +242,7 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             if is_dangerous_command(cmd) {
                 return "ERROR: Command blocked by safety policy".to_string();
             }
-            match Command::new("sh").arg("-c").arg(cmd).current_dir(cwd).output() {
+            match shell_command(cmd).current_dir(cwd).output() {
                 Ok(o) => {
                     let mut s = String::from_utf8_lossy(&o.stdout).to_string();
                     if !o.stderr.is_empty() {
@@ -235,7 +265,9 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             } else {
                 let mut cmd = vec!["add"];
                 cmd.extend(files.iter().map(|s| s.as_str()));
-                match git_ok(cwd, &cmd, |_| format!("SUCCESS: Staged {} file(s)", files.len())) {
+                match git_ok(cwd, &cmd, |_| {
+                    format!("SUCCESS: Staged {} file(s)", files.len())
+                }) {
                     Ok(out) => out,
                     Err(e) => format!("ERROR: {e}"),
                 }
@@ -277,7 +309,10 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         }
         "git_create_branch" => {
             let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
-            let checkout = args.get("checkout").and_then(|v| v.as_bool()).unwrap_or(false);
+            let checkout = args
+                .get("checkout")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             let msg = if checkout {
                 format!("SUCCESS: Created branch '{name}' and checked out")
             } else {
@@ -295,7 +330,9 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         "git_switch_branch" => {
             let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
             let cmd = ["checkout", name];
-            match git_ok(cwd, &cmd, |_| format!("SUCCESS: Switched to branch '{name}'")) {
+            match git_ok(cwd, &cmd, |_| {
+                format!("SUCCESS: Switched to branch '{name}'")
+            }) {
                 Ok(out) => out,
                 Err(e) => format!("ERROR: {e}"),
             }
@@ -311,12 +348,19 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 Err(e) => format!("ERROR: {e}"),
             }
         }
-        "git_list_branches" => match Command::new("git").args(["branch", "-a"]).current_dir(cwd).output() {
+        "git_list_branches" => match Command::new("git")
+            .args(["branch", "-a"])
+            .current_dir(cwd)
+            .output()
+        {
             Ok(o) => format!("Branches:\n{}", String::from_utf8_lossy(&o.stdout)),
             Err(e) => format!("ERROR: {e}"),
         },
         "git_pre_commit" => {
-            let status = Command::new("git").args(["status", "--short"]).current_dir(cwd).output();
+            let status = Command::new("git")
+                .args(["status", "--short"])
+                .current_dir(cwd)
+                .output();
             match status {
                 Ok(o) if String::from_utf8_lossy(&o.stdout).trim().is_empty() => {
                     "Nothing to commit (working tree clean)".to_string()
@@ -328,7 +372,11 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                         .output()
                         .map(|s| String::from_utf8_lossy(&s.stdout).to_string())
                         .unwrap_or_default();
-                    let staged = if staged.trim().is_empty() { "none".to_string() } else { staged };
+                    let staged = if staged.trim().is_empty() {
+                        "none".to_string()
+                    } else {
+                        staged
+                    };
                     format!(
                         "Pre-commit checks:\nStaged: {staged}\nUnstaged: {}",
                         String::from_utf8_lossy(&o.stdout)
@@ -347,7 +395,10 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         "refactor_code" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let function = args.get("function").and_then(|v| v.as_str()).unwrap_or("");
-            let style = args.get("style").and_then(|v| v.as_str()).unwrap_or("modern");
+            let style = args
+                .get("style")
+                .and_then(|v| v.as_str())
+                .unwrap_or("modern");
             let cr = crate::codegen::CodeRefactorer::new(cwd);
             let result = cr.refactor_function(path, function, style);
             match result.get("error").and_then(|e| e.as_str()) {
@@ -357,7 +408,11 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         }
         "generate_db_model" => {
             let table = args.get("table").and_then(|v| v.as_str()).unwrap_or("");
-            let columns = args.get("columns").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let columns = args
+                .get("columns")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
             let code = crate::codegen::DatabaseManager::generate_model(table, &columns);
             format!("Generated model for {table}:\n\n{code}")
         }
@@ -366,7 +421,11 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             crate::codegen::DockerManager::generate_dockerfile(language)
         }
         "generate_docker_compose" => {
-            let services = args.get("services").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+            let services = args
+                .get("services")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
             crate::codegen::DockerManager::generate_docker_compose(&services)
         }
         "generate_api_client" => {
@@ -402,7 +461,8 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         }
         "optimize_code" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
-            let suggestions = crate::codegen::PerformanceProfiler::new(cwd).suggest_optimizations(path);
+            let suggestions =
+                crate::codegen::PerformanceProfiler::new(cwd).suggest_optimizations(path);
             let mut out = format!("Optimization Suggestions\n{}", "=".repeat(40));
             for s in suggestions {
                 out.push_str(&format!("\n- {s}"));
@@ -445,15 +505,29 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         }
         "replace_in_files" => {
             let pattern = args.get("pattern").and_then(|v| v.as_str()).unwrap_or("");
-            let replacement = args.get("replacement").and_then(|v| v.as_str()).unwrap_or("");
+            let replacement = args
+                .get("replacement")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             let files = string_array(args, "files");
-            let dry_run = args.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(true);
-            let result = crate::skills::SearchReplace::new(cwd).replace_in_files(pattern, replacement, &files, dry_run);
+            let dry_run = args
+                .get("dry_run")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            let result = crate::skills::SearchReplace::new(cwd).replace_in_files(
+                pattern,
+                replacement,
+                &files,
+                dry_run,
+            );
             if let Some(err) = result.get("error").and_then(|e| e.as_str()) {
                 return err.to_string();
             }
             let replacements = result["replacements"].as_i64().unwrap_or(0);
-            let files_modified = result["files_modified"].as_array().cloned().unwrap_or_default();
+            let files_modified = result["files_modified"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
             let mut out = format!(
                 "Found {replacements} replacements in {} files",
                 files_modified.len()
@@ -486,19 +560,32 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             let functions = a["functions"].as_array().cloned().unwrap_or_default();
             lines.push(format!("Functions ({}):", functions.len()));
             for f in functions.iter().take(5) {
-                lines.push(format!("  - {} (line {})", f["name"].as_str().unwrap_or(""), f["line"]));
+                lines.push(format!(
+                    "  - {} (line {})",
+                    f["name"].as_str().unwrap_or(""),
+                    f["line"]
+                ));
             }
             lines.push(String::new());
             let classes = a["classes"].as_array().cloned().unwrap_or_default();
             lines.push(format!("Classes ({}):", classes.len()));
             for c in classes.iter().take(5) {
-                lines.push(format!("  - {} (line {})", c["name"].as_str().unwrap_or(""), c["line"]));
+                lines.push(format!(
+                    "  - {} (line {})",
+                    c["name"].as_str().unwrap_or(""),
+                    c["line"]
+                ));
             }
             lines.push(String::new());
             let imports = a["imports"].as_array().cloned().unwrap_or_default();
             lines.push(format!("Imports ({}):", imports.len()));
             lines.push(
-                imports.iter().take(10).map(|i| i.as_str().unwrap_or("")).collect::<Vec<_>>().join(", "),
+                imports
+                    .iter()
+                    .take(10)
+                    .map(|i| i.as_str().unwrap_or(""))
+                    .collect::<Vec<_>>()
+                    .join(", "),
             );
             lines.join("\n")
         }
@@ -524,10 +611,17 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             let pattern = args.get("pattern").and_then(|v| v.as_str()).unwrap_or("");
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
             let full = resolve(path, cwd);
-            match Command::new("grep").args(["-rn", pattern, &full.to_string_lossy()]).output() {
+            match Command::new("grep")
+                .args(["-rn", pattern, &full.to_string_lossy()])
+                .output()
+            {
                 Ok(o) => {
                     let s = String::from_utf8_lossy(&o.stdout).to_string();
-                    if s.trim().is_empty() { "[no matches]".to_string() } else { s }
+                    if s.trim().is_empty() {
+                        "[no matches]".to_string()
+                    } else {
+                        s
+                    }
                 }
                 Err(e) => format!("ERROR: {e}"),
             }
@@ -548,11 +642,21 @@ fn lsp_server_for(path: &str, server: &str) -> (String, Vec<String>) {
     if !server.is_empty() {
         return (server.to_string(), vec![]);
     }
-    let ext = std::path::Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let ext = std::path::Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     match ext.as_str() {
         "rs" => ("rust-analyzer".to_string(), vec![]),
-        "py" => ("pyright-langserver".to_string(), vec!["--stdio".to_string()]),
-        "ts" | "js" | "tsx" | "jsx" => ("typescript-language-server".to_string(), vec!["--stdio".to_string()]),
+        "py" => (
+            "pyright-langserver".to_string(),
+            vec!["--stdio".to_string()],
+        ),
+        "ts" | "js" | "tsx" | "jsx" => (
+            "typescript-language-server".to_string(),
+            vec!["--stdio".to_string()],
+        ),
         "go" => ("gopls".to_string(), vec![]),
         _ => (String::new(), vec![]),
     }
@@ -562,7 +666,14 @@ fn lsp_server_for(path: &str, server: &str) -> (String, Vec<String>) {
 ///
 /// Same nested-runtime concern as MCP: the client runs on a dedicated thread
 /// with its own Tokio runtime.
-fn run_lsp_op(op: &str, path: &str, line: i64, column: i64, server: &str, cwd: &std::path::Path) -> String {
+fn run_lsp_op(
+    op: &str,
+    path: &str,
+    line: i64,
+    column: i64,
+    server: &str,
+    cwd: &std::path::Path,
+) -> String {
     let (prog, sargs) = lsp_server_for(path, server);
     if prog.is_empty() {
         return "ERROR: No LSP server for this file type".to_string();
@@ -644,6 +755,44 @@ fn resolve(path: &str, cwd: &std::path::Path) -> PathBuf {
     }
 }
 
+fn run_git(cwd: &std::path::Path, args: &[&str]) -> String {
+    match Command::new("git").args(args).current_dir(cwd).output() {
+        Ok(o) => {
+            let out = String::from_utf8_lossy(&o.stdout).to_string();
+            if out.trim().is_empty() {
+                String::from_utf8_lossy(&o.stderr).to_string()
+            } else {
+                out
+            }
+        }
+        Err(e) => format!("ERROR: {e}"),
+    }
+}
+
+/// Run git and map trimmed stdout on success, stderr on failure.
+fn git_ok(
+    cwd: &std::path::Path,
+    args: &[&str],
+    on_success: impl FnOnce(&str) -> String,
+) -> Result<String, String> {
+    match Command::new("git").args(args).current_dir(cwd).output() {
+        Ok(o) if o.status.success() => Ok(on_success(String::from_utf8_lossy(&o.stdout).trim())),
+        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+fn string_array(args: &Value, key: &str) -> Vec<String> {
+    args.get(key)
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -654,23 +803,47 @@ mod tests {
     fn read_write_list() {
         let dir = tempdir().unwrap();
         let p = dir.path().join("a.txt");
-        assert!(execute_tool("write_file", &serde_json::json!({"path": p.to_str().unwrap(), "content": "hi"}), dir.path()).contains("Wrote"));
-        assert_eq!(execute_tool("read_file", &serde_json::json!({"path": p.to_str().unwrap()}), dir.path()), "hi");
-        let listing = execute_tool("list_files", &serde_json::json!({"path": dir.path().to_str().unwrap()}), dir.path());
+        assert!(execute_tool(
+            "write_file",
+            &serde_json::json!({"path": p.to_str().unwrap(), "content": "hi"}),
+            dir.path()
+        )
+        .contains("Wrote"));
+        assert_eq!(
+            execute_tool(
+                "read_file",
+                &serde_json::json!({"path": p.to_str().unwrap()}),
+                dir.path()
+            ),
+            "hi"
+        );
+        let listing = execute_tool(
+            "list_files",
+            &serde_json::json!({"path": dir.path().to_str().unwrap()}),
+            dir.path(),
+        );
         assert!(listing.contains("a.txt"));
     }
 
     #[test]
     fn run_command_echo() {
         let dir = tempdir().unwrap();
-        let out = execute_tool("run_command", &serde_json::json!({"command": "echo hello"}), dir.path());
+        let out = execute_tool(
+            "run_command",
+            &serde_json::json!({"command": "echo hello"}),
+            dir.path(),
+        );
         assert!(out.contains("hello"));
     }
 
     #[test]
     fn dangerous_command_blocked() {
         let dir = tempdir().unwrap();
-        let out = execute_tool("run_command", &serde_json::json!({"command": "rm -rf /"}), dir.path());
+        let out = execute_tool(
+            "run_command",
+            &serde_json::json!({"command": "rm -rf /"}),
+            dir.path(),
+        );
         assert!(out.contains("blocked"));
     }
 
@@ -686,7 +859,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let p = dir.path().join("b.txt");
         std::fs::write(&p, "original").unwrap();
-        execute_tool("write_file", &serde_json::json!({"path": p.to_str().unwrap(), "content": "changed"}), dir.path());
+        execute_tool(
+            "write_file",
+            &serde_json::json!({"path": p.to_str().unwrap(), "content": "changed"}),
+            dir.path(),
+        );
         assert_eq!(std::fs::read_to_string(&p).unwrap(), "changed");
         let out = execute_tool("undo_last_edit", &serde_json::json!({}), dir.path());
         assert!(out.contains("Restored") || out.contains("Nothing"));
@@ -721,7 +898,11 @@ mod tests {
         fs::write(dir.path().join("a.txt"), "hello").unwrap();
 
         assert_eq!(
-            execute_tool("git_stage", &serde_json::json!({"files": ["a.txt"]}), dir.path()),
+            execute_tool(
+                "git_stage",
+                &serde_json::json!({"files": ["a.txt"]}),
+                dir.path()
+            ),
             "SUCCESS: Staged 1 file(s)"
         );
         assert_eq!(
@@ -738,11 +919,23 @@ mod tests {
         assert!(pre.starts_with("Pre-commit checks:"), "got {pre}");
         assert!(pre.contains("Unstaged:") && pre.contains("a.txt"));
 
-        execute_tool("git_stage", &serde_json::json!({"files": ["a.txt"]}), dir.path());
-        let commit = execute_tool("git_commit", &serde_json::json!({"message": "first"}), dir.path());
+        execute_tool(
+            "git_stage",
+            &serde_json::json!({"files": ["a.txt"]}),
+            dir.path(),
+        );
+        let commit = execute_tool(
+            "git_commit",
+            &serde_json::json!({"message": "first"}),
+            dir.path(),
+        );
         assert!(commit.starts_with("SUCCESS: Committed"), "got {commit}");
         assert_eq!(
-            execute_tool("git_commit", &serde_json::json!({"message": ""}), dir.path()),
+            execute_tool(
+                "git_commit",
+                &serde_json::json!({"message": ""}),
+                dir.path()
+            ),
             "ERROR: No commit message"
         );
         assert_eq!(
@@ -754,27 +947,51 @@ mod tests {
         let branches = execute_tool("git_list_branches", &serde_json::json!({}), dir.path());
         assert!(branches.starts_with("Branches:\n"), "got {branches}");
         assert_eq!(
-            execute_tool("git_create_branch", &serde_json::json!({"name": "feature"}), dir.path()),
+            execute_tool(
+                "git_create_branch",
+                &serde_json::json!({"name": "feature"}),
+                dir.path()
+            ),
             "SUCCESS: Created branch 'feature'"
         );
-        assert!(execute_tool("git_list_branches", &serde_json::json!({}), dir.path()).contains("feature"));
+        assert!(
+            execute_tool("git_list_branches", &serde_json::json!({}), dir.path())
+                .contains("feature")
+        );
         assert_eq!(
-            execute_tool("git_switch_branch", &serde_json::json!({"name": "feature"}), dir.path()),
+            execute_tool(
+                "git_switch_branch",
+                &serde_json::json!({"name": "feature"}),
+                dir.path()
+            ),
             "SUCCESS: Switched to branch 'feature'"
         );
         // Deleting the current branch must fail (git protects it).
-        let err = execute_tool("git_delete_branch", &serde_json::json!({"name": "feature"}), dir.path());
+        let err = execute_tool(
+            "git_delete_branch",
+            &serde_json::json!({"name": "feature"}),
+            dir.path(),
+        );
         assert!(err.starts_with("ERROR"), "got {err}");
-        execute_tool("git_create_branch", &serde_json::json!({"name": "tmp"}), dir.path());
+        execute_tool(
+            "git_create_branch",
+            &serde_json::json!({"name": "tmp"}),
+            dir.path(),
+        );
         assert_eq!(
-            execute_tool("git_delete_branch", &serde_json::json!({"name": "tmp", "force": true}), dir.path()),
+            execute_tool(
+                "git_delete_branch",
+                &serde_json::json!({"name": "tmp", "force": true}),
+                dir.path()
+            ),
             "SUCCESS: Deleted branch 'tmp'"
         );
-        assert_eq!(
-            execute_tool("git_create_branch", &serde_json::json!({"name": "other", "checkout": true}), dir.path())
-                .starts_with("SUCCESS: Created branch 'other' and checked out"),
-            true
-        );
+        assert!(execute_tool(
+            "git_create_branch",
+            &serde_json::json!({"name": "other", "checkout": true}),
+            dir.path()
+        )
+        .starts_with("SUCCESS: Created branch 'other' and checked out"));
     }
 
     #[test]
@@ -785,18 +1002,33 @@ mod tests {
         std::env::remove_var("GITHUB_TOKEN");
         std::env::remove_var("GH_TOKEN");
         let dir = tempdir().unwrap();
-        let out = execute_tool("git_create_pr", &serde_json::json!({"title": "t"}), dir.path());
-        assert_eq!(out, "ERROR: gh CLI not found and no GITHUB_TOKEN/GH_TOKEN set.");
+        let out = execute_tool(
+            "git_create_pr",
+            &serde_json::json!({"title": "t"}),
+            dir.path(),
+        );
+        assert_eq!(
+            out,
+            "ERROR: gh CLI not found and no GITHUB_TOKEN/GH_TOKEN set."
+        );
     }
 
     #[test]
     fn codegen_tools() {
         let dir = tempdir().unwrap();
 
-        let dockerfile = execute_tool("generate_dockerfile", &serde_json::json!({"language": "python"}), dir.path());
+        let dockerfile = execute_tool(
+            "generate_dockerfile",
+            &serde_json::json!({"language": "python"}),
+            dir.path(),
+        );
         assert!(dockerfile.starts_with("FROM python:3.11-slim"));
         assert_eq!(
-            execute_tool("generate_dockerfile", &serde_json::json!({"language": "lisp"}), dir.path()),
+            execute_tool(
+                "generate_dockerfile",
+                &serde_json::json!({"language": "lisp"}),
+                dir.path()
+            ),
             "# Unsupported language"
         );
 
@@ -825,7 +1057,9 @@ mod tests {
             ),
             "SUCCESS: Refactored foo with async style"
         );
-        assert!(fs::read_to_string(dir.path().join("m.py")).unwrap().contains("async def foo"));
+        assert!(fs::read_to_string(dir.path().join("m.py"))
+            .unwrap()
+            .contains("async def foo"));
         assert!(execute_tool(
             "refactor_code",
             &serde_json::json!({"path": "m.py", "function": "missing"}),
@@ -834,25 +1068,49 @@ mod tests {
         .starts_with("ERROR: Function not found"));
 
         // Docs
-        let readme = execute_tool("generate_docs", &serde_json::json!({"type": "readme"}), dir.path());
+        let readme = execute_tool(
+            "generate_docs",
+            &serde_json::json!({"type": "readme"}),
+            dir.path(),
+        );
         assert!(readme.starts_with("# Project"), "got {readme}");
-        let api = execute_tool("generate_docs", &serde_json::json!({"type": "api", "path": "m.py"}), dir.path());
+        let api = execute_tool(
+            "generate_docs",
+            &serde_json::json!({"type": "api", "path": "m.py"}),
+            dir.path(),
+        );
         assert!(api.contains("## foo"));
         assert_eq!(
-            execute_tool("generate_docs", &serde_json::json!({"type": "api"}), dir.path()),
+            execute_tool(
+                "generate_docs",
+                &serde_json::json!({"type": "api"}),
+                dir.path()
+            ),
             "ERROR: Invalid doc type or missing path"
         );
 
         // Profiler
-        let profile = execute_tool("profile_code", &serde_json::json!({"path": "m.py"}), dir.path());
+        let profile = execute_tool(
+            "profile_code",
+            &serde_json::json!({"path": "m.py"}),
+            dir.path(),
+        );
         assert!(profile.starts_with("Code Profile\n="), "got {profile}");
         assert!(profile.contains("Lines: 3"), "got {profile}");
         assert!(profile.contains("Functions: 1"));
         assert_eq!(
-            execute_tool("profile_code", &serde_json::json!({"path": "nope.py"}), dir.path()),
+            execute_tool(
+                "profile_code",
+                &serde_json::json!({"path": "nope.py"}),
+                dir.path()
+            ),
             "File not found"
         );
-        let suggestions = execute_tool("optimize_code", &serde_json::json!({"path": "m.py"}), dir.path());
+        let suggestions = execute_tool(
+            "optimize_code",
+            &serde_json::json!({"path": "m.py"}),
+            dir.path(),
+        );
         assert!(suggestions.starts_with("Optimization Suggestions\n="));
 
         // API client
@@ -861,41 +1119,14 @@ mod tests {
             r#"{"servers":[{"url":"https://api.example.com"}],"paths":{"/things":{"get":{}}}}"#,
         )
         .unwrap();
-        let client = execute_tool("generate_api_client", &serde_json::json!({"spec": "spec.json"}), dir.path());
-        assert!(client.contains("def get_things(self, **kwargs):"), "got {client}");
+        let client = execute_tool(
+            "generate_api_client",
+            &serde_json::json!({"spec": "spec.json"}),
+            dir.path(),
+        );
+        assert!(
+            client.contains("def get_things(self, **kwargs):"),
+            "got {client}"
+        );
     }
-}
-
-fn run_git(cwd: &std::path::Path, args: &[&str]) -> String {
-    match Command::new("git").args(args).current_dir(cwd).output() {
-        Ok(o) => {
-            let out = String::from_utf8_lossy(&o.stdout).to_string();
-            if out.trim().is_empty() {
-                String::from_utf8_lossy(&o.stderr).to_string()
-            } else {
-                out
-            }
-        }
-        Err(e) => format!("ERROR: {e}"),
-    }
-}
-
-/// Run git and map trimmed stdout on success, stderr on failure.
-fn git_ok(
-    cwd: &std::path::Path,
-    args: &[&str],
-    on_success: impl FnOnce(&str) -> String,
-) -> Result<String, String> {
-    match Command::new("git").args(args).current_dir(cwd).output() {
-        Ok(o) if o.status.success() => Ok(on_success(String::from_utf8_lossy(&o.stdout).trim())),
-        Ok(o) => Err(String::from_utf8_lossy(&o.stderr).trim().to_string()),
-        Err(e) => Err(e.to_string()),
-    }
-}
-
-fn string_array(args: &Value, key: &str) -> Vec<String> {
-    args.get(key)
-        .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
-        .unwrap_or_default()
 }

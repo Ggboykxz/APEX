@@ -67,7 +67,12 @@ impl SkillManager {
         let mut in_prompt = false;
         for line in &lines {
             if line.starts_with("## Description:") {
-                description = line.splitn(2, ':').nth(1).unwrap_or("").trim().to_string();
+                description = line
+                    .split_once(':')
+                    .map(|x| x.1)
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
             } else if line.trim() == "## Prompt" {
                 in_prompt = true;
             } else if in_prompt {
@@ -78,7 +83,11 @@ impl SkillManager {
         if prompt.is_empty() {
             return None;
         }
-        Some(Skill { name, description, prompt })
+        Some(Skill {
+            name,
+            description,
+            prompt,
+        })
     }
 
     pub fn get(&self, name: &str) -> Option<&Skill> {
@@ -86,10 +95,17 @@ impl SkillManager {
     }
 
     pub fn list_skills(&self) -> Vec<(String, String)> {
-        self.skills.values().map(|s| (s.name.clone(), s.description.clone())).collect()
+        self.skills
+            .values()
+            .map(|s| (s.name.clone(), s.description.clone()))
+            .collect()
     }
 
-    pub fn render(&self, name: &str, args: &std::collections::BTreeMap<String, String>) -> Option<String> {
+    pub fn render(
+        &self,
+        name: &str,
+        args: &std::collections::BTreeMap<String, String>,
+    ) -> Option<String> {
         let skill = self.get(name)?;
         let mut result = skill.prompt.clone();
         for (key, value) in args {
@@ -101,7 +117,11 @@ impl SkillManager {
     pub fn add(&mut self, name: &str, description: &str, prompt: &str) {
         self.skills.insert(
             name.to_string(),
-            Skill { name: name.to_string(), description: description.to_string(), prompt: prompt.to_string() },
+            Skill {
+                name: name.to_string(),
+                description: description.to_string(),
+                prompt: prompt.to_string(),
+            },
         );
     }
 
@@ -120,7 +140,9 @@ pub struct DiffTool {
 
 impl DiffTool {
     pub fn new(cwd: &Path) -> Self {
-        Self { cwd: cwd.to_path_buf() }
+        Self {
+            cwd: cwd.to_path_buf(),
+        }
     }
 
     pub fn diff(&self, path_a: &str, path_b: &str) -> String {
@@ -169,7 +191,13 @@ impl DiffTool {
             return "ERROR: One or more files not found".to_string();
         }
         match Command::new("diff3")
-            .args(["-m", "-E", &b.to_string_lossy(), &l.to_string_lossy(), &r.to_string_lossy()])
+            .args([
+                "-m",
+                "-E",
+                &b.to_string_lossy(),
+                &l.to_string_lossy(),
+                &r.to_string_lossy(),
+            ])
             .output()
         {
             Ok(o) => {
@@ -195,7 +223,9 @@ pub struct SearchReplace {
 
 impl SearchReplace {
     pub fn new(cwd: &Path) -> Self {
-        Self { cwd: cwd.to_path_buf() }
+        Self {
+            cwd: cwd.to_path_buf(),
+        }
     }
 
     /// Returns `{"files_modified": [...], "replacements": N, "errors": [...]}`.
@@ -240,7 +270,11 @@ impl SearchReplace {
                 }
                 let new_content = re.replace_all(&content, &rust_repl).to_string();
                 total += count as i64;
-                let rel = filepath.strip_prefix(&self.cwd).unwrap_or(&filepath).to_string_lossy().to_string();
+                let rel = filepath
+                    .strip_prefix(&self.cwd)
+                    .unwrap_or(&filepath)
+                    .to_string_lossy()
+                    .to_string();
                 if !dry_run {
                     if let Err(e) = fs::write(&filepath, &new_content) {
                         errors.push(format!("{}: {e}", filepath.display()));
@@ -329,7 +363,9 @@ pub struct CodeAnalyzer {
 
 impl CodeAnalyzer {
     pub fn new(cwd: &Path) -> Self {
-        Self { cwd: cwd.to_path_buf() }
+        Self {
+            cwd: cwd.to_path_buf(),
+        }
     }
 
     pub fn analyze_file(&self, path: &str) -> Value {
@@ -365,7 +401,11 @@ impl CodeAnalyzer {
                 classes.push(json!({"name": c.get(1).unwrap().as_str(), "line": i + 1}));
             }
             if let Some(c) = import_re.captures(line) {
-                let imp = c.get(1).or_else(|| c.get(2)).map(|m| m.as_str().to_string()).unwrap_or_default();
+                let imp = c
+                    .get(1)
+                    .or_else(|| c.get(2))
+                    .map(|m| m.as_str().to_string())
+                    .unwrap_or_default();
                 imports.push(imp);
             }
         }
@@ -434,12 +474,18 @@ mod tests {
         )
         .unwrap();
         let mut sm = SkillManager::new(dir.path());
-        assert_eq!(sm.list_skills(), vec![("greet".to_string(), "greet someone".to_string())]);
+        assert_eq!(
+            sm.list_skills(),
+            vec![("greet".to_string(), "greet someone".to_string())]
+        );
         assert!(sm.get("greet").is_some());
         let mut args = std::collections::BTreeMap::new();
         args.insert("name".to_string(), "Ada".to_string());
         args.insert("place".to_string(), "APEX".to_string());
-        assert_eq!(sm.render("greet", &args).unwrap(), "Hello Ada, welcome to APEX!");
+        assert_eq!(
+            sm.render("greet", &args).unwrap(),
+            "Hello Ada, welcome to APEX!"
+        );
         assert!(sm.render("missing", &args).is_none());
         sm.add("x", "desc", "prompt body");
         assert!(sm.remove("x"));
@@ -456,6 +502,7 @@ mod tests {
         assert!(sm.list_skills().is_empty());
     }
 
+    #[cfg(unix)]
     #[test]
     fn diff_tool_reports_identical_and_missing() {
         let dir = tempdir().unwrap();
@@ -463,9 +510,12 @@ mod tests {
         fs::write(dir.path().join("b.txt"), "one\ntwo\n").unwrap();
         let dt = DiffTool::new(dir.path());
         assert_eq!(dt.diff("a.txt", "b.txt"), "[files are identical]");
-        assert!(dt.diff("a.txt", "nope.txt").starts_with("ERROR: File not found"));
+        assert!(dt
+            .diff("a.txt", "nope.txt")
+            .starts_with("ERROR: File not found"));
     }
 
+    #[cfg(unix)]
     #[test]
     fn diff_tool_unified_output() {
         let dir = tempdir().unwrap();
@@ -486,11 +536,17 @@ mod tests {
         assert_eq!(res["replacements"], 2);
         assert_eq!(res["files_modified"][0], "f.txt (2 replacements)");
         // dry run must not touch the file
-        assert_eq!(fs::read_to_string(dir.path().join("f.txt")).unwrap(), "foo bar foo\n");
+        assert_eq!(
+            fs::read_to_string(dir.path().join("f.txt")).unwrap(),
+            "foo bar foo\n"
+        );
 
         let res = sr.replace_in_files("foo", "baz", &["*.txt".to_string()], false);
         assert_eq!(res["replacements"], 2);
-        assert_eq!(fs::read_to_string(dir.path().join("f.txt")).unwrap(), "baz bar baz\n");
+        assert_eq!(
+            fs::read_to_string(dir.path().join("f.txt")).unwrap(),
+            "baz bar baz\n"
+        );
         assert_eq!(res["files_modified"], json!(["f.txt"]));
     }
 
@@ -502,7 +558,10 @@ mod tests {
         // Python replacement uses \1; Rust must accept it.
         let res = sr.replace_in_files(r"(\w+) (\d+)", r"\2 \1", &["*.txt".to_string()], false);
         assert_eq!(res["replacements"], 1);
-        assert_eq!(fs::read_to_string(dir.path().join("f.txt")).unwrap(), "123 abc\n");
+        assert_eq!(
+            fs::read_to_string(dir.path().join("f.txt")).unwrap(),
+            "123 abc\n"
+        );
     }
 
     #[test]
@@ -510,7 +569,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let sr = SearchReplace::new(dir.path());
         let res = sr.replace_in_files("[", "x", &["*.txt".to_string()], true);
-        assert!(res.get("error").unwrap().to_string().contains("Invalid regex"));
+        assert!(res
+            .get("error")
+            .unwrap()
+            .to_string()
+            .contains("Invalid regex"));
     }
 
     #[test]

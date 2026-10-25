@@ -223,11 +223,15 @@ impl PermissionManager {
                 return match rule.action {
                     PermissionAction::Allow => (
                         true,
-                        rule.reason.clone().unwrap_or_else(|| "Allowed by rule".into()),
+                        rule.reason
+                            .clone()
+                            .unwrap_or_else(|| "Allowed by rule".into()),
                     ),
                     PermissionAction::Deny => (
                         false,
-                        rule.reason.clone().unwrap_or_else(|| "Denied by rule".into()),
+                        rule.reason
+                            .clone()
+                            .unwrap_or_else(|| "Denied by rule".into()),
                     ),
                     PermissionAction::Ask => (
                         false,
@@ -254,11 +258,7 @@ impl PermissionManager {
         user_id: Option<String>,
     ) -> String {
         self.request_id_counter += 1;
-        let request_id = format!(
-            "req_{}_{:08x}",
-            self.request_id_counter,
-            now_secs() as u64
-        );
+        let request_id = format!("req_{}_{:08x}", self.request_id_counter, now_secs() as u64);
         let request = PermissionRequest {
             request_id: request_id.clone(),
             tool_name: tool_name.to_string(),
@@ -284,7 +284,13 @@ impl PermissionManager {
         };
         if remember {
             let reason = format!("Approved for {}", request.tool_name);
-            self.add_rule(&request.tool_name, PermissionAction::Allow, Some(reason), expires_in, true);
+            self.add_rule(
+                &request.tool_name,
+                PermissionAction::Allow,
+                Some(reason),
+                expires_in,
+                true,
+            );
         }
         true
     }
@@ -295,7 +301,13 @@ impl PermissionManager {
         };
         if remember {
             let reason = format!("Denied for {}", request.tool_name);
-            self.add_rule(&request.tool_name, PermissionAction::Deny, Some(reason), None, true);
+            self.add_rule(
+                &request.tool_name,
+                PermissionAction::Deny,
+                Some(reason),
+                None,
+                true,
+            );
         }
         true
     }
@@ -349,7 +361,11 @@ pub struct PermissionRequestDenied {
 
 impl std::fmt::Display for PermissionRequestDenied {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Permission required for {}: {}", self.tool_name, self.permission)
+        write!(
+            f,
+            "Permission required for {}: {}",
+            self.tool_name, self.permission
+        )
     }
 }
 
@@ -366,9 +382,12 @@ mod tests {
     #[test]
     fn default_allows_safe_tools() {
         let m = PermissionManager::new();
-        assert_eq!(m.can_execute_tool("read_file", None, None), (true, "Reading files is safe".to_string()));
-        assert_eq!(m.can_execute_tool("grep", None, None).0, true);
-        assert_eq!(m.can_execute_tool("lsp_diagnostics", None, None).0, true);
+        assert_eq!(
+            m.can_execute_tool("read_file", None, None),
+            (true, "Reading files is safe".to_string())
+        );
+        assert!(m.can_execute_tool("grep", None, None).0);
+        assert!(m.can_execute_tool("lsp_diagnostics", None, None).0);
     }
 
     #[test]
@@ -382,7 +401,13 @@ mod tests {
     #[test]
     fn deny_rule_wins_by_position() {
         let mut m = PermissionManager::new();
-        m.add_rule("write_file", PermissionAction::Deny, Some("no writes".into()), None, false);
+        m.add_rule(
+            "write_file",
+            PermissionAction::Deny,
+            Some("no writes".into()),
+            None,
+            false,
+        );
         let (ok, msg) = m.can_execute_tool("write_file", None, None);
         assert!(!ok);
         assert!(msg.contains("no writes"));
@@ -408,7 +433,13 @@ mod tests {
     #[test]
     fn request_approve_remember_adds_allow_rule() {
         let mut m = PermissionManager::new();
-        let id = m.request_permission("bash", serde_json::json!({"cmd": "ls"}), "shell:execute", None, None);
+        let id = m.request_permission(
+            "bash",
+            serde_json::json!({"cmd": "ls"}),
+            "shell:execute",
+            None,
+            None,
+        );
         assert!(id.starts_with("req_"));
         assert_eq!(m.get_request(&id).unwrap().status, "pending");
         assert!(m.approve_request(&id, true, None));
@@ -419,7 +450,13 @@ mod tests {
     #[test]
     fn request_deny_remember_adds_deny_rule() {
         let mut m = PermissionManager::new();
-        let id = m.request_permission("write_file", serde_json::json!({}), "file:write", None, None);
+        let id = m.request_permission(
+            "write_file",
+            serde_json::json!({}),
+            "file:write",
+            None,
+            None,
+        );
         assert!(m.deny_request(&id, true));
         assert!(!m.can_execute_tool("write_file", None, None).0);
     }

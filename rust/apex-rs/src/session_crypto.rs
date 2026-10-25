@@ -36,11 +36,13 @@ pub fn b64_decode(s: &str) -> Option<Vec<u8>> {
 }
 
 pub fn key_path() -> PathBuf {
-    dirs::home_dir().unwrap_or_default().join(".apex").join(".session_key")
+    dirs::home_dir()
+        .unwrap_or_default()
+        .join(".apex")
+        .join(".session_key")
 }
 
 fn random_bytes(n: usize) -> Vec<u8> {
-    use std::io::Read;
     let mut buf = vec![0u8; n];
     #[cfg(unix)]
     {

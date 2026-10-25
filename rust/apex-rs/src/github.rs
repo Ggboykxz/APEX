@@ -112,17 +112,30 @@ impl GitHubClient {
     }
 
     pub fn get_issue(&self, issue_num: i64) -> Option<Value> {
-        self.request("GET", &format!("/repos/{}/{}/issues/{issue_num}", self.owner, self.repo), None)
-            .ok()
+        self.request(
+            "GET",
+            &format!("/repos/{}/{}/issues/{issue_num}", self.owner, self.repo),
+            None,
+        )
+        .ok()
     }
 
-    pub fn create_issue(&self, title: &str, body: &str, labels: Option<Vec<String>>) -> Option<Value> {
+    pub fn create_issue(
+        &self,
+        title: &str,
+        body: &str,
+        labels: Option<Vec<String>>,
+    ) -> Option<Value> {
         let mut data = json!({"title": title, "body": body});
         if let Some(labels) = labels {
             data["labels"] = json!(labels);
         }
-        self.request("POST", &format!("/repos/{}/{}/issues", self.owner, self.repo), Some(data))
-            .ok()
+        self.request(
+            "POST",
+            &format!("/repos/{}/{}/issues", self.owner, self.repo),
+            Some(data),
+        )
+        .ok()
     }
 
     pub fn close_issue(&self, issue_num: i64) -> bool {
@@ -143,8 +156,12 @@ impl GitHubClient {
     }
 
     pub fn get_pr(&self, pr_num: i64) -> Option<Value> {
-        self.request("GET", &format!("/repos/{}/{}/pulls/{pr_num}", self.owner, self.repo), None)
-            .ok()
+        self.request(
+            "GET",
+            &format!("/repos/{}/{}/pulls/{pr_num}", self.owner, self.repo),
+            None,
+        )
+        .ok()
     }
 
     pub fn create_pr(&self, title: &str, body: &str, head: &str, base: &str) -> Option<Value> {
@@ -181,7 +198,10 @@ impl GitHubClient {
     /// Authenticated JSON request; Python returned `None` on every error, this
     /// returns the reason and the callers decide.
     pub fn request(&self, method: &str, path: &str, data: Option<Value>) -> Result<Value, String> {
-        let mut headers = vec![("Accept".to_string(), "application/vnd.github.v3+json".to_string())];
+        let mut headers = vec![(
+            "Accept".to_string(),
+            "application/vnd.github.v3+json".to_string(),
+        )];
         if !self.token.is_empty() {
             headers.push(("Authorization".to_string(), format!("token {}", self.token)));
         }
@@ -229,7 +249,8 @@ impl GitHubAutomation {
             "## Error\n```\n{error_msg}\n```\n\n## Location\n- File: `{file_path}`\n- Timestamp: {}\n\n## Steps to Reproduce\n1. (Add steps here)\n\n## Expected Behavior\n(Describe what should happen)\n",
             now_iso8601_micros()
         );
-        self.client.create_issue(&title, &body, Some(vec!["bug".to_string()]))
+        self.client
+            .create_issue(&title, &body, Some(vec!["bug".to_string()]))
     }
 
     pub fn create_pr_for_changes(&self, cwd: &Path, changes: &[String]) -> Option<Value> {
@@ -295,7 +316,10 @@ pub fn create_pr_tool(
             cmd.push("--head");
             cmd.push(head);
         }
-        match output_with_timeout(Command::new("gh").args(&cmd).current_dir(cwd), std::time::Duration::from_secs(60)) {
+        match output_with_timeout(
+            Command::new("gh").args(&cmd).current_dir(cwd),
+            std::time::Duration::from_secs(60),
+        ) {
             Ok(o) if o.status.success() => {
                 let stdout = String::from_utf8_lossy(&o.stdout).trim().to_string();
                 if stdout.is_empty() {
@@ -304,7 +328,10 @@ pub fn create_pr_tool(
                     stdout
                 }
             }
-            Ok(o) => format!("ERROR: gh pr create failed: {}", String::from_utf8_lossy(&o.stderr).trim()),
+            Ok(o) => format!(
+                "ERROR: gh pr create failed: {}",
+                String::from_utf8_lossy(&o.stderr).trim()
+            ),
             Err(e) => format!("ERROR: gh pr create failed: {e}"),
         }
     } else {
@@ -361,11 +388,20 @@ fn rest_create_pr(cwd: &Path, title: &str, body: &str, base: &str, head: Option<
     let api_base = api_base_from_env();
     let headers = vec![
         ("Authorization".to_string(), format!("Bearer {token}")),
-        ("Accept".to_string(), "application/vnd.github+json".to_string()),
+        (
+            "Accept".to_string(),
+            "application/vnd.github+json".to_string(),
+        ),
         ("User-Agent".to_string(), "APEX".to_string()),
     ];
     let payload = json!({"title": title, "body": body, "base": base, "head": head});
-    match http_json("POST", &format!("{api_base}/repos/{owner}/{repo}/pulls"), &headers, Some(payload), 30) {
+    match http_json(
+        "POST",
+        &format!("{api_base}/repos/{owner}/{repo}/pulls"),
+        &headers,
+        Some(payload),
+        30,
+    ) {
         Ok(v) => v
             .get("html_url")
             .and_then(|u| u.as_str())
@@ -384,7 +420,11 @@ pub fn parse_github_remote(remote: &str) -> Option<(String, String)> {
     let rest = rest.strip_prefix(':').or_else(|| rest.strip_prefix('/'))?;
     let rest = rest.trim();
     let repo_path = rest.strip_suffix(".git").unwrap_or(rest);
-    let repo_path = repo_path.split_whitespace().next().unwrap_or("").trim_matches('/');
+    let repo_path = repo_path
+        .split_whitespace()
+        .next()
+        .unwrap_or("")
+        .trim_matches('/');
     let mut parts = repo_path.splitn(2, '/');
     let owner = parts.next().unwrap_or("");
     let repo = parts.next().unwrap_or("");
@@ -396,7 +436,11 @@ pub fn parse_github_remote(remote: &str) -> Option<(String, String)> {
 
 /// Run a git command in `cwd`, returning trimmed stdout on success.
 fn git_output(cwd: &Path, args: &[&str]) -> Option<String> {
-    let out = Command::new("git").args(args).current_dir(cwd).output().ok()?;
+    let out = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .ok()?;
     if !out.status.success() {
         return None;
     }
@@ -409,14 +453,24 @@ fn git_output(cwd: &Path, args: &[&str]) -> Option<String> {
 }
 
 pub fn which(prog: &str) -> Option<std::path::PathBuf> {
-    let paths = std::env::var("PATH").unwrap_or_default();
-    for dir in paths.split(':') {
-        if dir.is_empty() {
-            continue;
-        }
-        let candidate = Path::new(dir).join(prog);
-        if candidate.is_file() {
-            return Some(candidate);
+    let paths = std::env::var_os("PATH")?;
+    // `split_paths` handles the platform separator (`;` on Windows, `:` on Unix).
+    let extensions: Vec<String> = if cfg!(windows) {
+        std::env::var("PATHEXT")
+            .unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".to_string())
+            .split(';')
+            .filter(|e| !e.is_empty())
+            .map(|e| e.to_lowercase())
+            .collect()
+    } else {
+        vec![String::new()]
+    };
+    for dir in std::env::split_paths(&paths) {
+        for ext in &extensions {
+            let candidate = dir.join(format!("{prog}{ext}"));
+            if candidate.is_file() {
+                return Some(candidate);
+            }
         }
     }
     None
@@ -460,7 +514,9 @@ fn http_json(
             serde_json::from_str::<Value>(&text).map_err(|e| format!("invalid JSON response: {e}"))
         })
     });
-    handle.join().map_err(|_| "github request thread panicked".to_string())?
+    handle
+        .join()
+        .map_err(|_| "github request thread panicked".to_string())?
 }
 
 #[cfg(test)]
@@ -487,10 +543,22 @@ mod tests {
 
     #[test]
     fn parse_remote_variants() {
-        assert_eq!(parse_github_remote("git@github.com:user/repo.git"), Some(("user".into(), "repo".into())));
-        assert_eq!(parse_github_remote("https://github.com/user/repo.git"), Some(("user".into(), "repo".into())));
-        assert_eq!(parse_github_remote("https://github.com/user/repo"), Some(("user".into(), "repo".into())));
-        assert_eq!(parse_github_remote("git@github.com:Ggboykxz/APEX.git\n"), Some(("Ggboykxz".into(), "APEX".into())));
+        assert_eq!(
+            parse_github_remote("git@github.com:user/repo.git"),
+            Some(("user".into(), "repo".into()))
+        );
+        assert_eq!(
+            parse_github_remote("https://github.com/user/repo.git"),
+            Some(("user".into(), "repo".into()))
+        );
+        assert_eq!(
+            parse_github_remote("https://github.com/user/repo"),
+            Some(("user".into(), "repo".into()))
+        );
+        assert_eq!(
+            parse_github_remote("git@github.com:Ggboykxz/APEX.git\n"),
+            Some(("Ggboykxz".into(), "APEX".into()))
+        );
         assert_eq!(parse_github_remote("git@gitlab.com:user/repo.git"), None);
         assert_eq!(parse_github_remote("https://github.com/onlyowner"), None);
     }
@@ -505,10 +573,12 @@ mod tests {
 
     #[test]
     fn which_finds_sh() {
-        assert!(which("sh").is_some());
+        let shell = if cfg!(windows) { "cmd" } else { "sh" };
+        assert!(which(shell).is_some(), "expected {shell} on PATH");
         assert!(which("definitely-not-a-real-binary-xyz").is_none());
     }
 
+    #[cfg(unix)]
     #[test]
     fn command_timeout_kills_the_child() {
         let start = std::time::Instant::now();
@@ -517,7 +587,10 @@ mod tests {
             std::time::Duration::from_millis(200),
         );
         assert!(out.is_err(), "expected a timeout error");
-        assert!(start.elapsed() < std::time::Duration::from_secs(3), "killed early");
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(3),
+            "killed early"
+        );
 
         let ok = output_with_timeout(
             Command::new("sh").args(["-c", "echo hi"]),
@@ -527,10 +600,13 @@ mod tests {
         assert_eq!(String::from_utf8_lossy(&ok.stdout).trim(), "hi");
     }
 
+    /// (method, path, authorization header, request body)
+    type RecordedRequest = (String, String, String, Option<Value>);
+
     /// Records every request so the assertions can check method/path/body.
     #[derive(Clone, Default)]
     struct Recorder {
-        requests: Arc<Mutex<Vec<(String, String, String, Option<Value>)>>>,
+        requests: Arc<Mutex<Vec<RecordedRequest>>>,
     }
 
     async fn fake_github(State(rec): State<Recorder>, req: axum::extract::Request) -> Json<Value> {
@@ -544,7 +620,10 @@ mod tests {
             .to_string();
         let body = axum::body::to_bytes(req.into_body(), 1 << 20).await.ok();
         let body = body.and_then(|b| serde_json::from_slice::<Value>(&b).ok());
-        rec.requests.lock().unwrap().push((method.clone(), uri.clone(), auth, body));
+        rec.requests
+            .lock()
+            .unwrap()
+            .push((method.clone(), uri.clone(), auth, body));
 
         let path = uri.split('?').next().unwrap_or("").to_string();
         if path.ends_with("/pulls") && path.contains("/repos/octo/demo") {
@@ -589,7 +668,9 @@ mod tests {
         // Issues
         let issues = client.list_issues("open", "bug");
         assert_eq!(issues.len(), 2);
-        let created = client.create_issue("title", "body", Some(vec!["bug".to_string()])).unwrap();
+        let created = client
+            .create_issue("title", "body", Some(vec!["bug".to_string()]))
+            .unwrap();
         assert_eq!(created["title"], "first");
         assert!(client.get_issue(3).is_some());
         assert!(client.close_issue(3));
@@ -613,7 +694,10 @@ mod tests {
         assert!(flat.contains(&"PUT /repos/octo/demo/pulls/7/merge".to_string()));
 
         // Tokens and payloads really travel.
-        let (_, _, auth, _) = requests.iter().find(|(m, u, _, _)| m == "GET" && u.contains("issues?")).unwrap();
+        let (_, _, auth, _) = requests
+            .iter()
+            .find(|(m, u, _, _)| m == "GET" && u.contains("issues?"))
+            .unwrap();
         assert_eq!(auth, "token test-token");
         let (_, _, _, body) = requests
             .iter()
@@ -629,9 +713,14 @@ mod tests {
     fn errors_are_reported_not_swallowed() {
         // Nothing listens on this port: connect refused.
         let client = test_client("http://127.0.0.1:9");
-        let err = client.request("GET", "/repos/octo/demo/issues", None).unwrap_err();
+        let err = client
+            .request("GET", "/repos/octo/demo/issues", None)
+            .unwrap_err();
         assert!(!err.is_empty());
-        assert!(client.list_issues("open", "").is_empty(), "Python parity: empty on error");
+        assert!(
+            client.list_issues("open", "").is_empty(),
+            "Python parity: empty on error"
+        );
         assert!(!client.merge_pr(1, "squash"));
     }
 
@@ -643,7 +732,10 @@ mod tests {
         std::env::remove_var("GITHUB_TOKEN");
         std::env::remove_var("GH_TOKEN");
         let out = rest_create_pr(dir.path(), "t", "b", "main", None);
-        assert_eq!(out, "ERROR: gh CLI not found and no GITHUB_TOKEN/GH_TOKEN set.");
+        assert_eq!(
+            out,
+            "ERROR: gh CLI not found and no GITHUB_TOKEN/GH_TOKEN set."
+        );
     }
 
     #[test]
@@ -652,7 +744,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let repo = dir.path().join("repo");
         std::fs::create_dir(&repo).unwrap();
-        std::process::Command::new("git").args(["init", "-q"]).current_dir(&repo).output().unwrap();
+        std::process::Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&repo)
+            .output()
+            .unwrap();
         std::process::Command::new("git")
             .args(["remote", "add", "origin", "git@gitlab.com:octo/demo.git"])
             .current_dir(&repo)
@@ -676,7 +772,11 @@ mod tests {
             vec!["init", "-q"],
             vec!["remote", "add", "origin", "git@github.com:octo/demo.git"],
         ] {
-            std::process::Command::new("git").args(&args).current_dir(&repo).output().unwrap();
+            std::process::Command::new("git")
+                .args(&args)
+                .current_dir(&repo)
+                .output()
+                .unwrap();
         }
         std::env::set_var("GITHUB_TOKEN", "token-from-test");
         let out = rest_create_pr(&repo, "Title", "Body", "main", Some("feature"));
@@ -717,9 +817,18 @@ mod tests {
         std::fs::create_dir(&repo).unwrap();
         for args in [
             vec!["init", "-q"],
-            vec!["remote", "add", "origin", "https://github.com/Ggboykxz/APEX.git"],
+            vec![
+                "remote",
+                "add",
+                "origin",
+                "https://github.com/Ggboykxz/APEX.git",
+            ],
         ] {
-            std::process::Command::new("git").args(&args).current_dir(&repo).output().unwrap();
+            std::process::Command::new("git")
+                .args(&args)
+                .current_dir(&repo)
+                .output()
+                .unwrap();
         }
         // Only meaningful when `gh` is absent (otherwise it would hit the network).
         if which("gh").is_none() {

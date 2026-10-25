@@ -10,7 +10,13 @@ pub struct LspManager {
 
 /// LSP `languageId` for a file extension.
 pub fn language_id(path: &str) -> &'static str {
-    match Path::new(path).extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase().as_str() {
+    match Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase()
+        .as_str()
+    {
         "rs" => "rust",
         "py" => "python",
         "ts" => "typescript",
@@ -34,26 +40,36 @@ pub fn file_uri(path: &str) -> String {
 }
 
 impl LspManager {
-    pub fn new() -> Self { Self { client: None, root: String::new() } }
+    pub fn new() -> Self {
+        Self {
+            client: None,
+            root: String::new(),
+        }
+    }
 
     pub async fn start(&mut self, program: &str, args: &[&str], root: &str) -> Result<()> {
         // LSP requires `Content-Length` framing — unlike MCP's line-delimited JSON.
         let mut c = JsonRpcClient::spawn_framed(program, args).await?;
         let root_uri = file_uri(root);
-        let _ = c.request("initialize", json!({
-            "processId": std::process::id(),
-            "rootUri": root_uri,
-            "capabilities": {
-                "experimental": {"serverStatusNotification": true},
-                "textDocument": {
-                    "hover": {"contentFormat": ["plaintext", "markdown"]},
-                    "definition": {},
-                    "references": {},
-                    "publishDiagnostics": {}
-                }
-            },
-            "workspaceFolders": [{"uri": root_uri, "name": "workspace"}]
-        })).await;
+        let _ = c
+            .request(
+                "initialize",
+                json!({
+                    "processId": std::process::id(),
+                    "rootUri": root_uri,
+                    "capabilities": {
+                        "experimental": {"serverStatusNotification": true},
+                        "textDocument": {
+                            "hover": {"contentFormat": ["plaintext", "markdown"]},
+                            "definition": {},
+                            "references": {},
+                            "publishDiagnostics": {}
+                        }
+                    },
+                    "workspaceFolders": [{"uri": root_uri, "name": "workspace"}]
+                }),
+            )
+            .await;
         let _ = c.notify("initialized", json!({})).await;
         self.client = Some(c);
         self.root = root.to_string();
@@ -62,16 +78,23 @@ impl LspManager {
 
     /// `textDocument/didOpen` — most servers only answer queries for open documents.
     pub async fn did_open(&mut self, path: &str) -> Result<()> {
-        let c = self.client.as_mut().ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
         let text = std::fs::read_to_string(path).unwrap_or_default();
-        c.notify("textDocument/didOpen", json!({
-            "textDocument": {
-                "uri": file_uri(path),
-                "languageId": language_id(path),
-                "version": 1,
-                "text": text,
-            }
-        })).await
+        c.notify(
+            "textDocument/didOpen",
+            json!({
+                "textDocument": {
+                    "uri": file_uri(path),
+                    "languageId": language_id(path),
+                    "version": 1,
+                    "text": text,
+                }
+            }),
+        )
+        .await
     }
 
     /// Block until the server reports it is done indexing, or until it has been
@@ -80,7 +103,9 @@ impl LspManager {
     /// rust-analyzer answers queries with `null` while it is still loading, so
     /// queries must wait for `experimental/serverStatus {quiescent: true}`.
     pub async fn wait_ready(&mut self, timeout_ms: u64) -> bool {
-        let Some(c) = self.client.as_mut() else { return false };
+        let Some(c) = self.client.as_mut() else {
+            return false;
+        };
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
         let mut last_message = tokio::time::Instant::now();
         // Servers that report their status (rust-analyzer) must be waited for;
@@ -105,7 +130,9 @@ impl LspManager {
                 Ok(Err(_)) => return false,
                 Err(_) => {
                     // Consecutive read timeouts = the server is idle.
-                    if !saw_status && last_message.elapsed() >= std::time::Duration::from_millis(800) {
+                    if !saw_status
+                        && last_message.elapsed() >= std::time::Duration::from_millis(800)
+                    {
                         return true;
                     }
                 }
@@ -119,36 +146,64 @@ impl LspManager {
 
     pub async fn definition(&mut self, path: &str, line: i64, column: i64) -> Result<Value> {
         let uri = file_uri(path);
-        let c = self.client.as_mut().ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
-        c.request("textDocument/definition", json!({
-            "textDocument": {"uri": uri},
-            "position": Self::position(line, column),
-        })).await
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
+        c.request(
+            "textDocument/definition",
+            json!({
+                "textDocument": {"uri": uri},
+                "position": Self::position(line, column),
+            }),
+        )
+        .await
     }
 
     pub async fn references(&mut self, path: &str, line: i64, column: i64) -> Result<Value> {
         let uri = file_uri(path);
-        let c = self.client.as_mut().ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
-        c.request("textDocument/references", json!({
-            "textDocument": {"uri": uri},
-            "position": Self::position(line, column),
-            "context": {"includeDeclaration": true},
-        })).await
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
+        c.request(
+            "textDocument/references",
+            json!({
+                "textDocument": {"uri": uri},
+                "position": Self::position(line, column),
+                "context": {"includeDeclaration": true},
+            }),
+        )
+        .await
     }
 
     pub async fn hover(&mut self, path: &str, line: i64, column: i64) -> Result<Value> {
         let uri = file_uri(path);
-        let c = self.client.as_mut().ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
-        c.request("textDocument/hover", json!({
-            "textDocument": {"uri": uri},
-            "position": Self::position(line, column),
-        })).await
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
+        c.request(
+            "textDocument/hover",
+            json!({
+                "textDocument": {"uri": uri},
+                "position": Self::position(line, column),
+            }),
+        )
+        .await
     }
 
     pub async fn diagnostics(&mut self, path: &str) -> Result<Value> {
-        let c = self.client.as_mut().ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
         // pull diagnostics (LSP 3.17)
-        c.request("textDocument/diagnostic", json!({"textDocument":{"uri":file_uri(path)}})).await
+        c.request(
+            "textDocument/diagnostic",
+            json!({"textDocument":{"uri":file_uri(path)}}),
+        )
+        .await
     }
 
     pub async fn shutdown(&mut self) {

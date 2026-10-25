@@ -1,3 +1,7 @@
+// The Rust port exposes the full module surface before every module is wired
+// into the CLI. Keep the public API available without dead-code noise.
+#![allow(dead_code)]
+
 mod agent;
 mod codegen;
 mod config;
@@ -5,12 +9,12 @@ mod cost;
 mod formatter;
 mod github;
 mod hooks;
-mod memory;
-mod plugins;
 mod jsonrpc;
 mod lsp;
 mod mcp_client;
+mod memory;
 mod permission;
+mod plugins;
 mod rate_limiter;
 mod server;
 mod session_crypto;
@@ -33,11 +37,21 @@ struct Cli {
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// One-shot prompt
-    Run { prompt: String, #[arg(short, long)] session: Option<String> },
+    Run {
+        prompt: String,
+        #[arg(short, long)]
+        session: Option<String>,
+    },
     /// Interactive REPL
-    Chat { #[arg(short, long)] session: Option<String> },
+    Chat {
+        #[arg(short, long)]
+        session: Option<String>,
+    },
     /// Start HTTP server
-    Serve { #[arg(short, long, default_value = "8765")] port: u16 },
+    Serve {
+        #[arg(short, long, default_value = "8765")]
+        port: u16,
+    },
     /// List tools
     Tools,
     /// List plugins
@@ -94,23 +108,50 @@ fn load_mcp_servers() {
     // Run discovery on a dedicated thread: `main` is itself async, so creating
     // and blocking on another runtime from there would panic.
     let _ = std::thread::spawn(|| {
-        let base = dirs::home_dir().unwrap_or_default().join(".apex").join("mcp.json");
-        if !base.exists() { return; }
-        let data = match std::fs::read_to_string(&base) { Ok(d) => d, Err(_) => return };
-        let v: serde_json::Value = match serde_json::from_str(&data) { Ok(v) => v, Err(_) => return };
-        let servers = v.get("mcpServers").or_else(|| v.get("mcp_servers")).and_then(|x| x.as_object());
+        let base = dirs::home_dir()
+            .unwrap_or_default()
+            .join(".apex")
+            .join("mcp.json");
+        if !base.exists() {
+            return;
+        }
+        let data = match std::fs::read_to_string(&base) {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+        let v: serde_json::Value = match serde_json::from_str(&data) {
+            Ok(v) => v,
+            Err(_) => return,
+        };
+        let servers = v
+            .get("mcpServers")
+            .or_else(|| v.get("mcp_servers"))
+            .and_then(|x| x.as_object());
         let Some(servers) = servers else { return };
         let mut mgr = crate::mcp_client::McpManager::new();
         for (name, cfg) in servers {
-            let command = cfg.get("command").and_then(|x| x.as_str()).unwrap_or("").to_string();
-            let args: Vec<String> = cfg.get("args").and_then(|x| x.as_array())
-                .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+            let command = cfg
+                .get("command")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
+            let args: Vec<String> = cfg
+                .get("args")
+                .and_then(|x| x.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|x| x.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default();
             if !command.is_empty() {
                 mgr.add_server(name.clone(), command, args);
             }
         }
-        let rt = match tokio::runtime::Runtime::new() { Ok(r) => r, Err(_) => return };
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(r) => r,
+            Err(_) => return,
+        };
         rt.block_on(mgr.connect_all());
         crate::mcp_client::set_global(mgr);
     })
@@ -126,24 +167,39 @@ async fn main() {
     match cli.command {
         Some(Commands::Run { prompt, session }) => {
             let mut agent = agent::Agent::new(config);
-            if let Some(id) = &session { let _ = agent.load_session(id); }
+            if let Some(id) = &session {
+                let _ = agent.load_session(id);
+            }
             match agent.chat(&prompt).await {
-                Ok(resp) => { println!("{resp}"); let _ = std::io::stdout().flush(); }
+                Ok(resp) => {
+                    println!("{resp}");
+                    let _ = std::io::stdout().flush();
+                }
                 Err(e) => eprintln!("ERROR: {e}"),
             }
-            if let Some(id) = &session { let _ = agent.save_session(id); }
+            if let Some(id) = &session {
+                let _ = agent.save_session(id);
+            }
             // Token accounting goes to stderr so stdout stays script-friendly.
             if agent.usage.total_tokens > 0 {
-                eprintln!("[usage] {} tokens, cost ${:.6}",
+                eprintln!(
+                    "[usage] {} tokens, cost ${:.6}",
                     agent.usage.total_tokens,
-                    agent.cost.get_session_cost()["total_cost"].as_f64().unwrap_or(0.0));
+                    agent.cost.get_session_cost()["total_cost"]
+                        .as_f64()
+                        .unwrap_or(0.0)
+                );
             }
         }
         Some(Commands::Chat { session }) => {
             let mut agent = agent::Agent::new(config);
-            if let Some(id) = &session { let _ = agent.load_session(id); }
+            if let Some(id) = &session {
+                let _ = agent.load_session(id);
+            }
             agent.run_repl().await;
-            if let Some(id) = &session { let _ = agent.save_session(id); }
+            if let Some(id) = &session {
+                let _ = agent.save_session(id);
+            }
             if agent.usage.total_tokens > 0 {
                 eprintln!("{}", agent.cost_report());
             }
@@ -166,12 +222,30 @@ async fn main() {
                         continue;
                     }
                     let version = p.version();
-                    let version = if version.is_empty() { String::new() } else { format!(" v{version}") };
+                    let version = if version.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" v{version}")
+                    };
                     let state = if p.enabled() { "" } else { " [disabled]" };
                     let desc = p.description();
-                    println!("{}{}{}{}", p.name, version, state, if desc.is_empty() { String::new() } else { format!(" — {desc}") });
+                    println!(
+                        "{}{}{}{}",
+                        p.name,
+                        version,
+                        state,
+                        if desc.is_empty() {
+                            String::new()
+                        } else {
+                            format!(" — {desc}")
+                        }
+                    );
                     for t in p.tools() {
-                        println!("  - {} ({})", t.name, plugins::tool_full_name(&p.name, &t.name));
+                        println!(
+                            "  - {} ({})",
+                            t.name,
+                            plugins::tool_full_name(&p.name, &t.name)
+                        );
                     }
                 }
             }
@@ -219,7 +293,8 @@ async fn main() {
             }
         }
         Some(Commands::CallTool { name, args }) => {
-            let parsed: serde_json::Value = serde_json::from_str(&args).unwrap_or(serde_json::json!({}));
+            let parsed: serde_json::Value =
+                serde_json::from_str(&args).unwrap_or(serde_json::json!({}));
             println!("{}", tools::execute_tool(&name, &parsed, &config.cwd));
         }
         Some(Commands::Session { action }) => match action {

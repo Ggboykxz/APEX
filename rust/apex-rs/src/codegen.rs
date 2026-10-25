@@ -19,8 +19,17 @@ fn count_whole_word(text: &str, word: &str) -> usize {
     while let Some(pos) = text[start..].find(word) {
         let i = start + pos;
         let after = i + word.len();
-        let before_ok = i == 0 || text[..i].chars().next_back().map(|c| !is_word_char(c)).unwrap_or(true);
-        let after_ok = text[after..].chars().next().map(|c| !is_word_char(c)).unwrap_or(true);
+        let before_ok = i == 0
+            || text[..i]
+                .chars()
+                .next_back()
+                .map(|c| !is_word_char(c))
+                .unwrap_or(true);
+        let after_ok = text[after..]
+            .chars()
+            .next()
+            .map(|c| !is_word_char(c))
+            .unwrap_or(true);
         if before_ok && after_ok {
             count += 1;
         }
@@ -36,8 +45,17 @@ fn count_kw_before_word(text: &str, kw: &str) -> usize {
     while let Some(pos) = text[start..].find(kw) {
         let i = start + pos;
         let after = i + kw.len();
-        let before_ok = i == 0 || text[..i].chars().next_back().map(|c| !is_word_char(c)).unwrap_or(true);
-        let after_ok = text[after..].chars().next().map(is_word_char).unwrap_or(false);
+        let before_ok = i == 0
+            || text[..i]
+                .chars()
+                .next_back()
+                .map(|c| !is_word_char(c))
+                .unwrap_or(true);
+        let after_ok = text[after..]
+            .chars()
+            .next()
+            .map(is_word_char)
+            .unwrap_or(false);
         if before_ok && after_ok {
             count += 1;
         }
@@ -59,7 +77,9 @@ pub struct CodeRefactorer {
 
 impl CodeRefactorer {
     pub fn new(cwd: &Path) -> Self {
-        Self { cwd: cwd.to_path_buf() }
+        Self {
+            cwd: cwd.to_path_buf(),
+        }
     }
 
     fn read(&self, filepath: &str) -> Result<String, String> {
@@ -192,7 +212,11 @@ impl CodeRefactorer {
             out.push_str(&rest[..pos + 4]);
             let after = &rest[pos + 4..];
             // `\w+` function name
-            let name_len = after.chars().take_while(|c| is_word_char(*c)).map(|c| c.len_utf8()).sum::<usize>();
+            let name_len = after
+                .chars()
+                .take_while(|c| is_word_char(*c))
+                .map(|c| c.len_utf8())
+                .sum::<usize>();
             let (name, after_name) = after.split_at(name_len);
             out.push_str(name);
             if !after_name.starts_with('(') {
@@ -290,14 +314,25 @@ impl DockerManager {
     }
 
     pub fn generate_docker_compose(services: &[Value]) -> String {
-        let mut lines = vec!["version: '3.8'".to_string(), String::new(), "services:".to_string()];
+        let mut lines = vec![
+            "version: '3.8'".to_string(),
+            String::new(),
+            "services:".to_string(),
+        ];
         for svc in services {
-            let name = svc.get("name").and_then(|v| v.as_str()).unwrap_or("service");
+            let name = svc
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("service");
             let image = svc.get("image").and_then(|v| v.as_str()).unwrap_or("nginx");
             let ports: Vec<String> = svc
                 .get("ports")
                 .and_then(|v| v.as_array())
-                .map(|a| a.iter().filter_map(|p| p.as_str().map(|s| s.to_string())).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|p| p.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
                 .unwrap_or_else(|| vec!["80:80".to_string()]);
             lines.push(format!("  {name}:"));
             lines.push(format!("    image: {image}"));
@@ -316,7 +351,9 @@ pub struct ApiClientGenerator {
 
 impl ApiClientGenerator {
     pub fn new(cwd: &Path) -> Self {
-        Self { cwd: cwd.to_path_buf() }
+        Self {
+            cwd: cwd.to_path_buf(),
+        }
     }
 
     pub fn generate_from_openapi(&self, spec_path: &str) -> String {
@@ -324,7 +361,10 @@ impl ApiClientGenerator {
         if !path.exists() {
             return "ERROR: Spec file not found".to_string();
         }
-        let spec: Value = match std::fs::read_to_string(&path).ok().and_then(|d| serde_json::from_str(&d).ok()) {
+        let spec: Value = match std::fs::read_to_string(&path)
+            .ok()
+            .and_then(|d| serde_json::from_str(&d).ok())
+        {
             Some(v) => v,
             None => return "ERROR: Invalid JSON spec".to_string(),
         };
@@ -367,16 +407,31 @@ impl ApiClientGenerator {
         lines.join("\n")
     }
 
-    pub fn generate_curl(method: &str, url: &str, headers: Option<&Value>, data: Option<&Value>) -> String {
-        let mut parts = vec!["curl".to_string(), format!("-X {}", method.to_uppercase()), format!("\"{url}\"")];
+    pub fn generate_curl(
+        method: &str,
+        url: &str,
+        headers: Option<&Value>,
+        data: Option<&Value>,
+    ) -> String {
+        let mut parts = vec![
+            "curl".to_string(),
+            format!("-X {}", method.to_uppercase()),
+            format!("\"{url}\""),
+        ];
         if let Some(headers) = headers.and_then(|h| h.as_object()) {
             for (k, v) in headers {
-                let value = v.as_str().map(|s| s.to_string()).unwrap_or_else(|| v.to_string());
+                let value = v
+                    .as_str()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| v.to_string());
                 parts.push(format!("-H '{k}: {value}'"));
             }
         }
         if let Some(data) = data {
-            let value = data.as_str().map(|s| s.to_string()).unwrap_or_else(|| data.to_string());
+            let value = data
+                .as_str()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| data.to_string());
             parts.push(format!("-d '{value}'"));
         }
         parts.join(" ")
@@ -389,7 +444,9 @@ pub struct DocumentationGenerator {
 
 impl DocumentationGenerator {
     pub fn new(cwd: &Path) -> Self {
-        Self { cwd: cwd.to_path_buf() }
+        Self {
+            cwd: cwd.to_path_buf(),
+        }
     }
 
     pub fn generate_readme(&self) -> String {
@@ -436,7 +493,11 @@ impl DocumentationGenerator {
             let mut rest = line;
             while let Some(pos) = rest.find("def ") {
                 let after = &rest[pos + 4..];
-                let name_len: usize = after.chars().take_while(|c| is_word_char(*c)).map(|c| c.len_utf8()).sum();
+                let name_len: usize = after
+                    .chars()
+                    .take_while(|c| is_word_char(*c))
+                    .map(|c| c.len_utf8())
+                    .sum();
                 let (name, after_name) = after.split_at(name_len);
                 if name.is_empty() || !after_name.starts_with('(') {
                     rest = after;
@@ -464,7 +525,9 @@ impl DocumentationGenerator {
         let mut stack = vec![self.cwd.clone()];
         let mut py_files: Vec<PathBuf> = Vec::new();
         while let Some(dir) = stack.pop() {
-            let Ok(rd) = std::fs::read_dir(&dir) else { continue };
+            let Ok(rd) = std::fs::read_dir(&dir) else {
+                continue;
+            };
             for e in rd.flatten() {
                 let p = e.path();
                 let hidden = p
@@ -484,7 +547,9 @@ impl DocumentationGenerator {
         }
         py_files.sort();
         for f in py_files {
-            let Ok(content) = std::fs::read_to_string(&f) else { continue };
+            let Ok(content) = std::fs::read_to_string(&f) else {
+                continue;
+            };
             for line in content.lines() {
                 if let Some(pos) = line.find("class ") {
                     let after = &line[pos + 6..];
@@ -492,7 +557,11 @@ impl DocumentationGenerator {
                     if name.is_empty() || !line.contains(':') {
                         continue;
                     }
-                    let rel = f.strip_prefix(&self.cwd).unwrap_or(&f).to_string_lossy().to_string();
+                    let rel = f
+                        .strip_prefix(&self.cwd)
+                        .unwrap_or(&f)
+                        .to_string_lossy()
+                        .replace('\\', "/");
                     classes.push((name, rel));
                 }
             }
@@ -511,7 +580,9 @@ pub struct PerformanceProfiler {
 
 impl PerformanceProfiler {
     pub fn new(cwd: &Path) -> Self {
-        Self { cwd: cwd.to_path_buf() }
+        Self {
+            cwd: cwd.to_path_buf(),
+        }
     }
 
     pub fn profile_file(&self, filepath: &str) -> Value {
@@ -569,7 +640,13 @@ mod tests {
         assert_eq!(count_whole_word("if a ifelse elif b else c", "if"), 1);
         assert_eq!(count_kw_before_word("def foo():", "def "), 1);
         assert_eq!(count_kw_before_word("xdef foo():", "def "), 0);
-        assert_eq!(count_line_starts("import os\nfrom x import y\nimport numpy", &["import ", "from "]), 3);
+        assert_eq!(
+            count_line_starts(
+                "import os\nfrom x import y\nimport numpy",
+                &["import ", "from "]
+            ),
+            3
+        );
         assert_eq!(count_line_starts("ximport os", &["import "]), 0);
     }
 
@@ -577,7 +654,11 @@ mod tests {
     fn refactor_function_styles() {
         let dir = tempdir().unwrap();
         let file = dir.path().join("m.py");
-        std::fs::write(&file, "def foo(a):\n    return a\n\ndef bar(b):\n    return b\n").unwrap();
+        std::fs::write(
+            &file,
+            "def foo(a):\n    return a\n\ndef bar(b):\n    return b\n",
+        )
+        .unwrap();
         let cr = CodeRefactorer::new(dir.path());
 
         let r = cr.refactor_function("m.py", "foo", "async");
@@ -603,7 +684,11 @@ mod tests {
     fn add_type_hints_matches_python_output() {
         let dir = tempdir().unwrap();
         let file = dir.path().join("m.py");
-        std::fs::write(&file, "def foo(a):\n    return a\n\nx = 1\ndef bar(b, c):\n    return b\n").unwrap();
+        std::fs::write(
+            &file,
+            "def foo(a):\n    return a\n\nx = 1\ndef bar(b, c):\n    return b\n",
+        )
+        .unwrap();
         let cr = CodeRefactorer::new(dir.path());
         let r = cr.add_type_hints("m.py");
         assert_eq!(r["success"], true);
@@ -623,7 +708,10 @@ mod tests {
         let r = cr.extract_method("m.py", "Foo", "return 1", "bar");
         assert_eq!(r["success"], true);
         let content = std::fs::read_to_string(&file).unwrap();
-        assert_eq!(content, "class Foo:\n    def bar(self):\n        return 1\n\n    pass\n");
+        assert_eq!(
+            content,
+            "class Foo:\n    def bar(self):\n        return 1\n\n    pass\n"
+        );
         let r = cr.extract_method("m.py", "Missing", "x", "y");
         assert_eq!(r["error"], "Class Missing not found");
     }
@@ -632,7 +720,10 @@ mod tests {
     fn dockerfile_and_compose() {
         assert!(DockerManager::generate_dockerfile("python").starts_with("FROM python:3.11-slim"));
         assert!(DockerManager::generate_dockerfile("rust").contains("cargo build --release"));
-        assert_eq!(DockerManager::generate_dockerfile("cobol"), "# Unsupported language");
+        assert_eq!(
+            DockerManager::generate_dockerfile("cobol"),
+            "# Unsupported language"
+        );
         let compose = DockerManager::generate_docker_compose(&[json!({
             "name": "web", "image": "nginx", "ports": ["8080:80"]
         })]);
@@ -652,15 +743,24 @@ mod tests {
     fn db_model_matches_python() {
         let model = DatabaseManager::generate_model(
             "user",
-            &[json!({"name": "id", "type": "int"}), json!({"name": "name", "type": "varchar"})],
+            &[
+                json!({"name": "id", "type": "int"}),
+                json!({"name": "name", "type": "varchar"}),
+            ],
         );
         assert_eq!(
             model,
             "class User:\n\n    id: int = None\n    name: str = None\n\n    def __init__(self, **kwargs):\n        for key, value in kwargs.items():\n            setattr(self, key, value)"
         );
-        assert_eq!(DatabaseManager::get_connection_string("sqlite"), "sqlite:///db.sqlite");
+        assert_eq!(
+            DatabaseManager::get_connection_string("sqlite"),
+            "sqlite:///db.sqlite"
+        );
         assert_eq!(DatabaseManager::get_connection_string("oracle"), "");
-        assert_eq!(DatabaseManager::generate_queries("user")["select"], "SELECT * FROM user WHERE id = :id;");
+        assert_eq!(
+            DatabaseManager::generate_queries("user")["select"],
+            "SELECT * FROM user WHERE id = :id;"
+        );
     }
 
     #[test]
@@ -678,16 +778,27 @@ mod tests {
         // Python keeps the braces: `/users/{id}` -> `get_users_{id}`.
         assert!(code.contains("def get_users_{id}(self, **kwargs):"));
         assert!(code.contains("return self.session.get(f\"{self.base_url}/users/{id}\", **kwargs)"));
-        assert_eq!(acg.generate_from_openapi("missing.json"), "ERROR: Spec file not found");
-        assert!(acg.generate_from_openapi("spec.json").contains("def post_users"));
+        assert_eq!(
+            acg.generate_from_openapi("missing.json"),
+            "ERROR: Spec file not found"
+        );
+        assert!(acg
+            .generate_from_openapi("spec.json")
+            .contains("def post_users"));
         let curl = ApiClientGenerator::generate_curl(
             "post",
             "https://x/y",
             Some(&json!({"Content-Type": "application/json"})),
             Some(&json!("{\"a\":1}")),
         );
-        assert_eq!(curl, "curl -X POST \"https://x/y\" -H 'Content-Type: application/json' -d '{\"a\":1}'");
-        assert_eq!(ApiClientGenerator::generate_curl("get", "http://u", None, None), "curl -X GET \"http://u\"");
+        assert_eq!(
+            curl,
+            "curl -X POST \"https://x/y\" -H 'Content-Type: application/json' -d '{\"a\":1}'"
+        );
+        assert_eq!(
+            ApiClientGenerator::generate_curl("get", "http://u", None, None),
+            "curl -X GET \"http://u\""
+        );
     }
 
     #[test]
@@ -726,7 +837,11 @@ mod tests {
                 }
                 None => {
                     assert_eq!(result["error"], "Function not found", "{name}");
-                    assert_eq!(std::fs::read_to_string(&path).unwrap(), content, "{name} unchanged");
+                    assert_eq!(
+                        std::fs::read_to_string(&path).unwrap(),
+                        content,
+                        "{name} unchanged"
+                    );
                 }
             }
         }
@@ -736,7 +851,11 @@ mod tests {
     fn markdoc_skips_hidden_directories() {
         let dir = tempdir().unwrap();
         std::fs::create_dir(dir.path().join(".venv")).unwrap();
-        std::fs::write(dir.path().join(".venv").join("site.py"), "class FromVenv:\n    pass\n").unwrap();
+        std::fs::write(
+            dir.path().join(".venv").join("site.py"),
+            "class FromVenv:\n    pass\n",
+        )
+        .unwrap();
         std::fs::write(dir.path().join("app.py"), "class App:\n    pass\n").unwrap();
         std::fs::write(dir.path().join(".hidden.py"), "class Hidden:\n    pass\n").unwrap();
         let dg = DocumentationGenerator::new(dir.path());
@@ -762,7 +881,11 @@ mod tests {
         let dir = tempdir().unwrap();
         std::fs::write(dir.path().join("main.py"), "def run(a, b):\n    pass\n").unwrap();
         std::fs::create_dir(dir.path().join("pkg")).unwrap();
-        std::fs::write(dir.path().join("pkg").join("mod.py"), "class Thing:\n    pass\n").unwrap();
+        std::fs::write(
+            dir.path().join("pkg").join("mod.py"),
+            "class Thing:\n    pass\n",
+        )
+        .unwrap();
         let dg = DocumentationGenerator::new(dir.path());
 
         let readme = dg.generate_readme();
@@ -808,10 +931,17 @@ mod tests {
 
         let empty = dir.path().join("empty.py");
         std::fs::write(&empty, "x = 1\n").unwrap();
-        assert_eq!(pp.suggest_optimizations("empty.py"), vec!["Code looks optimized"]);
+        assert_eq!(
+            pp.suggest_optimizations("empty.py"),
+            vec!["Code looks optimized"]
+        );
 
         let slow = dir.path().join("slow.py");
-        std::fs::write(&slow, "data = []\nfor i in range(10):\n    data.append(i)\nf = open('x')\n").unwrap();
+        std::fs::write(
+            &slow,
+            "data = []\nfor i in range(10):\n    data.append(i)\nf = open('x')\n",
+        )
+        .unwrap();
         let s = pp.suggest_optimizations("slow.py");
         assert!(s.contains(&"Use list comprehension instead of range loops".to_string()));
         assert!(s.contains(&"Consider using list comprehension or generator".to_string()));

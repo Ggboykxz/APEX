@@ -86,11 +86,7 @@ pub fn model_pricing(model: &str) -> Option<ModelPricing> {
     let (_, per_1k_input, per_1k_output) = match exact {
         Some(hit) => hit,
         None => {
-            let suffix = model
-                .rsplit(['/', ':'])
-                .next()
-                .unwrap_or(model)
-                .to_string();
+            let suffix = model.rsplit(['/', ':']).next().unwrap_or(model).to_string();
             MODEL_PRICING
                 .iter()
                 .find(|(name, _, _)| *name == suffix.as_str())
@@ -119,7 +115,7 @@ impl Usage {
         self.total_tokens += total;
     }
 
-    pub fn to_json(&self) -> Value {
+    pub fn to_json(self) -> Value {
         json!({
             "prompt_tokens": self.prompt_tokens,
             "completion_tokens": self.completion_tokens,
@@ -250,15 +246,29 @@ mod tests {
         assert_eq!(model_pricing("gpt-4o").unwrap().per_1k_input, 0.0025);
         assert_eq!(model_pricing("gpt-4o").unwrap().per_1k_output, 0.01);
         assert_eq!(model_pricing("gpt-5-nano").unwrap().per_1k_input, 0.00005);
-        assert_eq!(model_pricing("claude-sonnet-4.5").unwrap().per_1k_output, 0.015);
-        assert_eq!(model_pricing("gemini-1.5-flash").unwrap().per_1k_input, 0.000075);
-        assert_eq!(model_pricing("deepseek-v4-pro").unwrap().per_1k_output, 0.00348);
+        assert_eq!(
+            model_pricing("claude-sonnet-4.5").unwrap().per_1k_output,
+            0.015
+        );
+        assert_eq!(
+            model_pricing("gemini-1.5-flash").unwrap().per_1k_input,
+            0.000075
+        );
+        assert_eq!(
+            model_pricing("deepseek-v4-pro").unwrap().per_1k_output,
+            0.00348
+        );
         assert_eq!(model_pricing("ollama").unwrap().per_1k_input, 0.0);
         assert_eq!(MODEL_PRICING.len(), 46);
         assert!(model_pricing("unknown-model").is_none());
         // Provider-prefixed ids fall back to the bare model name.
         assert_eq!(model_pricing("openai/gpt-4o").unwrap().per_1k_input, 0.0025);
-        assert_eq!(model_pricing("anthropic:claude-opus-4.7").unwrap().per_1k_output, 0.025);
+        assert_eq!(
+            model_pricing("anthropic:claude-opus-4.7")
+                .unwrap()
+                .per_1k_output,
+            0.025
+        );
     }
 
     #[test]
