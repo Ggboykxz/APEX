@@ -538,11 +538,24 @@ TOOL_SCHEMAS = [
         "type": "function",
         "function": {
             "name": "apply_patch",
-            "description": "Apply a patch/diff to files in the codebase.",
+            "description": (
+                "Apply a multi-file patch atomically. Supports Codex-style patches "
+                "(*** Begin Patch ... *** End Patch) and unified diffs "
+                "(--- a/path, +++ b/path). All files are validated before any write; "
+                "use dry_run to preview. Paths must be relative to the project root."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "patch": {"type": "string", "description": "Patch content to apply"}
+                    "patch": {
+                        "type": "string",
+                        "description": "Patch content to apply",
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "description": "Validate and preview without writing files",
+                        "default": False,
+                    },
                 },
                 "required": ["patch"],
             },
@@ -2197,25 +2210,29 @@ class ToolExecutor:
         return f"Session shared: {share_link}\nShare this link with others to collaborate."
 
     def _execute_apply_patch(self, args: dict[str, Any]) -> str:
-        patch = args["patch"]
-        try:
-            import tempfile
+        from .apply_patch import PatchError
+        from .apply_patch import apply_patch as apply_patch_text
 
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".patch", delete=False) as f:
-                f.write(patch)
-                patch_file = f.name
-            result = subprocess.run(
-                ["patch", "-p1", "-i", patch_file], cwd=self.cwd, capture_output=True, text=True
-            )
-            os.unlink(patch_file)
-            if result.returncode == 0:
-                return f"SUCCESS: Patch applied\n{result.stdout}"
-            else:
-                return f"ERROR: Patch failed\n{result.stderr}"
-        except FileNotFoundError:
-            return "ERROR: patch command not found. Install it with: apt-get install patch"
-        except Exception as e:
-            return f"ERROR: Cannot apply patch: {e}"
+        patch = args.get("patch", "")
+        dry_run = bool(args.get("dry_run", False))
+        try:
+            result = apply_patch_text(patch, Path(self.cwd), dry_run=dry_run)
+        except PatchError as exc:
+            detail = f"{exc.reason}: {exc.message}"
+            if exc.path and exc.path not in exc.message:
+                detail += f" ({exc.path})"
+            return f"ERROR: {detail}"
+        except Exception as exc:  # pragma: no cover - defensive boundary
+            return f"ERROR: patch_failed: {exc}"
+
+        count = len(result["files"])
+        header = "PREVIEW" if dry_run else "SUCCESS"
+        action = "Patch would apply" if dry_run else "Patch applied"
+        lines = [
+            f"{header}: {action} ({count} files, +{result['additions']}/-{result['deletions']})"
+        ]
+        lines.extend(f"warning: {warning}" for warning in result["warnings"])
+        return "\n".join(lines)
 
     def _execute_list_commands(self, args: dict[str, Any]) -> str:
         from .commands import get_command_manager

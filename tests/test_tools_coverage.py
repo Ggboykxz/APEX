@@ -531,18 +531,10 @@ def test_preview_edit_path_not_found(executor):
 # â”€â”€â”€ apply_patch: cleanup + success/error (2136-2140) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-def test_apply_patch_patch_failure(executor, monkeypatch):
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        lambda *a, **kw: type("R", (), {"returncode": 1, "stdout": "", "stderr": "patch err"})(),
-    )
-    import os
-
-    monkeypatch.setattr(os, "unlink", lambda p: None)
+def test_apply_patch_patch_failure(executor):
     result = executor.execute(
         "apply_patch",
-        {"patch": "diff --git a/x b/x\nindex 0..1\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n"},
+        {"patch": "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n"},
     )
     assert "ERROR" in result
 
@@ -729,19 +721,13 @@ def test_run_test_with_stderr(executor, monkeypatch):
 # â”€â”€â”€ apply_patch: success path (2138) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-def test_apply_patch_success(executor, monkeypatch):
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        lambda *a, **kw: type("R", (), {"returncode": 0, "stdout": "patch ok", "stderr": ""})(),
-    )
-    import os
-
-    monkeypatch.setattr(os, "unlink", lambda p: None)
+def test_apply_patch_success(executor):
+    (executor.cwd / "x").write_text("old\n", encoding="utf-8")
     result = executor.execute(
         "apply_patch", {"patch": "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+new\n"}
     )
     assert "SUCCESS" in result
+    assert (executor.cwd / "x").read_text(encoding="utf-8") == "new\n"
 
 
 # â”€â”€â”€ clipboard tests using fake pyperclip that raises ImportError â”€â”€â”€â”€â”€â”€â”€â”€
