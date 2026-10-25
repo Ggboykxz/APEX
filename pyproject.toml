@@ -82,7 +82,9 @@ line-length = 100
 target-version = "py311"
 extend-exclude = [
     "mkdocs.yml",
-    "scripts/*",
+    # Vendored skill packages: gitignored local assets, audited separately.
+    # The project lint gate covers apex/, tests/ and scripts/.
+    "skills/",
     "*.ps1",
     "*.sh",
     ".github/",

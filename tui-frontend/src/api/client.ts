@@ -29,6 +29,13 @@ export interface BashResult {
   result?: string
 }
 
+export interface SessionDiffResult {
+  files?: string
+  diff?: string
+  session_id?: string
+  error?: string
+}
+
 const DEFAULT_PORT = 8765
 
 function resolvePort(): number {
@@ -88,6 +95,11 @@ export class APIClient {
 
   exportSession(sessionId: string): Promise<{ path?: string; error?: string }> {
     return this.post("/api/v1/export", { session_id: sessionId })
+  }
+
+  /** Unified diff of the current working tree (preview only). */
+  sessionDiff(sessionId: string): Promise<SessionDiffResult> {
+    return this.request(`/api/v1/session/${encodeURIComponent(sessionId)}/diff`)
   }
 
   share(sessionId: string, title: string): Promise<{ url?: string; error?: string }> {

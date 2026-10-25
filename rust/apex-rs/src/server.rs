@@ -32,6 +32,8 @@ struct ChatReq {
     message: Option<String>,
     #[serde(default)]
     model: Option<String>,
+    // Accepted for API compatibility but not forwarded to the agent yet.
+    // TODO(v2.6): select the requested agent in `/api/v1/chat`.
     #[serde(default)]
     #[allow(dead_code)]
     agent: Option<String>,
@@ -101,6 +103,15 @@ fn list_files(root: &std::path::Path, max: usize) -> Vec<String> {
 }
 
 fn run_shell_capture(command: &str, cwd: &std::path::Path) -> serde_json::Value {
+    // `/api/v1/bash` must not be a way around the same safety policy that
+    // guards the `run_command` tool.
+    let analysis = crate::shell_security::SHELL_ANALYZER.analyze(command);
+    if !analysis.safe {
+        return serde_json::json!({
+            "error": "blocked by safety policy",
+            "warnings": analysis.warnings,
+        });
+    }
     match crate::tools::shell_command(command)
         .current_dir(cwd)
         .output()
@@ -126,6 +137,16 @@ pub async fn serve(config: Config, port: u16) {
         .route("/health", get(|| async { "ok" }))
         .route("/api/v1/tools", get(|| async {
             Json(serde_json::to_value(tools::tool_schemas()).unwrap())
+        }))
+        .route("/api/v1/security/analyze", post({
+            move |Json(req): Json<serde_json::Value>| async move {
+                let command = req.get("command").and_then(|v| v.as_str()).unwrap_or("");
+                let analysis = crate::shell_security::SHELL_ANALYZER.analyze(command);
+                let mut verdict = analysis.to_json();
+                verdict["allowed"] =
+                    serde_json::json!(crate::shell_security::SHELL_ANALYZER.is_safe(command));
+                Json(verdict)
+            }
         }))
         .route("/api/v1/models", get(|State(st): State<AppState>| async move {
             let mut models = vec![st.config.model.clone()];
@@ -573,6 +594,16 @@ mod tests {
         let v = run_shell_capture("echo hello", dir.path());
         assert_eq!(v["stdout"].as_str().unwrap().trim(), "hello");
         assert_eq!(v["exit_code"], 0);
+    }
+
+    #[test]
+    fn shell_capture_blocks_dangerous_commands() {
+        let dir = tempfile::tempdir().unwrap();
+        let marker = dir.path().join("marker.txt");
+        let command = format!("echo hi > {} && rm -rf /", marker.display());
+        let v = run_shell_capture(&command, dir.path());
+        assert_eq!(v["error"], "blocked by safety policy");
+        assert!(!marker.exists(), "blocked command must not execute");
     }
 
     #[test]

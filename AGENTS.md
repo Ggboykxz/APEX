@@ -30,6 +30,8 @@
 20. [File Watcher](#20-file-watcher)
 21. [Configuration](#21-configuration)
 22. [Security](#22-security)
+23. [Delivery & Governance](#23-delivery--governance)
+24. [Rust Port (Internal GA)](#24-rust-port-internal-ga)
 
 ---
 
@@ -108,7 +110,15 @@ tui-frontend/src/
 │   ├── ChatPanel.tsx       # Message thread with streaming, @refs, !bash
 │   ├── StatusBar.tsx       # In/Out/Total tokens, ctx%, $spent, agent
 │   ├── Sidebar.tsx         # Agent list, session info
+│   ├── DiffPreview.tsx     # Diff overlay (keyboard + controller)
 │   └── overlays.tsx        # Stateless overlay components (palette, selectors, help…)
+├── streaming/
+│   ├── events.ts           # Wire event normalization (typed union)
+│   ├── reducer.ts          # Pure streaming state machine
+│   └── useStream.ts        # React adapters
+├── diff/
+│   ├── parser.ts           # Unified-diff parser
+│   └── preview.ts          # Accept/reject state machine
 ├── data/
 │   └── apex-data.ts        # Agents + models data
 └── theme/
@@ -119,7 +129,8 @@ tui-frontend/src/
 - **Client / serveur** : le TUI est un client léger ; `api/client.ts` centralise tous les appels HTTP/SSE vers le backend Python (POST /chat/stream en SSE, /api/v1/*, WebSocket /ws/events pour l'EventBus).
 - **Composants stateless** : `overlays.tsx` expose CommandPalette, ModelSelector, ThemeSelector, AgentSelector, SessionList, FileFinder, HelpOverlay, StatusOverlay — la navigation clavier reste dans ApexApp, les overlays ne font que rendre l'état.
 - **Runtime** : exécutable via `tsx` (Node) ou **Bun** (`bun run src/App.tsx` / scripts `dev:bun`/`start:bun`).
-- **Tests** : `bun test` (tests/api-client.test.ts — streaming SSE, erreurs HTTP, construction d'URL) ; `npm run typecheck`.
+- **Streaming & diff** : `src/sync.ts` normalise les événements EventBus en union typée ; `src/streaming/reducer.ts` gère deltas, cycle de vie des outils et isolation de session ; `src/diff/` + `DiffPreview.tsx` fournissent l'aperçu de diff avec accept/reject local, exposé via `/diff`.
+- **Tests** : `bun test` (API client, SSE streaming, reducer, parseur de diff, preview) ; `npm run typecheck`.
 
 **HTTP SSE Flow:**
 ```
@@ -441,6 +452,7 @@ class Message:
 | `read_directory` | List directory | Read-only |
 | `search` | Web search | Read-only |
 | `format_file` | Auto-format code | Via formatter system |
+| `repo_map` | Token-budgeted symbol map | Read-only, cache in `~/.apex` |
 | `mcp_*` | MCP tools | Via MCP client |
 
 ### Tool Call Flow
@@ -989,6 +1001,93 @@ Current policy and floors (kept green):
 Do not bump Prisma to 7.x without an ADR: it is a breaking major
 (generator/output changes) and the deepmerge-ts override already removes the
 advisory on Prisma 6.
+
+---
+
+## 23. Delivery & Governance
+
+### Branching and review
+
+- `dev` is the integration and default branch; `main` is production.
+- Work lands via PRs (`feature/*`, `fix/*`, `chore/*` → `dev`), then `dev` → `main`.
+- PR titles follow Conventional Commits (`feat`, `fix`, `docs`, `ci`, `refactor`, ...), lowercase subject, no trailing punctuation.
+- Templates: `.github/ISSUE_TEMPLATE/*` for reports, `.github/PULL_REQUEST_TEMPLATE.md` for the Definition of Done.
+
+### v2.5 milestones
+
+| Milestone | Scope |
+|-----------|-------|
+| M1 — Repository Map & Context | symbol-level repository map, context-window optimization |
+| M2 — Rust GA (internal) | remove crate-level `#![allow(dead_code)]`, parity matrix, binary E2E; no publishing (ADR-0004) |
+| M3 — TUI Streaming & Diff | SSE/WS streaming, tool-call lifecycle, diff preview |
+| M4 — MCP, Vision, VS Code | MCP server mode, vision input, auto-commit, VS Code extension |
+
+### Definition of Done
+
+- Python: `ruff check`, `ruff format --check`, `pytest` green; new behavior covered by tests.
+  Lint covers all first-party code (`apex/`, `tests/`, `scripts/`). `skills/` is vendored,
+  gitignored, and audited separately.
+- Rust: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` green.
+- TUI: `npm run typecheck`, `bun test` green.
+- Website: `eslint .`, `next build` green when `src/**` changes.
+- Docs: `AGENTS.md` and mkdocs updated; ADR added for architectural decisions.
+- Every required workflow green before merge.
+
+### ECC workflow
+
+- Large epics: `epic-decompose` → parallel units → `epic-validate` → `epic-review` → `epic-sync`.
+- Per feature: `orch-add-feature` / `tdd`, then the language triad (`rust-test` → `rust-build` → `rust-review`, `react-test` → `react-build` → `react-review`).
+- Close each wave with `verify`, `security-scan`, `update-docs`, then `learn` → `evolve`.
+
+---
+
+## 24. Rust Port (Internal GA)
+
+`rust/apex-rs/` is the Rust rewrite of the backend. It is an **internal GA**:
+the binary, HTTP server, and tool registry are usable, but nothing is
+published (no crates.io, no GitHub Release binaries — see
+[ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
+
+The authoritative Python ↔ Rust matrix is
+[`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md). It records what is wired,
+partial, ported-but-unwired, and missing; update it in the same PR as any
+surface change.
+
+### Dead-code policy
+
+- No crate-level `#![allow(dead_code)]`.
+- Allows are scoped to a module or item and carry a justification plus a
+  `TODO(v2.6)` exit criterion.
+- Ported modules without a caller are declared and allowed explicitly
+  (`context`, `permission`, `rate_limiter`) instead of silently disappearing.
+
+### Shell security
+
+The Rust port applies the same safety policy as Python on every path that can
+execute a command:
+
+```bash
+apex-rs security check "rm -rf /"   # JSON verdict (safe, category, warnings, allowed)
+apex-rs security allowed            # allow-listed commands
+```
+
+- `POST /api/v1/security/analyze` — JSON `{ "command": "..." }` → verdict
+- `/api/v1/bash` and the `run_command` tool are both guarded
+
+### Hermetic tests
+
+`config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,
+so `tests/cli_e2e.rs` can point `~/.apex` at a temp directory. The E2E suite
+runs the compiled binary and covers help, tool listing, cost, memory and
+encrypted session lifecycles, security verdicts, and the no-crate-level-allow
+regression.
+
+```bash
+cd rust/apex-rs
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+```
 
 ---
 

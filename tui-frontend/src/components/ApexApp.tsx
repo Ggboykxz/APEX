@@ -5,12 +5,15 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { ChatPanel } from "./ChatPanel.js"
+import { DiffPreview } from "./DiffPreview.js"
 import { StatusBar } from "./StatusBar.js"
 import { Sidebar } from "./Sidebar.js"
 import { apexTheme, hasTheme, setTheme } from "../theme/apex.js"
 import { APEX_AGENTS, APEX_MODELS, type ChatMessage } from "../data/apex-data.js"
 import { SyncClient } from "../sync.js"
 import { api } from "../api/client.js"
+import { useStreamingState } from "../streaming/useStream.js"
+import { streamActionFromEvent } from "../streaming/reducer.js"
 import {
   AgentSelector,
   CommandPalette,
@@ -36,6 +39,7 @@ const COMMANDS = [
   { id: "/share", desc: "Share session" }, { id: "/export", desc: "Export" },
   { id: "/editor", desc: "Open editor" }, { id: "/sessions", desc: "Sessions" },
   { id: "/cost", desc: "Token usage & cost" },
+  { id: "/diff", desc: "Preview working-tree diff" },
   { id: "/init", desc: "Initialize" }, { id: "/connect", desc: "Connect remote" },
   { id: "/thinking", desc: "Toggle thinking" }, { id: "/details", desc: "Details" },
   { id: "/agent", desc: "Switch agent" },
@@ -82,6 +86,10 @@ export function ApexApp() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [connectionError, setConnectionError] = useState<string | null>(null)
+  const [showDiff, setShowDiff] = useState(false)
+  const [diffText, setDiffText] = useState("")
+  const { state: streamState, dispatch: dispatchStream, reset: resetStream, complete: completeStream } =
+    useStreamingState()
   const [sessionStart] = useState(Date.now())
   const [totalPromptTokens, setTotalPromptTokens] = useState(0)
   const [totalCompletionTokens, setTotalCompletionTokens] = useState(0)
@@ -159,6 +167,11 @@ export function ApexApp() {
       setTotalCompletionTokens((c) => c + ct)
       setTotalSpent((s) => s + calcMessageCost(pt, ct, activeModelRef.current))
     })
+    // Normalized assistant/tool/session events -> pure streaming reducer.
+    sync.onStream((event) => {
+      const action = streamActionFromEvent(event)
+      if (action) dispatchStream(action)
+    })
 
     sync.connect()
     return () => { sync.disconnect(); syncRef.current = null }
@@ -175,7 +188,7 @@ export function ApexApp() {
   const isScrolled = scrollOffset > 0
   const scrollPct = messages.length > MAX_VISIBLE ? Math.round((scrollOffset / Math.max(1, messages.length - MAX_VISIBLE)) * 100) : 0
 
-  const anyOverlay = showCP || showFF || showHelp || showMS || showTS || showAS || showSO || showSL
+  const anyOverlay = showCP || showFF || showHelp || showMS || showTS || showAS || showSO || showSL || showDiff
 
   useEffect(() => { if (connectionError) { const t = setTimeout(() => { setConnectionError(null); setIsReconnecting(false) }, 5000); return () => clearTimeout(t) } }, [connectionError])
   useEffect(() => {
@@ -314,6 +327,20 @@ export function ApexApp() {
         }).catch(() => setConnectionError("Cost request failed — backend unreachable"))
         return true
       }
+      case "/diff": {
+        setConnectionError("Loading working-tree diff…")
+        api.sessionDiff(activeSession || "current")
+          .then((d) => {
+            if (d.error) {
+              setConnectionError(`Diff error: ${d.error}`)
+              return
+            }
+            setDiffText(d.diff ?? "")
+            setShowDiff(true)
+          })
+          .catch(() => setConnectionError("Diff request failed — backend unreachable"))
+        return true
+      }
       case "/init": case "/connect": return false
       default: return false
     }
@@ -329,6 +356,7 @@ export function ApexApp() {
     setIsGenerating(true); setConnectionError(null); setIsReconnecting(false)
     setLivePromptTokens(0); setLiveCompletionTokens(0)
     liveUsageRef.current = { pt: 0, ct: 0 }
+    resetStream()
     const userMsg: ChatMessage = { id: `msg-${Date.now()}-u`, role: "user", content: userMessage, timestamp: Date.now() }
     setMessages((p) => [...p, userMsg])
     const aid = `msg-${Date.now()}-a`
@@ -355,7 +383,7 @@ export function ApexApp() {
       if (msg.includes("fetch") || msg.includes("ECONNREFUSED") || msg.includes("NetworkError")) { setConnectionError("Cannot connect to APEX backend on port " + HTTP_PORT); setIsReconnecting(true); setRetryCount((c) => c + 1) }
       else setConnectionError(`Error: ${msg}`)
       setMessages((p) => [...p, { id: aid, role: "assistant", content: `Error: ${msg}`, agent: activeAgent, model: activeModel, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 }])
-    } finally { setIsGenerating(false); setLivePromptTokens(0); setLiveCompletionTokens(0) }
+    } finally { setIsGenerating(false); setLivePromptTokens(0); setLiveCompletionTokens(0); completeStream() }
   }, [activeAgent, activeModel, livePromptTokens, liveCompletionTokens])
 
   // Allow slash commands declared above to dispatch prompts (used by /editor).
@@ -413,6 +441,7 @@ export function ApexApp() {
   const filteredFiles = ffResults.filter((f) => fuzzyMatch(f, ffQuery))
 
   useInput((input, key) => {
+    if (showDiff) return
     if (leaderKeyActive) { clearTimeout(leaderTimer.current!); setLeaderKeyActive(false); handleLeader(input.toLowerCase()); return }
     if (showCP) {
       if (key.escape) { setShowCP(false); setCpSearch("") }
@@ -515,12 +544,12 @@ export function ApexApp() {
     }
   })
 
-  const closeOverlay = () => { setShowCP(false); setShowHelp(false); setShowMS(false); setShowTS(false); setShowAS(false); setShowSO(false); setShowSL(false); setShowFF(false); setFfQuery("") }
+  const closeOverlay = () => { setShowCP(false); setShowHelp(false); setShowMS(false); setShowTS(false); setShowAS(false); setShowSO(false); setShowSL(false); setShowFF(false); setShowDiff(false); setFfQuery("") }
 
   const mainContent = (
     <Box flexDirection="row" flexGrow={1}>
       {sidebarVisible && <Sidebar activeAgent={activeAgent} onAgentSelect={setActiveAgent} />}
-      <ChatPanel messages={visibleMessages} inputValue={inputValue} activeAgent={activeAgent} activeModel={activeModel} isGenerating={isGenerating} />
+      <ChatPanel messages={visibleMessages} inputValue={inputValue} activeAgent={activeAgent} activeModel={activeModel} isGenerating={isGenerating} tools={streamState.tools} />
     </Box>
   )
 
@@ -562,6 +591,20 @@ export function ApexApp() {
       )}
       {showHelp && (
         <HelpOverlay onClose={() => setShowHelp(false)} />
+      )}
+      {showDiff && (
+        <DiffPreview
+          diff={diffText}
+          title="Working-tree diff"
+          onDecision={(decision) => {
+            setShowDiff(false)
+            setConnectionError(
+              decision === "accept"
+                ? "Diff accepted — preview only, nothing applied"
+                : "Diff rejected — nothing applied",
+            )
+          }}
+        />
       )}
       {showMS && (
         <ModelSelector

@@ -118,6 +118,9 @@ impl CodeRefactorer {
     }
 
     /// Insert a new method right after the `class <name>:` line.
+    // Test-only today: `refactor_code` does not expose this operation.
+    // TODO(v2.6): add an `extract_method` style to the refactor tool.
+    #[allow(dead_code)]
     pub fn extract_method(
         &self,
         filepath: &str,
@@ -148,6 +151,9 @@ impl CodeRefactorer {
     /// Ported as-is from `apex/codegen.py`, including its quirk: the generated
     /// body reads `class Foo:\n    def def foo(...)` (the Python code prefixes
     /// `def ` to a snippet that already starts with `def`).
+    // Test-only today: `refactor_code` never converts functions to classes.
+    // TODO(v2.6): expose this as a `convert_to_class` refactor style.
+    #[allow(dead_code)]
     pub fn convert_to_class(&self, filepath: &str, function_name: &str) -> Value {
         let content = match self.read(filepath) {
             Ok(c) => c,
@@ -197,6 +203,9 @@ impl CodeRefactorer {
     }
 
     /// `def name(args):` → `def name(args) -> Any:` for every function.
+    // Test-only today: `refactor_code` only rewrites one function signature.
+    // TODO(v2.6): add a whole-file `add_type_hints` refactor mode.
+    #[allow(dead_code)]
     pub fn add_type_hints(&self, filepath: &str) -> Value {
         let content = match self.read(filepath) {
             Ok(c) => c,
@@ -247,6 +256,9 @@ impl CodeRefactorer {
 pub struct DatabaseManager;
 
 impl DatabaseManager {
+    // Test-only today: the model generator has no connection-string surface.
+    // TODO(v2.6): expose database scaffolding (connection string + CRUD) as tools.
+    #[allow(dead_code)]
     pub fn get_connection_string(db_type: &str) -> String {
         match db_type {
             "sqlite" => "sqlite:///db.sqlite",
@@ -285,6 +297,9 @@ impl DatabaseManager {
         lines.join("\n")
     }
 
+    // Test-only today: only model scaffolding is exposed, not query generation.
+    // TODO(v2.6): expose generated CRUD queries alongside `generate_db_model`.
+    #[allow(dead_code)]
     pub fn generate_queries(table_name: &str) -> Value {
         json!({
             "create": format!("CREATE TABLE {table_name} (id INTEGER PRIMARY KEY);"),
@@ -407,6 +422,9 @@ impl ApiClientGenerator {
         lines.join("\n")
     }
 
+    // Test-only today: `generate_api_client` never emits curl snippets.
+    // TODO(v2.6): add a `transport=curl` option to the API-client tool.
+    #[allow(dead_code)]
     pub fn generate_curl(
         method: &str,
         url: &str,

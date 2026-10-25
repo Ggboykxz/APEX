@@ -180,13 +180,6 @@ impl Agent {
         before - self.history.len()
     }
 
-    pub fn session_path(&self, id: &str) -> std::path::PathBuf {
-        let base = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-        base.join(".apex")
-            .join("sessions")
-            .join(format!("{id}.json"))
-    }
-
     /// Persist the session in the Python-compatible encrypted format.
     pub fn save_session(&self, id: &str) -> anyhow::Result<()> {
         let cwd = self.config.cwd.to_string_lossy().to_string();

@@ -93,6 +93,28 @@ def get_repo_map(path: Path | None = None) -> str:
     return "\n".join(lines)
 
 
+def get_symbol_map(path: Path | None = None, max_tokens: int = 2000) -> str:
+    """Generate a symbol-level repository map for LLM context.
+
+    Delegates to :func:`apex.repomap.build_repo_map`, which extracts classes,
+    functions, methods and types with line numbers and trims the result to a
+    token budget. Unlike :func:`get_repo_map`, this includes nested source
+    files and emits declaration signatures only.
+    """
+    path = Path(path) if path is not None else Path.cwd()
+    if not path.exists():
+        return f"ERROR: Path does not exist: {path}"
+    if not path.is_dir():
+        return f"ERROR: Not a directory: {path}"
+
+    from .repomap import build_repo_map
+
+    try:
+        return build_repo_map(path, max_tokens=max_tokens)
+    except Exception as e:
+        return f"ERROR: {type(e).__name__}: {e}"
+
+
 def get_git_info(path: Path) -> str:
     """Get git branch and status info."""
     git_dir = path / ".git"

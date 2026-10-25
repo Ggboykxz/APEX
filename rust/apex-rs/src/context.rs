@@ -42,7 +42,15 @@ pub fn get_repo_map(path: &Path) -> String {
         return format!("ERROR: Path does not exist: {}", path.display());
     }
 
-    let mut lines = vec![format!("Repository: {}", path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()), "=".repeat(50)];
+    let mut lines = vec![
+        format!(
+            "Repository: {}",
+            path.file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default()
+        ),
+        "=".repeat(50),
+    ];
 
     let mut source_files: Vec<String> = Vec::new();
     let mut config_files: Vec<String> = Vec::new();
@@ -166,7 +174,14 @@ pub fn get_language_stats(path: &Path) -> Value {
         ("kt", "Kotlin"),
         ("scala", "Scala"),
     ];
-    let ignore = [".git", "node_modules", "__pycache__", "venv", ".venv", "target"];
+    let ignore = [
+        ".git",
+        "node_modules",
+        "__pycache__",
+        "venv",
+        ".venv",
+        "target",
+    ];
     let mut stats: Vec<(String, u64)> = Vec::new();
     let mut stack = vec![path.to_path_buf()];
     while let Some(dir) = stack.pop() {
@@ -174,14 +189,21 @@ pub fn get_language_stats(path: &Path) -> Value {
         for entry in rd.flatten() {
             let p = entry.path();
             if p.is_dir() {
-                let name = p.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+                let name = p
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
                 if ignore.contains(&name.as_str()) {
                     continue;
                 }
                 stack.push(p);
             } else {
                 let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
-                let lang = ext_map.iter().find(|(e, _)| *e == ext).map(|(_, l)| *l).unwrap_or("Other");
+                let lang = ext_map
+                    .iter()
+                    .find(|(e, _)| *e == ext)
+                    .map(|(_, l)| *l)
+                    .unwrap_or("Other");
                 if let Some(slot) = stats.iter_mut().find(|(l, _)| l == lang) {
                     slot.1 += 1;
                 } else {
@@ -233,8 +255,15 @@ pub fn file_tree(path: &Path, max_depth: usize) -> Result<String, String> {
     if !path.exists() {
         return Err(format!("ERROR: Path not found: {}", path.display()));
     }
-    let root = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
-    let mut lines = vec![if path.is_dir() { format!("{root}/") } else { root }];
+    let root = path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let mut lines = vec![if path.is_dir() {
+        format!("{root}/")
+    } else {
+        root
+    }];
     if path.is_dir() {
         walk_tree(path, "", 0, max_depth, &mut lines);
     }
@@ -253,18 +282,37 @@ fn walk_tree(dir: &Path, prefix: &str, depth: usize, max_depth: usize, out: &mut
     // Dirs first, then name (case-insensitive).
     entries.sort_by_key(|p| {
         let is_dir = p.is_dir();
-        let name = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
         (!is_dir, name)
     });
-    let visible: Vec<&PathBuf> = entries.iter().filter(|p| !p.file_name().map(|n| n.to_string_lossy().starts_with('.')).unwrap_or(false)).collect();
+    let visible: Vec<&PathBuf> = entries
+        .iter()
+        .filter(|p| {
+            !p.file_name()
+                .map(|n| n.to_string_lossy().starts_with('.'))
+                .unwrap_or(false)
+        })
+        .collect();
     for (i, entry) in visible.iter().enumerate() {
         let is_last = i == visible.len() - 1;
         let connector = if is_last { "└── " } else { "├── " };
-        let name = entry.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        let name = entry
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
         out.push(format!("{prefix}{connector}{name}"));
         if entry.is_dir() {
             let extension = if is_last { "    " } else { "│   " };
-            walk_tree(entry, &format!("{prefix}{extension}"), depth + 1, max_depth, out);
+            walk_tree(
+                entry,
+                &format!("{prefix}{extension}"),
+                depth + 1,
+                max_depth,
+                out,
+            );
         }
     }
 }
@@ -280,7 +328,11 @@ pub fn glob_match(pattern: &str, text: &str) -> bool {
             b'*' => {
                 if p.len() > 1 && p[1] == b'*' {
                     // `**` spans path separators; `**/` also matches no dir.
-                    let rest = if p.len() > 2 && p[2] == b'/' { &p[3..] } else { &p[2..] };
+                    let rest = if p.len() > 2 && p[2] == b'/' {
+                        &p[3..]
+                    } else {
+                        &p[2..]
+                    };
                     for i in 0..=t.len() {
                         if rec(rest, &t[i..]) {
                             return true;
@@ -334,7 +386,10 @@ pub fn glob_match(pattern: &str, text: &str) -> bool {
 /// Python: `directory.glob(pattern)` — relative paths, files and directories.
 pub fn glob_search(directory: &Path, pattern: &str) -> Result<Vec<String>, String> {
     if !directory.exists() {
-        return Err(format!("ERROR: Directory not found: {}", directory.display()));
+        return Err(format!(
+            "ERROR: Directory not found: {}",
+            directory.display()
+        ));
     }
     let mut matches: Vec<String> = Vec::new();
     let mut stack = vec![directory.to_path_buf()];
@@ -342,7 +397,11 @@ pub fn glob_search(directory: &Path, pattern: &str) -> Result<Vec<String>, Strin
         let Ok(rd) = fs::read_dir(&dir) else { continue };
         for entry in rd.flatten() {
             let p = entry.path();
-            let rel = p.strip_prefix(directory).unwrap_or(&p).to_string_lossy().replace('\\', "/");
+            let rel = p
+                .strip_prefix(directory)
+                .unwrap_or(&p)
+                .to_string_lossy()
+                .replace('\\', "/");
             if glob_match(pattern, &rel) {
                 matches.push(rel.clone());
             }
@@ -377,7 +436,11 @@ mod tests {
         assert!(map.contains("[DOCUMENTATION]") && map.contains("📄 README.md"));
         assert!(!map.contains(".hidden"), "dotfiles skipped: {map}");
         assert!(!map.contains("[GIT]"), "tempdir is not a git repo");
-        assert_eq!(get_repo_map(&dir.path().join("missing")), "ERROR: Path does not exist: ".to_string() + &dir.path().join("missing").to_string_lossy());
+        assert_eq!(
+            get_repo_map(&dir.path().join("missing")),
+            "ERROR: Path does not exist: ".to_string()
+                + &dir.path().join("missing").to_string_lossy()
+        );
     }
 
     #[test]
@@ -407,8 +470,24 @@ mod tests {
         assert_eq!(generate_ctags(dir.path()), "ERROR: Not a git repository");
 
         // With a git repo, ctags lists code files.
-        for args in [vec!["init", "-q"], vec!["add", "."], vec!["-c", "user.email=t@e.com", "-c", "user.name=T", "commit", "-qm", "init"]] {
-            std::process::Command::new("git").args(&args).current_dir(dir.path()).output().unwrap();
+        for args in [
+            vec!["init", "-q"],
+            vec!["add", "."],
+            vec![
+                "-c",
+                "user.email=t@e.com",
+                "-c",
+                "user.name=T",
+                "commit",
+                "-qm",
+                "init",
+            ],
+        ] {
+            std::process::Command::new("git")
+                .args(&args)
+                .current_dir(dir.path())
+                .output()
+                .unwrap();
         }
         // `git ls-files` tracks node_modules too (Python does not filter it).
         assert_eq!(generate_ctags(dir.path()), "a.py\nb.rs\nnode_modules/d.py");
@@ -422,7 +501,12 @@ mod tests {
         fs::write(dir.path().join("sub").join("b.py"), "x = 1\n").unwrap();
         fs::write(dir.path().join(".hidden"), "x\n").unwrap();
         let tree = file_tree(dir.path(), 3).unwrap();
-        let dir_name = dir.path().file_name().unwrap().to_string_lossy().to_string();
+        let dir_name = dir
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         assert!(tree.starts_with(&format!("{dir_name}/\n")), "got {tree}");
         assert!(tree.contains("├── sub"), "got {tree}");
         assert!(tree.contains("│   └── b.py"), "got {tree}");
@@ -448,20 +532,30 @@ mod tests {
         fs::create_dir_all(dir.path().join("pkg").join("nested")).unwrap();
         fs::write(dir.path().join("main.py"), "x = 1\n").unwrap();
         fs::write(dir.path().join("pkg").join("mod.py"), "x = 1\n").unwrap();
-        fs::write(dir.path().join("pkg").join("nested").join("deep.py"), "x = 1\n").unwrap();
+        fs::write(
+            dir.path().join("pkg").join("nested").join("deep.py"),
+            "x = 1\n",
+        )
+        .unwrap();
         fs::write(dir.path().join("notes.txt"), "x\n").unwrap();
 
         let all = glob_search(dir.path(), "**/*").unwrap();
         assert!(all.contains(&"main.py".to_string()));
         assert!(all.contains(&"pkg/mod.py".to_string()));
         assert!(all.contains(&"pkg/nested/deep.py".to_string()));
-        assert!(all.contains(&"pkg".to_string()), "directories match too: {all:?}");
+        assert!(
+            all.contains(&"pkg".to_string()),
+            "directories match too: {all:?}"
+        );
 
         let top = glob_search(dir.path(), "*.py").unwrap();
         assert_eq!(top, vec!["main.py"]);
         let nested = glob_search(dir.path(), "**/*.py").unwrap();
         assert_eq!(nested, vec!["main.py", "pkg/mod.py", "pkg/nested/deep.py"]);
-        assert_eq!(glob_search(dir.path(), "*.ts").unwrap(), Vec::<String>::new());
+        assert_eq!(
+            glob_search(dir.path(), "*.ts").unwrap(),
+            Vec::<String>::new()
+        );
         assert!(glob_search(&dir.path().join("missing"), "*.py").is_err());
 
         assert!(glob_match("[a-c].py", "b.py"));

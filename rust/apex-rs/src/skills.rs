@@ -38,7 +38,7 @@ impl SkillManager {
 
     pub fn load_skills(&mut self) {
         let mut dirs = vec![self.cwd.join(".apex").join("skills")];
-        if let Some(home) = dirs::home_dir() {
+        if let Some(home) = crate::config::home_dir() {
             dirs.push(home.join(".apex").join("skills"));
         }
         for dir in dirs {
@@ -114,6 +114,9 @@ impl SkillManager {
         Some(result)
     }
 
+    // Test-only today: users author skills as markdown, the CLI does not edit them.
+    // TODO(v2.6): expose `apex-rs skill add/remove` backed by these methods.
+    #[allow(dead_code)]
     pub fn add(&mut self, name: &str, description: &str, prompt: &str) {
         self.skills.insert(
             name.to_string(),
@@ -125,6 +128,9 @@ impl SkillManager {
         );
     }
 
+    // Test-only today: users author skills as markdown, the CLI does not edit them.
+    // TODO(v2.6): expose `apex-rs skill add/remove` backed by these methods.
+    #[allow(dead_code)]
     pub fn remove(&mut self, name: &str) -> bool {
         self.skills.remove(name).is_some()
     }
@@ -183,6 +189,9 @@ impl DiffTool {
         }
     }
 
+    // Test-only today: the tool registry exposes two-file diffs only.
+    // TODO(v2.6): add a `diff3_files` tool backed by this method.
+    #[allow(dead_code)]
     pub fn three_way_diff(&self, base: &str, local: &str, remote: &str) -> String {
         let b = self.cwd.join(base);
         let l = self.cwd.join(local);
@@ -454,6 +463,9 @@ impl CodeAnalyzer {
 // Global skill manager (Python: get_skill_manager caches a singleton)
 // ──────────────────────────────────────────────────────────────────────
 
+// Test-only today: the tool registry constructs managers directly.
+// TODO(v2.6): cache/reuse a manager per workspace from the CLI and server.
+#[allow(dead_code)]
 pub fn get_skill_manager(cwd: &Path) -> SkillManager {
     SkillManager::new(cwd)
 }

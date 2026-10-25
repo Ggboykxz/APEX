@@ -38,7 +38,7 @@ pub fn b64_decode(s: &str) -> Option<Vec<u8>> {
 }
 
 pub fn key_path() -> PathBuf {
-    dirs::home_dir()
+    crate::config::home_dir()
         .unwrap_or_default()
         .join(".apex")
         .join(".session_key")

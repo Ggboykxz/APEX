@@ -8,7 +8,7 @@ File tools allow APEX to read, write, create, delete, and search files on your f
 
 ## Code Tools
 
-Code tools provide language-aware operations such as `code_search`, `code_lint`, `code_format`, and `code_refactor`. These tools leverage LSP (Language Server Protocol) integration to offer symbol navigation, go-to-definition, find-references, and real-time diagnostics across 30+ programming languages.
+Code tools provide language-aware operations such as `code_search`, `code_lint`, `code_format`, and `code_refactor`. The `repo_map` tool generates a token-budgeted, symbol-level map of the repository (paths, signatures, line numbers) for context-aware navigation — see [Repository Map](../reference/repomap.md). These tools leverage LSP (Language Server Protocol) integration to offer symbol navigation, go-to-definition, find-references, and real-time diagnostics across 30+ programming languages.
 
 ## Shell Tools
 

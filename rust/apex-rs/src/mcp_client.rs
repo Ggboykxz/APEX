@@ -4,7 +4,6 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 pub struct McpServerConfig {
-    pub name: String,
     pub command: String,
     pub args: Vec<String>,
 }
@@ -154,7 +153,6 @@ pub fn call_tool_blocking(name: String, args: Value) -> Option<String> {
         let rt = tokio::runtime::Runtime::new().ok()?;
         rt.block_on(async move {
             let mut client = McpClient::new(McpServerConfig {
-                name: server,
                 command,
                 args: server_args,
             });
@@ -179,14 +177,8 @@ impl McpManager {
     }
 
     pub fn add_server(&mut self, name: String, command: String, args: Vec<String>) {
-        self.servers.insert(
-            name.clone(),
-            McpClient::new(McpServerConfig {
-                name,
-                command,
-                args,
-            }),
-        );
+        self.servers
+            .insert(name, McpClient::new(McpServerConfig { command, args }));
     }
 
     pub async fn connect_all(&mut self) {
@@ -200,16 +192,6 @@ impl McpManager {
                 s.shutdown().await;
             }
         }
-    }
-
-    pub fn all_tools(&self) -> Vec<(String, Value)> {
-        let mut out = Vec::new();
-        for (sname, client) in &self.servers {
-            for t in &client.tools {
-                out.push((sname.clone(), to_openai_tool(sname, t)));
-            }
-        }
-        out
     }
 }
 #[cfg(test)]
@@ -254,7 +236,6 @@ done
             std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
         let mut client = McpClient::new(McpServerConfig {
-            name: "fake".into(),
             command: script.to_string_lossy().to_string(),
             args: vec![],
         });
