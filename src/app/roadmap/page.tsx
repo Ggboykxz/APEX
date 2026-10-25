@@ -80,10 +80,12 @@ const VERSIONS = [
     ]
   },
   {
-    version: 'v2.5.0', name: 'Intelligence', status: 'planned' as const, progress: 10, color: '#ffaa00',
+    version: 'v2.5.0', name: 'Intelligence', status: 'next' as const, progress: 35, color: '#ffaa00',
     desc: 'Intelligence features — repo mapping, vision, auto-commit, VS Code extension, MCP server mode.',
     features: [
-      { text: 'Repository Map & Code Understanding', done: false },
+      { text: 'Repository Map & Code Understanding', done: true },
+      { text: 'TUI Streaming & Diff Preview', done: true },
+      { text: 'Rust GA (internal, no publishing)', done: true },
       { text: 'Vision Model Support (image analysis)', done: false },
       { text: 'Auto-commit with Generated Messages', done: false },
       { text: 'VS Code Extension', done: false },
