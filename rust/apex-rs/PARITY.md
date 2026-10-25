@@ -27,12 +27,14 @@ CLI (`apex-rs --help`):
 run, chat, serve, tools, plugins, call-tool, cost,
 memory {list,add,search,context,remove,clear},
 session {list,show,save},
-security {check,allowed}
+security {check,allowed},
+context {repo-map,git,stats,ctags,tree,glob}
 ```
 
-HTTP server (`serve`): 34 routes, including `/health`, `/api/v1/tools`,
+HTTP server (`serve`): 40 routes, including `/health`, `/api/v1/tools`,
 `/api/v1/security/analyze`, sessions, shares/export, files, models, config,
-themes, cost, chat, chat streaming, and WebSockets.
+themes, cost, chat, chat streaming, context (`repo-map`, `git`, `stats`,
+`ctags`, `tree`, `glob`), and WebSockets.
 
 Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
@@ -45,7 +47,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `agents.py` | - | Missing | No subagent registry, markdown agent loading, or parallel orchestration. |
 | `config.py`, `config_v2.py` | `config.rs` | Partial | Env/model/cwd config and shared home resolution. No JSONC hierarchy, migration, or validation layer. |
 | `config_tools.py` | - | Missing | No config-defined custom tools. |
-| `context.py` | `context.rs` | Ported, not wired | Repo map, git info, language stats, ctags, file tree, glob search. Module is compiled but no CLI/HTTP caller yet. |
+| `context.py` | `context.rs` | Wired | CLI `context repo-map\|git\|stats\|ctags\|tree\|glob` and `GET /api/v1/context/*`: repo map, git info, language stats, ctags file list, file tree, glob search. |
 | `context_manager.py`, `context_tracking.py` | - | Missing | No summarisation/compaction accounting. |
 | `cost_local.py` | `cost.rs` | Wired | Pricing table, usage, cost history; CLI `cost` and HTTP cost routes. |
 | `codegen.py` | `codegen.rs` | Partial | Refactor, DB model, Dockerfile/compose, API client, docs, profile, optimize tools. Six helper operations remain test-only. |
@@ -114,17 +116,16 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
    `plugins::plugin_count`, `McpServerConfig::name`, `McpManager::all_tools`,
    and `Memory::path`.
 4. Module-level allows are reserved for whole modules with no caller. Adding
-   one requires an entry in this document. There are currently three:
-   `context`, `permission`, and `rate_limiter`.
+   one requires an entry in this document. There are currently two:
+   `permission` and `rate_limiter`.
 5. When an allow is removed: wire the code, add CLI/HTTP/tool or unit coverage,
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current allow inventory (23 attributes)
+### Current allow inventory (22 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
-| Module | `main.rs` | `context` | No CLI/HTTP caller | Add `context repo-map/tree/stats` |
 | Module | `main.rs` | `permission` | No dispatch gate | Route tool dispatch through the manager |
 | Module | `main.rs` | `rate_limiter` | No server middleware | Enforce limits in `serve` |
 | Item | `codegen.rs` | `extract_method` | No refactor style | Add `extract_method` style |
@@ -146,8 +147,8 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `skills.rs` | `three_way_diff` | No diff3 tool | Add `diff3_files` |
 | Item | `skills.rs` | `get_skill_manager` | Tools construct managers directly | Share a cached manager |
 
-The three module-level allows count as one attribute each; the 20 item-level
-attributes bring the total to 23.
+The two module-level allows count as one attribute each; the 20 item-level
+attributes bring the total to 22.
 
 ## Verification
 
@@ -159,20 +160,20 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 110 unit tests + 7 binary E2E tests. The E2E suite runs
+Current baseline: 111 unit tests + 9 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
 (including encrypted files and JSON output), security verdicts plus the
-`run_command` guard, and the absence of the crate-level allow.
+`run_command` guard, the context CLI commands, the `serve` context HTTP
+routes, and the absence of the crate-level allow.
 
 ## Next increments
 
-1. Wire `context` into CLI/HTTP and remove its module allow.
-2. Enforce `permission` in tool dispatch and `rate_limiter` in `serve`.
-3. Add high-value missing tools: `edit_file`/`apply_patch`, repo map/tree,
+1. Enforce `permission` in tool dispatch and `rate_limiter` in `serve`.
+2. Add high-value missing tools: `edit_file`/`apply_patch`, repo map/tree,
    `web_search`/`fetch_url`, task/plan tools.
-4. Add a `github` CLI group and skill authoring commands; remove those allows.
-5. Add HTTP authentication/rate limiting and route-level E2E coverage.
-6. Add a Python-written Fernet session fixture to prove cross-language
+3. Add a `github` CLI group and skill authoring commands; remove those allows.
+4. Add HTTP authentication/rate limiting and route-level E2E coverage.
+5. Add a Python-written Fernet session fixture to prove cross-language
    compatibility, not just self-round-tripping.

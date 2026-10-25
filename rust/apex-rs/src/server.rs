@@ -2,7 +2,7 @@ use crate::agent::Agent;
 use crate::config::Config;
 use crate::tools;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::response::sse::{Event, Sse};
 use axum::{
     routing::{get, post},
@@ -100,6 +100,34 @@ fn list_files(root: &std::path::Path, max: usize) -> Vec<String> {
     }
     out.sort();
     out
+}
+
+/// Query parameters shared by the `/api/v1/context/*` routes.
+#[derive(serde::Deserialize)]
+struct ContextQuery {
+    /// Target directory; relative paths resolve against the server cwd.
+    path: Option<String>,
+    /// Max depth for the file tree.
+    depth: Option<usize>,
+    /// Glob pattern for the glob route.
+    pattern: Option<String>,
+}
+
+/// Resolve the `?path=` parameter of the context routes: empty means the
+/// server's working directory, relative paths join to it, absolute paths are
+/// used as-is (same trust model as `/api/v1/files/read`).
+fn context_target(cwd: &std::path::Path, path: Option<&str>) -> std::path::PathBuf {
+    match path.map(str::trim).filter(|p| !p.is_empty()) {
+        Some(p) => {
+            let pb = std::path::PathBuf::from(p);
+            if pb.is_absolute() {
+                pb
+            } else {
+                cwd.join(pb)
+            }
+        }
+        None => cwd.to_path_buf(),
+    }
 }
 
 fn run_shell_capture(command: &str, cwd: &std::path::Path) -> serde_json::Value {
@@ -393,6 +421,64 @@ pub async fn serve(config: Config, port: u16) {
         .route("/chat/stream", post(chat_stream_handler))
         .route("/ws", get(ws_handler))
         .route("/ws/events", get(ws_handler))
+        .route("/api/v1/context/repo-map", get(
+            |State(st): State<AppState>, Query(q): Query<ContextQuery>| async move {
+                let path = context_target(&st.config.cwd, q.path.as_deref());
+                let map = crate::context::get_repo_map(&path);
+                if map.starts_with("ERROR") {
+                    Json(serde_json::json!({"error": map}))
+                } else {
+                    Json(serde_json::json!({"map": map}))
+                }
+            },
+        ))
+        .route("/api/v1/context/git", get(
+            |State(st): State<AppState>, Query(q): Query<ContextQuery>| async move {
+                let path = context_target(&st.config.cwd, q.path.as_deref());
+                Json(serde_json::json!({"info": crate::context::get_git_info(&path)}))
+            },
+        ))
+        .route("/api/v1/context/stats", get(
+            |State(st): State<AppState>, Query(q): Query<ContextQuery>| async move {
+                let path = context_target(&st.config.cwd, q.path.as_deref());
+                Json(serde_json::json!({"stats": crate::context::get_language_stats(&path)}))
+            },
+        ))
+        .route("/api/v1/context/ctags", get(
+            |State(st): State<AppState>, Query(q): Query<ContextQuery>| async move {
+                let path = context_target(&st.config.cwd, q.path.as_deref());
+                let text = crate::context::generate_ctags(&path);
+                if text.starts_with("ERROR") {
+                    Json(serde_json::json!({"error": text}))
+                } else {
+                    let files: Vec<String> = text.lines().map(String::from).collect();
+                    Json(serde_json::json!({"files": files}))
+                }
+            },
+        ))
+        .route("/api/v1/context/tree", get(
+            |State(st): State<AppState>, Query(q): Query<ContextQuery>| async move {
+                let path = context_target(&st.config.cwd, q.path.as_deref());
+                let depth = q.depth.unwrap_or(3);
+                match crate::context::file_tree(&path, depth) {
+                    Ok(tree) => Json(serde_json::json!({"tree": tree})),
+                    Err(e) => Json(serde_json::json!({"error": e})),
+                }
+            },
+        ))
+        .route("/api/v1/context/glob", get(
+            |State(st): State<AppState>, Query(q): Query<ContextQuery>| async move {
+                let path = context_target(&st.config.cwd, q.path.as_deref());
+                let pattern = match q.pattern.as_deref() {
+                    Some(p) if !p.trim().is_empty() => p.to_string(),
+                    _ => return Json(serde_json::json!({"error": "pattern is required"})),
+                };
+                match crate::context::glob_search(&path, &pattern) {
+                    Ok(matches) => Json(serde_json::json!({"matches": matches})),
+                    Err(e) => Json(serde_json::json!({"error": e})),
+                }
+            },
+        ))
         .with_state(state);
 
     let addr = format!("127.0.0.1:{port}");
@@ -618,5 +704,29 @@ mod tests {
         assert!(files.contains(&"a.txt".to_string()));
         assert!(files.contains(&"src/main.rs".to_string()));
         assert!(!files.iter().any(|f| f.contains(".git")));
+    }
+
+    #[test]
+    fn context_target_resolves_against_cwd() {
+        let cwd = std::path::Path::new("/work");
+        assert_eq!(context_target(cwd, None), std::path::PathBuf::from("/work"));
+        assert_eq!(
+            context_target(cwd, Some("  ")),
+            std::path::PathBuf::from("/work")
+        );
+        assert_eq!(
+            context_target(cwd, Some("sub")),
+            std::path::PathBuf::from("/work/sub")
+        );
+        assert_eq!(
+            context_target(cwd, Some("a/b")),
+            std::path::PathBuf::from("/work/a/b")
+        );
+        // Absolute paths pass through unchanged.
+        let abs = if cfg!(windows) { "C:\\abs" } else { "/abs" };
+        assert_eq!(
+            context_target(cwd, Some(abs)),
+            std::path::PathBuf::from(abs)
+        );
     }
 }
