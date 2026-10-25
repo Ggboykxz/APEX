@@ -268,6 +268,26 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "repo_map",
+            "description": "Generate a token-budgeted, symbol-level repository map with line numbers.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to repository (default: .)",
+                    },
+                    "max_tokens": {
+                        "type": "integer",
+                        "description": "Maximum estimated map tokens (default: 2000)",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "read_image",
             "description": "Read an image file and return base64 encoding for vision models.",
             "parameters": {
@@ -2285,6 +2305,17 @@ class ToolExecutor:
         from .context import get_repo_map
 
         return get_repo_map(Path(self.cwd))
+
+    def _execute_repo_map(self, args: dict[str, Any]) -> str:
+        from .context import get_symbol_map
+
+        raw_path = args.get("path")
+        path = self._resolve(raw_path) if raw_path else self.cwd
+        try:
+            max_tokens = int(args.get("max_tokens", 2000))
+        except (TypeError, ValueError):
+            max_tokens = 2000
+        return get_symbol_map(path, max_tokens=max_tokens)
 
     def _execute_init_project(self, args: dict[str, Any]) -> str:
         from .project import get_project_initializer
