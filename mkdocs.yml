@@ -87,6 +87,8 @@ nav:
       - Config File: reference/config.md
       - API: reference/api.md
       - HTTP Endpoints: reference/http-api.md
+      - MCP Server: reference/mcp-server.md
+      - VS Code Extension: reference/vscode.md
       - Repository Map: reference/repomap.md
   - Contributing: contributing.md
   - Engineering:
