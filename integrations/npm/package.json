@@ -23,7 +23,7 @@
     "win32"
   ],
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   },
   "keywords": [
     "ai",
