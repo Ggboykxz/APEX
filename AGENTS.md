@@ -1014,6 +1014,8 @@ advisory on Prisma 6.
 ### Definition of Done
 
 - Python: `ruff check`, `ruff format --check`, `pytest` green; new behavior covered by tests.
+  Lint covers all first-party code (`apex/`, `tests/`, `scripts/`). `skills/` is vendored,
+  gitignored, and audited separately.
 - Rust: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` green.
 - TUI: `npm run typecheck`, `bun test` green.
 - Website: `eslint .`, `next build` green when `src/**` changes.
