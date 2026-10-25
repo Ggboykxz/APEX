@@ -135,10 +135,16 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
 
 ### Dépendances (2026-10-25)
 
-- `npm audit` (site, package-lock-only) : **6 vulnérabilités** (5 high,
-  1 critical) — en baisse (18 au départ) grâce aux merges dependabot ;
-  `npm audit fix` à passer après intégration de la PR dev→main.
-- Alertes Dependabot (API) : 51 initiales ; à re-mesurer après fixes.
+- `npm audit` (site) : **0 vulnérabilité** après
+  - `next` 16.4.0 → 16.4.3 (corrige les advisories Next.js critiques/high),
+  - `zod` 4.0.2 → 4.6.7 (GHSA-mrhx-c7xc-m3w5),
+  - `overrides["@prisma/config"].deepmerge-ts` → `^8.0.2` (GHSA-ggr8-5vv4-36mx,
+    compatible CJS/ESM, vérifié via `prisma generate` + `next build`).
+- Prisma reste en 6.19.3 (la montée en 7.x reste un breaking change non requis :
+  le correctif deepmerge-ts suffit).
+- `npm audit --package-lock-only` : **found 0 vulnerabilities**.
+- Alertes Dependabot (API) : re-mesure post-push (les alertes npm fermées
+  automatiquement après résolution).
 
 ### Intégration finale (2026-10-25)
 
