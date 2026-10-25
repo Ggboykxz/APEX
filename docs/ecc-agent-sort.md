@@ -164,6 +164,12 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
 - `npm audit` (TUI) : **found 0 vulnerabilities** ; `tsc --noEmit` OK ;
   `bun test` : 3 pass.
 
+#### Alertes Dependabot
+
+- **0 alerte ouverte** (contre 51 au départ), tous écosystèmes confondus.
+- 24 PR brouillons obsolètes du bot « merge all dependabot PRs » fermées
+  (superseded par la résolution directe des dépendances).
+
 ### Intégration finale (2026-10-25)
 
 - Branche par défaut : `dev` ; `main` protégée (PR requises, checks CI /
