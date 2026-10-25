@@ -38,8 +38,8 @@ exclude = [
   "https://github.com/sponsors/*",
 ]
 
-# HTTP headers (lychee >= 0.15 expects a map for `header`)
-header = { "User-Agent" = "APEX-LinkChecker/1.0" }
+# HTTP headers (lychee v0.15.1 expects a sequence for `header`)
+header = ["User-Agent: APEX-LinkChecker/1.0"]
 
 # Timeout per request (seconds)
 timeout = 20
