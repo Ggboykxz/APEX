@@ -1,0 +1,72 @@
+name: Feature request
+description: Propose a capability or improvement for APEX
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Please check the public roadmap first:
+        https://apex-ai.dev/roadmap
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem does this solve? Who is affected?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like, including CLI/TUI/API surface.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing workarounds or other designs you evaluated.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI / Python backend
+        - TUI (tui-frontend)
+        - Rust port (apex-rs)
+        - Website / docs
+        - Integrations (MCP, VS Code)
+        - CI / tooling
+    validations:
+      required: true
+
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Roadmap alignment
+      options:
+        - v2.5 M1 — Repository Map & Context
+        - v2.5 M2 — Rust GA (internal)
+        - v2.5 M3 — TUI Streaming & Diff
+        - v2.5 M4 — MCP, Vision, VS Code
+        - Post-v2.5
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I checked the public roadmap.
+          required: true
