@@ -170,6 +170,19 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
 - 24 PR brouillons obsolètes du bot « merge all dependabot PRs » fermées
   (superseded par la résolution directe des dépendances).
 
+### Lint du site (2026-10-25)
+
+- `eslint .` : **0 erreur** (les 13 817 « problèmes » incluaient 13 585
+  warnings et surtout les bundles JS de `.venv/`).
+- `eslint.config.mjs` : ignore désormais `.venv/`, `coverage/` (les bundles
+  litellm généraient 228 faux positifs).
+- Violations réelles corrigées via `useSyncExternalStore` :
+  `src/hooks/use-mobile.ts` (media query) et
+  `src/components/ui/carousel.tsx` (état de scroll Embla) — plus aucun
+  `setState` dans un effet.
+- Le job **ESLint** de `website.yml` n'est plus `continue-on-error` : le lint
+  du site est désormais bloquant, et `eslint.config.mjs` déclenche le workflow.
+
 ### Intégration finale (2026-10-25)
 
 - Branche par défaut : `dev` ; `main` protégée (PR requises, checks CI /

@@ -999,6 +999,7 @@ advisory on Prisma 6.
   - Suite pytest (`tests/`) — run `pytest -q` from the repo root
   - Rust (`rust/apex-rs/`) — run `cargo test`
   - TUI (`tui-frontend/`) — run `bun test` (API client, SSE streaming); `npm run typecheck` pour tsc
+  - Site web (`src/`) — `npm run lint` (bloquant dans `website.yml`) et `npm run build`
 - **License**: Proprietary — All rights reserved (see [LICENSE](LICENSE))
 
 ## Installation
