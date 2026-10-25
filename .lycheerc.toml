@@ -44,7 +44,7 @@ exclude = [
   "https://support.google.com/websearch/answer/*",
 
   # GitHub /stargazers badge paths (403/404 for automated agents)
-  "*://github.com/*/stargazers",
+  "https://github.com/.*/stargazers",
 ]
 
 # HTTP headers (lychee v0.15.1 expects a sequence of key=value entries)
