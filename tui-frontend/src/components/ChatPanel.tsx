@@ -2,6 +2,7 @@ import React, { useState } from "react"
 import { Box, Text } from "ink"
 import { apexTheme } from "../theme/apex.js"
 import { APEX_AGENTS, type ChatMessage } from "../data/apex-data.js"
+import type { StreamToolCall } from "../streaming/reducer.js"
 
 interface ChatPanelProps {
   messages: ChatMessage[]
@@ -10,6 +11,8 @@ interface ChatPanelProps {
   activeModel: string
   isGenerating: boolean
   showThinking?: boolean
+  /** Live tool calls from the streaming reducer (WebSocket event path). */
+  tools?: StreamToolCall[]
 }
 
 function getAgentColor(agentId?: string): string {
@@ -69,6 +72,7 @@ export function ChatPanel({
   activeModel,
   isGenerating,
   showThinking = true,
+  tools = [],
 }: ChatPanelProps) {
   const visibleMessages = messages.slice(-20)
   const agentColor = getAgentColor(activeAgent)
@@ -155,6 +159,30 @@ export function ChatPanel({
             )}
           </Box>
         ))}
+
+        {/* Live tool activity from the streaming reducer */}
+        {tools.slice(-5).map((tool) => {
+          const icon = tool.status === "running" ? "⚙" : tool.status === "error" ? "✗" : "✓"
+          const color =
+            tool.status === "running"
+              ? apexTheme.yellow
+              : tool.status === "error"
+                ? apexTheme.red
+                : apexTheme.green
+          return (
+            <Box key={tool.id}>
+              <Text color={color}>{icon} </Text>
+              <Text color={apexTheme.fg}>{tool.name}</Text>
+              <Text color={apexTheme.dimGray}>
+                {tool.status === "running"
+                  ? " running…"
+                  : tool.status === "error"
+                    ? ` ${tool.error ?? "failed"}`
+                    : ` ${tool.durationMs ?? 0}ms`}
+              </Text>
+            </Box>
+          )
+        })}
 
         {/* Streaming indicator */}
         {isGenerating && (
