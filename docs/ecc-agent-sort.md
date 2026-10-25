@@ -156,6 +156,14 @@ Les 23 skips sont documentés et motivés (POSIX-only / chmod / watchdog absent)
 - Résultat : **No known vulnerabilities found** ; `pip check` OK ;
   tests session/share (Fernet) : 108 passed.
 
+#### TUI (`tui-frontend`)
+
+- `ws` 8.18.0 → **8.22.0** (GHSA-96hv-2xvq-fx4p / GHSA-58qx-3vcg-4xpx).
+- `tsx` 4.22.0 → **4.23.15** + override `esbuild ^0.28.1` → **0.28.2**
+  (GHSA-g7r4-m6w7-qqqr).
+- `npm audit` (TUI) : **found 0 vulnerabilities** ; `tsc --noEmit` OK ;
+  `bun test` : 3 pass.
+
 ### Intégration finale (2026-10-25)
 
 - Branche par défaut : `dev` ; `main` protégée (PR requises, checks CI /
