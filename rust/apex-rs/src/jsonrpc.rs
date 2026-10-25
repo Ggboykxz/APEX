@@ -149,10 +149,12 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn reads_line_delimited_and_framed_messages() {
-        // A fake "server" that writes one line-delimited message…
+        // A fake "server" that writes one line-delimited message, one framed
+        // message, then keeps reading stdin so the client does not hit EPIPE
+        // when it sends the second request.
         let framed_body = r#"{"jsonrpc":"2.0","id":2,"result":"framed-mode"}"#;
         let script = format!(
-            "printf '{{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"line-mode\"}}\\n'\nprintf 'Content-Length: {}\\r\\n\\r\\n{}'",
+            "printf '{{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"line-mode\"}}\\n'\nprintf 'Content-Length: {}\\r\\n\\r\\n{}'\ncat >/dev/null",
             framed_body.len(),
             framed_body
         );
