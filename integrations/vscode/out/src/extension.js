@@ -160,7 +160,6 @@ async function sendChat(message) {
         viewProvider.updateState(chatState);
         return;
     }
-    const sessionId = await currentSessionId();
     const c = ensureServer();
     if (!c) {
         return;
@@ -327,9 +326,8 @@ function activate(context) {
             }
             const health = await c.health();
             if (!health.ok && backend.running) {
-                backend.stop().then(() => {
-                    void ensureConnected();
-                });
+                await backend.stop();
+                void ensureConnected();
             }
         })();
     }, 30000);

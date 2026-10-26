@@ -192,16 +192,16 @@ let batSeq = 0;
  */
 function writeDelegationBat(target, args, batDir) {
   batSeq += 1;
-  // Random suffix plus exclusive creation ("wx"): the temp file name is
+  // Random suffix plus exclusive creation ("wx") with mode 0o600: the temp file name is
   // unguessable and an existing file is never overwritten (CodeQL
   // "insecure creation of file in os temp dir").
   const batPath = path.join(
     batDir,
-    `apex-delegate-${process.pid}-${batSeq}-${crypto.randomUUID()}.bat`,
+    `apex-delegate-${process.pid}-${batSeq}-${crypto.randomBytes(16).toString("hex")}.bat`,
   );
   const line = [batchQuote(target), ...args.map(batchQuote)].join(" ");
   const content = `@echo off\r\nchcp 65001 >nul 2>nul\r\n${line}\r\nexit /b %ERRORLEVEL%\r\n`;
-  fs.writeFileSync(batPath, content, { encoding: "utf8", flag: "wx" });
+  fs.writeFileSync(batPath, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
   return batPath;
 }
 

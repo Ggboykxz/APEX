@@ -10,7 +10,7 @@ import * as vscode from "vscode"
 import { ApexClient, type ModelInfo } from "./client"
 import { ChatWebviewProvider, type WebviewMessage } from "./chatView"
 import { chatReducer, initialChatState, type ChatState } from "./state"
-import { BackendServer, normalizeServerUrl, portOf } from "./server"
+import { BackendServer, normalizeServerUrl } from "./server"
 
 let statusBar: vscode.StatusBarItem
 let secretStore: vscode.SecretStorage
@@ -131,7 +131,6 @@ async function sendChat(message: string): Promise<void> {
     viewProvider.updateState(chatState)
     return
   }
-  const sessionId = await currentSessionId()
   const c = ensureServer()
   if (!c) {
     return
@@ -313,9 +312,8 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       const health = await c.health()
       if (!health.ok && backend.running) {
-        backend.stop().then(() => {
-          void ensureConnected()
-        })
+        await backend.stop()
+        void ensureConnected()
       }
     })()
   }, 30000)
