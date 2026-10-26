@@ -119,7 +119,9 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"analyze_code","description":"Analyze code structure and complexity.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}},
         {"type":"function","function":{"name":"explain_code","description":"Explain what a code block does.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to explain"},"start":{"type":"integer","description":"Start line"},"end":{"type":"integer","description":"End line"}},"required":["path"]}}},
         {"type":"function","function":{"name":"get_repo_map","description":"Generate repository map showing file structure and key files.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to repository (default: .)"}}}}},
-        {"type":"function","function":{"name":"get_file_tree","description":"Show directory structure as ASCII tree.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Directory to display (default: .)"},"max_depth":{"type":"integer","description":"Maximum depth to display (default: 3)"}},"required":["path"]}}}
+        {"type":"function","function":{"name":"get_file_tree","description":"Show directory structure as ASCII tree.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Directory to display (default: .)"},"max_depth":{"type":"integer","description":"Maximum depth to display (default: 3)"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"web_search","description":"Search the web for information.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Search query"}},"required":["query"]}}},
+        {"type":"function","function":{"name":"fetch_url","description":"Fetch and clean a webpage.","parameters":{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch"}},"required":["url"]}}}
     ]).as_array().cloned().unwrap_or_default());
     let mut arr = base;
     for t in crate::mcp_client::global_tools() {
@@ -273,6 +275,14 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 Ok(t) => t,
                 Err(e) => e,
             }
+        }
+        "web_search" => {
+            let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+            crate::web::web_search(query)
+        }
+        "fetch_url" => {
+            let url = args.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            crate::web::fetch_url(url)
         }
         "undo_last_edit" => undo_last_edit(),
         "redo_last_edit" => redo_last_edit(),

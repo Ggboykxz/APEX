@@ -1176,6 +1176,25 @@ registry:
   `\ No newline at end of file` markers, and atomic temp-file + rename writes
   with best-effort rollback. `dry_run` previews without touching the disk.
 
+### Web tools
+
+`web.rs` ports the two web tools from `tools.py` (tool registry is now 45
+schemas):
+
+- `web_search` — provider chain identical to Python: `BRAVE_API_KEY` /
+  `BRAVE_SEARCH_API_KEY` → Brave, `TAVILY_API_KEY` → Tavily, `EXA_API_KEY`
+  → Exa, otherwise DuckDuckGo HTML. A failed provider falls back to
+  DuckDuckGo, and if that also fails the original error is reported as
+  `ERROR: Web search failed: …`.
+- `fetch_url` — GETs the page (redirects followed, 30 s timeout) and returns
+  the visible text after stripping scripts, styles, tags and `&[a-z]+;`
+  entities (whitespace is collapsed *before* entity removal, matching
+  Python's order), capped at 3000 characters with a trailing `...`.
+
+HTTP runs on a dedicated thread with its own runtime (same pattern as
+`github::http_json`), so both tools work from the `call-tool` CLI and from
+inside the agent loop's Tokio runtime.
+
 ### Hermetic tests
 
 `config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,

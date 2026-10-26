@@ -1,12 +1,12 @@
 # Rust / Python Parity
 
 Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
-context-tools increment). The reference is the Python package in `apex/` on `dev`.
+web-tools increment). The reference is the Python package in `apex/` on `dev`.
 "Parity" here means that a behaviour is reachable from the Rust binary, HTTP
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~11,930
+Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~12,270
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -36,7 +36,7 @@ HTTP server (`serve`): 41 routes, including `/health`, `/api/v1/tools`,
 themes, cost, chat, chat streaming, context (`repo-map`, `git`, `stats`,
 `ctags`, `tree`, `glob`), `/api/v1/rate-limit`, and WebSockets.
 
-Tool registry: 43 schemas. Python exposes 102 schema names in `apex/tools.py`.
+Tool registry: 45 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 ## Module matrix
 
@@ -66,7 +66,7 @@ Tool registry: 43 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill add/remove and three-way diff remain unwired. |
-| `tools.py` | `tools.rs` | Partial | 43 tools: files, shell, git, codegen, LSP, skills, repository context. Python exposes 102 schema names; the tool table below records the uncovered categories. |
+| `tools.py` | `tools.rs`, `web.rs` | Partial | 45 tools: files, shell, git, codegen, LSP, skills, repository context, web. Python exposes 102 schema names; the tool table below records the uncovered categories. |
 | `git_undo.py` | `tools.rs` | Partial | `git_undo`, `undo_last_edit`, `redo_last_edit`. No snapshot history or workspace rollback. |
 | `advanced.py` | `server.rs` | Partial | SSE streaming exists. Retry, batching, and timeout policy are not ported. |
 | `theme_manager.py` | `server.rs` | Partial | Read-only `/api/v1/themes` route. No theme mutation, custom themes, or UI integration. |
@@ -99,7 +99,7 @@ Tool registry: 43 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | LSP | `lsp_definition`, `lsp_references`, `lsp_hover`, `lsp_diagnostics` | Partial | completions, code actions, workspace-symbol search |
 | Skills | `list_skills`, `use_skill` | Partial | skill authoring/removal (CLI) |
 | Context | `get_repo_map`, `get_file_tree` | Partial | `get_context_info` (needs the agent message state; the Rust dispatch is stateless) |
-| Web | - | Missing | `web_search`, `fetch_url` |
+| Web | `web_search` (Brave/Tavily/Exa/DuckDuckGo provider chain with DuckDuckGo fallback), `fetch_url` (cleaned text, 3000-char cap) | Wired | - |
 | Tasks/plans | - | Missing | `task`, `submit_task`, `get_task`, `list_tasks`, `plan_approve`, `plan_reject` |
 | Session/shares | HTTP routes only | Partial | `share_session`, `bookmark_session`, `restore_bookmark` |
 | Env/config | - | Missing | `get_env`, `set_env`, `list_env`, `set_theme`, `get_keybindings`, tool timeouts |
@@ -173,7 +173,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 142 unit tests (141 on Windows - the atomic-write rollback
+Current baseline: 151 unit tests (150 on Windows - the atomic-write rollback
 test is POSIX-gated) + 9 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
@@ -184,7 +184,7 @@ routes, and the absence of the crate-level allow.
 
 ## Next increments
 
-1. Add high-value missing tools: `web_search`/`fetch_url`, task/plan tools.
+1. Add high-value missing tools: task/plan tools.
 2. Add a `github` CLI group and skill authoring commands; remove those allows.
 3. Add HTTP authentication and route-level E2E coverage for the rate-limited
    server (the limiter itself is wired and unit-tested).
