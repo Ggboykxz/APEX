@@ -10,7 +10,7 @@ mod jsonrpc;
 mod lsp;
 mod mcp_client;
 mod memory;
-// Ported but not consulted by the agent loop yet (no permission gate).
+mod patch;
 mod permission;
 mod plugins;
 mod rate_limiter;

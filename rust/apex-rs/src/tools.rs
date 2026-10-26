@@ -69,9 +69,14 @@ pub fn redo_last_edit() -> String {
 }
 
 pub fn tool_schemas() -> Value {
-    let base = json!([
+    // The literal is split into chunks: a single json! with this many
+    // entries exceeds serde_json's macro expansion recursion limit.
+    let mut base: Vec<Value> = Vec::new();
+    base.extend(json!([
         {"type":"function","function":{"name":"read_file","description":"Read a file","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"write_file","description":"Write a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}},
+        {"type":"function","function":{"name":"edit_file","description":"Replace a unique string in a file with new content.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to the file to edit"},"old_string":{"type":"string","description":"Unique string to find and replace"},"new_string":{"type":"string","description":"String to replace it with"}},"required":["path","old_string","new_string"]}}},
+        {"type":"function","function":{"name":"apply_patch","description":"Apply a multi-file patch atomically. Supports Codex-style patches (***) and unified diffs (--- a/path, +++ b/path). All files are validated before any write; use dry_run to preview. Paths must be relative to the project root.","parameters":{"type":"object","properties":{"patch":{"type":"string","description":"Patch content to apply"},"dry_run":{"type":"boolean","description":"Validate and preview without writing files"}},"required":["patch"]}}},
         {"type":"function","function":{"name":"list_files","description":"List files in a directory","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"run_command","description":"Run a shell command","parameters":{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}}},
         {"type":"function","function":{"name":"git_status","description":"Show git working tree status","parameters":{"type":"object","properties":{}}}},
@@ -82,6 +87,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"redo_last_edit","description":"Re-apply the last undone file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_undo","description":"Revert uncommitted changes (git checkout)","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
+    ]).as_array().cloned().unwrap_or_default());
+    base.extend(json!([
         {"type":"function","function":{"name":"lsp_diagnostics","description":"Get LSP diagnostics for a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_definition","description":"Go to definition using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_references","description":"Find references using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
@@ -95,6 +102,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"git_list_branches","description":"List all git branches.","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_pre_commit","description":"Run git pre-commit checks.","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_create_pr","description":"Create a GitHub pull request.","parameters":{"type":"object","properties":{"title":{"type":"string","description":"PR title"},"body":{"type":"string","description":"PR description"},"base":{"type":"string","description":"Target branch"}},"required":["title"]}}},
+    ]).as_array().cloned().unwrap_or_default());
+    base.extend(json!([
         {"type":"function","function":{"name":"refactor_code","description":"Refactor code (add types, make async, extract method).","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to refactor"},"function":{"type":"string","description":"Function name"},"style":{"type":"string","description":"Style: async, type_hints, modern"}},"required":["path","function"]}}},
         {"type":"function","function":{"name":"generate_db_model","description":"Generate database model from table schema.","parameters":{"type":"object","properties":{"table":{"type":"string","description":"Table name"},"columns":{"type":"array","items":{"type":"object"},"description":"Column definitions"}},"required":["table","columns"]}}},
         {"type":"function","function":{"name":"generate_dockerfile","description":"Generate Dockerfile for language.","parameters":{"type":"object","properties":{"language":{"type":"string","description":"Language: python, node, go, rust, java"}},"required":["language"]}}},
@@ -109,8 +118,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"replace_in_files","description":"Search and replace across multiple files.","parameters":{"type":"object","properties":{"pattern":{"type":"string","description":"Search pattern (regex)"},"replacement":{"type":"string","description":"Replacement string"},"files":{"type":"array","items":{"type":"string"},"description":"Glob patterns to match files"},"dry_run":{"type":"boolean","description":"Preview without applying"}},"required":["pattern","replacement"]}}},
         {"type":"function","function":{"name":"analyze_code","description":"Analyze code structure and complexity.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}},
         {"type":"function","function":{"name":"explain_code","description":"Explain what a code block does.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to explain"},"start":{"type":"integer","description":"Start line"},"end":{"type":"integer","description":"End line"}},"required":["path"]}}}
-    ]);
-    let mut arr = base.as_array().cloned().unwrap_or_default();
+    ]).as_array().cloned().unwrap_or_default());
+    let mut arr = base;
     for t in crate::mcp_client::global_tools() {
         arr.push(t);
     }
@@ -179,6 +188,72 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                     format!("Wrote {} ({})", full.display(), fmt)
                 }
                 Err(e) => format!("ERROR: {e}"),
+            }
+        }
+        "edit_file" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let old_string = args
+                .get("old_string")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let new_string = args
+                .get("new_string")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let full = resolve(path, cwd);
+            if !full.exists() {
+                format!("ERROR: File not found: {}", full.display())
+            } else {
+                match fs::read_to_string(&full) {
+                    Ok(content) => {
+                        if !content.contains(old_string) {
+                            "ERROR: String not found in file. Use read_file to see content."
+                                .to_string()
+                        } else {
+                            let new_content = content.replacen(old_string, new_string, 1);
+                            match fs::write(&full, new_content) {
+                                Ok(_) => format!("SUCCESS: Edited {}", full.display()),
+                                Err(e) => format!("ERROR: Cannot edit file: {e}"),
+                            }
+                        }
+                    }
+                    Err(e) => format!("ERROR: Cannot edit file: {e}"),
+                }
+            }
+        }
+        "apply_patch" => {
+            let patch = args.get("patch").and_then(|v| v.as_str()).unwrap_or("");
+            let dry_run = args
+                .get("dry_run")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            match crate::patch::apply_patch(patch, cwd, dry_run) {
+                Ok(result) => {
+                    let count = result.files.len();
+                    let header = if result.dry_run { "PREVIEW" } else { "SUCCESS" };
+                    let action = if result.dry_run {
+                        "Patch would apply"
+                    } else {
+                        "Patch applied"
+                    };
+                    let mut lines = vec![format!(
+                        "{header}: {action} ({count} files, +{}/-{})",
+                        result.additions, result.deletions
+                    )];
+                    for w in &result.warnings {
+                        lines.push(format!("warning: {w}"));
+                    }
+                    lines.join("\n")
+                }
+                Err(e) => {
+                    let mut detail = format!("{}: {}", e.reason, e.message);
+                    if let Some(p) = &e.path {
+                        if !e.message.contains(p.as_str()) {
+                            detail.push_str(&format!(" ({p})"));
+                        }
+                    }
+                    format!("ERROR: {detail}")
+                }
             }
         }
         "undo_last_edit" => undo_last_edit(),
@@ -1137,5 +1212,94 @@ mod tests {
             client.contains("def get_things(self, **kwargs):"),
             "got {client}"
         );
+    }
+
+    #[test]
+    fn edit_file_replaces_first_occurrence() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().join("doc.txt");
+        fs::write(&p, "alpha beta alpha\n").unwrap();
+        let out = execute_tool(
+            "edit_file",
+            &serde_json::json!({"path": "doc.txt", "old_string": "alpha", "new_string": "ALPHA"}),
+            dir.path(),
+        );
+        assert!(out.starts_with("SUCCESS: Edited"), "got {out}");
+        assert_eq!(fs::read_to_string(p).unwrap(), "ALPHA beta alpha\n");
+    }
+
+    #[test]
+    fn edit_file_error_paths() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("doc.txt"), "hello\n").unwrap();
+        assert_eq!(
+            execute_tool(
+                "edit_file",
+                &serde_json::json!({"path": "missing.txt", "old_string": "a", "new_string": "b"}),
+                dir.path()
+            ),
+            format!(
+                "ERROR: File not found: {}",
+                dir.path().join("missing.txt").display()
+            )
+        );
+        assert_eq!(
+            execute_tool(
+                "edit_file",
+                &serde_json::json!({"path": "doc.txt", "old_string": "nope", "new_string": "b"}),
+                dir.path()
+            ),
+            "ERROR: String not found in file. Use read_file to see content."
+        );
+    }
+
+    #[test]
+    fn apply_patch_tool_applies_and_previews() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("a.txt"), "one\ntwo\n").unwrap();
+        let patch = "--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n one\n-two\n+TWO\n";
+
+        let preview = execute_tool(
+            "apply_patch",
+            &serde_json::json!({"patch": patch, "dry_run": true}),
+            dir.path(),
+        );
+        assert!(
+            preview.starts_with("PREVIEW: Patch would apply (1 files, +1/-1)"),
+            "got {preview}"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+            "one\ntwo\n"
+        );
+
+        let applied = execute_tool(
+            "apply_patch",
+            &serde_json::json!({"patch": patch}),
+            dir.path(),
+        );
+        assert!(
+            applied.starts_with("SUCCESS: Patch applied (1 files, +1/-1)"),
+            "got {applied}"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+            "one\nTWO\n"
+        );
+    }
+
+    #[test]
+    fn apply_patch_tool_reports_engine_errors() {
+        let dir = tempdir().unwrap();
+        let out = execute_tool(
+            "apply_patch",
+            &serde_json::json!({"patch": "*** Begin Patch\n*** Add File: ../evil.txt\n+x\n*** End Patch\n"}),
+            dir.path(),
+        );
+        assert!(
+            out.starts_with("ERROR: path_traversal: '..' is not allowed"),
+            "got {out}"
+        );
+        assert!(out.contains("evil.txt"), "got {out}");
     }
 }

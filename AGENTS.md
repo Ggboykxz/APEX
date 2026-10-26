@@ -1148,6 +1148,23 @@ apex-rs context glob <PATTERN> [PATH]
 through), `?depth=` for `tree`, and `?pattern=` for `glob`. Invalid input returns
 `{"error": …}` instead of a panic.
 
+### Editing tools
+
+`edit_file` and `apply_patch` close the surgical-editing gap in the Rust
+registry (tool registry is now 41 schemas):
+
+- `edit_file` — replaces the first occurrence of `old_string` in a file with
+  `new_string`; the success/error strings mirror Python exactly
+  (`SUCCESS: Edited …`, `ERROR: File not found: …`,
+  `ERROR: String not found in file. Use read_file to see content.`).
+- `apply_patch` — `patch.rs` is a faithful port of `apex/apply_patch.py`:
+  Codex-style (`*** Begin Patch`) and unified-diff dialects, full pre-write
+  validation (path traversal, absolute paths, duplicate targets, 1 MB patch /
+  512 KB file limits, binary content), hunk matching with forward/backward
+  fuzz (offsets reported as signed `warning:` lines),
+  `\ No newline at end of file` markers, and atomic temp-file + rename writes
+  with best-effort rollback. `dry_run` previews without touching the disk.
+
 ### Hermetic tests
 
 `config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,

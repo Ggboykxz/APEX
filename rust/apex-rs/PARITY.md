@@ -1,12 +1,12 @@
 # Rust / Python Parity
 
 Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
-permission-gate increment). The reference is the Python package in `apex/` on `dev`.
+editing-tools increment). The reference is the Python package in `apex/` on `dev`.
 "Parity" here means that a behaviour is reachable from the Rust binary, HTTP
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~9,430
+Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~11,860
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -36,13 +36,14 @@ HTTP server (`serve`): 41 routes, including `/health`, `/api/v1/tools`,
 themes, cost, chat, chat streaming, context (`repo-map`, `git`, `stats`,
 `ctags`, `tree`, `glob`), `/api/v1/rate-limit`, and WebSockets.
 
-Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
+Tool registry: 41 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 ## Module matrix
 
 | Python | Rust | Status | Notes |
 | --- | --- | --- | --- |
 | `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security, context). Most of Python's command suite is not ported. |
+| `apply_patch.py` | `patch.rs` | Wired | Multi-file patch engine reachable through the `apply_patch` tool (and `dry_run` preview): Codex-style and unified-diff dialects, pre-write validation (traversal, absolute, duplicate, size, binary), hunk matching with fuzz and signed offset warnings, no-newline markers, atomic temp-file + rename writes with best-effort rollback. |
 | `agent.py` | `agent.rs` | Partial | One-shot run, streaming REPL, tool-call loop, cost reporting. Session forking/rewind and some prompt features are absent. |
 | `agents.py` | - | Missing | No subagent registry, markdown agent loading, or parallel orchestration. |
 | `config.py`, `config_v2.py` | `config.rs` | Partial | Env/model/cwd config and shared home resolution. No JSONC hierarchy, migration, or validation layer. |
@@ -65,7 +66,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill add/remove and three-way diff remain unwired. |
-| `tools.py` | `tools.rs` | Partial | 39 tools: files, shell, git, codegen, LSP, skills. Python exposes 102 schema names; the tool table below records the uncovered categories. |
+| `tools.py` | `tools.rs` | Partial | 41 tools: files, shell, git, codegen, LSP, skills. Python exposes 102 schema names; the tool table below records the uncovered categories. |
 | `git_undo.py` | `tools.rs` | Partial | `git_undo`, `undo_last_edit`, `redo_last_edit`. No snapshot history or workspace rollback. |
 | `advanced.py` | `server.rs` | Partial | SSE streaming exists. Retry, batching, and timeout policy are not ported. |
 | `theme_manager.py` | `server.rs` | Partial | Read-only `/api/v1/themes` route. No theme mutation, custom themes, or UI integration. |
@@ -91,7 +92,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 | Category | Rust tools | Status | Notable Python tools not ported |
 | --- | --- | --- | --- |
-| Files | `read_file`, `write_file`, `list_files`, `search_in_files`, `replace_in_files`, `diff_files` | Partial | `edit_file`, `apply_edit`, `apply_patch`, `preview_edit`, `create_directory`, `delete_file`, `batch_read`, `batch_write`, `read_image`, `glob_search`, `get_file_tree` |
+| Files | `read_file`, `write_file`, `edit_file`, `apply_patch`, `list_files`, `search_in_files`, `replace_in_files`, `diff_files` | Partial | `apply_edit`, `preview_edit`, `create_directory`, `delete_file`, `batch_read`, `batch_write`, `read_image`, `glob_search`, `get_file_tree` |
 | Shell | `run_command` (guarded) | Partial | `run_command_custom`, `run_shell`, `start_shell`, `close_shell`, `install_package`, `run_code`, `run_test` |
 | Git | 11 `git_*` tools including `git_create_pr` and `git_undo` | Partial | `add_git_hook`, richer status/log helpers |
 | Codegen | `refactor_code`, DB/Docker/API-client/docs generators, `profile_code`, `optimize_code` | Partial | `generate_tests`, `inline_edit`, `apply_code_action` |
@@ -172,7 +173,8 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 121 unit tests + 9 binary E2E tests. The E2E suite runs
+Current baseline: 140 unit tests (139 on Windows - the atomic-write rollback
+test is POSIX-gated) + 9 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
@@ -182,7 +184,7 @@ routes, and the absence of the crate-level allow.
 
 ## Next increments
 
-1. Add high-value missing tools: `edit_file`/`apply_patch`, repo map/tree,
+1. Add high-value missing tools: repo map/tree,
    `web_search`/`fetch_url`, task/plan tools.
 2. Add a `github` CLI group and skill authoring commands; remove those allows.
 3. Add HTTP authentication and route-level E2E coverage for the rate-limited
