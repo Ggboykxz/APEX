@@ -1148,10 +1148,21 @@ apex-rs context glob <PATTERN> [PATH]
 through), `?depth=` for `tree`, and `?pattern=` for `glob`. Invalid input returns
 `{"error": …}` instead of a panic.
 
+The same functions back two registry tools:
+
+- `get_repo_map` — the repository map from the working directory (Python's
+  executor ignores its `path` argument; the tool does the same).
+- `get_file_tree` — ASCII tree for `path` (canonicalized, like Python's
+  `_resolve`) with `max_depth` (default 3), directories first, dotfiles
+  hidden, `ERROR: Path not found: …` on a missing path.
+
+`get_context_info` has no Rust counterpart: it reads the agent's message
+history, which the stateless Rust dispatch does not keep.
+
 ### Editing tools
 
 `edit_file` and `apply_patch` close the surgical-editing gap in the Rust
-registry (tool registry is now 41 schemas):
+registry:
 
 - `edit_file` — replaces the first occurrence of `old_string` in a file with
   `new_string`; the success/error strings mirror Python exactly

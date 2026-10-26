@@ -117,7 +117,9 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"use_skill","description":"Use a skill with arguments.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Skill name"},"args":{"type":"object","description":"Skill arguments"}},"required":["name"]}}},
         {"type":"function","function":{"name":"replace_in_files","description":"Search and replace across multiple files.","parameters":{"type":"object","properties":{"pattern":{"type":"string","description":"Search pattern (regex)"},"replacement":{"type":"string","description":"Replacement string"},"files":{"type":"array","items":{"type":"string"},"description":"Glob patterns to match files"},"dry_run":{"type":"boolean","description":"Preview without applying"}},"required":["pattern","replacement"]}}},
         {"type":"function","function":{"name":"analyze_code","description":"Analyze code structure and complexity.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}},
-        {"type":"function","function":{"name":"explain_code","description":"Explain what a code block does.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to explain"},"start":{"type":"integer","description":"Start line"},"end":{"type":"integer","description":"End line"}},"required":["path"]}}}
+        {"type":"function","function":{"name":"explain_code","description":"Explain what a code block does.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to explain"},"start":{"type":"integer","description":"Start line"},"end":{"type":"integer","description":"End line"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"get_repo_map","description":"Generate repository map showing file structure and key files.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to repository (default: .)"}}}}},
+        {"type":"function","function":{"name":"get_file_tree","description":"Show directory structure as ASCII tree.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Directory to display (default: .)"},"max_depth":{"type":"integer","description":"Maximum depth to display (default: 3)"}},"required":["path"]}}}
     ]).as_array().cloned().unwrap_or_default());
     let mut arr = base;
     for t in crate::mcp_client::global_tools() {
@@ -254,6 +256,22 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                     }
                     format!("ERROR: {detail}")
                 }
+            }
+        }
+        "get_repo_map" => crate::context::get_repo_map(cwd),
+        "get_file_tree" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
+            let full = resolve(path, cwd);
+            // Python's `_resolve` canonicalizes; keep the name lookup in parity.
+            let full = full.canonicalize().unwrap_or(full);
+            let max_depth = args
+                .get("max_depth")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(3)
+                .max(0) as usize;
+            match crate::context::file_tree(&full, max_depth) {
+                Ok(t) => t,
+                Err(e) => e,
             }
         }
         "undo_last_edit" => undo_last_edit(),
@@ -1301,5 +1319,58 @@ mod tests {
             "got {out}"
         );
         assert!(out.contains("evil.txt"), "got {out}");
+    }
+
+    #[test]
+    fn get_file_tree_tool_ascii_and_limits() {
+        let dir = tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("src").join("sub")).unwrap();
+        fs::write(
+            dir.path().join("src").join("sub").join("b.rs"),
+            "fn main() {}\n",
+        )
+        .unwrap();
+        fs::write(dir.path().join("top.txt"), "top\n").unwrap();
+        fs::write(dir.path().join(".hidden"), "secret\n").unwrap();
+
+        let out = execute_tool(
+            "get_file_tree",
+            &serde_json::json!({"path": dir.path().to_str().unwrap()}),
+            dir.path(),
+        );
+        assert!(out.contains("├── src"), "got {out}");
+        assert!(out.contains("│   └── sub"), "got {out}");
+        assert!(out.contains("│       └── b.rs"), "got {out}");
+        assert!(out.contains("└── top.txt"), "got {out}");
+        assert!(!out.contains(".hidden"), "got {out}");
+
+        let shallow = execute_tool(
+            "get_file_tree",
+            &serde_json::json!({"path": dir.path().to_str().unwrap(), "max_depth": 1}),
+            dir.path(),
+        );
+        assert!(shallow.contains("│   └── sub"), "got {shallow}");
+        assert!(!shallow.contains("b.rs"), "got {shallow}");
+
+        assert!(execute_tool(
+            "get_file_tree",
+            &serde_json::json!({"path": "does-not-exist"}),
+            dir.path()
+        )
+        .starts_with("ERROR: Path not found:"));
+    }
+
+    #[test]
+    fn get_repo_map_tool_lists_structure() {
+        let dir = tempdir().unwrap();
+        fs::create_dir(dir.path().join("pkg")).unwrap();
+        fs::write(dir.path().join("main.py"), "print('hi')\n").unwrap();
+
+        let out = execute_tool("get_repo_map", &serde_json::json!({}), dir.path());
+        assert!(out.starts_with("Repository:"), "got {out}");
+        assert!(out.contains("[DIRECTORIES]"), "got {out}");
+        assert!(out.contains("📁 pkg/"), "got {out}");
+        assert!(out.contains("[SOURCE FILES]"), "got {out}");
+        assert!(out.contains("• main.py"), "got {out}");
     }
 }
