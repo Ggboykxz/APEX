@@ -1083,8 +1083,8 @@ surface change.
 - No crate-level `#![allow(dead_code)]`.
 - Allows are scoped to a module or item and carry a justification plus a
   `TODO(v2.6)` exit criterion.
-- Ported modules without a caller are declared and allowed explicitly
-  (`permission`) instead of silently disappearing.
+- No module-level allow exists at this baseline; the full item-level
+  inventory is the table in PARITY.md.
 
 ### Shell security
 
@@ -1111,6 +1111,24 @@ HTTP 429 with a `Retry-After` header and a JSON error body.
   `APEX_RATE_LIMIT_PER_HOUR`, `APEX_RATE_LIMIT_PER_DAY`, `APEX_RATE_LIMIT_BURST`
   override them.
 - `GET /api/v1/rate-limit` reports the anonymous key's counters and limits.
+
+### Permission gate
+
+Tool dispatch runs through `permission::dispatch_gate` at both agent
+surfaces (one-shot `chat` and streaming `chat_stream`). The manager is the
+**headless** variant of Python's: the `*` → ASK catch-all becomes
+`*` → ALLOW because the backend has no prompt surface — an ASK rule
+refuses with `ERROR: Permission denied: <reason>` instead of prompting.
+
+- Explicit DENY/ASK rules and the `APEX_PERMISSION_DENY` /
+  `APEX_PERMISSION_ASK` env vars (comma-separated glob patterns) win over
+  the catch-all.
+- `Config.denied_tools` keeps its original `ERROR: Permission denied`
+  message; the gate is an extra layer that carries the rule reason.
+- The `call-tool` CLI stays ungated: it is an explicit operator action, not
+  an LLM dispatch.
+- The interactive request/approve flow (request/approve/deny, `remember`)
+  is ported but unwired — there is no prompt surface on a headless backend.
 
 ### Repository context
 

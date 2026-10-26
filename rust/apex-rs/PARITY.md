@@ -1,7 +1,7 @@
 # Rust / Python Parity
 
-Internal GA baseline for `rust/apex-rs` (last updated for the v2.6 context
-increment). The reference is the Python package in `apex/` on `dev`.
+Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
+permission-gate increment). The reference is the Python package in `apex/` on `dev`.
 "Parity" here means that a behaviour is reachable from the Rust binary, HTTP
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
@@ -58,7 +58,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `lsp.py`, `lsp_diagnostics.py` | `lsp.rs` | Partial | Definition, references, hover, diagnostics tools. No persistent per-workspace manager or completion/code-action tools. |
 | `mcp.py` | `mcp_client.rs`, `jsonrpc.rs` | Wired | Stdio JSON-RPC, server discovery, tool bridge, global registry; CLI and server use it. |
 | `memory.py` | `memory.rs` | Wired | CLI list/add/search/context/remove/clear, REPL `/memory`, session context injection. No automatic fact extraction. |
-| `permission.py` | `permission.rs` | Ported, not wired | Rules, first-match semantics, and tests. Tool dispatch does not consult it yet. |
+| `permission.py` | `permission.rs` | Wired | `dispatch_gate` enforces rules at both agent dispatch sites (one-shot and streaming). Headless manager: `*` → ALLOW (no prompt surface), ASK refuses with the rule reason. `APEX_PERMISSION_DENY` / `APEX_PERMISSION_ASK` env rules. Interactive request/approve flow is unwired (no prompt surface). |
 | `plugins.py` | `plugins.rs` | Wired | Manifest discovery, namespaced plugin tools, CLI/server listing and execution. Rust invokes declared tools; it does not execute Python plugin source in-process. |
 | `rate_limiter.py` | `rate_limiter.rs` | Wired | Per-key in-memory limiter enforced by middleware on every `serve` route except `/health` (`X-API-Key` / `Bearer` key, 429 + `Retry-After`); `GET /api/v1/rate-limit` exposes counters; limits via `APEX_RATE_LIMIT_*`. SQLite backend not ported. |
 | `session.py` | `share.rs`, `session_crypto.rs`, `server.rs` | Partial | Fernet-compatible encrypted save/load/list, CLI and HTTP session routes. Branching and all Python session metadata are absent. |
@@ -116,17 +116,16 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
    `plugins::plugin_count`, `McpServerConfig::name`, `McpManager::all_tools`,
    and `Memory::path`.
 4. Module-level allows are reserved for whole modules with no caller. Adding
-   one requires an entry in this document. There is currently one:
-   `permission`.
+   one requires an entry in this document. There is currently none: the
+   `permission` module went live with the dispatch gate in this increment.
 5. When an allow is removed: wire the code, add CLI/HTTP/tool or unit coverage,
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current allow inventory (22 attributes)
+### Current allow inventory (35 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
-| Module | `main.rs` | `permission` | No dispatch gate | Route tool dispatch through the manager |
 | Item | `codegen.rs` | `extract_method` | No refactor style | Add `extract_method` style |
 | Item | `codegen.rs` | `convert_to_class` | No refactor style | Add `convert_to_class` style |
 | Item | `codegen.rs` | `add_type_hints` | Tool only edits one signature | Add whole-file type-hint mode |
@@ -139,6 +138,19 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `hooks.rs` | `register_hook` | No config registration site | Load hooks at startup |
 | Item | `hooks.rs` | `hook_count` | Not exposed in config API | Add hook count to `/api/v1/config` |
 | Item | `memory.rs` | `list_facts` | CLI report needs tags | Add `memory list --names` |
+| Item | `permission.rs` | `PermissionAction::value` | No CLI reads action strings yet | `apex-rs permission list` |
+| Item | `permission.rs` | `PermissionRule::remember` | Consumed by the unwired request flow | Wire approval |
+| Item | `permission.rs` | `PermissionRequest` (struct) | Request flow unwired: no prompt surface | Wire approval |
+| Item | `permission.rs` | `requests`, `request_id_counter` | Request flow unwired: no prompt surface | Wire approval |
+| Item | `permission.rs` | `remove_rule` | No rule-management command | `permission rule remove` CLI |
+| Item | `permission.rs` | `clear_rules` | No rule-management command | `permission rule clear` CLI |
+| Item | `permission.rs` | `request_permission` | Request flow unwired: no prompt surface | Wire approval |
+| Item | `permission.rs` | `approve_request` | Request flow unwired: no prompt surface | Wire approval |
+| Item | `permission.rs` | `deny_request` | Request flow unwired: no prompt surface | Wire approval |
+| Item | `permission.rs` | `get_pending_requests` | Request flow unwired: no prompt surface | Wire approval |
+| Item | `permission.rs` | `get_request` | Request flow unwired: no prompt surface | Wire approval |
+| Item | `permission.rs` | `get_tool_permission` | Consumed by the unwired request flow | Wire approval |
+| Item | `permission.rs` | `PermissionRequestDenied` | Thrown by the unwired request flow | Wire approval |
 | Item | `rate_limiter.rs` | `RateLimitResult::reset_at` | Python tests assert it; no API reads it | Surface reset time in `GET /api/v1/rate-limit` |
 | Item | `server.rs` | `ChatReq::agent` | Chat selects one agent | Select requested agent in `/api/v1/chat` |
 | Item | `shell_security.rs` | `CommandCategory::Package` | Python never returns it | Classify pip/npm installs |
@@ -147,8 +159,8 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `skills.rs` | `three_way_diff` | No diff3 tool | Add `diff3_files` |
 | Item | `skills.rs` | `get_skill_manager` | Tools construct managers directly | Share a cached manager |
 
-The single module-level allow counts as one attribute; the 21 item-level
-attributes bring the total to 22.
+There are currently no module-level allows; the 35 item-level attributes
+are the complete inventory.
 
 ## Verification
 
@@ -160,7 +172,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 114 unit tests + 9 binary E2E tests. The E2E suite runs
+Current baseline: 121 unit tests + 9 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
@@ -170,12 +182,10 @@ routes, and the absence of the crate-level allow.
 
 ## Next increments
 
-1. Enforce `permission` in tool dispatch (rate limiting is done; only the
-   permission gate remains of the two module-level allows).
-2. Add high-value missing tools: `edit_file`/`apply_patch`, repo map/tree,
+1. Add high-value missing tools: `edit_file`/`apply_patch`, repo map/tree,
    `web_search`/`fetch_url`, task/plan tools.
-3. Add a `github` CLI group and skill authoring commands; remove those allows.
-4. Add HTTP authentication and route-level E2E coverage for the rate-limited
+2. Add a `github` CLI group and skill authoring commands; remove those allows.
+3. Add HTTP authentication and route-level E2E coverage for the rate-limited
    server (the limiter itself is wired and unit-tested).
-5. Add a Python-written Fernet session fixture to prove cross-language
+4. Add a Python-written Fernet session fixture to prove cross-language
    compatibility, not just self-round-tripping.

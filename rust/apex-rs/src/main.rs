@@ -11,8 +11,6 @@ mod lsp;
 mod mcp_client;
 mod memory;
 // Ported but not consulted by the agent loop yet (no permission gate).
-// TODO(v2.6): route tool dispatch through this manager and persist decisions.
-#[allow(dead_code)]
 mod permission;
 mod plugins;
 mod rate_limiter;
