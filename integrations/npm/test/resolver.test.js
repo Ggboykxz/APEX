@@ -165,7 +165,10 @@ test("writeDelegationBat writes a chcp-65001 bat with one quoted line", () => {
   const dir = tmpDir();
   const batPath = resolver.writeDelegationBat("C:\\bin\\apex.cmd", ["--version", "fix the bug"], dir);
   assert.equal(path.dirname(batPath), dir);
-  assert.match(path.basename(batPath), /^apex-delegate-\d+[-]\d+\.bat$/);
+  assert.match(
+    path.basename(batPath),
+    /^apex-delegate-\d+[-]\d+[-][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.bat$/,
+  );
   const lines = fs.readFileSync(batPath, "utf8").split("\r\n");
   assert.equal(lines[0], "@echo off");
   assert.equal(lines[1], "chcp 65001 >nul 2>nul");

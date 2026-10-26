@@ -10,6 +10,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const IS_WINDOWS = process.platform === "win32";
 const PATH_SEP = IS_WINDOWS ? ";" : ":";
@@ -191,10 +192,16 @@ let batSeq = 0;
  */
 function writeDelegationBat(target, args, batDir) {
   batSeq += 1;
-  const batPath = path.join(batDir, `apex-delegate-${process.pid}-${batSeq}.bat`);
+  // Random suffix plus exclusive creation ("wx"): the temp file name is
+  // unguessable and an existing file is never overwritten (CodeQL
+  // "insecure creation of file in os temp dir").
+  const batPath = path.join(
+    batDir,
+    `apex-delegate-${process.pid}-${batSeq}-${crypto.randomUUID()}.bat`,
+  );
   const line = [batchQuote(target), ...args.map(batchQuote)].join(" ");
   const content = `@echo off\r\nchcp 65001 >nul 2>nul\r\n${line}\r\nexit /b %ERRORLEVEL%\r\n`;
-  fs.writeFileSync(batPath, content, "utf8");
+  fs.writeFileSync(batPath, content, { encoding: "utf8", flag: "wx" });
   return batPath;
 }
 
@@ -267,13 +274,31 @@ function cleanupBat(batPath) {
  * @returns {boolean}
  */
 function isNpmShim(file) {
+  let fd = null;
   try {
-    const st = fs.statSync(file);
-    if (!st.isFile() || st.size > 16384) return false;
-    const head = fs.readFileSync(file, "latin1");
-    return head.replace(/\\/g, "/").includes("node_modules/apex-ai/bin/apex.js");
+    // Check the size and read the head through the same open descriptor so
+    // a modification cannot slip between the two (CodeQL "file may have
+    // changed since it was checked").
+    fd = fs.openSync(file, "r");
+    const st = fs.fstatSync(fd);
+    if (!st.isFile()) return false;
+    const size = Math.min(st.size, 16384);
+    const buf = Buffer.alloc(size);
+    fs.readSync(fd, buf, 0, size, 0);
+    return buf
+      .toString("latin1")
+      .replace(/\\/g, "/")
+      .includes("node_modules/apex-ai/bin/apex.js");
   } catch {
     return false;
+  } finally {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        /* already closed */
+      }
+    }
   }
 }
 

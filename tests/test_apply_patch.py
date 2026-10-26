@@ -562,11 +562,11 @@ def test_parse_patch_does_not_write(root: Path) -> None:
 def test_update_preserves_mode(root: Path) -> None:
     path = root / "a.sh"
     write_text(path, "old\n")
-    os.chmod(path, 0o640)
+    os.chmod(path, 0o600)
 
     apply_patch(codex_update("a.sh", "-old\n+new\n"), root)
 
-    assert stat.S_IMODE(path.stat().st_mode) == 0o640
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
 
 # ---------------------------------------------------------------------------
