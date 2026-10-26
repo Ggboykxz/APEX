@@ -20,6 +20,7 @@ mod share;
 mod shell_security;
 mod skills;
 mod tools;
+mod web;
 
 use clap::{Parser, Subcommand};
 use config::Config;
