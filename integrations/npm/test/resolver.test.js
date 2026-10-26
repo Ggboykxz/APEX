@@ -174,6 +174,10 @@ test("writeDelegationBat writes a chcp-65001 bat with one quoted line", () => {
   assert.equal(lines[1], "chcp 65001 >nul 2>nul");
   assert.equal(lines[2], '"C:\\bin\\apex.cmd" "--version" "fix the bug"');
   assert.equal(lines[3], "exit /b %ERRORLEVEL%");
+  // On POSIX the mode is meaningful: owner read/write only (0o600).
+  if (!IS_WINDOWS) {
+    assert.equal(fs.statSync(batPath).mode & 0o777, 0o600);
+  }
   resolver.cleanupBat(batPath);
   assert.throws(() => fs.readFileSync(batPath, "utf8"));
 });
