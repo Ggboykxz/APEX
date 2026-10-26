@@ -7,7 +7,9 @@ import assert from "node:assert/strict"
 import {
   createDiffPreviewState,
   DiffPreviewController,
+  diffDecisionBanner,
   reduceDiffPreview,
+  reduceRejectConfirmation,
   type DiffDecisionResult,
 } from "../src/diff/preview.js"
 
@@ -58,6 +60,59 @@ describe("reduceDiffPreview", () => {
     assert.equal(state.focusedFile, 2)
     state = reduceDiffPreview(state, { type: "focus-file", index: -2, fileCount: 3 })
     assert.equal(state.focusedFile, 0)
+  })
+})
+
+describe("reduceRejectConfirmation", () => {
+  it("requires a second r before emitting the reject decision", () => {
+    const first = reduceRejectConfirmation("idle", "r")
+    assert.equal(first.confirmation, "confirm")
+    assert.equal(first.decision, undefined)
+
+    const second = reduceRejectConfirmation(first.confirmation, "r")
+    assert.equal(second.confirmation, "idle")
+    assert.equal(second.decision, "reject")
+  })
+
+  it("cancels on any other key and re-arms on a later r", () => {
+    const armed = reduceRejectConfirmation("idle", "r")
+    assert.equal(armed.confirmation, "confirm")
+
+    const canceled = reduceRejectConfirmation(armed.confirmation, "a")
+    assert.equal(canceled.confirmation, "idle")
+    assert.equal(canceled.decision, undefined)
+
+    const rearmed = reduceRejectConfirmation(canceled.confirmation, "r")
+    assert.equal(rearmed.confirmation, "confirm")
+    assert.equal(rearmed.decision, undefined)
+  })
+})
+
+describe("diffDecisionBanner", () => {
+  it("reports applied decisions and transient submission states", () => {
+    assert.deepEqual(diffDecisionBanner({ status: "accepted" }), {
+      text: "✓ accepted — changes kept",
+      tone: "success",
+    })
+    assert.deepEqual(diffDecisionBanner({ status: "rejected" }), {
+      text: "✓ rejected — changes restored",
+      tone: "warning",
+    })
+    assert.equal(
+      diffDecisionBanner({ status: "pending", submitting: true }).text,
+      "submitting…",
+    )
+    assert.equal(
+      diffDecisionBanner({ status: "pending", error: "HTTP 409" }).text,
+      "✗ HTTP 409",
+    )
+  })
+
+  it("asks for confirmation before rejecting", () => {
+    assert.equal(
+      diffDecisionBanner({ status: "pending", confirmReject: true }).text,
+      "press r again to confirm revert, any other key cancels",
+    )
   })
 })
 

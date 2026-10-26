@@ -1,0 +1,45 @@
+{
+  "name": "apex-ai",
+  "version": "2.5.0",
+  "description": "APEX — the universal AI coding agent. npm installer that provisions the apex CLI (Python) and runs it from a single binary.",
+  "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "apex": "bin/apex.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "ai",
+    "coding-agent",
+    "cli",
+    "llm",
+    "terminal",
+    "apex"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ggboykxz/APEX.git",
+    "directory": "integrations/npm"
+  },
+  "homepage": "https://apex-ai.dev",
+  "bugs": {
+    "url": "https://github.com/Ggboykxz/APEX/issues"
+  }
+}

@@ -1,13 +1,50 @@
 /**
  * Diff preview decision state machine.
  *
- * Accept/reject is a local decision only: this module never writes to disk.
- * Callers receive the decision through `onDecision` and are responsible for
- * forwarding it to a backend endpoint (nothing is wired yet in increment 1).
+ * Accept/reject is a local decision: this module never writes to disk.
+ * Callers receive the decision through `onDecision` and forward it to the
+ * backend decision endpoint (`POST .../diff/decision`).
  */
 
 export type DiffDecision = "accept" | "reject"
 export type DiffPreviewStatus = "pending" | "accepted" | "rejected"
+
+export type DiffBannerTone = "error" | "warning" | "success" | "muted"
+
+export interface DiffBanner {
+  text: string
+  tone: DiffBannerTone
+}
+
+/**
+ * Banner shown under the diff. Kept pure so the overlay text is covered by
+ * tests without rendering Ink.
+ */
+export function diffDecisionBanner(options: {
+  status: DiffPreviewStatus
+  confirmReject?: boolean
+  submitting?: boolean
+  error?: string
+}): DiffBanner {
+  if (options.error) return { text: `✗ ${options.error}`, tone: "error" }
+  if (options.submitting) return { text: "submitting…", tone: "warning" }
+  if (options.status === "accepted") {
+    return { text: "✓ accepted — changes kept", tone: "success" }
+  }
+  if (options.status === "rejected") {
+    return { text: "✓ rejected — changes restored", tone: "warning" }
+  }
+  if (options.confirmReject) {
+    return {
+      text: "press r again to confirm revert, any other key cancels",
+      tone: "warning",
+    }
+  }
+  return {
+    text: "a accept · r reject (confirm) · ↑↓ scroll · PgUp/PgDn page",
+    tone: "muted",
+  }
+}
 
 export interface DiffPreviewState {
   status: DiffPreviewStatus
@@ -65,6 +102,30 @@ export function reduceDiffPreview(
 export interface DiffDecisionResult {
   decision: DiffDecision
   status: DiffPreviewStatus
+}
+
+export type DiffRejectConfirmation = "idle" | "confirm"
+
+export interface DiffRejectKeyResult {
+  confirmation: DiffRejectConfirmation
+  decision?: DiffDecision
+}
+
+/**
+ * Two-step keyboard confirmation for destructive rejects: the first `r` arms
+ * the confirmation, a second `r` emits the decision, and any other key
+ * cancels without emitting.
+ */
+export function reduceRejectConfirmation(
+  confirmation: DiffRejectConfirmation,
+  input: string,
+): DiffRejectKeyResult {
+  if (confirmation === "confirm") {
+    return input === "r"
+      ? { confirmation: "idle", decision: "reject" }
+      : { confirmation: "idle" }
+  }
+  return { confirmation: input === "r" ? "confirm" : "idle" }
 }
 
 /**

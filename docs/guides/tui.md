@@ -28,7 +28,7 @@ The Ink + React TUI runs as the main thread, rendering the terminal UI at full s
 - **Theme Detection** — Automatic dark/light mode detection from terminal settings
 - **SyncProvider** — Real-time state synchronization via WebSocket EventBus
 - **Streaming layer** (`src/streaming/`) — pure reducer for assistant deltas, tool-call lifecycle, and session isolation, plus React adapters; normalizes backend EventBus payloads into a typed event union
-- **Diff preview** (`src/diff/`, `components/DiffPreview.tsx`) — unified-diff parser and accept/reject state machine; `/diff` previews the working tree without writing to disk
+- **Diff preview** (`src/diff/`, `components/DiffPreview.tsx`) — unified-diff parser and accept/reject state machine; `/diff` previews the working tree and sends authenticated decisions to the backend (accept keeps, reject reverts the previewed files)
 - **@ Autocomplete** — File, agent, and MCP server autocomplete when typing @
 - **/ Slash Commands** — Built-in and custom command palette
 - **Runtimes** — `tsx` (Node) or Bun (`bun run src/App.tsx`; scripts `dev:bun` / `start:bun`)
@@ -132,17 +132,39 @@ events can be enabled server-side without a TUI change.
 
 ### Diff preview
 
-`/diff` fetches the read-only working-tree diff from
-`GET /api/v1/session/{id}/diff` and renders it in an overlay:
+`/diff` fetches the working-tree diff from `GET /api/v1/session/{id}/diff`
+(which also returns a `fingerprint` and the changed tracked `paths`) and
+renders it in an overlay:
 
 - unified-diff parser with multi-file support, CRLF, `\ No newline at end of file`,
   and graceful handling of truncated or malformed hunks
 - additions/deletions summary per file and in total
 - keyboard accept/reject and a programmatic controller callback
 
-The preview is intentionally local: it never writes to disk and does not call a
-decision endpoint. Wiring accept/reject to the backend is tracked as a
-follow-up.
+Decisions are sent to the authenticated
+`POST /api/v1/session/{id}/diff/decision` endpoint:
+
+- **accept** keeps the changes. It performs no filesystem writes and returns
+  the files and fingerprint that were previewed.
+- **reject** restores only the previewed files in the working tree with
+  `git restore --worktree` (falling back to `git checkout --`). Staged content
+  and files outside the request are left untouched.
+- Reject requires the preview's `fingerprint` (SHA-256 of the diff text). The
+  backend recomputes the diff and, if it changed, returns `409 diff_changed`
+  with the current fingerprint and writes nothing. Reopen `/diff` to review the
+  new state and reject again.
+- Rejecting is destructive, so the overlay asks for confirmation: the first
+  `r` shows `press r again to confirm revert, any other key cancels`; only a
+  second `r` sends the decision. `a`/`y` accept immediately.
+- Requested paths must be repo-relative, contain no `..`, resolve inside the
+  working directory, and belong to the current diff. Otherwise the request
+  fails with `400` and no files are written (no partial write). A failed
+  restore is reported explicitly in `failed` on a `200` partial rejection.
+- The endpoint requires the same authentication as the rest of the API
+  (`_check_auth`), so remote clients must send their API key.
+
+The preview component stays filesystem-free: it only emits the decision, and
+`ApexApp` forwards the previewed files and fingerprint to the backend.
 
 ## Connection Error Handling
 

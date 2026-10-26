@@ -376,6 +376,12 @@ Bearer token auth on all endpoints, configurable via config.
 
 ### One-line install
 
+**npm (no Python required — provisions the Python package on first run):**
+```bash
+npm install -g apex-ai
+apex
+```
+
 **macOS / Linux:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh | bash
@@ -390,6 +396,7 @@ irm https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.ps1 | iex
 
 | Method | Command |
 |--------|---------|
+| **npm** (no Python required) | `npm install -g apex-ai` |
 | **uv** (fastest) | `uv tool install apex-ai` |
 | **pipx** (isolated) | `pipx install apex-ai` |
 | **pip** | `pip install apex-ai` |

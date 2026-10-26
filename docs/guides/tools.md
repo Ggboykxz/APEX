@@ -10,6 +10,61 @@ File tools allow APEX to read, write, create, delete, and search files on your f
 
 Code tools provide language-aware operations such as `code_search`, `code_lint`, `code_format`, and `code_refactor`. The `repo_map` tool generates a token-budgeted, symbol-level map of the repository (paths, signatures, line numbers) for context-aware navigation — see [Repository Map](../reference/repomap.md). These tools leverage LSP (Language Server Protocol) integration to offer symbol navigation, go-to-definition, find-references, and real-time diagnostics across 30+ programming languages.
 
+## Applying Patches
+
+The `apply_patch` tool applies multi-file changes without invoking an external
+`patch` binary. It accepts two formats.
+
+**Codex-style patches** use explicit directives:
+
+```text
+*** Begin Patch
+*** Update File: src/app.py
+@@
+-old line
++new line
+*** Add File: src/new_module.py
++print("hello")
+*** Delete File: src/obsolete.py
+*** End Patch
+```
+
+**Unified diffs** use standard file and hunk headers. The `a/` and `b/`
+prefixes are optional, and `/dev/null` marks added or deleted files:
+
+```diff
+--- a/src/app.py
++++ b/src/app.py
+@@ -1,3 +1,3 @@
+ context
+-old line
++new line
+ context
+```
+
+Every file is validated in memory before the first write. If any path, hunk,
+size limit, or file-state check fails, no file is changed. Writes go through a
+temporary file in the destination directory followed by `os.replace`; files
+marked for deletion are removed only after every write succeeds. An unexpected
+write error triggers a best-effort rollback of files already written.
+
+Use `dry_run` to validate the patch and get file-level `additions`/`deletions`
+counts without touching the filesystem:
+
+```json
+{ "patch": "*** Begin Patch\n...\n*** End Patch\n", "dry_run": true }
+```
+
+Path and size guards:
+
+- Paths are relative to the project root. Absolute paths, drive letters, `..`
+  components, and symlinked parents that resolve outside the root are rejected.
+- Patches are limited to 1 MiB, and each source or resulting file to 512 KiB.
+- Binary content (NUL bytes or invalid UTF-8) is rejected.
+- Update hunks must match current file content exactly; line numbers are hints
+  and offsets are reported as warnings.
+- CRLF line endings and a missing final newline are preserved.
+
 ## Shell Tools
 
 Shell tools give APEX the ability to execute commands in your terminal with `shell_exec`, `shell_background`, and `shell_output`. Commands run in a sandboxed environment with configurable timeouts and permission levels. Shell security policies prevent destructive operations unless explicitly allowed.

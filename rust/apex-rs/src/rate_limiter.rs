@@ -15,14 +15,12 @@ fn now_secs() -> f64 {
         .unwrap_or(0.0)
 }
 
-const WINDOW_DURATIONS: &[(&str, f64)] = &[("minute", 60.0), ("hour", 3600.0), ("day", 86400.0)];
-
 // ────────────────────────────────────────────────────────────
 // Config + result
 // ────────────────────────────────────────────────────────────
 
 /// Port of `RateLimitConfig`.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RateLimitConfig {
     pub requests_per_minute: u32,
     pub requests_per_hour: u32,
@@ -41,6 +39,28 @@ impl Default for RateLimitConfig {
     }
 }
 
+impl RateLimitConfig {
+    /// Read limit overrides from the environment, falling back to the
+    /// Python-compatible defaults. Zero or unparsable values are ignored so a
+    /// typo cannot lock the server out.
+    pub fn from_env() -> Self {
+        let defaults = Self::default();
+        fn read(name: &str, fallback: u32) -> u32 {
+            std::env::var(name)
+                .ok()
+                .and_then(|v| v.trim().parse::<u32>().ok())
+                .filter(|v| *v > 0)
+                .unwrap_or(fallback)
+        }
+        Self {
+            requests_per_minute: read("APEX_RATE_LIMIT_PER_MINUTE", defaults.requests_per_minute),
+            requests_per_hour: read("APEX_RATE_LIMIT_PER_HOUR", defaults.requests_per_hour),
+            requests_per_day: read("APEX_RATE_LIMIT_PER_DAY", defaults.requests_per_day),
+            burst_size: read("APEX_RATE_LIMIT_BURST", defaults.burst_size),
+        }
+    }
+}
+
 /// Port of `RateLimitResult`.
 #[derive(Debug, Clone)]
 pub struct RateLimitResult {
@@ -48,6 +68,10 @@ pub struct RateLimitResult {
     pub remaining_minute: i64,
     pub remaining_hour: i64,
     pub remaining_day: i64,
+    /// Parity with Python's `RateLimitResult` (its tests assert this too);
+    /// no API surface reads it yet.
+    // TODO(v2.6): surface the reset timestamp in `GET /api/v1/rate-limit`.
+    #[allow(dead_code)]
     pub reset_at: f64,
     pub retry_after: Option<u64>,
 }
@@ -65,7 +89,9 @@ struct WindowCounts {
 }
 
 /// Port of `StorageBackend` (in-memory).
-pub trait StorageBackend {
+///
+/// `Send + Sync` so a `RateLimiter` can live in shared server state.
+pub trait StorageBackend: Send + Sync {
     fn get_counts(&self, key: &str) -> [u32; 3]; // [minute, hour, day]
     fn increment(&mut self, key: &str, window: &str);
     fn cleanup_expired(&mut self);
@@ -155,13 +181,6 @@ impl RateLimiter {
         }
     }
 
-    pub fn with_defaults() -> Self {
-        Self::new(
-            RateLimitConfig::default(),
-            Box::new(MemoryStorage::default()),
-        )
-    }
-
     pub fn check_rate_limit(&mut self, key: &str) -> RateLimitResult {
         if now_secs() - self.last_cleanup > self.cleanup_interval {
             self.storage.cleanup_expired();
@@ -221,6 +240,7 @@ impl RateLimiter {
             "minute": {"used": minute, "limit": self.config.requests_per_minute},
             "hour": {"used": hour, "limit": self.config.requests_per_hour},
             "day": {"used": day, "limit": self.config.requests_per_day},
+            "burst": self.config.burst_size,
         })
     }
 }
@@ -232,6 +252,11 @@ impl RateLimiter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
+    use std::sync::Mutex;
+
+    /// Tests that mutate process env vars must run sequentially.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn limiter_with(per_minute: u32) -> RateLimiter {
         let config = RateLimitConfig {
@@ -280,6 +305,40 @@ mod tests {
         let status = rl.get_status("s");
         assert_eq!(status["minute"]["used"], 1);
         assert_eq!(status["minute"]["limit"], 1);
+        assert_eq!(status["burst"], 10);
+    }
+
+    #[test]
+    fn from_env_uses_defaults_when_unset() {
+        let _g = ENV_LOCK.lock().unwrap();
+        env::remove_var("APEX_RATE_LIMIT_PER_MINUTE");
+        env::remove_var("APEX_RATE_LIMIT_PER_HOUR");
+        env::remove_var("APEX_RATE_LIMIT_PER_DAY");
+        env::remove_var("APEX_RATE_LIMIT_BURST");
+        let c = RateLimitConfig::from_env();
+        assert_eq!(c, RateLimitConfig::default());
+    }
+
+    #[test]
+    fn from_env_reads_valid_values_and_ignores_invalid() {
+        let _g = ENV_LOCK.lock().unwrap();
+        env::set_var("APEX_RATE_LIMIT_PER_MINUTE", "7");
+        env::set_var("APEX_RATE_LIMIT_PER_HOUR", "0"); // ignored: zero
+        env::set_var("APEX_RATE_LIMIT_PER_DAY", "not-a-number"); // ignored
+        env::remove_var("APEX_RATE_LIMIT_BURST");
+        let c = RateLimitConfig::from_env();
+        assert_eq!(c.requests_per_minute, 7);
+        assert_eq!(
+            c.requests_per_hour,
+            RateLimitConfig::default().requests_per_hour
+        );
+        assert_eq!(
+            c.requests_per_day,
+            RateLimitConfig::default().requests_per_day
+        );
+        env::remove_var("APEX_RATE_LIMIT_PER_MINUTE");
+        env::remove_var("APEX_RATE_LIMIT_PER_HOUR");
+        env::remove_var("APEX_RATE_LIMIT_PER_DAY");
     }
 
     #[test]
