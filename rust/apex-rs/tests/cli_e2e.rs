@@ -125,6 +125,8 @@ fn help_lists_subcommands() {
         "session",
         "security",
         "context",
+        "github",
+        "skill",
     ] {
         assert!(
             text.contains(subcommand),
@@ -482,6 +484,156 @@ async fn serve_exposes_context_routes() {
 
     child.kill().unwrap();
     let _ = child.wait();
+}
+
+#[test]
+fn github_cli_install_run_and_error_paths() {
+    let sb = Sandbox::new();
+
+    // install: Python parity, exactly the three info lines.
+    let install = sb.run(&["github", "install"]);
+    assert_success(&install, "github install");
+    assert_eq!(
+        stdout(&install).trim(),
+        "Installing GitHub agent...\n\
+         This sets up APEX as a GitHub Actions workflow.\n\
+         See: https://github.com/Ggboykxz/APEX"
+    );
+
+    // No subcommand: the usage fallback, exit 0.
+    let usage = sb.run(&["github"]);
+    assert_success(&usage, "github usage");
+    let text = stdout(&usage);
+    assert!(text.contains("Usage: apex-rs github"), "got: {text}");
+    assert!(
+        text.contains("install") && text.contains("run"),
+        "got: {text}"
+    );
+
+    // Every network path points at a dead local port: no network, deterministic.
+    fn dead(sb: &Sandbox, args: &[&str]) -> Output {
+        sb.base_command()
+            .env("APEX_GITHUB_API", "http://127.0.0.1:9")
+            .args(args)
+            .output()
+            .expect("run apex-rs")
+    }
+
+    let run = dead(&sb, &["github", "run"]);
+    assert_success(&run, "github run");
+    let text = stdout(&run);
+    assert!(text.contains("Running GitHub agent..."), "got: {text}");
+    assert!(text.contains("Found 0 issues and 0 PRs"), "got: {text}");
+
+    let issue = dead(&sb, &["github", "issue", "3"]);
+    assert!(!issue.status.success(), "unreachable API must fail");
+    assert!(
+        stderr(&issue).contains("ERROR: Issue 3 not found"),
+        "got: {}",
+        stderr(&issue)
+    );
+
+    let close = dead(&sb, &["github", "issue-close", "3"]);
+    assert!(!close.status.success());
+    assert!(stderr(&close).contains("ERROR: Failed to close issue 3"));
+
+    let pr = dead(&sb, &["github", "pr", "3"]);
+    assert!(!pr.status.success());
+    assert!(stderr(&pr).contains("ERROR: Pull request 3 not found"));
+
+    let merge = dead(&sb, &["github", "pr-merge", "3"]);
+    assert!(!merge.status.success());
+    assert!(stderr(&merge).contains("ERROR: Failed to merge PR 3"));
+
+    let todos = dead(&sb, &["github", "automate", "todos"]);
+    assert_success(&todos, "github automate todos");
+    let text = stdout(&todos);
+    assert!(text.contains("Todo issues:"), "got: {text}");
+    assert!(text.contains("No issues found"), "got: {text}");
+
+    let list = dead(&sb, &["github", "automate", "list", "--label", "bug"]);
+    assert_success(&list, "github automate list");
+    let text = stdout(&list);
+    assert!(text.contains("Open issues for label 'bug':"), "got: {text}");
+    assert!(text.contains("No issues found"), "got: {text}");
+
+    let closed = dead(&sb, &["github", "automate", "close-completed"]);
+    assert_success(&closed, "github automate close-completed");
+    assert_eq!(stdout(&closed).trim(), "0 merged PR(s)");
+
+    // The write flows require a detectable repository.
+    let create = dead(
+        &sb,
+        &[
+            "github",
+            "automate",
+            "create-pr",
+            "--title",
+            "t",
+            "--branch",
+            "b",
+        ],
+    );
+    assert!(!create.status.success());
+    assert!(
+        stderr(&create).contains("ERROR: No GitHub repository detected"),
+        "got: {}",
+        stderr(&create)
+    );
+}
+
+#[test]
+fn skill_lifecycle_is_hermetic() {
+    let sb = Sandbox::new();
+
+    let bad = sb.run(&["skill", "add", "../escape", "d", "p"]);
+    assert!(
+        !bad.status.success(),
+        "path-traversal name must be rejected"
+    );
+    assert!(stderr(&bad).contains("ERROR: Invalid skill name"));
+
+    let add = sb.run(&[
+        "skill",
+        "add",
+        "e2e-skill",
+        "A demo skill",
+        "Say hello to {name}",
+    ]);
+    assert_success(&add, "skill add");
+    assert!(
+        stdout(&add).starts_with("Added skill: e2e-skill"),
+        "got: {}",
+        stdout(&add)
+    );
+    let file = sb.cwd.join(".apex").join("skills").join("e2e-skill.md");
+    assert!(file.exists(), "skill must persist under the project dir");
+
+    // A fresh process (new SkillManager) must load the written file.
+    let list = sb.run(&["skill", "list"]);
+    assert_success(&list, "skill list");
+    assert!(
+        stdout(&list).contains("e2e-skill: A demo skill"),
+        "got: {}",
+        stdout(&list)
+    );
+
+    let remove = sb.run(&["skill", "remove", "e2e-skill"]);
+    assert_success(&remove, "skill remove");
+    assert!(stdout(&remove).contains("Removed skill: e2e-skill"));
+    assert!(!file.exists(), "skill file must be deleted");
+
+    let empty = sb.run(&["skill", "list"]);
+    assert_success(&empty, "skill list after remove");
+    assert!(
+        stdout(&empty).contains("No skills found"),
+        "got: {}",
+        stdout(&empty)
+    );
+
+    let missing = sb.run(&["skill", "remove", "e2e-skill"]);
+    assert!(!missing.status.success(), "second remove must fail");
+    assert!(stderr(&missing).contains("ERROR: Skill not found: e2e-skill"));
 }
 
 #[test]

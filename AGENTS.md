@@ -1221,6 +1221,48 @@ is now 51 schemas):
   `ERROR: No pending plan to …`; the stateless Rust dispatch reproduces
   that exactly.
 
+### GitHub CLI
+
+`github.rs` is wired through a `github` CLI group (Python parity for
+`_cmd_github`, plus the previously test-only client and automation):
+
+```bash
+apex-rs github install                  # parity: three info lines, no side effects
+apex-rs github run                       # detects the repo, then "Found N issues and M PRs"
+apex-rs github issue <N>                 # issue JSON
+apex-rs github issue-close <N>
+apex-rs github pr <N>                    # pull request JSON
+apex-rs github pr-merge <N> [-m method]  # default method: squash
+apex-rs github automate create-pr --title T --body B --branch BR [--base main]
+apex-rs github automate changes FILE...
+apex-rs github automate issue --error MSG --file PATH
+apex-rs github automate list [--label L]
+apex-rs github automate todos
+apex-rs github automate close-completed  # counts merged PRs (Python does not close either)
+```
+
+- `run` mirrors `apex github run`: `GitHubAutomation` detects the repo
+  (`gh repo view`, then the `origin` remote) and counts open issues/PRs
+  through the REST client; a failed API call counts as empty, like Python.
+- The `automate` flows are the `GitHubAutomation` methods; `create-pr`,
+  `changes` and `issue` fail with a clear error when no repository can be
+  detected.
+- Credentials: `GITHUB_TOKEN` / `GH_TOKEN` environment variables; the API
+  root is overridable with `APEX_GITHUB_API` (tests point it at a dead local
+  port or a local fake).
+
+### Skill authoring
+
+`apex-rs skill {list,add,remove}` exposes `SkillManager::add`/`remove`,
+which were test-only (Python's are in-memory and never wired to a command):
+
+- `skill add <name> <description> <prompt>` registers the skill and persists
+  it to `<cwd>/.apex/skills/<name>.md` in the exact format the loader parses
+  (`## Description:` / `## Prompt`), so a fresh process sees it.
+- `skill remove <name>` removes it from the manager and deletes the project
+  file when present; an unknown name is a hard error.
+- Skill names become file names, so path separators and `..` are rejected.
+
 ### Hermetic tests
 
 `config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,
