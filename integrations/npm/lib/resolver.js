@@ -192,16 +192,19 @@ let batSeq = 0;
  */
 function writeDelegationBat(target, args, batDir) {
   batSeq += 1;
-  // Random suffix plus exclusive creation ("wx"): the temp file name is
-  // unguessable and an existing file is never overwritten (CodeQL
-  // "insecure creation of file in os temp dir").
+  // Random suffix, exclusive creation ("wx") and owner-only mode (0o600):
+  // the temp file name is unguessable, an existing file is never
+  // overwritten, and no other user can read it (CodeQL "insecure creation
+  // of file in os temp dir", CWE-377/378).
   const batPath = path.join(
     batDir,
     `apex-delegate-${process.pid}-${batSeq}-${crypto.randomUUID()}.bat`,
   );
   const line = [batchQuote(target), ...args.map(batchQuote)].join(" ");
   const content = `@echo off\r\nchcp 65001 >nul 2>nul\r\n${line}\r\nexit /b %ERRORLEVEL%\r\n`;
-  fs.writeFileSync(batPath, content, { encoding: "utf8", flag: "wx" });
+  // Owner-only mode (0o600) so a temp-dir file is never world-readable
+  // (CodeQL "insecure creation of file in os temp dir", CWE-377).
+  fs.writeFileSync(batPath, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
   return batPath;
 }
 
