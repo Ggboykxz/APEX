@@ -15,9 +15,6 @@ mod memory;
 #[allow(dead_code)]
 mod permission;
 mod plugins;
-// Ported but not attached to any HTTP route or agent call yet.
-// TODO(v2.6): enforce per-key limits from `serve` before handling chat requests.
-#[allow(dead_code)]
 mod rate_limiter;
 mod server;
 mod session_crypto;
