@@ -1,12 +1,12 @@
 # Rust / Python Parity
 
 Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
-web-tools increment). The reference is the Python package in `apex/` on `dev`.
+task-plan-tools increment). The reference is the Python package in `apex/` on `dev`.
 "Parity" here means that a behaviour is reachable from the Rust binary, HTTP
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~12,270
+Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~12,620
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -36,7 +36,7 @@ HTTP server (`serve`): 41 routes, including `/health`, `/api/v1/tools`,
 themes, cost, chat, chat streaming, context (`repo-map`, `git`, `stats`,
 `ctags`, `tree`, `glob`), `/api/v1/rate-limit`, and WebSockets.
 
-Tool registry: 45 schemas. Python exposes 102 schema names in `apex/tools.py`.
+Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 ## Module matrix
 
@@ -66,7 +66,7 @@ Tool registry: 45 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill add/remove and three-way diff remain unwired. |
-| `tools.py` | `tools.rs`, `web.rs` | Partial | 45 tools: files, shell, git, codegen, LSP, skills, repository context, web. Python exposes 102 schema names; the tool table below records the uncovered categories. |
+| `tools.py` | `tools.rs`, `web.rs`, `task_queue.rs` | Partial | 51 tools: files, shell, git, codegen, LSP, skills, repository context, web, task queue & plans. Python exposes 102 schema names; the tool table below records the uncovered categories. |
 | `git_undo.py` | `tools.rs` | Partial | `git_undo`, `undo_last_edit`, `redo_last_edit`. No snapshot history or workspace rollback. |
 | `advanced.py` | `server.rs` | Partial | SSE streaming exists. Retry, batching, and timeout policy are not ported. |
 | `theme_manager.py` | `server.rs` | Partial | Read-only `/api/v1/themes` route. No theme mutation, custom themes, or UI integration. |
@@ -81,11 +81,11 @@ Tool registry: 45 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `mentions.py` | - | Missing | No `@file`/`@agent` mention expansion. |
 | `slash.py` | - | Missing | No slash-command system. |
 | `structured_message.py` | - | Missing | Messages are plain strings/JSON, not structured parts. |
-| `task`/plan tooling in `tools.py` | - | Missing | No task, plan approval, or todo tools. |
+| `task`/plan tooling in `tools.py` | `task_queue.rs`, `tools.rs` | Partial | `task` (delegates against the 11 built-in agent names; custom agents from `.apex/agents/*.md` are not scanned), `submit_task`/`list_tasks`/`get_task` (in-memory queue, one background thread per task - Python's `asyncio.run` actually cancels the spawned coroutine on loop teardown, so a task stays `pending` there), `plan_approve`/`plan_reject` (always `No pending plan` - Python's `_plan_approval` is never set on the executor either). `TaskQueue.cancel()` and the durable `task_queue.py` remain unported. |
 | `ui.py`, `i18n.py` | - | Missing | No terminal UI or localisation; the TUI remains separate. |
 | `telemetry.py` | - | Missing | No telemetry/logging pipeline. |
 | `rlm.py` | - | Missing | No batched remote-model query support. |
-| `extras.py` | - | Missing | No shell expansion, history search, or extras. |
+| `extras.py` | `task_queue.rs` | Partial | `TaskQueue` (submit/list/get, in-memory, one background thread per task). Shell expansion, history search, env manager, and workspace validator are not ported. |
 | `apex/gateway/*` | - | Missing | No gateway auth/router/server. |
 
 ## Tool coverage
@@ -100,7 +100,7 @@ Tool registry: 45 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Skills | `list_skills`, `use_skill` | Partial | skill authoring/removal (CLI) |
 | Context | `get_repo_map`, `get_file_tree` | Partial | `get_context_info` (needs the agent message state; the Rust dispatch is stateless) |
 | Web | `web_search` (Brave/Tavily/Exa/DuckDuckGo provider chain with DuckDuckGo fallback), `fetch_url` (cleaned text, 3000-char cap) | Wired | - |
-| Tasks/plans | - | Missing | `task`, `submit_task`, `get_task`, `list_tasks`, `plan_approve`, `plan_reject` |
+| Tasks/plans | `task`, `submit_task`, `get_task`, `list_tasks`, `plan_approve`, `plan_reject` | Partial | `TaskQueue.cancel()` (no Python tool exposes it either), durable `task_queue.py` |
 | Session/shares | HTTP routes only | Partial | `share_session`, `bookmark_session`, `restore_bookmark` |
 | Env/config | - | Missing | `get_env`, `set_env`, `list_env`, `set_theme`, `get_keybindings`, tool timeouts |
 | UX/interaction | - | Missing | `ask_user`, `select_files`, clipboard, history search, retry |
@@ -173,7 +173,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 151 unit tests (150 on Windows - the atomic-write rollback
+Current baseline: 154 unit tests (153 on Windows - the atomic-write rollback
 test is POSIX-gated) + 9 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
@@ -184,9 +184,8 @@ routes, and the absence of the crate-level allow.
 
 ## Next increments
 
-1. Add high-value missing tools: task/plan tools.
-2. Add a `github` CLI group and skill authoring commands; remove those allows.
-3. Add HTTP authentication and route-level E2E coverage for the rate-limited
+1. Add a `github` CLI group and skill authoring commands; remove those allows.
+2. Add HTTP authentication and route-level E2E coverage for the rate-limited
    server (the limiter itself is wired and unit-tested).
-4. Add a Python-written Fernet session fixture to prove cross-language
+3. Add a Python-written Fernet session fixture to prove cross-language
    compatibility, not just self-round-tripping.

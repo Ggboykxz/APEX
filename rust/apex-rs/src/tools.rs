@@ -27,6 +27,24 @@ pub(crate) fn shell_command(command: &str) -> Command {
 static BACKUP_STACK: Mutex<Vec<(PathBuf, String)>> = Mutex::new(Vec::new());
 static REDO_STACK: Mutex<Vec<(PathBuf, String, String)>> = Mutex::new(Vec::new());
 
+/// Python: the `BUILTIN_AGENTS` keys in `apex/agents.py` - the
+/// `agent_manager.agents` set the `task` tool validates against. Custom
+/// agents from `.apex/agents/*.md` or config JSON are not scanned by the
+/// Rust port.
+const BUILTIN_AGENTS: &[&str] = &[
+    "build",
+    "plan",
+    "planner",
+    "reviewer",
+    "shell",
+    "general",
+    "explore",
+    "scout",
+    "compaction",
+    "title",
+    "summary",
+];
+
 /// Restore the last file overwritten by `write_file`.
 pub fn undo_last_edit() -> String {
     let mut stack = match BACKUP_STACK.lock() {
@@ -121,7 +139,13 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"get_repo_map","description":"Generate repository map showing file structure and key files.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to repository (default: .)"}}}}},
         {"type":"function","function":{"name":"get_file_tree","description":"Show directory structure as ASCII tree.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Directory to display (default: .)"},"max_depth":{"type":"integer","description":"Maximum depth to display (default: 3)"}},"required":["path"]}}},
         {"type":"function","function":{"name":"web_search","description":"Search the web for information.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Search query"}},"required":["query"]}}},
-        {"type":"function","function":{"name":"fetch_url","description":"Fetch and clean a webpage.","parameters":{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch"}},"required":["url"]}}}
+        {"type":"function","function":{"name":"fetch_url","description":"Fetch and clean a webpage.","parameters":{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch"}},"required":["url"]}}},
+        {"type":"function","function":{"name":"task","description":"Delegate a task to a subagent for parallel execution.","parameters":{"type":"object","properties":{"agent":{"type":"string","description":"Subagent to invoke (general, explore)"},"task":{"type":"string","description":"Task description for the subagent"}},"required":["agent","task"]}}},
+        {"type":"function","function":{"name":"plan_approve","description":"Approve the pending plan to proceed with execution.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"plan_reject","description":"Reject the pending plan.","parameters":{"type":"object","properties":{"reason":{"type":"string","description":"Reason for rejection"}},"required":["reason"]}}},
+        {"type":"function","function":{"name":"submit_task","description":"Submit async task to queue.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Task name"},"command":{"type":"string","description":"Command to run"}},"required":["name","command"]}}},
+        {"type":"function","function":{"name":"list_tasks","description":"List all tasks.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"get_task","description":"Get task status.","parameters":{"type":"object","properties":{"task_id":{"type":"string","description":"Task ID"}},"required":["task_id"]}}}
     ]).as_array().cloned().unwrap_or_default());
     let mut arr = base;
     for t in crate::mcp_client::global_tools() {
@@ -283,6 +307,53 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         "fetch_url" => {
             let url = args.get("url").and_then(|v| v.as_str()).unwrap_or("");
             crate::web::fetch_url(url)
+        }
+        "task" => {
+            let agent = args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
+            let task = args.get("task").and_then(|v| v.as_str()).unwrap_or("");
+            if BUILTIN_AGENTS.contains(&agent) {
+                format!("[Delegated to @{agent}]: {task}")
+            } else {
+                format!("ERROR: Unknown agent: {agent}")
+            }
+        }
+        "plan_approve" => {
+            // Python reads `self._plan_approval`, which nothing ever sets on
+            // the executor, so this always errors; the stateless Rust
+            // dispatch reproduces the same result.
+            "ERROR: No pending plan to approve".to_string()
+        }
+        "plan_reject" => "ERROR: No pending plan to reject".to_string(),
+        "submit_task" => {
+            let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            let id = crate::task_queue::submit(name, command, cwd);
+            format!("Task submitted: {id} ({name})")
+        }
+        "list_tasks" => {
+            let tasks = crate::task_queue::list();
+            if tasks.is_empty() {
+                "No tasks".to_string()
+            } else {
+                let mut lines = vec!["Tasks:".to_string(), "=".repeat(40)];
+                for (id, name, status, _) in tasks {
+                    lines.push(format!("  {id} - {name} [{status}]"));
+                }
+                lines.join("\n")
+            }
+        }
+        "get_task" => {
+            let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
+            match crate::task_queue::get(task_id) {
+                Some(t) => format!(
+                    "Task: {}\nStatus: {}\nResult: {}\nError: {}",
+                    t.name,
+                    t.status,
+                    t.result.as_deref().unwrap_or("None"),
+                    t.error.as_deref().unwrap_or("None")
+                ),
+                None => format!("ERROR: Task {task_id} not found"),
+            }
         }
         "undo_last_edit" => undo_last_edit(),
         "redo_last_edit" => redo_last_edit(),
@@ -1382,5 +1453,148 @@ mod tests {
         assert!(out.contains("📁 pkg/"), "got {out}");
         assert!(out.contains("[SOURCE FILES]"), "got {out}");
         assert!(out.contains("• main.py"), "got {out}");
+    }
+
+    /// Serializes the test that touches the process-wide task queue.
+    static QUEUE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Poll a queued task until it reaches the wanted status (2 s budget).
+    fn wait_task_status(task_id: &str, want: &str) -> bool {
+        for _ in 0..100 {
+            if let Some(t) = crate::task_queue::get(task_id) {
+                if t.status == want {
+                    return true;
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        false
+    }
+
+    #[test]
+    fn task_tool_delegates_or_rejects_unknown_agent() {
+        let dir = tempdir().unwrap();
+        assert_eq!(
+            execute_tool(
+                "task",
+                &serde_json::json!({"agent": "general", "task": "explore the repo"}),
+                dir.path()
+            ),
+            "[Delegated to @general]: explore the repo"
+        );
+        assert_eq!(
+            execute_tool(
+                "task",
+                &serde_json::json!({"agent": "nobody", "task": "x"}),
+                dir.path()
+            ),
+            "ERROR: Unknown agent: nobody"
+        );
+    }
+
+    #[test]
+    fn plan_tools_report_no_pending_plan() {
+        // Python reads `self._plan_approval`, which nothing ever sets on the
+        // executor, so both tools always error - the stateless Rust dispatch
+        // reproduces the same result.
+        let dir = tempdir().unwrap();
+        assert_eq!(
+            execute_tool("plan_approve", &serde_json::json!({}), dir.path()),
+            "ERROR: No pending plan to approve"
+        );
+        assert_eq!(
+            execute_tool(
+                "plan_reject",
+                &serde_json::json!({"reason": "too risky"}),
+                dir.path()
+            ),
+            "ERROR: No pending plan to reject"
+        );
+    }
+
+    #[test]
+    fn task_queue_submit_list_and_get() {
+        let _guard = QUEUE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        crate::task_queue::test_reset();
+        let dir = tempdir().unwrap();
+
+        assert_eq!(
+            execute_tool("list_tasks", &serde_json::json!({}), dir.path()),
+            "No tasks"
+        );
+        assert_eq!(
+            execute_tool(
+                "get_task",
+                &serde_json::json!({"task_id": "nope"}),
+                dir.path()
+            ),
+            "ERROR: Task nope not found"
+        );
+
+        // `echo hi` runs under both `sh -c` and `cmd /C`.
+        let out = execute_tool(
+            "submit_task",
+            &serde_json::json!({"name": "hello", "command": "echo hi"}),
+            dir.path(),
+        );
+        assert!(out.starts_with("Task submitted: "), "got {out}");
+        assert!(out.ends_with(" (hello)"), "got {out}");
+        let task_id = out
+            .trim_start_matches("Task submitted: ")
+            .split(' ')
+            .next()
+            .unwrap_or("")
+            .to_string();
+        assert_eq!(task_id.len(), 8);
+        assert!(
+            wait_task_status(&task_id, "completed"),
+            "task did not complete"
+        );
+        let status = execute_tool(
+            "get_task",
+            &serde_json::json!({"task_id": task_id}),
+            dir.path(),
+        );
+        assert!(status.contains("Task: hello"), "got {status}");
+        assert!(status.contains("Status: completed"), "got {status}");
+        assert!(status.contains("Result: hi"), "got {status}");
+        assert!(status.ends_with("Error: None"), "got {status}");
+
+        // A task whose cwd does not exist fails with a spawn error.
+        let bad = execute_tool(
+            "submit_task",
+            &serde_json::json!({"name": "broken", "command": "echo hi"}),
+            &dir.path().join("does-not-exist"),
+        );
+        let bad_id = bad
+            .trim_start_matches("Task submitted: ")
+            .split(' ')
+            .next()
+            .unwrap_or("")
+            .to_string();
+        assert!(wait_task_status(&bad_id, "failed"), "task did not fail");
+        let bad_status = execute_tool(
+            "get_task",
+            &serde_json::json!({"task_id": bad_id}),
+            dir.path(),
+        );
+        assert!(bad_status.contains("Task: broken"), "got {bad_status}");
+        assert!(bad_status.contains("Status: failed"), "got {bad_status}");
+        assert!(
+            bad_status
+                .lines()
+                .any(|l| l.starts_with("Error: ") && l != "Error: None"),
+            "got {bad_status}"
+        );
+
+        // list_tasks: header, insertion order.
+        let listing = execute_tool("list_tasks", &serde_json::json!({}), dir.path());
+        assert!(
+            listing.starts_with(&format!("Tasks:\n{}", "=".repeat(40))),
+            "got {listing}"
+        );
+        let hello_pos = listing.find(" - hello [completed]").unwrap_or(usize::MAX);
+        let broken_pos = listing.find(" - broken [failed]").unwrap_or(usize::MAX);
+        assert!(hello_pos < broken_pos, "got {listing}");
     }
 }
