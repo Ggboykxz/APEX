@@ -1195,6 +1195,32 @@ HTTP runs on a dedicated thread with its own runtime (same pattern as
 `github::http_json`), so both tools work from the `call-tool` CLI and from
 inside the agent loop's Tokio runtime.
 
+### Task queue & plans
+
+`task_queue.rs` ports the `TaskQueue` from `apex/extras.py` (tool registry
+is now 51 schemas):
+
+- `submit_task` — registers the task (`pending`) and runs its command on a
+  background thread through the platform shell (`sh -c` / `cmd /C`); the
+  result is `stdout or stderr`, the status becomes `completed`, or
+  `failed` when the process cannot be spawned. Python's
+  `asyncio.run(queue.add(...))` actually cancels the spawned coroutine on
+  loop teardown, so a submitted task stays `pending` there — the Rust
+  port implements the intent.
+- `list_tasks` — `Tasks:` header, a 40-`=` separator, then
+  `  {id} - {name} [{status}]` in submission order; `No tasks` when empty.
+- `get_task` — `Task:`/`Status:`/`Result:`/`Error:` lines (`None` when a
+  field is unset); `ERROR: Task {id} not found` for an unknown id.
+- `task` — validates `agent` against the 11 built-in names from
+  `apex/agents.py` and returns `[Delegated to @{agent}]: {task}` (no
+  subagent actually runs, exactly like Python); an unknown agent yields
+  `ERROR: Unknown agent: {agent}`.
+- `plan_approve` / `plan_reject` — Python reads `self._plan_approval`,
+  which nothing ever sets on the executor (the `PlanApproval` class lives
+  in `commands.py` but is never wired to it), so both always return
+  `ERROR: No pending plan to …`; the stateless Rust dispatch reproduces
+  that exactly.
+
 ### Hermetic tests
 
 `config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,
