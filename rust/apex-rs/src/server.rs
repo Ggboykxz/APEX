@@ -1,9 +1,13 @@
 use crate::agent::Agent;
 use crate::config::Config;
+use crate::rate_limiter::{MemoryStorage, RateLimitConfig, RateLimiter};
 use crate::tools;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
+use axum::http::{header, HeaderMap, HeaderName, StatusCode};
+use axum::middleware::{self, Next};
 use axum::response::sse::{Event, Sse};
+use axum::response::{IntoResponse, Response};
 use axum::{
     routing::{get, post},
     Json, Router,
@@ -21,6 +25,8 @@ struct AppState {
     config: Config,
     /// Broadcast bus for TUI events (`chat_complete`, …), parity with Python's `event_bus`.
     events: tokio::sync::broadcast::Sender<String>,
+    /// Per-key request limiter shared by every route except `/health`.
+    rate_limiter: Arc<Mutex<RateLimiter>>,
 }
 
 /// Chat request. The TUI sends `message`, the CLI/API docs use `prompt`.
@@ -153,12 +159,73 @@ fn run_shell_capture(command: &str, cwd: &std::path::Path) -> serde_json::Value 
     }
 }
 
+/// Rate-limit middleware shared by every route except `/health`.
+///
+/// The key is the `X-API-Key` value, or the `Authorization: Bearer …`
+/// token, or `anonymous` when neither is present — mirroring Python's
+/// per-key limiting with the in-memory backend the Rust port supports.
+async fn rate_limit(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    request: axum::extract::Request,
+    next: Next,
+) -> Response {
+    // `/health` must stay probeable without consuming key budget.
+    if request.uri().path() == "/health" {
+        return next.run(request).await;
+    }
+    let key = headers
+        .get(HeaderName::from_static("x-api-key"))
+        .and_then(|v| v.to_str().ok())
+        .or_else(|| {
+            headers
+                .get(header::AUTHORIZATION)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.strip_prefix("Bearer "))
+        })
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .unwrap_or_else(|| "anonymous".to_string());
+    let mut limiter = state.rate_limiter.lock().await;
+    let result = limiter.check_rate_limit(&key);
+    if !result.allowed {
+        let retry_after = result.retry_after.unwrap_or(60);
+        let mut response = (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "error": "Rate limit exceeded",
+                "code": "RATE_LIMITED",
+                "retry_after": result.retry_after,
+                "remaining": {
+                    "minute": result.remaining_minute,
+                    "hour": result.remaining_hour,
+                    "day": result.remaining_day,
+                },
+            })),
+        )
+            .into_response();
+        response.headers_mut().insert(
+            header::RETRY_AFTER,
+            retry_after
+                .to_string()
+                .parse()
+                .expect("retry-after is numeric"),
+        );
+        return response;
+    }
+    next.run(request).await
+}
+
 pub async fn serve(config: Config, port: u16) {
     let (events, _) = tokio::sync::broadcast::channel::<String>(256);
     let state = AppState {
         agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
         config,
         events,
+        rate_limiter: Arc::new(Mutex::new(RateLimiter::new(
+            RateLimitConfig::from_env(),
+            Box::new(MemoryStorage::default()),
+        ))),
     };
 
     let app = Router::new()
@@ -479,6 +546,14 @@ pub async fn serve(config: Config, port: u16) {
                 }
             },
         ))
+        .route(
+            "/api/v1/rate-limit",
+            get(|State(st): State<AppState>| async move {
+                let limiter = st.rate_limiter.lock().await;
+                Json(limiter.get_status("anonymous"))
+            }),
+        )
+        .route_layer(middleware::from_fn_with_state(state.clone(), rate_limit))
         .with_state(state);
 
     let addr = format!("127.0.0.1:{port}");
@@ -728,5 +803,65 @@ mod tests {
             context_target(cwd, Some(abs)),
             std::path::PathBuf::from(abs)
         );
+    }
+
+    #[tokio::test]
+    async fn rate_limit_middleware_blocks_per_key() {
+        let (events, _) = tokio::sync::broadcast::channel::<String>(256);
+        let config = Config::from_env();
+        let state = AppState {
+            agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
+            config,
+            events,
+            rate_limiter: Arc::new(Mutex::new(RateLimiter::new(
+                RateLimitConfig {
+                    requests_per_minute: 2,
+                    requests_per_hour: 100,
+                    requests_per_day: 1000,
+                    burst_size: 10,
+                },
+                Box::new(MemoryStorage::default()),
+            ))),
+        };
+        let app = Router::new()
+            .route("/api/v1/rate-limit", get(|| async { "status" }))
+            .route_layer(middleware::from_fn_with_state(state.clone(), rate_limit))
+            .with_state(state);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let client = reqwest::Client::new();
+        let url = format!("http://{addr}/api/v1/rate-limit");
+        // No key: the `anonymous` bucket gets two requests per minute.
+        assert_eq!(client.get(&url).send().await.unwrap().status(), 200);
+        assert_eq!(client.get(&url).send().await.unwrap().status(), 200);
+        let third = client.get(&url).send().await.unwrap();
+        assert_eq!(third.status(), 429);
+        assert!(third.headers().get("retry-after").is_some());
+        let body: serde_json::Value = third.json().await.unwrap();
+        assert_eq!(body["error"], "Rate limit exceeded");
+        assert_eq!(body["code"], "RATE_LIMITED");
+        assert!(body["retry_after"].is_number());
+        assert!(body["remaining"]["minute"].is_number());
+        assert!(body["remaining"]["hour"].is_number());
+        assert!(body["remaining"]["day"].is_number());
+        // A different key has its own budget.
+        let other = client
+            .get(&url)
+            .header("X-API-Key", "key-a")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(other.status(), 200);
+        let via_bearer = client
+            .get(&url)
+            .header("Authorization", "Bearer key-b")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(via_bearer.status(), 200);
     }
 }

@@ -1084,7 +1084,7 @@ surface change.
 - Allows are scoped to a module or item and carry a justification plus a
   `TODO(v2.6)` exit criterion.
 - Ported modules without a caller are declared and allowed explicitly
-  (`permission`, `rate_limiter`) instead of silently disappearing.
+  (`permission`) instead of silently disappearing.
 
 ### Shell security
 
@@ -1098,6 +1098,19 @@ apex-rs security allowed            # allow-listed commands
 
 - `POST /api/v1/security/analyze` — JSON `{ "command": "..." }` → verdict
 - `/api/v1/bash` and the `run_command` tool are both guarded
+
+### Rate limiting
+
+`serve` enforces Python-style per-key rate limits on every route except
+`/health` (which must stay probeable). The key is the `X-API-Key` header, or
+the `Authorization: Bearer …` token, or `anonymous`. Over-limit requests get
+HTTP 429 with a `Retry-After` header and a JSON error body.
+
+- Defaults: 60/min, 1000/hour, 10000/day (in-memory backend, same windows as
+  `apex/rate_limiter.py`); `APEX_RATE_LIMIT_PER_MINUTE`,
+  `APEX_RATE_LIMIT_PER_HOUR`, `APEX_RATE_LIMIT_PER_DAY`, `APEX_RATE_LIMIT_BURST`
+  override them.
+- `GET /api/v1/rate-limit` reports the anonymous key's counters and limits.
 
 ### Repository context
 

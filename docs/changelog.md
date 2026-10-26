@@ -25,7 +25,8 @@ All notable changes to APEX are documented in this file. The project follows [Se
 Full rewrite of the backend in Rust. The Python implementation stays the reference until parity is reached.
 
 - **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`, `memory`, `session`, `security`, `context`.
-- **Repository context** — `context.rs` mirrors `apex/context.py`: `apex-rs context repo-map|git|stats|ctags|tree|glob` and `GET /api/v1/context/*` (40 HTTP routes total), with `?path=`, `?depth=` and `?pattern=`.
+- **Repository context** — `context.rs` mirrors `apex/context.py`: `apex-rs context repo-map|git|stats|ctags|tree|glob` and `GET /api/v1/context/*` (41 HTTP routes total), with `?path=`, `?depth=` and `?pattern=`.
+- **Rate limiting** — `rate_limiter.rs` wired into `serve`: per-key in-memory limits (`X-API-Key` / `Authorization: Bearer` / `anonymous`) on every route except `/health`, 429 + `Retry-After` with the Python response body, `GET /api/v1/rate-limit` counters, and `APEX_RATE_LIMIT_*` env overrides.
 - **Tools** — read/write/list, shell, git (status/diff/log/undo + stage/unstage/commit/branches/pre-commit/PR), search, format, undo, LSP (diagnostics, definition, references, hover), code generation (refactor, DB model, Dockerfile/compose, OpenAPI client, docs, profiler), skills & analysis (diff_files, list_skills, use_skill, replace_in_files, analyze_code, explain_code).
 - **Agent loop** — OpenAI-compatible chat completions with tool calling, permission gate (`APEX_DENIED_TOOLS`), JSON session persistence (`~/.apex/sessions/`).
 - **Compaction** — `prune` / `summarize` / `merge` strategies plus threshold-based auto-compaction.
@@ -39,7 +40,7 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **Code generation** — `codegen.rs` mirrors `apex/codegen.py` (refactorer, DB/Docker/OpenAPI/docs generators, profiler) with Python-verified outputs.
 - **GitHub** — `github.rs` mirrors `apex/github_integration.py` (issues, PRs, merge, branches, automation) over the REST API or `gh`; `git_create_pr` returns the real PR URL.
 - **Skills & analysis** — `skills.rs` mirrors `apex/skills.py` (skill manifests, unified diff, regex search/replace, code analyzer) and exposes six tools (`diff_files`, `list_skills`, `use_skill`, `replace_in_files`, `analyze_code`, `explain_code`).
-- **Tests** — 111 unit + 9 binary E2E passing, including an MCP roundtrip against a fake server, plugin execution, streamed usage, JSON-RPC framing (line + `Content-Length`), a fake GitHub API, codegen parity fixtures, and repository-context commands.
+- **Tests** — 114 unit + 9 binary E2E passing, including an MCP roundtrip against a fake server, plugin execution, streamed usage, JSON-RPC framing (line + `Content-Length`), a fake GitHub API, codegen parity fixtures, repository-context commands, and the per-key rate-limit middleware (429 + `Retry-After`, independent key budgets).
 
 #### Fixed during the port
 

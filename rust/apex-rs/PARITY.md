@@ -31,10 +31,10 @@ security {check,allowed},
 context {repo-map,git,stats,ctags,tree,glob}
 ```
 
-HTTP server (`serve`): 40 routes, including `/health`, `/api/v1/tools`,
+HTTP server (`serve`): 41 routes, including `/health`, `/api/v1/tools`,
 `/api/v1/security/analyze`, sessions, shares/export, files, models, config,
 themes, cost, chat, chat streaming, context (`repo-map`, `git`, `stats`,
-`ctags`, `tree`, `glob`), and WebSockets.
+`ctags`, `tree`, `glob`), `/api/v1/rate-limit`, and WebSockets.
 
 Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
@@ -54,13 +54,13 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `formatter.py` | `formatter.rs` | Partial | `format_file` tool only. No format-on-write pipeline or formatter discovery parity. |
 | `github_integration.py` | `github.rs` | Partial | `git_*` tools and `git_create_pr` work through `gh`/REST. Issue automation and the `GitHubClient`/`GitHubAutomation` paths are not wired. |
 | hooks inside `plugins.py`/`tools.py` | `hooks.rs` | Wired | `trigger_hooks` runs on tool dispatch. Registration from config is not wired. |
-| `http_api.py`, `server.py` | `server.rs` | Partial | 40 routes, SSE/WebSocket streaming, shell guard. No auth middleware, full route parity, or API rate limiting. |
+| `http_api.py`, `server.py` | `server.rs` | Partial | 41 routes, SSE/WebSocket streaming, shell guard, per-key rate limiting. No auth middleware, full route parity. |
 | `lsp.py`, `lsp_diagnostics.py` | `lsp.rs` | Partial | Definition, references, hover, diagnostics tools. No persistent per-workspace manager or completion/code-action tools. |
 | `mcp.py` | `mcp_client.rs`, `jsonrpc.rs` | Wired | Stdio JSON-RPC, server discovery, tool bridge, global registry; CLI and server use it. |
 | `memory.py` | `memory.rs` | Wired | CLI list/add/search/context/remove/clear, REPL `/memory`, session context injection. No automatic fact extraction. |
 | `permission.py` | `permission.rs` | Ported, not wired | Rules, first-match semantics, and tests. Tool dispatch does not consult it yet. |
 | `plugins.py` | `plugins.rs` | Wired | Manifest discovery, namespaced plugin tools, CLI/server listing and execution. Rust invokes declared tools; it does not execute Python plugin source in-process. |
-| `rate_limiter.py` | `rate_limiter.rs` | Ported, not wired | In-memory limiter and tests, but `serve` does not apply limits. |
+| `rate_limiter.py` | `rate_limiter.rs` | Wired | Per-key in-memory limiter enforced by middleware on every `serve` route except `/health` (`X-API-Key` / `Bearer` key, 429 + `Retry-After`); `GET /api/v1/rate-limit` exposes counters; limits via `APEX_RATE_LIMIT_*`. SQLite backend not ported. |
 | `session.py` | `share.rs`, `session_crypto.rs`, `server.rs` | Partial | Fernet-compatible encrypted save/load/list, CLI and HTTP session routes. Branching and all Python session metadata are absent. |
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
@@ -116,8 +116,8 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
    `plugins::plugin_count`, `McpServerConfig::name`, `McpManager::all_tools`,
    and `Memory::path`.
 4. Module-level allows are reserved for whole modules with no caller. Adding
-   one requires an entry in this document. There are currently two:
-   `permission` and `rate_limiter`.
+   one requires an entry in this document. There is currently one:
+   `permission`.
 5. When an allow is removed: wire the code, add CLI/HTTP/tool or unit coverage,
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
@@ -127,7 +127,6 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
 | Module | `main.rs` | `permission` | No dispatch gate | Route tool dispatch through the manager |
-| Module | `main.rs` | `rate_limiter` | No server middleware | Enforce limits in `serve` |
 | Item | `codegen.rs` | `extract_method` | No refactor style | Add `extract_method` style |
 | Item | `codegen.rs` | `convert_to_class` | No refactor style | Add `convert_to_class` style |
 | Item | `codegen.rs` | `add_type_hints` | Tool only edits one signature | Add whole-file type-hint mode |
@@ -140,6 +139,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `hooks.rs` | `register_hook` | No config registration site | Load hooks at startup |
 | Item | `hooks.rs` | `hook_count` | Not exposed in config API | Add hook count to `/api/v1/config` |
 | Item | `memory.rs` | `list_facts` | CLI report needs tags | Add `memory list --names` |
+| Item | `rate_limiter.rs` | `RateLimitResult::reset_at` | Python tests assert it; no API reads it | Surface reset time in `GET /api/v1/rate-limit` |
 | Item | `server.rs` | `ChatReq::agent` | Chat selects one agent | Select requested agent in `/api/v1/chat` |
 | Item | `shell_security.rs` | `CommandCategory::Package` | Python never returns it | Classify pip/npm installs |
 | Item | `skills.rs` | `add` | No skill-authoring CLI | Add `skill add` |
@@ -147,7 +147,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `skills.rs` | `three_way_diff` | No diff3 tool | Add `diff3_files` |
 | Item | `skills.rs` | `get_skill_manager` | Tools construct managers directly | Share a cached manager |
 
-The two module-level allows count as one attribute each; the 20 item-level
+The single module-level allow counts as one attribute; the 21 item-level
 attributes bring the total to 22.
 
 ## Verification
@@ -160,7 +160,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 111 unit tests + 9 binary E2E tests. The E2E suite runs
+Current baseline: 114 unit tests + 9 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
@@ -170,10 +170,12 @@ routes, and the absence of the crate-level allow.
 
 ## Next increments
 
-1. Enforce `permission` in tool dispatch and `rate_limiter` in `serve`.
+1. Enforce `permission` in tool dispatch (rate limiting is done; only the
+   permission gate remains of the two module-level allows).
 2. Add high-value missing tools: `edit_file`/`apply_patch`, repo map/tree,
    `web_search`/`fetch_url`, task/plan tools.
 3. Add a `github` CLI group and skill authoring commands; remove those allows.
-4. Add HTTP authentication/rate limiting and route-level E2E coverage.
+4. Add HTTP authentication and route-level E2E coverage for the rate-limited
+   server (the limiter itself is wired and unit-tested).
 5. Add a Python-written Fernet session fixture to prove cross-language
    compatibility, not just self-round-tripping.
