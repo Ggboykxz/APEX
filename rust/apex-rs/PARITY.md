@@ -1,12 +1,12 @@
 # Rust / Python Parity
 
 Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
-editing-tools increment). The reference is the Python package in `apex/` on `dev`.
+context-tools increment). The reference is the Python package in `apex/` on `dev`.
 "Parity" here means that a behaviour is reachable from the Rust binary, HTTP
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~11,860
+Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~11,930
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -36,7 +36,7 @@ HTTP server (`serve`): 41 routes, including `/health`, `/api/v1/tools`,
 themes, cost, chat, chat streaming, context (`repo-map`, `git`, `stats`,
 `ctags`, `tree`, `glob`), `/api/v1/rate-limit`, and WebSockets.
 
-Tool registry: 41 schemas. Python exposes 102 schema names in `apex/tools.py`.
+Tool registry: 43 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 ## Module matrix
 
@@ -48,7 +48,7 @@ Tool registry: 41 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `agents.py` | - | Missing | No subagent registry, markdown agent loading, or parallel orchestration. |
 | `config.py`, `config_v2.py` | `config.rs` | Partial | Env/model/cwd config and shared home resolution. No JSONC hierarchy, migration, or validation layer. |
 | `config_tools.py` | - | Missing | No config-defined custom tools. |
-| `context.py` | `context.rs` | Wired | CLI `context repo-map\|git\|stats\|ctags\|tree\|glob` and `GET /api/v1/context/*`: repo map, git info, language stats, ctags file list, file tree, glob search. |
+| `context.py` | `context.rs` | Wired | CLI `context repo-map\|git\|stats\|ctags\|tree\|glob` and `GET /api/v1/context/*`: repo map, git info, language stats, ctags file list, file tree, glob search. `get_repo_map` and `get_file_tree` are also exposed as tools on top of the same functions. |
 | `context_manager.py`, `context_tracking.py` | - | Missing | No summarisation/compaction accounting. |
 | `cost_local.py` | `cost.rs` | Wired | Pricing table, usage, cost history; CLI `cost` and HTTP cost routes. |
 | `codegen.py` | `codegen.rs` | Partial | Refactor, DB model, Dockerfile/compose, API client, docs, profile, optimize tools. Six helper operations remain test-only. |
@@ -66,7 +66,7 @@ Tool registry: 41 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill add/remove and three-way diff remain unwired. |
-| `tools.py` | `tools.rs` | Partial | 41 tools: files, shell, git, codegen, LSP, skills. Python exposes 102 schema names; the tool table below records the uncovered categories. |
+| `tools.py` | `tools.rs` | Partial | 43 tools: files, shell, git, codegen, LSP, skills, repository context. Python exposes 102 schema names; the tool table below records the uncovered categories. |
 | `git_undo.py` | `tools.rs` | Partial | `git_undo`, `undo_last_edit`, `redo_last_edit`. No snapshot history or workspace rollback. |
 | `advanced.py` | `server.rs` | Partial | SSE streaming exists. Retry, batching, and timeout policy are not ported. |
 | `theme_manager.py` | `server.rs` | Partial | Read-only `/api/v1/themes` route. No theme mutation, custom themes, or UI integration. |
@@ -92,13 +92,13 @@ Tool registry: 41 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 | Category | Rust tools | Status | Notable Python tools not ported |
 | --- | --- | --- | --- |
-| Files | `read_file`, `write_file`, `edit_file`, `apply_patch`, `list_files`, `search_in_files`, `replace_in_files`, `diff_files` | Partial | `apply_edit`, `preview_edit`, `create_directory`, `delete_file`, `batch_read`, `batch_write`, `read_image`, `glob_search`, `get_file_tree` |
+| Files | `read_file`, `write_file`, `edit_file`, `apply_patch`, `list_files`, `search_in_files`, `replace_in_files`, `diff_files`, `get_file_tree` | Partial | `apply_edit`, `preview_edit`, `create_directory`, `delete_file`, `batch_read`, `batch_write`, `read_image`, `glob_search` |
 | Shell | `run_command` (guarded) | Partial | `run_command_custom`, `run_shell`, `start_shell`, `close_shell`, `install_package`, `run_code`, `run_test` |
 | Git | 11 `git_*` tools including `git_create_pr` and `git_undo` | Partial | `add_git_hook`, richer status/log helpers |
 | Codegen | `refactor_code`, DB/Docker/API-client/docs generators, `profile_code`, `optimize_code` | Partial | `generate_tests`, `inline_edit`, `apply_code_action` |
 | LSP | `lsp_definition`, `lsp_references`, `lsp_hover`, `lsp_diagnostics` | Partial | completions, code actions, workspace-symbol search |
 | Skills | `list_skills`, `use_skill` | Partial | skill authoring/removal (CLI) |
-| Context | - | Missing | `get_repo_map`, `get_context_info`, `get_file_tree` |
+| Context | `get_repo_map`, `get_file_tree` | Partial | `get_context_info` (needs the agent message state; the Rust dispatch is stateless) |
 | Web | - | Missing | `web_search`, `fetch_url` |
 | Tasks/plans | - | Missing | `task`, `submit_task`, `get_task`, `list_tasks`, `plan_approve`, `plan_reject` |
 | Session/shares | HTTP routes only | Partial | `share_session`, `bookmark_session`, `restore_bookmark` |
@@ -173,7 +173,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 140 unit tests (139 on Windows - the atomic-write rollback
+Current baseline: 142 unit tests (141 on Windows - the atomic-write rollback
 test is POSIX-gated) + 9 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
@@ -184,8 +184,7 @@ routes, and the absence of the crate-level allow.
 
 ## Next increments
 
-1. Add high-value missing tools: repo map/tree,
-   `web_search`/`fetch_url`, task/plan tools.
+1. Add high-value missing tools: `web_search`/`fetch_url`, task/plan tools.
 2. Add a `github` CLI group and skill authoring commands; remove those allows.
 3. Add HTTP authentication and route-level E2E coverage for the rate-limited
    server (the limiter itself is wired and unit-tested).
