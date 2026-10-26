@@ -148,6 +148,12 @@ DEFAULTS: dict[str, Any] = {
         "prune": True,
         "reserved": 10000,
     },
+    "context": {
+        "max_repo_map_tokens": 2000,
+        "prune_tool_outputs": True,
+        "tool_output_max_chars": 4000,
+        "keep_recent_tool_results": 3,
+    },
     "watcher": {
         "ignore": [
             "**/node_modules/**",
@@ -178,6 +184,42 @@ TUI_DEFAULTS: dict[str, Any] = {
     "mouse": True,
     "leader_timeout": 2000,
 }
+
+_CONTEXT_INT_KEYS = (
+    "max_repo_map_tokens",
+    "tool_output_max_chars",
+    "keep_recent_tool_results",
+)
+
+
+def normalize_context_config(raw: Any) -> dict[str, Any]:
+    """Return a safe ``context`` settings dictionary.
+
+    The nested ``context`` object is the only supported shape. Missing keys
+    fall back to :data:`DEFAULTS`, and invalid values are replaced
+    individually instead of rejecting the whole object:
+
+    * integer keys must be non-boolean integers and are clamped to ``>= 0``;
+    * ``prune_tool_outputs`` must be a real boolean.
+
+    Unknown keys are ignored. The returned dictionary is always a fresh copy,
+    so callers cannot mutate the defaults.
+    """
+    context = dict(DEFAULTS["context"])
+    if not isinstance(raw, dict):
+        return context
+
+    for key in _CONTEXT_INT_KEYS:
+        value = raw.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            context[key] = max(0, value)
+
+    prune = raw.get("prune_tool_outputs")
+    if isinstance(prune, bool):
+        context["prune_tool_outputs"] = prune
+
+    return context
+
 
 # ────────────────────────────────────────────────────────────
 # OpenCode env var aliases
@@ -559,6 +601,18 @@ class ApexConfig:
         self._data["compaction"] = value
         self.save()
 
+    # ── Properties: context ──────────────────────────────────
+
+    @property
+    def context(self) -> dict[str, Any]:
+        """Validated context-window budget settings (nested ``context`` key)."""
+        return normalize_context_config(self._data.get("context"))
+
+    @context.setter
+    def context(self, value: dict[str, Any]) -> None:
+        self._data["context"] = normalize_context_config(value)
+        self.save()
+
     # ── Properties: watcher ──────────────────────────────────
 
     @property
@@ -843,6 +897,7 @@ __all__ = [
     "ApexConfig",
     "TuiConfig",
     "apex_config",
+    "normalize_context_config",
     "parse_jsonc",
     "read_jsonc",
     "strip_jsonc_comments",

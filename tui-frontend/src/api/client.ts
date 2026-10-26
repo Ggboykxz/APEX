@@ -33,6 +33,23 @@ export interface SessionDiffResult {
   files?: string
   diff?: string
   session_id?: string
+  fingerprint?: string
+  paths?: string[]
+  error?: string
+}
+
+export interface DiffDecisionPayload {
+  decision: "accept" | "reject"
+  files?: string[]
+  fingerprint: string
+}
+
+export interface DiffDecisionResponse {
+  status?: "accepted" | "rejected" | string
+  files?: string[]
+  reverted?: string[]
+  failed?: string[]
+  fingerprint?: string
   error?: string
 }
 
@@ -100,6 +117,14 @@ export class APIClient {
   /** Unified diff of the current working tree (preview only). */
   sessionDiff(sessionId: string): Promise<SessionDiffResult> {
     return this.request(`/api/v1/session/${encodeURIComponent(sessionId)}/diff`)
+  }
+
+  /** Accept (keep) or reject (revert) the previewed working-tree diff. */
+  decideDiff(sessionId: string, payload: DiffDecisionPayload): Promise<DiffDecisionResponse> {
+    return this.post(
+      `/api/v1/session/${encodeURIComponent(sessionId)}/diff/decision`,
+      payload,
+    )
   }
 
   share(sessionId: string, title: string): Promise<{ url?: string; error?: string }> {

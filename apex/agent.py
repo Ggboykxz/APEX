@@ -18,10 +18,18 @@ except ImportError:
 
 from .agents import agent_manager
 from .config import MODELS, Config
-from .config_v2 import apex_config
+from .config_v2 import apex_config, normalize_context_config
+from .context_budget import (
+    REPO_MAP_MARKER,
+    ContextStats,
+    count_message_tokens,
+    inject_repo_map,
+    prune_tool_outputs,
+)
 from .permission import get_tool_permission, permission_manager
 from .tools import AsyncToolExecutor, ToolExecutor, get_all_tool_schemas
 from .ui import UI
+from .vision import VisionNotSupportedError, check_vision_support, prepare_vision_input
 
 
 class Agent:
@@ -37,6 +45,9 @@ class Agent:
 
         self._current_agent = "build"
         self._set_agent_system_prompt()
+        self.last_context_stats = ContextStats()
+        self._repo_map_tokens = 0
+        self._repo_map_cache: dict[tuple[str, int], tuple[str, int]] = {}
         permission_manager.initialize()
 
     def _load_rules(self) -> str:
@@ -109,6 +120,80 @@ class Agent:
             "role": "system",
             "content": base_prompt,
         }
+
+    def get_context_stats(self) -> dict[str, int]:
+        """Return the stats from the most recent context-budget pass."""
+        return self.last_context_stats.to_dict()
+
+    def _context_settings(self) -> dict[str, Any]:
+        """Resolve validated ``context`` settings, tolerating older configs."""
+        try:
+            raw = apex_config.context
+        except Exception:
+            raw = None
+        return normalize_context_config(raw)
+
+    def _ensure_repo_map_context(self) -> None:
+        """Append the budgeted repository map once per session and root.
+
+        Scanning is cached per ``(root, budget)`` so switching agents or
+        starting another turn reuses the rendered map instead of rescanning.
+        An empty repository or a disabled budget simply appends nothing.
+        """
+        content = self._system_message.get("content", "")
+        if not isinstance(content, str):
+            content = ""
+        if REPO_MAP_MARKER in content:
+            return
+
+        settings = self._context_settings()
+        budget = settings["max_repo_map_tokens"]
+        if budget <= 0:
+            return
+
+        root = self.cwd
+        cache_key = (str(root), budget)
+        cached = self._repo_map_cache.get(cache_key)
+        if cached is None:
+            cached = inject_repo_map("", root, budget)
+            self._repo_map_cache[cache_key] = cached
+        block, tokens = cached
+        if not block:
+            return
+
+        injected = f"{content.rstrip()}\n\n{block}" if content.strip() else block
+        self._system_message = {**self._system_message, "content": injected}
+        self._repo_map_tokens = tokens
+
+    def _request_messages(self, user_input: str | list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Build the message list for a model request, repo map included.
+
+        *user_input* may be multi-part (text + image_url parts) for vision.
+        """
+        self._ensure_repo_map_context()
+        return [self._system_message, *self.history, {"role": "user", "content": user_input}]
+
+    def _apply_context_budget(self, messages: list[Any]) -> list[Any]:
+        """Prune old tool results from a request and record the stats."""
+        settings = self._context_settings()
+        if settings["prune_tool_outputs"]:
+            try:
+                pruned, stats = prune_tool_outputs(
+                    messages,
+                    max_chars_per_result=settings["tool_output_max_chars"],
+                    keep_recent=settings["keep_recent_tool_results"],
+                )
+            except Exception:
+                pruned = messages
+                tokens = count_message_tokens(messages)
+                stats = ContextStats(tokens_before=tokens, tokens_after=tokens)
+        else:
+            pruned = messages
+            tokens = count_message_tokens(messages)
+            stats = ContextStats(tokens_before=tokens, tokens_after=tokens)
+        stats.repo_map_tokens = self._repo_map_tokens
+        self.last_context_stats = stats
+        return pruned
 
     @property
     def current_agent(self) -> str:
@@ -351,29 +436,43 @@ class Agent:
             kwargs["reasoning_effort"] = effort
         return kwargs
 
-    def chat(self, user_input: str, max_rounds: int | None = None) -> str:
+    def chat(
+        self,
+        user_input: str,
+        max_rounds: int | None = None,
+        images: list[str] | None = None,
+    ) -> str:
         subagent_name, actual_input = self._parse_subagent_invocation(user_input)
 
         if subagent_name:
-            return self._chat_as_subagent(subagent_name, actual_input, max_rounds)
+            return self._chat_as_subagent(subagent_name, actual_input, max_rounds, images)
 
-        return self._chat_internal(actual_input, max_rounds)
+        return self._chat_internal(actual_input, max_rounds, images)
 
     def _chat_as_subagent(
-        self, subagent_name: str, task: str, max_rounds: int | None = None
+        self,
+        subagent_name: str,
+        task: str,
+        max_rounds: int | None = None,
+        images: list[str] | None = None,
     ) -> str:
         original_agent = self._current_agent
         self._current_agent = subagent_name
         self._set_agent_system_prompt()
 
         try:
-            result = self._chat_internal(task, max_rounds)
+            result = self._chat_internal(task, max_rounds, images)
             return f"[@{subagent_name}]: {result}"
         finally:
             self._current_agent = original_agent
             self._set_agent_system_prompt()
 
-    def _chat_internal(self, user_input: str, max_rounds: int | None = None) -> str:
+    def _chat_internal(
+        self,
+        user_input: str,
+        max_rounds: int | None = None,
+        images: list[str] | None = None,
+    ) -> str:
         if not _LITELLM_AVAILABLE:
             return "ERROR: litellm is not installed. Run: pip install litellm"
         max_rounds = max_rounds or 10
@@ -385,12 +484,19 @@ class Agent:
                 self.compact_context(strategy=_strategy)
         except Exception:
             pass
-        messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
         model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
+        # Fail fast, before any LLM call, when images outpace model capability.
+        try:
+            check_vision_support(model_str, len(images) if images else 0)
+        except VisionNotSupportedError as exc:
+            return f"ERROR: {exc}"
+        user_content: str | list[dict[str, Any]] = prepare_vision_input(user_input, images)
+        messages = self._request_messages(user_content)
         _extra = self._completion_kwargs()
 
         for round_num in range(max_rounds):
             try:
+                messages = self._apply_context_budget(messages)
                 response = litellm.completion(
                     model=model_str,
                     messages=messages,
@@ -401,7 +507,7 @@ class Agent:
                 self._update_usage(response.usage)
                 if not response.choices[0].message.tool_calls:
                     assistant_text = response.choices[0].message.content or ""
-                    self.history.append({"role": "user", "content": user_input})
+                    self.history.append({"role": "user", "content": user_content})
                     self.history.append({"role": "assistant", "content": assistant_text})
                     return assistant_text
 
@@ -560,12 +666,13 @@ class Agent:
                 self.compact_context(strategy=_strategy)
         except Exception:
             pass
-        messages = [self._system_message] + self.history + [{"role": "user", "content": user_input}]
+        messages = self._request_messages(user_input)
         model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
         _extra = self._completion_kwargs()
 
         for round_num in range(max_rounds):
             try:
+                messages = self._apply_context_budget(messages)
                 response = await litellm.acompletion(
                     model=model_str,
                     messages=messages,
@@ -730,6 +837,7 @@ class Agent:
                     for tc_id, result in results:
                         messages.append({"role": "tool", "tool_call_id": tc_id, "content": result})
 
+                    messages = self._apply_context_budget(messages)
                     follow_up = await litellm.acompletion(
                         model=model_str,
                         messages=messages,

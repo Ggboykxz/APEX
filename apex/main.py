@@ -30,6 +30,7 @@ from rich.table import Table
 from . import __version__
 from .agent import Agent
 from .agents import agent_manager
+from .auto_commit import auto_commit
 from .commands_manager import commands_manager
 from .config import MODELS
 from .config_v2 import apex_config
@@ -84,6 +85,7 @@ def build_parser() -> argparse.ArgumentParser:
               mcp add           Add MCP server
               mcp list          List MCP servers
               mcp auth          Authenticate MCP server
+              mcp serve         Expose tools over MCP stdio (read-only by default)
               db                Database tools
               pr <number>       Fetch and checkout a PR
               attach <url>      Attach TUI to remote backend
@@ -124,12 +126,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("prompt", nargs="?", default=None, help="One-shot prompt to execute")
     parser.add_argument("--model", "-m", dest="model", default=None, help="Model alias to use")
     parser.add_argument("--cwd", "-C", dest="cwd", default=None, help="Working directory")
+    parser.add_argument(
+        "--allow-tool",
+        dest="allow_tool",
+        action="append",
+        default=None,
+        help="Expose a tool on the MCP server (repeatable; replaces the read-only default profile)",
+    )
     parser.add_argument("--version", "-v", action="version", version=f"APEX {__version__}")
     parser.add_argument("--list-models", action="store_true", help="List available models")
     parser.add_argument("--one-shot", "-1", action="store_true", help="One-shot mode")
     parser.add_argument("--stream", "-s", action="store_true", help="Streaming responses")
     parser.add_argument(
         "--auto-commit", action="store_true", dest="auto_commit", help="Auto commit after task"
+    )
+    parser.add_argument(
+        "--image",
+        "-i",
+        dest="image",
+        action="append",
+        default=None,
+        help="Attach a local image to the prompt (repeatable; vision-capable models only)",
     )
     parser.add_argument("--ui", action="store_true", help="Launch TUI")
     parser.add_argument("--tui", "-t", action="store_true", help="Launch TUI")
@@ -834,20 +851,50 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
             break
 
 
-def run_one_shot(prompt: str, agent: Agent, ui: UI, use_stream: bool = False) -> None:
+def run_one_shot(
+    prompt: str,
+    agent: Agent,
+    ui: UI,
+    use_stream: bool = False,
+    images: list[str] | None = None,
+    auto_commit_after: bool = False,
+) -> None:
     if use_stream:
         ui.console.print("[cyan]Streaming response:[/cyan]")
-        for chunk in agent.chat(prompt):
+        for chunk in agent.chat(prompt, images=images):
             ui.console.print(chunk, end="")
         ui.console.print()
     else:
         with ui.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
-            response = agent.chat(prompt)
+            response = agent.chat(prompt, images=images)
         ui.print_response(response)
+    if auto_commit_after:
+        _run_auto_commit(agent, prompt, ui)
+
+
+def _run_auto_commit(agent: Agent, task: str, ui: UI, quiet: bool = False) -> dict[str, Any]:
+    """Commit working-tree changes after a one-shot task and report the outcome."""
+    result = auto_commit(agent.cwd, task=task)
+    status = result.get("status")
+    if status == "committed":
+        ui.print_info(f"Auto-committed {result.get('sha', '')[:7]}: {result.get('message', '')}")
+    elif status == "no-changes" and not quiet:
+        ui.print_info("Auto-commit: no changes to commit")
+    elif status == "not-a-repo" and not quiet:
+        ui.print_info("Auto-commit skipped: not a git repository")
+    elif status != "no-changes" and status != "not-a-repo":
+        ui.print_error(f"Auto-commit failed: {result.get('error', 'unknown error')}")
+    return result
 
 
 def run_cicd_mode(
-    prompt: str, agent: Agent, ui: UI, output_format: str = "text", quiet: bool = False
+    prompt: str,
+    agent: Agent,
+    ui: UI,
+    output_format: str = "text",
+    quiet: bool = False,
+    images: list[str] | None = None,
+    auto_commit_after: bool = False,
 ) -> None:
     try:
         with (
@@ -855,7 +902,10 @@ def run_cicd_mode(
             if not quiet
             else ui.console.status("")
         ):
-            response = agent.chat(prompt)
+            response = agent.chat(prompt, images=images)
+        auto_commit_result: dict[str, Any] | None = None
+        if auto_commit_after:
+            auto_commit_result = _run_auto_commit(agent, prompt, ui, quiet=quiet)
         if output_format == "json":
             result = {
                 "success": True,
@@ -864,6 +914,8 @@ def run_cicd_mode(
                 "model": agent.model,
                 "usage": agent.usage,
             }
+            if auto_commit_result is not None:
+                result["auto_commit"] = auto_commit_result
             print(json.dumps(result, indent=2))
         else:
             if not quiet:
@@ -1867,7 +1919,13 @@ def _cmd_mcp(args: argparse.Namespace, ui: UI) -> None:
         ui.print_success(f"Authenticated with MCP server: {args.mcp_name}")
         return
 
-    ui.print_error("Usage: apex mcp <add|list|auth>")
+    if args.mcp_subcommand == "serve":
+        from .mcp_server import serve as mcp_serve
+
+        cwd = Path(args.cwd) if getattr(args, "cwd", None) else None
+        sys.exit(mcp_serve(cwd=cwd, allow_tools=getattr(args, "allow_tool", None)))
+
+    ui.print_error("Usage: apex mcp <add|list|auth|serve>")
     sys.exit(1)
 
 
@@ -2345,6 +2403,29 @@ def main() -> None:
 
     raw_args = sys.argv[1:]
 
+    # MCP server mode runs before argparse: it owns stdout for the protocol
+    # and must never be contaminated by help/usage output.
+    if len(raw_args) >= 2 and raw_args[0].lower() == "mcp" and raw_args[1] == "serve":
+        if len(raw_args) == 3 and raw_args[2] in ("--help", "-h"):
+            sys.stderr.write("usage: apex mcp serve [--cwd PATH] [--allow-tool NAME]...\n")
+            sys.exit(0)
+        cwd: str | None = None
+        allow_tools: list[str] = []
+        i = 2
+        while i < len(raw_args):
+            if raw_args[i] in ("--cwd", "-C") and i + 1 < len(raw_args):
+                cwd = raw_args[i + 1]
+                i += 2
+            elif raw_args[i] == "--allow-tool" and i + 1 < len(raw_args):
+                allow_tools.append(raw_args[i + 1])
+                i += 2
+            else:
+                sys.stderr.write(f"apex: unknown mcp serve argument: {raw_args[i]}\n")
+                sys.exit(2)
+        from .mcp_server import serve as mcp_serve
+
+        sys.exit(mcp_serve(cwd=Path(cwd) if cwd else None, allow_tools=allow_tools))
+
     # Intercept positional subcommands: `apex models`, etc.
     if raw_args and raw_args[0].lower() in _SUBCOMMANDS:
         parsed = parser.parse_args(raw_args)
@@ -2454,6 +2535,7 @@ def main() -> None:
         parsed.install_tui = False
         parsed.list_models = False
         parsed.auto_commit = False
+        parsed.image = None
         # For subcommands, keep the rest of raw_args so handlers can read them
         parsed.raw_args = raw_args[1:]
         _dispatch_verb(verb, parsed)
@@ -2556,9 +2638,24 @@ def _dispatch(parsed: argparse.Namespace) -> None:
             agent, ui, resume=parsed.resume, session_id=parsed.session_id, fork=parsed.fork_session
         )
     elif parsed.prompt_direct:
-        run_cicd_mode(parsed.prompt_direct, agent, ui, parsed.output_format, parsed.quiet)
+        run_cicd_mode(
+            parsed.prompt_direct,
+            agent,
+            ui,
+            parsed.output_format,
+            parsed.quiet,
+            images=parsed.image,
+            auto_commit_after=parsed.auto_commit,
+        )
     elif parsed.prompt:
-        run_one_shot(parsed.prompt, agent, ui, parsed.stream)
+        run_one_shot(
+            parsed.prompt,
+            agent,
+            ui,
+            parsed.stream,
+            images=parsed.image,
+            auto_commit_after=parsed.auto_commit,
+        )
     else:
         run_apex_tui(agent, ui)
 

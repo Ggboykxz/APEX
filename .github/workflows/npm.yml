@@ -1,0 +1,40 @@
+name: NPM
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "integrations/npm/**"
+      - ".github/workflows/npm.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "integrations/npm/**"
+      - ".github/workflows/npm.yml"
+
+concurrency:
+  group: npm-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ["18", "20", "22"]
+    defaults:
+      run:
+        working-directory: integrations/npm
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Validate package metadata
+        run: node -e "const p = require('./package.json'); if (p.name !== 'apex-ai') throw new Error('name must be apex-ai'); if (p.dependencies) throw new Error('runtime dependencies are forbidden'); console.log('apex-ai v' + p.version + ' (bin:', p.bin.apex + ')');"
+
+      - name: Run tests
+        run: npm test

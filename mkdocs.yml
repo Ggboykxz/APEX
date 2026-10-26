@@ -87,6 +87,8 @@ nav:
       - Config File: reference/config.md
       - API: reference/api.md
       - HTTP Endpoints: reference/http-api.md
+      - MCP Server: reference/mcp-server.md
+      - VS Code Extension: reference/vscode.md
       - Repository Map: reference/repomap.md
   - Contributing: contributing.md
   - Engineering:
@@ -98,6 +100,8 @@ nav:
           - ADR-0003: adr/ADR-0003-rust-rate-limiter-storage.md
           - ADR-0004: adr/ADR-0004-rust-distribution-deferred.md
           - ADR-0005: adr/ADR-0005-symbolic-repo-map.md
+          - ADR-0006: adr/ADR-0006-mcp-server-stdio.md
+          - ADR-0007: adr/ADR-0007-vscode-thin-client.md
   - Changelog: changelog.md
 
 extra:

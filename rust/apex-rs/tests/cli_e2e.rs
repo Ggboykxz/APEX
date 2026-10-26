@@ -27,10 +27,9 @@ impl Sandbox {
         }
     }
 
-    fn run(&self, args: &[&str]) -> Output {
+    fn base_command(&self) -> Command {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_apex-rs"));
-        cmd.args(args)
-            .current_dir(&self.cwd)
+        cmd.current_dir(&self.cwd)
             .env("HOME", &self.home)
             .env("USERPROFILE", &self.home);
         // Keep the child independent from the developer/CI environment.
@@ -48,7 +47,24 @@ impl Sandbox {
         ] {
             cmd.env_remove(key);
         }
-        cmd.output().expect("run apex-rs")
+        cmd
+    }
+
+    fn run(&self, args: &[&str]) -> Output {
+        self.base_command()
+            .args(args)
+            .output()
+            .expect("run apex-rs")
+    }
+
+    /// Spawn a long-running server child (stdout/stderr discarded).
+    fn spawn_serve(&self, args: &[&str]) -> std::process::Child {
+        self.base_command()
+            .args(args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn apex-rs serve")
     }
 
     fn apex_path(&self) -> PathBuf {
@@ -108,6 +124,7 @@ fn help_lists_subcommands() {
         "memory",
         "session",
         "security",
+        "context",
     ] {
         assert!(
             text.contains(subcommand),
@@ -285,6 +302,186 @@ fn security_cli_reports_verdicts_and_guards_run_command() {
         "got: {}",
         stdout(&blocked)
     );
+}
+
+#[test]
+fn context_commands_report_repository_state() {
+    let sb = Sandbox::new();
+    std::fs::create_dir(sb.cwd.join("src")).unwrap();
+    std::fs::write(sb.cwd.join("main.py"), "x = 1\n").unwrap();
+    std::fs::write(sb.cwd.join("src").join("lib.rs"), "fn main() {}\n").unwrap();
+    std::fs::write(sb.cwd.join("README.md"), "# hi\n").unwrap();
+    std::fs::write(sb.cwd.join("package.json"), "{}\n").unwrap();
+
+    let map = sb.run(&["context", "repo-map"]);
+    assert_success(&map, "context repo-map");
+    let text = stdout(&map);
+    assert!(
+        text.contains("[DIRECTORIES]") && text.contains("src/"),
+        "got: {text}"
+    );
+    assert!(
+        text.contains("[SOURCE FILES]") && text.contains("main.py"),
+        "got: {text}"
+    );
+    assert!(
+        text.contains("[CONFIG FILES]") && text.contains("package.json"),
+        "got: {text}"
+    );
+    assert!(
+        text.contains("[DOCUMENTATION]") && text.contains("README.md"),
+        "got: {text}"
+    );
+    assert!(
+        !text.contains("[GIT]"),
+        "tempdir is not a git repository: {text}"
+    );
+
+    let stats = sb.run(&["context", "stats"]);
+    assert_success(&stats, "context stats");
+    let v: serde_json::Value =
+        serde_json::from_slice(&stats.stdout).expect("stats must print JSON");
+    assert_eq!(v["Python"], 1, "got: {v}");
+    assert_eq!(v["Rust"], 1, "got: {v}");
+    assert_eq!(v["Other"], 2, "README.md + package.json: {v}");
+
+    let tree = sb.run(&["context", "tree", "--depth", "2"]);
+    assert_success(&tree, "context tree");
+    let t = stdout(&tree);
+    assert!(t.contains("├── src"), "dirs come first: {t}");
+    assert!(t.contains("lib.rs"), "got: {t}");
+    assert!(t.contains("└── README.md"), "got: {t}");
+
+    let glob = sb.run(&["context", "glob", "**/*.py"]);
+    assert_success(&glob, "context glob");
+    assert_eq!(stdout(&glob).trim(), "main.py", "got: {}", stdout(&glob));
+
+    let git = sb.run(&["context", "git"]);
+    assert_success(&git, "context git");
+    assert!(
+        stdout(&git).contains("not a git repository"),
+        "got: {}",
+        stdout(&git)
+    );
+
+    let ctags = sb.run(&["context", "ctags"]);
+    assert_success(&ctags, "context ctags");
+    assert!(
+        stdout(&ctags).contains("Not a git repository"),
+        "got: {}",
+        stdout(&ctags)
+    );
+
+    // A missing path is a hard error, not empty output.
+    let missing = sb.run(&["context", "tree", "does-not-exist"]);
+    assert!(!missing.status.success(), "missing path must exit non-zero");
+}
+
+#[tokio::test]
+async fn serve_exposes_context_routes() {
+    let sb = Sandbox::new();
+    std::fs::create_dir(sb.cwd.join("src")).unwrap();
+    std::fs::write(sb.cwd.join("main.py"), "x = 1\n").unwrap();
+    std::fs::write(sb.cwd.join("src").join("lib.ts"), "const x = 1;\n").unwrap();
+    std::fs::write(sb.cwd.join("README.md"), "# hi\n").unwrap();
+
+    // Grab a free port, then let the server child bind it.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let mut child = sb.spawn_serve(&["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+
+    let mut healthy = false;
+    for _ in 0..150 {
+        match client.get(format!("{base}/health")).send().await {
+            Ok(r) if r.status().is_success() => {
+                healthy = true;
+                break;
+            }
+            _ => {
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+        }
+    }
+    assert!(healthy, "apex-rs serve did not become healthy");
+
+    let map: serde_json::Value = client
+        .get(format!("{base}/api/v1/context/repo-map"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let map_text = map["map"]
+        .as_str()
+        .expect("repo-map must return a map: {map}");
+    assert!(map_text.contains("main.py"), "got: {map_text}");
+    assert!(map_text.contains("[DIRECTORIES]"), "got: {map_text}");
+
+    let stats: serde_json::Value = client
+        .get(format!("{base}/api/v1/context/stats"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(stats["stats"]["Python"], 1, "got: {stats}");
+    assert_eq!(stats["stats"]["TypeScript"], 1, "got: {stats}");
+
+    let tree: serde_json::Value = client
+        .get(format!("{base}/api/v1/context/tree"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        tree["tree"].as_str().unwrap().contains("src"),
+        "got: {tree}"
+    );
+
+    let glob: serde_json::Value = client
+        .get(format!("{base}/api/v1/context/glob?pattern=*.py"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        glob["matches"],
+        serde_json::json!(["main.py"]),
+        "got: {glob}"
+    );
+
+    let git: serde_json::Value = client
+        .get(format!("{base}/api/v1/context/git"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(git["info"], "", "tempdir is not a repository: {git}");
+
+    let bad: serde_json::Value = client
+        .get(format!("{base}/api/v1/context/tree?path=does-not-exist"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(bad["error"].as_str().is_some(), "got: {bad}");
+
+    child.kill().unwrap();
+    let _ = child.wait();
 }
 
 #[test]

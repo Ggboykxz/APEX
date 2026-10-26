@@ -1,9 +1,11 @@
 """HTTP/SSE API server for APEX - headless agent workflows with security."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -288,6 +290,9 @@ class HTTPServer:
         self.app.router.add_post("/api/v1/import", self.api_import)
         self.app.router.add_get("/global/event", self.api_global_event)
         self.app.router.add_get("/api/v1/session/{session_id}/diff", self.api_session_diff)
+        self.app.router.add_post(
+            "/api/v1/session/{session_id}/diff/decision", self.api_session_diff_decision
+        )
         self.app.router.add_post("/api/v1/session/{session_id}/fork", self.api_session_fork)
         self.app.router.add_post("/api/v1/session/{session_id}/abort", self.api_session_abort)
         self.app.router.add_get("/api/v1/lsp", self.api_lsp_status)
@@ -1441,6 +1446,92 @@ class HTTPServer:
 
     # ── API v1: Session operations ────────────────────────
 
+    _DIFF_GIT_TIMEOUT = 30
+
+    def _collect_diff(self) -> tuple[str, str, list[str], str]:
+        """Return (stat, diff, changed paths, fingerprint) for the working tree."""
+        cwd = Path(self.agent.cwd)
+        stat = subprocess.run(
+            ["git", "diff", "--stat"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=self._DIFF_GIT_TIMEOUT,
+        )
+        diff = subprocess.run(
+            ["git", "diff"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=self._DIFF_GIT_TIMEOUT,
+        )
+        names = subprocess.run(
+            ["git", "diff", "--name-only"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=self._DIFF_GIT_TIMEOUT,
+        )
+        diff_text = diff.stdout or ""
+        paths = [line.strip() for line in (names.stdout or "").splitlines() if line.strip()]
+        return (
+            stat.stdout.strip(),
+            diff_text,
+            paths,
+            hashlib.sha256(diff_text.encode("utf-8")).hexdigest(),
+        )
+
+    @staticmethod
+    def _normalize_diff_path(raw: Any) -> str | None:
+        """Validate a client path as repo-relative, POSIX-style, without `..`."""
+        if not isinstance(raw, str):
+            return None
+        candidate = raw.strip().replace("\\", "/")
+        if not candidate or "\x00" in candidate:
+            return None
+        if candidate.startswith("/") or Path(candidate).is_absolute():
+            return None
+        # Reject Windows drive-qualified paths even on POSIX hosts.
+        if len(candidate) >= 2 and candidate[1] == ":":
+            return None
+        if any(part == ".." for part in candidate.split("/")):
+            return None
+        return candidate
+
+    @staticmethod
+    def _diff_path_within(root: Path, relative_path: str) -> bool:
+        """True when the path resolves inside the repository root."""
+        try:
+            (root / relative_path).resolve().relative_to(root)
+        except (OSError, ValueError):
+            return False
+        return True
+
+    def _restore_diff_path(self, root: Path, relative_path: str) -> str | None:
+        """Restore one tracked path in the working tree; None means success."""
+        last_error = ""
+        for command in (
+            ["git", "restore", "--worktree", "--", relative_path],
+            ["git", "checkout", "--", relative_path],
+        ):
+            try:
+                result = subprocess.run(
+                    command,
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    timeout=self._DIFF_GIT_TIMEOUT,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                last_error = str(exc)
+                continue
+            if result.returncode == 0:
+                return None
+            last_error = (result.stderr or result.stdout or "").strip() or (
+                f"git exited with {result.returncode}"
+            )
+        return last_error or f"could not restore {relative_path}"
+
     async def api_session_diff(self, request: web.Request) -> web.Response:
         """Get session diff (OpenCode /session/:id/diff compat)."""
         auth_error, _ = await self._check_auth(request)
@@ -1448,23 +1539,99 @@ class HTTPServer:
             return auth_error
         session_id = request.match_info.get("session_id", "")
         try:
-            import subprocess
-
-            stat = subprocess.run(
-                ["git", "diff", "--stat"], cwd=self.agent.cwd, capture_output=True, text=True
-            )
-            diff = subprocess.run(
-                ["git", "diff"], cwd=self.agent.cwd, capture_output=True, text=True
-            )
+            stat, diff_text, paths, fingerprint = self._collect_diff()
             return web.json_response(
                 {
-                    "files": stat.stdout.strip() or "(clean)",
-                    "diff": diff.stdout or "",
+                    "files": stat or "(clean)",
+                    "diff": diff_text,
                     "session_id": session_id,
+                    "fingerprint": fingerprint,
+                    "paths": paths,
                 }
             )
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
+
+    async def api_session_diff_decision(self, request: web.Request) -> web.Response:
+        """Accept or reject the previewed working-tree diff."""
+        auth_error, _ = await self._check_auth(request)
+        if auth_error:
+            return auth_error
+
+        try:
+            data = await request.json()
+        except (ValueError, TypeError):
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+        if not isinstance(data, dict):
+            return web.json_response({"error": "invalid JSON body"}, status=400)
+
+        decision = data.get("decision")
+        if decision not in ("accept", "reject"):
+            return web.json_response({"error": "decision must be 'accept' or 'reject'"}, status=400)
+
+        raw_files = data.get("files")
+        requested: list[str] | None
+        if raw_files is None:
+            requested = None
+        elif isinstance(raw_files, list):
+            requested = []
+            for raw in raw_files:
+                normalized = self._normalize_diff_path(raw)
+                if normalized is None:
+                    return web.json_response({"error": f"invalid path: {raw!r}"}, status=400)
+                requested.append(normalized)
+            # Preserve preview order while restoring each path at most once.
+            requested = list(dict.fromkeys(requested))
+        else:
+            return web.json_response({"error": "files must be a list"}, status=400)
+
+        try:
+            _stat, _diff_text, current_paths, fingerprint = self._collect_diff()
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+
+        selected = list(current_paths) if requested is None else requested
+
+        if decision == "reject":
+            supplied = data.get("fingerprint")
+            if not isinstance(supplied, str) or not supplied:
+                return web.json_response({"error": "fingerprint required"}, status=400)
+            if supplied != fingerprint:
+                return web.json_response(
+                    {"error": "diff_changed", "fingerprint": fingerprint}, status=409
+                )
+
+        current_set = set(current_paths)
+        cwd = Path(self.agent.cwd).resolve()
+        for path in selected:
+            if path not in current_set:
+                return web.json_response({"error": f"path not in current diff: {path}"}, status=400)
+            if not self._diff_path_within(cwd, path):
+                return web.json_response(
+                    {"error": f"path escapes working directory: {path}"}, status=400
+                )
+
+        if decision == "accept":
+            return web.json_response(
+                {"status": "accepted", "files": selected, "fingerprint": fingerprint}
+            )
+
+        reverted: list[str] = []
+        failed: list[str] = []
+        for path in selected:
+            if self._restore_diff_path(cwd, path) is None:
+                reverted.append(path)
+            else:
+                failed.append(path)
+        return web.json_response(
+            {
+                "status": "rejected",
+                "files": selected,
+                "reverted": reverted,
+                "failed": failed,
+                "fingerprint": fingerprint,
+            }
+        )
 
     async def api_session_fork(self, request: web.Request) -> web.Response:
         """Fork current session (OpenCode /session/:id/fork compat)."""

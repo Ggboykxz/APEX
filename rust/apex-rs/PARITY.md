@@ -1,12 +1,12 @@
 # Rust / Python Parity
 
-Internal GA baseline for `rust/apex-rs` (increment 1). The reference is the
-Python package in `apex/` at commit `c41952c`. "Parity" here means that a
-behaviour is reachable from the Rust binary, HTTP server, or tool registry and
-has automated coverage - not that the implementations are line-for-line
-equivalent.
+Internal GA baseline for `rust/apex-rs` (last updated for the v2.6 context
+increment). The reference is the Python package in `apex/` on `dev`.
+"Parity" here means that a behaviour is reachable from the Rust binary, HTTP
+server, or tool registry and has automated coverage - not that the
+implementations are line-for-line equivalent.
 
-Scale at this baseline: ~19,160 lines of Python in `apex/*.py` versus ~9,225
+Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~9,430
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -27,12 +27,14 @@ CLI (`apex-rs --help`):
 run, chat, serve, tools, plugins, call-tool, cost,
 memory {list,add,search,context,remove,clear},
 session {list,show,save},
-security {check,allowed}
+security {check,allowed},
+context {repo-map,git,stats,ctags,tree,glob}
 ```
 
-HTTP server (`serve`): 34 routes, including `/health`, `/api/v1/tools`,
+HTTP server (`serve`): 41 routes, including `/health`, `/api/v1/tools`,
 `/api/v1/security/analyze`, sessions, shares/export, files, models, config,
-themes, cost, chat, chat streaming, and WebSockets.
+themes, cost, chat, chat streaming, context (`repo-map`, `git`, `stats`,
+`ctags`, `tree`, `glob`), `/api/v1/rate-limit`, and WebSockets.
 
 Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
@@ -40,25 +42,25 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 | Python | Rust | Status | Notes |
 | --- | --- | --- | --- |
-| `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security). Most of Python's command suite is not ported. |
+| `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security, context). Most of Python's command suite is not ported. |
 | `agent.py` | `agent.rs` | Partial | One-shot run, streaming REPL, tool-call loop, cost reporting. Session forking/rewind and some prompt features are absent. |
 | `agents.py` | - | Missing | No subagent registry, markdown agent loading, or parallel orchestration. |
 | `config.py`, `config_v2.py` | `config.rs` | Partial | Env/model/cwd config and shared home resolution. No JSONC hierarchy, migration, or validation layer. |
 | `config_tools.py` | - | Missing | No config-defined custom tools. |
-| `context.py` | `context.rs` | Ported, not wired | Repo map, git info, language stats, ctags, file tree, glob search. Module is compiled but no CLI/HTTP caller yet. |
+| `context.py` | `context.rs` | Wired | CLI `context repo-map\|git\|stats\|ctags\|tree\|glob` and `GET /api/v1/context/*`: repo map, git info, language stats, ctags file list, file tree, glob search. |
 | `context_manager.py`, `context_tracking.py` | - | Missing | No summarisation/compaction accounting. |
 | `cost_local.py` | `cost.rs` | Wired | Pricing table, usage, cost history; CLI `cost` and HTTP cost routes. |
 | `codegen.py` | `codegen.rs` | Partial | Refactor, DB model, Dockerfile/compose, API client, docs, profile, optimize tools. Six helper operations remain test-only. |
 | `formatter.py` | `formatter.rs` | Partial | `format_file` tool only. No format-on-write pipeline or formatter discovery parity. |
 | `github_integration.py` | `github.rs` | Partial | `git_*` tools and `git_create_pr` work through `gh`/REST. Issue automation and the `GitHubClient`/`GitHubAutomation` paths are not wired. |
 | hooks inside `plugins.py`/`tools.py` | `hooks.rs` | Wired | `trigger_hooks` runs on tool dispatch. Registration from config is not wired. |
-| `http_api.py`, `server.py` | `server.rs` | Partial | 34 routes, SSE/WebSocket streaming, shell guard. No auth middleware, full route parity, or API rate limiting. |
+| `http_api.py`, `server.py` | `server.rs` | Partial | 41 routes, SSE/WebSocket streaming, shell guard, per-key rate limiting. No auth middleware, full route parity. |
 | `lsp.py`, `lsp_diagnostics.py` | `lsp.rs` | Partial | Definition, references, hover, diagnostics tools. No persistent per-workspace manager or completion/code-action tools. |
 | `mcp.py` | `mcp_client.rs`, `jsonrpc.rs` | Wired | Stdio JSON-RPC, server discovery, tool bridge, global registry; CLI and server use it. |
 | `memory.py` | `memory.rs` | Wired | CLI list/add/search/context/remove/clear, REPL `/memory`, session context injection. No automatic fact extraction. |
 | `permission.py` | `permission.rs` | Ported, not wired | Rules, first-match semantics, and tests. Tool dispatch does not consult it yet. |
 | `plugins.py` | `plugins.rs` | Wired | Manifest discovery, namespaced plugin tools, CLI/server listing and execution. Rust invokes declared tools; it does not execute Python plugin source in-process. |
-| `rate_limiter.py` | `rate_limiter.rs` | Ported, not wired | In-memory limiter and tests, but `serve` does not apply limits. |
+| `rate_limiter.py` | `rate_limiter.rs` | Wired | Per-key in-memory limiter enforced by middleware on every `serve` route except `/health` (`X-API-Key` / `Bearer` key, 429 + `Retry-After`); `GET /api/v1/rate-limit` exposes counters; limits via `APEX_RATE_LIMIT_*`. SQLite backend not ported. |
 | `session.py` | `share.rs`, `session_crypto.rs`, `server.rs` | Partial | Fernet-compatible encrypted save/load/list, CLI and HTTP session routes. Branching and all Python session metadata are absent. |
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
@@ -114,19 +116,17 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
    `plugins::plugin_count`, `McpServerConfig::name`, `McpManager::all_tools`,
    and `Memory::path`.
 4. Module-level allows are reserved for whole modules with no caller. Adding
-   one requires an entry in this document. There are currently three:
-   `context`, `permission`, and `rate_limiter`.
+   one requires an entry in this document. There is currently one:
+   `permission`.
 5. When an allow is removed: wire the code, add CLI/HTTP/tool or unit coverage,
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current allow inventory (23 attributes)
+### Current allow inventory (22 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
-| Module | `main.rs` | `context` | No CLI/HTTP caller | Add `context repo-map/tree/stats` |
 | Module | `main.rs` | `permission` | No dispatch gate | Route tool dispatch through the manager |
-| Module | `main.rs` | `rate_limiter` | No server middleware | Enforce limits in `serve` |
 | Item | `codegen.rs` | `extract_method` | No refactor style | Add `extract_method` style |
 | Item | `codegen.rs` | `convert_to_class` | No refactor style | Add `convert_to_class` style |
 | Item | `codegen.rs` | `add_type_hints` | Tool only edits one signature | Add whole-file type-hint mode |
@@ -139,6 +139,7 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `hooks.rs` | `register_hook` | No config registration site | Load hooks at startup |
 | Item | `hooks.rs` | `hook_count` | Not exposed in config API | Add hook count to `/api/v1/config` |
 | Item | `memory.rs` | `list_facts` | CLI report needs tags | Add `memory list --names` |
+| Item | `rate_limiter.rs` | `RateLimitResult::reset_at` | Python tests assert it; no API reads it | Surface reset time in `GET /api/v1/rate-limit` |
 | Item | `server.rs` | `ChatReq::agent` | Chat selects one agent | Select requested agent in `/api/v1/chat` |
 | Item | `shell_security.rs` | `CommandCategory::Package` | Python never returns it | Classify pip/npm installs |
 | Item | `skills.rs` | `add` | No skill-authoring CLI | Add `skill add` |
@@ -146,8 +147,8 @@ Tool registry: 39 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `skills.rs` | `three_way_diff` | No diff3 tool | Add `diff3_files` |
 | Item | `skills.rs` | `get_skill_manager` | Tools construct managers directly | Share a cached manager |
 
-The three module-level allows count as one attribute each; the 20 item-level
-attributes bring the total to 23.
+The single module-level allow counts as one attribute; the 21 item-level
+attributes bring the total to 22.
 
 ## Verification
 
@@ -159,20 +160,22 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 110 unit tests + 7 binary E2E tests. The E2E suite runs
+Current baseline: 114 unit tests + 9 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
 (including encrypted files and JSON output), security verdicts plus the
-`run_command` guard, and the absence of the crate-level allow.
+`run_command` guard, the context CLI commands, the `serve` context HTTP
+routes, and the absence of the crate-level allow.
 
 ## Next increments
 
-1. Wire `context` into CLI/HTTP and remove its module allow.
-2. Enforce `permission` in tool dispatch and `rate_limiter` in `serve`.
-3. Add high-value missing tools: `edit_file`/`apply_patch`, repo map/tree,
+1. Enforce `permission` in tool dispatch (rate limiting is done; only the
+   permission gate remains of the two module-level allows).
+2. Add high-value missing tools: `edit_file`/`apply_patch`, repo map/tree,
    `web_search`/`fetch_url`, task/plan tools.
-4. Add a `github` CLI group and skill authoring commands; remove those allows.
-5. Add HTTP authentication/rate limiting and route-level E2E coverage.
-6. Add a Python-written Fernet session fixture to prove cross-language
+3. Add a `github` CLI group and skill authoring commands; remove those allows.
+4. Add HTTP authentication and route-level E2E coverage for the rate-limited
+   server (the limiter itself is wired and unit-tested).
+5. Add a Python-written Fernet session fixture to prove cross-language
    compatibility, not just self-round-tripping.

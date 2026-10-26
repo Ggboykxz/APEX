@@ -518,12 +518,17 @@ mod tests {
     #[test]
     fn file_tree_depth_limit() {
         let dir = tempdir().unwrap();
-        let deep = dir.path().join("a/b/c");
+        // Use a fixed root name: `tempdir()` names may contain `a`/`b`/`c`
+        // (e.g. `.tmp4dcMLz` on Linux), which would make the assertions below
+        // pass or fail by accident.
+        let root = dir.path().join("root");
+        let deep = root.join("a/b/c");
         fs::create_dir_all(&deep).unwrap();
         fs::write(deep.join("x.py"), "x = 1\n").unwrap();
-        let tree = file_tree(dir.path(), 1).unwrap();
+        let tree = file_tree(&root, 1).unwrap();
         assert!(tree.contains("a"), "got {tree}");
         assert!(!tree.contains("c"), "depth limited: {tree}");
+        assert!(!tree.contains("x.py"), "depth limited: {tree}");
     }
 
     #[test]
