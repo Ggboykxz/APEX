@@ -83,7 +83,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `billing.py` | - | Missing | No billing, cost-history limits, or trial logic. |
 | `sandbox.py` | - | Missing | No isolated code execution. |
 | `task_queue.py` | - | Missing | No durable background tasks. |
-| `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
+| `snapshot.py` | `snapshot_manager.rs` | **Wired** | Git-powered undo/redo with patches: `track()`, `add_file_change()`, `track_file()`, `undo()`, `redo()`, `restore()`, `get_history()`, `clear()`, `save_snapshot_to_git()`. CLI `snapshot {track,undo,redo,can-undo,can-redo,history,clear}`; global manager keyed by cwd. See PR #310. |
 | `watcher.py` | - | Missing | No file watcher. |
 | `project.py` | - | Missing | No project initialisation/analysis. |
 | `mentions.py` | - | Missing | No `@file`/`@agent` mention expansion. |
@@ -195,7 +195,5 @@ crate-level allow.
 
 ## Next increments
 
-1. Port `snapshot.py` (Git-powered undo/redo with patches, distinct from the
-   side-git rollback store).
-2. Port Python's remaining session metadata (forks and branch history) beyond
+1. Port Python's remaining session metadata (forks and branch history) beyond
    `name`/`timestamp`/`model`/`cwd`/`history`/`usage`.

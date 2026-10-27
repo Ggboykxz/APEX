@@ -298,7 +298,7 @@ APEX_CONFIG_CONTENT='{"model": "gpt-4o"}'
 `rust/apex-rs/` is the progressively ported Rust backend. It is an internal
 GA: the agent loop, HTTP server, and tool registry are usable, but nothing is
 published (see [ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
-The wired surface includes workspace awareness and workspace rollback:
+The wired surface includes workspace awareness, workspace rollback, and **Git-powered undo/redo (snapshot.py parity)**:
 
 ```bash
 cd rust/apex-rs
@@ -309,6 +309,13 @@ cargo run -- rollback list [--json]     # snapshots (text view shows the last 10
 cargo run -- rollback restore <NAME>    # restore a snapshot
 cargo run -- rollback record --data '{"query":"…"}'
 cargo run -- rollback revert 1          # restore the turn recorded 1 turn ago
+
+# Snapshot manager (file-level undo/redo)
+cargo run -- snapshot track <PATH>      # track a file before modification
+cargo run -- snapshot undo              # undo last change
+cargo run -- snapshot redo              # redo last undone change
+cargo run -- snapshot history           # show snapshot history
+cargo run -- snapshot clear             # clear all snapshots
 ```
 
 Snapshots live in `.apex/snapshots/`; turn history is `.apex/turns.json`.

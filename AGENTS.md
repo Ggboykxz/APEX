@@ -567,6 +567,22 @@ Ctrl+X + U      # Undo (TUI)
 Ctrl+X + R      # Redo (TUI)
 ```
 
+### Rust CLI (apex-rs)
+
+```bash
+apex-rs snapshot track <PATH> [--action-type <TYPE>] [--cwd <PATH>]   # Track a file before modification
+apex-rs snapshot undo                                                  # Undo last action
+apex-rs snapshot redo                                                  # Redo undone action
+apex-rs snapshot can-undo                                              # Check if undo is available (exit code 0 = yes)
+apex-rs snapshot can-redo                                              # Check if redo is available (exit code 0 = yes)
+apex-rs snapshot history [--limit <N>]                                 # Show snapshot history
+apex-rs snapshot clear                                                 # Clear all snapshots
+```
+
+Action types: `file_write`, `file_edit`, `file_delete`, `dir_create`, `dir_delete`, `command_exec`
+
+The Rust snapshot manager is a separate system from `workspace_rollback.rs` — it tracks individual file changes with diffs and maintains an in-memory undo/redo stack backed by a local git repo at `.apex/snapshots/`.
+
 ---
 
 ## 12. Providers
