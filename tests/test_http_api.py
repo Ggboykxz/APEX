@@ -1985,17 +1985,36 @@ class TestV1SessionsDeleteDetailedFull:
                 assert resp.status == 200
 
     @pytest.mark.asyncio
+    async def test_delete_duplicate_json_uses_alphabetical_order(self, server, tmp_path):
+        with patch.object(Path, "home", return_value=tmp_path):
+            sessions_dir = tmp_path / ".apex" / "sessions"
+            sessions_dir.mkdir(parents=True)
+            # Create the alphabetically-later duplicate first: enumeration
+            # order must not decide which file gets deleted.
+            later = sessions_dir / "zzz.json"
+            later.write_text(json.dumps({"session_id": "dup"}))
+            earlier = sessions_dir / "aaa.json"
+            earlier.write_text(json.dumps({"session_id": "dup"}))
+            async with TestClient(TestServer(server.app)) as client:
+                resp = await client.delete("/api/v1/sessions/dup")
+                assert resp.status == 200
+                data = await resp.json()
+                assert data["deleted"] == "dup"
+                assert not earlier.exists()
+                assert later.exists()
+
+    @pytest.mark.asyncio
     async def test_delete_second_loop_exception_skipped(self, server, tmp_path):
         with patch.object(Path, "home", return_value=tmp_path):
             sessions_dir = tmp_path / ".apex" / "sessions"
             sessions_dir.mkdir(parents=True)
             real_read_text = Path.read_text
-            call_count = 0
 
             def mock_read_text(self_inst):
-                nonlocal call_count
-                call_count += 1
-                if call_count == 1:
+                # Key on the file name, not the call count: glob enumeration
+                # order is filesystem-dependent (the source of this test's
+                # previous flakiness on CI).
+                if self_inst.name == "aaa_bad.json":
                     return "{{{not valid json"
                 return real_read_text(self_inst)
 

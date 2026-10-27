@@ -88,6 +88,7 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 
 ### Bug Fixes
 
+- **Deterministic session deletion** — `DELETE /api/v1/sessions/{id}` now iterates matching files in sorted order, so duplicate sessions resolve the same way on every filesystem; the delete-loop regression test keys its mock on the file name instead of the call count.
 - **Manual compaction now works** — `Agent.compact_context(strategy=...)` implemented (summarize/prune/merge), so `/compact` and `apex compact` no longer crash on the missing method.
 - **MCP status endpoint fixed** — `/api/v1/mcp/status` no longer crashes; server entries are dicts, so access now uses dict keys.
 - **Session cost math fixed** — `CostTracker.get_session_cost()` no longer multiplies costs by every model in `MODEL_PRICING`; costs now come from per-model usage.
