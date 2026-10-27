@@ -1064,6 +1064,20 @@ advisory on Prisma 6.
 - Per feature: `orch-add-feature` / `tdd`, then the language triad (`rust-test` → `rust-build` → `rust-review`, `react-test` → `react-build` → `react-review`).
 - Close each wave with `verify`, `security-scan`, `update-docs`, then `learn` → `evolve`.
 
+### AI maintainer (opencode)
+
+- `.github/workflows/opencode.yml` runs opencode on demand when a maintainer
+  (`OWNER`, `MEMBER` or `COLLABORATOR`, never a bot) comments `/oc` or
+  `/opencode` on an issue, a PR, or a review line.
+- The upstream action was archived on 2026-10-25 (`anomalyco/opencode#59032`);
+  the workflow pins the last published wrapper commit
+  (`17b79f4e0c16dcff200b0417567ed22aeb2d7166`, tag `github-v1.2.28`). The
+  wrapper downloads the current opencode binary at runtime.
+- One-time setup: install the `opencode-agent` GitHub App, add
+  `DEEPSEEK_API_KEY` (default `deepseek/deepseek-chat`) or
+  `ANTHROPIC_API_KEY`, and optionally set the `OPENCODE_MODEL` repository
+  variable. Sessions are not shared (`share: false`).
+
 ---
 
 ## 24. Rust Port (Internal GA)
