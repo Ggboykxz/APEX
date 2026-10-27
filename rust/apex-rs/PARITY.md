@@ -6,7 +6,7 @@ fernet-fixture increment). The reference is the Python package in `apex/` on `de
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~22,715 lines of Python in `apex/*.py` versus ~14,645
+Scale at this baseline: ~22,715 lines of Python in `apex/*.py` versus ~15,639
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -73,12 +73,12 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill authoring is wired through the `skill` CLI (`list`/`add`/`remove`); `add`/`remove` also persist to `.apex/skills/*.md` (Python's are in-memory only and unwired there). Three-way diff remains unwired. |
 | `tools.py` | `tools.rs`, `web.rs`, `task_queue.rs` | Partial | 51 tools: files, shell, git, codegen, LSP, skills, repository context, web, task queue & plans. Python exposes 102 schema names; the tool table below records the uncovered categories. |
-| `git_undo.py` | `tools.rs` | Partial | `git_undo`, `undo_last_edit`, `redo_last_edit`. No snapshot history or workspace rollback. |
+| `git_undo.py` | `tools.rs` | Partial | `git_undo`, `undo_last_edit`, `redo_last_edit`. No stash-style undo/redo history (side-git workspace snapshots live in `workspace_rollback.rs`). |
 | `advanced.py` | `server.rs` | Partial | SSE streaming exists. Retry, batching, and timeout policy are not ported. |
 | `theme_manager.py` | `server.rs` | Partial | Read-only `/api/v1/themes` route. No theme mutation, custom themes, or UI integration. |
 | `commands.py`, `commands_manager.py` | `main.rs` | Partial | Built-in clap subcommands only. No user/project custom command loading. |
 | `workspace.py` | `workspace.rs` | Wired | Git branch, 8-char commit, dirty flag, `origin` URL, GitHub `owner/repo`, ahead/behind counts, `GITHUB_HEAD_REF`/`GITHUB_PR_NUMBER`, first 5 tags; language, package-manager and test-framework detection in Python's marker order. `WorkspaceManager::get_system_prompt_context` produces the same `[WORKSPACE CONTEXT]` block, appended to both agent system prompts (one-shot and streaming, analyzed once per user turn) and exposed by `apex-rs workspace [PATH] [--json]`. Python exports the class but never wires it. Divergences: no `git fetch --dry-run` network call, empty tag list on tagless repos (Python returns `[""]`), and no process-global `workspace_manager` singleton. |
-| `workspace_rollback.py` | - | Missing | No side-git snapshots or `/restore`. |
+| `workspace_rollback.py` | `workspace_rollback.rs` | Wired | Side-git snapshots under `.apex/snapshots/`: metadata, `git diff --name-only` backup of tracked modifications (untracked files stay in `git_status.txt` only, like Python), status capture, restore with parent creation, sorted listing with missing-metadata defaults, delete, and `rollback_turn` clamping. `TurnTracker` persists `.apex/turns.json` and restores a recorded turn (`revert_turn` 0/overflow target the first turn, matching Python's `turns[-0]`/clamp). CLI `rollback {snapshot,list,restore,delete,turn,record,revert,history}`; Python only wires `/restore` and `/revert`, so Rust exposes the full surface. Divergences: UTC timestamps (Python uses local time), labels and snapshot names are validated as bare path components (Python joins them directly, so `../` can escape), `rollback turn 0` is a clear error (Python raises `IndexError`), and copies do not preserve modification times (`shutil.copy2` does). |
 | `api_key.py` | `api_key.rs` | Partial | JSON-file key store (`~/.apex/api_keys.json`, overridable with `APEX_API_KEYS_FILE`; Python uses SQLite) re-read on every operation, so CLI changes reach a running server. `apex_` + 32 random bytes (urlsafe base64), sha256 at rest, expiry/active checks, `last_used`/`request_count`, CLI `key {create,list,revoke,delete}`. Python's per-key rate limits/permissions/metadata are carried in the schema but not enforced (its `validate_key` does not check them either); workspace CRUD is not ported (fixed `default` workspace). Writes are atomic (temp + rename) but not transactionally serialised across processes like SQLite. |
 | `billing.py` | - | Missing | No billing, cost-history limits, or trial logic. |
 | `sandbox.py` | - | Missing | No isolated code execution. |
@@ -175,8 +175,8 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 193 unit tests (192 on Windows - the atomic-write rollback
-test is POSIX-gated) + 14 binary E2E tests. The E2E suite runs
+Current baseline: 218 unit tests (217 on Windows - the atomic-write rollback
+test is POSIX-gated) + 16 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
@@ -184,8 +184,10 @@ It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
 fixtures under both key schemes), security verdicts plus the
 `run_command` guard, the context CLI commands, the `workspace` CLI (prompt
 block and JSON in a dirty git repository), the `serve` context HTTP
-routes with auth off by default, the `github` CLI (install/run/usage parity
-and issue/PR/automate error paths against a dead local port), the `skill`
+routes with auth off by default, the rollback CLI
+(snapshot/list/restore/delete and record/revert/history against real
+repositories), the `github` CLI (install/run/usage parity and
+issue/PR/automate error paths against a dead local port), the `skill`
 add/list/remove lifecycle, the full HTTP-auth flow (CLI-created key, the three
 carriers, exact 401 body, protected auth routes, out-of-band revoke, 429 +
 `Retry-After` with 401s not consuming budget), and the absence of the
@@ -193,6 +195,7 @@ crate-level allow.
 
 ## Next increments
 
-1. Port `workspace_rollback.py` (side-git snapshots and `/restore`).
+1. Port `snapshot.py` (Git-powered undo/redo with patches, distinct from the
+   side-git rollback store).
 2. Port Python's remaining session metadata (forks and branch history) beyond
    `name`/`timestamp`/`model`/`cwd`/`history`/`usage`.

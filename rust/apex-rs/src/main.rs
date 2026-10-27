@@ -24,6 +24,7 @@ mod task_queue;
 mod tools;
 mod web;
 mod workspace;
+mod workspace_rollback;
 
 use clap::{Parser, Subcommand};
 use config::Config;
@@ -94,6 +95,11 @@ enum Commands {
         /// Print the full context as JSON instead of the system-prompt block
         #[arg(long)]
         json: bool,
+    },
+    /// Workspace rollback: side-git snapshots and turn history
+    Rollback {
+        #[command(subcommand)]
+        action: RollbackAction,
     },
     /// GitHub: install/run parity plus issue/PR operations and automation flows
     Github {
@@ -183,6 +189,65 @@ enum ContextAction {
     Glob {
         pattern: String,
         #[arg(default_value = ".")]
+        path: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RollbackAction {
+    /// Create a snapshot and print its name
+    Snapshot {
+        /// Snapshot label (defaults to `auto`)
+        #[arg(default_value = "")]
+        label: String,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// List snapshots (text view shows the last 10)
+    List {
+        #[arg(long, default_value = ".")]
+        path: String,
+        /// Print the full list as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Restore a snapshot by name
+    Restore {
+        name: String,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Delete a snapshot by name
+    Delete {
+        name: String,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Restore the snapshot N positions from the end (WorkspaceRollback)
+    Turn {
+        #[arg(default_value_t = 1)]
+        turns: usize,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Record a turn (snapshot + `.apex/turns.json` entry)
+    Record {
+        /// Turn payload as JSON
+        #[arg(long, default_value = "{}")]
+        data: String,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Revert to the snapshot of N turns ago (TurnTracker)
+    Revert {
+        #[arg(default_value_t = 1)]
+        turns: usize,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Print the turn history as JSON
+    History {
+        #[arg(long, default_value = ".")]
         path: String,
     },
 }
@@ -581,6 +646,124 @@ async fn main() {
                 println!("{}", manager.get_system_prompt_context());
             }
         }
+        Some(Commands::Rollback { action }) => match action {
+            RollbackAction::Snapshot { label, path } => {
+                let rb = open_rollback(&path);
+                match rb.create_snapshot(&label) {
+                    Ok(name) => println!("{name}"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::List { path, json } => {
+                let rb = open_rollback(&path);
+                match rb.list_snapshots() {
+                    Ok(snapshots) => {
+                        if json {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&snapshots).unwrap_or_default()
+                            );
+                        } else if snapshots.is_empty() {
+                            println!("No snapshots available");
+                        } else {
+                            // Python's `/restore` shows the last 10.
+                            println!("Available snapshots:");
+                            let start = snapshots.len().saturating_sub(10);
+                            for snapshot in &snapshots[start..] {
+                                println!("  {} - {}", snapshot.name, snapshot.label);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Restore { name, path } => {
+                let rb = open_rollback(&path);
+                match rb.restore_snapshot(&name) {
+                    Ok(true) => println!("Restored snapshot: {name}"),
+                    Ok(false) => {
+                        eprintln!("Failed to restore: {name}");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Delete { name, path } => {
+                let rb = open_rollback(&path);
+                match rb.delete_snapshot(&name) {
+                    Ok(true) => println!("Deleted snapshot: {name}"),
+                    Ok(false) => {
+                        eprintln!("Failed to delete: {name}");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Turn { turns, path } => {
+                let rb = open_rollback(&path);
+                match rb.rollback_turn(turns) {
+                    Ok(true) => println!("Rolled back {turns} turn(s)"),
+                    Ok(false) => {
+                        eprintln!("Failed to roll back {turns} turn(s)");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Record { data, path } => {
+                let parsed: serde_json::Value = match serde_json::from_str(&data) {
+                    Ok(value) => value,
+                    Err(e) => {
+                        eprintln!("ERROR: Invalid turn data: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                let mut tracker = open_turn_tracker(&path);
+                match tracker.record_turn(parsed) {
+                    Ok(name) => println!("{name}"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Revert { turns, path } => {
+                let tracker = open_turn_tracker(&path);
+                match tracker.revert_turn(turns) {
+                    Ok(true) => println!("Reverted {turns} turn(s)"),
+                    Ok(false) => {
+                        eprintln!("Failed to revert turn");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::History { path } => {
+                let tracker = open_turn_tracker(&path);
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(tracker.get_turn_history()).unwrap_or_default()
+                );
+            }
+        },
         Some(Commands::Github { action }) => match action {
             None => {
                 // Python's `_cmd_github` prints its own usage for a missing subcommand.
@@ -788,6 +971,28 @@ async fn main() {
         }
         None => {
             println!("APEX (Rust) — type 'apex-rs --help'");
+        }
+    }
+}
+
+/// Open the rollback store or exit with its error.
+fn open_rollback(path: &str) -> workspace_rollback::WorkspaceRollback {
+    match workspace_rollback::WorkspaceRollback::new(path) {
+        Ok(rb) => rb,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    }
+}
+
+/// Open the turn tracker or exit with its error.
+fn open_turn_tracker(path: &str) -> workspace_rollback::TurnTracker {
+    match workspace_rollback::TurnTracker::new(path) {
+        Ok(tracker) => tracker,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
         }
     }
 }
