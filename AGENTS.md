@@ -1235,6 +1235,34 @@ apex-rs workspace --json           # full context as JSON
   call, an empty tag list on tagless repositories (Python yields `[""]`),
   and no process-global singleton.
 
+### Workspace rollback
+
+`workspace_rollback.rs` ports `apex/workspace_rollback.py`: side-git
+snapshots under `.apex/snapshots/` plus a persisted turn history.
+
+```bash
+apex-rs rollback snapshot [LABEL]      # print the new snapshot name
+apex-rs rollback list [--json]         # text view shows the last 10
+apex-rs rollback restore <NAME>
+apex-rs rollback delete <NAME>
+apex-rs rollback turn [TURNS]          # WorkspaceRollback::rollback_turn
+apex-rs rollback record [--data JSON]  # TurnTracker::record_turn
+apex-rs rollback revert [TURNS]        # TurnTracker::revert_turn
+apex-rs rollback history               # JSON turn records
+```
+
+- A snapshot stores `metadata.json`, `git_status.txt`, and — for tracked
+  modifications — `changed_files.txt` plus byte copies under `files/`.
+  Untracked files appear only in the status file, exactly like Python.
+  Restoring recreates parent directories and copies every backed-up file.
+- `TurnTracker` writes `.apex/turns.json` (`turn_number`, `snapshot`,
+  `timestamp`, `data`) with the same numbering and clamping as Python:
+  `revert 0` and an over-large value target the first turn.
+- Divergences recorded in `PARITY.md`: UTC timestamps (Python uses local
+  time), label/snapshot names validated as bare path components (Python's
+  join allows `../` escapes), `turn 0` is a clear error instead of an
+  `IndexError`, and modification times are not preserved.
+
 ### Editing tools
 
 `edit_file` and `apply_patch` close the surgical-editing gap in the Rust
@@ -1347,7 +1375,8 @@ runs the compiled binary and covers help, tool listing, cost, memory and
 encrypted session lifecycles (including Python-written Fernet fixtures under
 both the native and legacy key derivations), security verdicts, the
 repository-context commands, the workspace prompt block and JSON output,
-HTTP auth (all three carriers, exact 401 body, auth routes, a CLI revoke
+the rollback snapshot and turn lifecycles, HTTP auth (all three carriers,
+exact 401 body, auth routes, a CLI revoke
 observed by a running server, and 429 + `Retry-After`), and the
 no-crate-level-allow regression.
 

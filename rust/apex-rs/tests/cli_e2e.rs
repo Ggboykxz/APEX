@@ -169,9 +169,11 @@ fn free_port() -> u16 {
     listener.local_addr().unwrap().port()
 }
 
-/// Poll `/health` until the server answers (150 × 100 ms), like a supervisor.
+/// Poll `/health` until the server answers (600 × 100 ms). The generous
+/// window keeps the suite stable when all E2E tests compile and spawn
+/// servers in parallel on a loaded CI runner.
 async fn wait_for_health(client: &reqwest::Client, base: &str) -> bool {
-    for _ in 0..150 {
+    for _ in 0..600 {
         match client.get(format!("{base}/health")).send().await {
             Ok(response) if response.status().is_success() => return true,
             _ => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
@@ -229,6 +231,7 @@ fn help_lists_subcommands() {
         "security",
         "context",
         "workspace",
+        "rollback",
         "github",
         "skill",
         "key",
@@ -588,6 +591,126 @@ fn workspace_cli_reports_git_and_marker_detection() {
     );
 }
 
+#[test]
+fn rollback_cli_snapshots_restore_and_delete() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("tracked.txt"), "original\n").unwrap();
+    git(&sb.cwd, &["init"]);
+    git(&sb.cwd, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+    git(&sb.cwd, &["add", "-A"]);
+    git(&sb.cwd, &["commit", "-m", "init"]);
+
+    std::fs::write(sb.cwd.join("tracked.txt"), "modified\n").unwrap();
+    let created = sb.run(&["rollback", "snapshot", "demo"]);
+    assert_success(&created, "rollback snapshot");
+    let name = stdout(&created).trim().to_string();
+    assert!(name.starts_with("snapshot_"), "got: {name}");
+    assert!(name.ends_with("_demo"), "got: {name}");
+
+    let listed = sb.run(&["rollback", "list", "--json"]);
+    assert_success(&listed, "rollback list --json");
+    let snapshots: Vec<serde_json::Value> = serde_json::from_slice(&listed.stdout)
+        .expect("`rollback list --json` must print a JSON array");
+    assert_eq!(snapshots.len(), 1);
+    assert_eq!(snapshots[0]["name"], name);
+    assert_eq!(snapshots[0]["label"], "demo");
+    assert_eq!(snapshots[0]["created_at"].as_str().map(str::len), Some(26));
+
+    let text = sb.run(&["rollback", "list"]);
+    assert_success(&text, "rollback list");
+    assert!(stdout(&text).contains("Available snapshots:"));
+    assert!(stdout(&text).contains(&name));
+
+    std::fs::write(sb.cwd.join("tracked.txt"), "later\n").unwrap();
+    let restored = sb.run(&["rollback", "restore", name.as_str()]);
+    assert_success(&restored, "rollback restore");
+    assert_eq!(
+        stdout(&restored).trim(),
+        format!("Restored snapshot: {name}")
+    );
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("tracked.txt")).unwrap(),
+        "modified\n"
+    );
+
+    let deleted = sb.run(&["rollback", "delete", name.as_str()]);
+    assert_success(&deleted, "rollback delete");
+    assert_eq!(stdout(&deleted).trim(), format!("Deleted snapshot: {name}"));
+    let empty = sb.run(&["rollback", "list"]);
+    assert_success(&empty, "rollback list after delete");
+    assert_eq!(stdout(&empty).trim(), "No snapshots available");
+
+    let missing = sb.run(&["rollback", "restore", name.as_str()]);
+    assert!(!missing.status.success(), "a missing snapshot must fail");
+    assert!(
+        stderr(&missing).contains(&format!("Failed to restore: {name}")),
+        "got: {}",
+        stderr(&missing)
+    );
+}
+
+#[test]
+fn rollback_cli_records_reverts_and_reports_history() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("tracked.txt"), "original\n").unwrap();
+    git(&sb.cwd, &["init"]);
+    git(&sb.cwd, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+    git(&sb.cwd, &["add", "-A"]);
+    git(&sb.cwd, &["commit", "-m", "init"]);
+
+    std::fs::write(sb.cwd.join("tracked.txt"), "one\n").unwrap();
+    let first = sb.run(&["rollback", "record", "--data", r#"{"query":"q1"}"#]);
+    assert_success(&first, "rollback record (turn 1)");
+    assert!(stdout(&first).contains("turn_1"), "got: {}", stdout(&first));
+
+    std::fs::write(sb.cwd.join("tracked.txt"), "two\n").unwrap();
+    let second = sb.run(&["rollback", "record", "--data", r#"{"query":"q2"}"#]);
+    assert_success(&second, "rollback record (turn 2)");
+    assert!(
+        stdout(&second).contains("turn_2"),
+        "got: {}",
+        stdout(&second)
+    );
+
+    let history = sb.run(&["rollback", "history"]);
+    assert_success(&history, "rollback history");
+    let turns: Vec<serde_json::Value> = serde_json::from_slice(&history.stdout)
+        .expect("`rollback history` must print a JSON array");
+    assert_eq!(turns.len(), 2);
+    assert_eq!(turns[0]["turn_number"], 1);
+    assert_eq!(turns[1]["turn_number"], 2);
+    assert_eq!(turns[1]["data"]["query"], "q2");
+    assert_eq!(turns[0]["timestamp"].as_str().map(str::len), Some(26));
+
+    // Two turns back: the workspace is restored to the first snapshot.
+    std::fs::write(sb.cwd.join("tracked.txt"), "three\n").unwrap();
+    let reverted = sb.run(&["rollback", "revert", "2"]);
+    assert_success(&reverted, "rollback revert 2");
+    assert_eq!(stdout(&reverted).trim(), "Reverted 2 turn(s)");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("tracked.txt")).unwrap(),
+        "one\n"
+    );
+
+    // An over-large value is clamped to the first turn.
+    std::fs::write(sb.cwd.join("tracked.txt"), "four\n").unwrap();
+    let clamped = sb.run(&["rollback", "revert", "99"]);
+    assert_success(&clamped, "rollback revert 99");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("tracked.txt")).unwrap(),
+        "one\n"
+    );
+
+    // WorkspaceRollback::rollback_turn targets the newest snapshot (turn 2).
+    std::fs::write(sb.cwd.join("tracked.txt"), "five\n").unwrap();
+    let turn = sb.run(&["rollback", "turn", "1"]);
+    assert_success(&turn, "rollback turn 1");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("tracked.txt")).unwrap(),
+        "two\n"
+    );
+}
+
 #[tokio::test]
 async fn serve_exposes_context_routes() {
     let sb = Sandbox::new();
@@ -605,18 +728,7 @@ async fn serve_exposes_context_routes() {
     let base = format!("http://127.0.0.1:{port}");
     let client = reqwest::Client::new();
 
-    let mut healthy = false;
-    for _ in 0..150 {
-        match client.get(format!("{base}/health")).send().await {
-            Ok(r) if r.status().is_success() => {
-                healthy = true;
-                break;
-            }
-            _ => {
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            }
-        }
-    }
+    let healthy = wait_for_health(&client, &base).await;
     assert!(healthy, "apex-rs serve did not become healthy");
 
     // Auth is opt-in in the Rust port (the TUI backend sends no key), so the
