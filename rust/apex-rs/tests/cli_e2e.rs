@@ -338,6 +338,68 @@ fn session_lifecycle_is_hermetic() {
 }
 
 #[test]
+fn loads_python_written_fernet_session_fixture() {
+    let sb = Sandbox::new();
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("session");
+    let sessions = sb.home.join(".apex").join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    let key_path = sb.home.join(".apex").join(".session_key");
+
+    // Native Fernet key file, as Python writes it.
+    let fernet_key = std::fs::read(fixtures.join("fernet.key")).unwrap();
+    std::fs::write(&key_path, &fernet_key).unwrap();
+    std::fs::copy(
+        fixtures.join("python_session.enc"),
+        sessions.join("20260102_030405_python-fixture.enc"),
+    )
+    .unwrap();
+
+    let show = sb.run(&["session", "show", "python-fixture"]);
+    assert_success(&show, "session show (python fixture)");
+    let value: serde_json::Value =
+        serde_json::from_slice(&show.stdout).expect("`session show` must print JSON");
+    assert_eq!(value["name"], "python-fixture");
+    assert_eq!(value["timestamp"], "2026-01-02T03:04:05.123456");
+    assert_eq!(value["model"], "anthropic/claude-sonnet-4-5");
+    assert_eq!(value["cwd"], "/home/python/project");
+    assert_eq!(value["history"].as_array().map(Vec::len), Some(2));
+    assert_eq!(value["history"][1]["role"], "assistant");
+    assert_eq!(value["usage"]["total_tokens"], 59);
+
+    let list = sb.run(&["session", "list"]);
+    assert_success(&list, "session list (python fixture)");
+    assert!(
+        stdout(&list).contains(
+            "python-fixture\t2026-01-02T03:04:05.123456\tanthropic/claude-sonnet-4-5\t2 msgs"
+        ),
+        "got: {}",
+        stdout(&list)
+    );
+
+    // Legacy 32-byte raw key: Python and Rust both derive the Fernet key as
+    // urlsafe_b64encode(sha256(raw + b":fernet")), so that file loads too.
+    let legacy_key = std::fs::read(fixtures.join("legacy.key")).unwrap();
+    assert_eq!(legacy_key.len(), 32);
+    std::fs::write(&key_path, &legacy_key).unwrap();
+    std::fs::copy(
+        fixtures.join("python_session_legacy.enc"),
+        sessions.join("20260102_030406_python-legacy.enc"),
+    )
+    .unwrap();
+
+    let show = sb.run(&["session", "show", "python-legacy"]);
+    assert_success(&show, "session show (legacy python fixture)");
+    let value: serde_json::Value =
+        serde_json::from_slice(&show.stdout).expect("`session show` must print JSON");
+    assert_eq!(value["name"], "python-legacy");
+    assert_eq!(value["model"], "openai/gpt-5");
+    assert_eq!(value["history"].as_array().map(Vec::len), Some(2));
+}
+
+#[test]
 fn security_cli_reports_verdicts_and_guards_run_command() {
     let sb = Sandbox::new();
 

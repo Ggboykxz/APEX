@@ -1301,10 +1301,11 @@ which were test-only (Python's are in-memory and never wired to a command):
 `config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,
 so `tests/cli_e2e.rs` can point `~/.apex` at a temp directory. The E2E suite
 runs the compiled binary and covers help, tool listing, cost, memory and
-encrypted session lifecycles, security verdicts, the repository-context
-commands, HTTP auth (all three carriers, exact 401 body, auth routes, a
-CLI revoke observed by a running server, and 429 + `Retry-After`), and the
-no-crate-level-allow regression.
+encrypted session lifecycles (including Python-written Fernet fixtures under
+both the native and legacy key derivations), security verdicts, the
+repository-context commands, HTTP auth (all three carriers, exact 401 body,
+auth routes, a CLI revoke observed by a running server, and 429 +
+`Retry-After`), and the no-crate-level-allow regression.
 
 ```bash
 cd rust/apex-rs

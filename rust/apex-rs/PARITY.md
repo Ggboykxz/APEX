@@ -1,12 +1,12 @@
 # Rust / Python Parity
 
 Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
-HTTP-auth increment). The reference is the Python package in `apex/` on `dev`.
+fernet-fixture increment). The reference is the Python package in `apex/` on `dev`.
 "Parity" here means that a behaviour is reachable from the Rust binary, HTTP
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~22,715 lines of Python in `apex/*.py` versus ~13,950
+Scale at this baseline: ~22,715 lines of Python in `apex/*.py` versus ~13,990
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -68,7 +68,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `permission.py` | `permission.rs` | Wired | `dispatch_gate` enforces rules at both agent dispatch sites (one-shot and streaming). Headless manager: `*` → ALLOW (no prompt surface), ASK refuses with the rule reason. `APEX_PERMISSION_DENY` / `APEX_PERMISSION_ASK` env rules. Interactive request/approve flow is unwired (no prompt surface). |
 | `plugins.py` | `plugins.rs` | Wired | Manifest discovery, namespaced plugin tools, CLI/server listing and execution. Rust invokes declared tools; it does not execute Python plugin source in-process. |
 | `rate_limiter.py` | `rate_limiter.rs` | Wired | Per-key in-memory limiter enforced by middleware on every `serve` route except `/health` (bucket is `key:{key_id}` once auth validates the key — Python parity — else the carrier from `Authorization`/`?api_key=`/`X-API-Key`, or `anonymous`; 429 + `Retry-After`). `GET /api/v1/rate-limit` exposes the caller's counters, limits and `reset_at`; limits via `APEX_RATE_LIMIT_*`. SQLite backend not ported. |
-| `session.py` | `share.rs`, `session_crypto.rs`, `server.rs` | Partial | Fernet-compatible encrypted save/load/list, CLI and HTTP session routes. Branching and all Python session metadata are absent. |
+| `session.py` | `share.rs`, `session_crypto.rs`, `server.rs` | Partial | Fernet-compatible encrypted save/load/list, CLI and HTTP session routes. Committed Python-written fixtures prove cross-language loading for both the native and legacy key derivations, not just self-round-trips. Branching and all Python session metadata are absent. |
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill authoring is wired through the `skill` CLI (`list`/`add`/`remove`); `add`/`remove` also persist to `.apex/skills/*.md` (Python's are in-memory only and unwired there). Three-way diff remains unwired. |
@@ -174,12 +174,13 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 171 unit tests (170 on Windows - the atomic-write rollback
-test is POSIX-gated) + 12 binary E2E tests. The E2E suite runs
+Current baseline: 173 unit tests (172 on Windows - the atomic-write rollback
+test is POSIX-gated) + 13 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
-(including encrypted files and JSON output), security verdicts plus the
+(including encrypted files, JSON output, and loading Python-written Fernet
+fixtures under both key schemes), security verdicts plus the
 `run_command` guard, the context CLI commands, the `serve` context HTTP
 routes with auth off by default, the `github` CLI (install/run/usage parity
 and issue/PR/automate error paths against a dead local port), the `skill`
@@ -190,7 +191,7 @@ crate-level allow.
 
 ## Next increments
 
-1. Add a Python-written Fernet session fixture to prove cross-language
-   compatibility, not just self-round-tripping.
-2. Port the workspace/key-workspace layer (`workspace.py`, key scoping) or
+1. Port the workspace/key-workspace layer (`workspace.py`, key scoping) or
    record why it stays out of the Rust port.
+2. Port Python's remaining session metadata (forks and branch history) beyond
+   `name`/`timestamp`/`model`/`cwd`/`history`/`usage`.
