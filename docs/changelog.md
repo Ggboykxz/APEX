@@ -4,6 +4,10 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### CI & automation
+
+- **opencode AI maintainer** — `.github/workflows/opencode.yml` answers `/oc` / `/opencode` comments from maintainers only (`OWNER` / `MEMBER` / `COLLABORATOR`, bots rejected) on issues, PRs, and review lines. It uses OIDC app tokens, a 30-minute timeout, per-issue concurrency, no session sharing, and fails with a clear message when no provider key is configured. The archived upstream action is pinned to `github-v1.2.28` (`17b79f4e…`). Setup requires the `opencode-agent` GitHub App plus `DEEPSEEK_API_KEY` or `ANTHROPIC_API_KEY`; the `OPENCODE_MODEL` repository variable overrides the default DeepSeek model.
+
 ### v2.5 — Wave 1 (Repository Map, TUI streaming, governance)
 
 - **Repository map** — new `apex/repomap.py` engine: symbol-level extraction (Python AST + JS/TS/Rust/Go heuristics), reference-based ranking, token budget, per-root cache, and a `repo_map` tool. 29 new tests.
