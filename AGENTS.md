@@ -1099,18 +1099,51 @@ apex-rs security allowed            # allow-listed commands
 - `POST /api/v1/security/analyze` — JSON `{ "command": "..." }` → verdict
 - `/api/v1/bash` and the `run_command` tool are both guarded
 
+### HTTP auth
+
+`serve` can require an API key on every request (port of Python's
+`AuthMiddleware`). Auth is **opt-in** because the Rust server is the TUI
+backend and the TUI sends no key:
+
+```bash
+APEX_REQUIRE_AUTH=1 apex-rs serve --port 8765   # truthy: 1, true, yes, on
+apex-rs key create ci                          # prints the plaintext key once
+apex-rs key list                               # id, name, state, request count
+apex-rs key revoke <id>                        # future requests get 401
+```
+
+- The store is `~/.apex/api_keys.json` (`APEX_API_KEYS_FILE` overrides it;
+  Python uses SQLite). Only the sha256 hash is persisted, and the file is
+  re-read on every request: `key revoke` from another process takes effect
+  without restarting the server.
+- Carrier precedence matches Python: `Authorization: Bearer …`, then
+  `?api_key=`, then `X-API-Key`. Rejections use the exact Python body:
+  `401 {"error": "Authentication required", "code": "AUTH_REQUIRED"}`.
+- `/health`, `/ws` and `/ws/events` are exempt; unmatched paths stay 404s.
+  The middleware wraps the rate limiter, so 401s never consume key budget.
+- `POST /api/v1/auth/{login,logout}` and `GET /api/v1/auth/status` are
+  ported and, when auth is on, protected like every other route. Login and
+  logout mutate the server process's environment; status reports the static
+  19-variable table (Python derives it from its model registry).
+- Python's `apex serve` enables auth by default; the Rust port defaults off.
+  This divergence is recorded in `PARITY.md`.
+
 ### Rate limiting
 
 `serve` enforces Python-style per-key rate limits on every route except
-`/health` (which must stay probeable). The key is the `X-API-Key` header, or
-the `Authorization: Bearer …` token, or `anonymous`. Over-limit requests get
-HTTP 429 with a `Retry-After` header and a JSON error body.
+`/health` (which must stay probeable). With auth on, the bucket is the
+validated key id (`key:{key_id}`, Python parity); otherwise the key is the
+`X-API-Key` header, the `Authorization: Bearer …` token, the `?api_key=`
+value, or `anonymous`. Over-limit requests get HTTP 429 with a `Retry-After`
+header and a JSON error body.
 
 - Defaults: 60/min, 1000/hour, 10000/day (in-memory backend, same windows as
   `apex/rate_limiter.py`); `APEX_RATE_LIMIT_PER_MINUTE`,
   `APEX_RATE_LIMIT_PER_HOUR`, `APEX_RATE_LIMIT_PER_DAY`, `APEX_RATE_LIMIT_BURST`
   override them.
-- `GET /api/v1/rate-limit` reports the anonymous key's counters and limits.
+- `GET /api/v1/rate-limit` reports the caller's counters, limits and the
+  minute-window `reset_at` (epoch seconds; Python's
+  `RateLimitResult.reset_at`).
 
 ### Permission gate
 
@@ -1269,7 +1302,9 @@ which were test-only (Python's are in-memory and never wired to a command):
 so `tests/cli_e2e.rs` can point `~/.apex` at a temp directory. The E2E suite
 runs the compiled binary and covers help, tool listing, cost, memory and
 encrypted session lifecycles, security verdicts, the repository-context
-commands, and the no-crate-level-allow regression.
+commands, HTTP auth (all three carriers, exact 401 body, auth routes, a
+CLI revoke observed by a running server, and 429 + `Retry-After`), and the
+no-crate-level-allow regression.
 
 ```bash
 cd rust/apex-rs

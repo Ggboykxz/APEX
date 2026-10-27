@@ -90,6 +90,7 @@ dependencies = [
  "clap",
  "dirs",
  "futures",
+ "getrandom 0.2.17",
  "hmac",
  "regex",
  "reqwest",

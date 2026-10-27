@@ -1,4 +1,5 @@
 mod agent;
+mod api_key;
 mod codegen;
 mod config;
 mod context;
@@ -94,6 +95,11 @@ enum Commands {
     Skill {
         #[command(subcommand)]
         action: SkillAction,
+    },
+    /// Manage HTTP API keys (`~/.apex/api_keys.json`)
+    Key {
+        #[command(subcommand)]
+        action: KeyAction,
     },
 }
 
@@ -242,6 +248,23 @@ enum SkillAction {
     },
     /// Remove a skill by name
     Remove { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum KeyAction {
+    /// Create a key and print it once (the plaintext is never stored)
+    Create {
+        name: String,
+        /// Expiry in seconds from now (0 or omitted: no expiry)
+        #[arg(long, default_value_t = 0)]
+        expires_in: i64,
+    },
+    /// List keys (id, name, state, request count)
+    List,
+    /// Revoke a key by id (keeps the record, rejects future requests)
+    Revoke { key_id: String },
+    /// Delete a key by id
+    Delete { key_id: String },
 }
 
 fn load_mcp_servers() {
@@ -698,6 +721,44 @@ async fn main() {
                 println!("Removed skill: {name}");
             }
         },
+        Some(Commands::Key { action }) => {
+            let manager = api_key::KeyManager::default_store();
+            match action {
+                KeyAction::Create { name, expires_in } => {
+                    let (key, info) = manager.create_key(&name, Some(expires_in));
+                    println!("Created key {}: {}", info.key_id, info.name);
+                    println!("{key}");
+                }
+                KeyAction::List => {
+                    let keys = manager.list_keys();
+                    if keys.is_empty() {
+                        println!("No API keys");
+                    } else {
+                        for info in keys {
+                            let state = if info.is_active { "active" } else { "revoked" };
+                            println!(
+                                "  {} - {} [{}] requests={}",
+                                info.key_id, info.name, state, info.request_count
+                            );
+                        }
+                    }
+                }
+                KeyAction::Revoke { key_id } => {
+                    if !manager.revoke_key(&key_id) {
+                        eprintln!("ERROR: Key not found: {key_id}");
+                        std::process::exit(1);
+                    }
+                    println!("Revoked key {key_id}");
+                }
+                KeyAction::Delete { key_id } => {
+                    if !manager.delete_key(&key_id) {
+                        eprintln!("ERROR: Key not found: {key_id}");
+                        std::process::exit(1);
+                    }
+                    println!("Deleted key {key_id}");
+                }
+            }
+        }
         None => {
             println!("APEX (Rust) — type 'apex-rs --help'");
         }

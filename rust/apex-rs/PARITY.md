@@ -1,12 +1,12 @@
 # Rust / Python Parity
 
 Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
-github-cli increment). The reference is the Python package in `apex/` on `dev`.
+HTTP-auth increment). The reference is the Python package in `apex/` on `dev`.
 "Parity" here means that a behaviour is reachable from the Rust binary, HTTP
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~22,260 lines of Python in `apex/*.py` versus ~12,970
+Scale at this baseline: ~22,715 lines of Python in `apex/*.py` versus ~13,950
 lines of Rust in `rust/apex-rs/src`. Rust is deliberately a smaller surface;
 the tables below record the difference instead of implying full coverage.
 
@@ -31,13 +31,16 @@ security {check,allowed},
 context {repo-map,git,stats,ctags,tree,glob},
 github {install,run,issue,issue-close,pr,pr-merge,
         automate {create-pr,changes,issue,list,todos,close-completed}},
-skill {list,add,remove}
+skill {list,add,remove},
+key {create,list,revoke,delete}
 ```
 
-HTTP server (`serve`): 41 routes, including `/health`, `/api/v1/tools`,
-`/api/v1/security/analyze`, sessions, shares/export, files, models, config,
-themes, cost, chat, chat streaming, context (`repo-map`, `git`, `stats`,
-`ctags`, `tree`, `glob`), `/api/v1/rate-limit`, and WebSockets.
+HTTP server (`serve`): 43 routes, including `/health`, `/api/v1/tools`,
+`/api/v1/security/analyze`, `/api/v1/auth/{login,logout,status}`, sessions,
+shares/export, files, models, config, themes, cost, chat, chat streaming,
+context (`repo-map`, `git`, `stats`, `ctags`, `tree`, `glob`),
+`/api/v1/rate-limit`, and WebSockets. API-key auth is opt-in with
+`APEX_REQUIRE_AUTH` (`/health` and the WebSocket routes exempt).
 
 Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
@@ -45,7 +48,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 | Python | Rust | Status | Notes |
 | --- | --- | --- | --- |
-| `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security, context, github, skill). Most of Python's command suite is not ported. |
+| `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security, context, github, skill, key). Most of Python's command suite is not ported. |
 | `apply_patch.py` | `patch.rs` | Wired | Multi-file patch engine reachable through the `apply_patch` tool (and `dry_run` preview): Codex-style and unified-diff dialects, pre-write validation (traversal, absolute, duplicate, size, binary), hunk matching with fuzz and signed offset warnings, no-newline markers, atomic temp-file + rename writes with best-effort rollback. |
 | `agent.py` | `agent.rs` | Partial | One-shot run, streaming REPL, tool-call loop, cost reporting. Session forking/rewind and some prompt features are absent. |
 | `agents.py` | - | Missing | No subagent registry, markdown agent loading, or parallel orchestration. |
@@ -58,13 +61,13 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `formatter.py` | `formatter.rs` | Partial | `format_file` tool only. No format-on-write pipeline or formatter discovery parity. |
 | `github_integration.py` | `github.rs` | Wired | `git_*` tools and `git_create_pr` work through `gh`/REST. The `github` CLI group exposes `install`/`run` (Python parity), `issue`/`issue-close`/`pr`/`pr-merge` through `GitHubClient`, and the six `GitHubAutomation` flows under `github automate`. API base overridable with `APEX_GITHUB_API` (tests). |
 | hooks inside `plugins.py`/`tools.py` | `hooks.rs` | Wired | `trigger_hooks` runs on tool dispatch. Registration from config is not wired. |
-| `http_api.py`, `server.py` | `server.rs` | Partial | 41 routes, SSE/WebSocket streaming, shell guard, per-key rate limiting. No auth middleware, full route parity. |
+| `http_api.py`, `server.py` | `server.rs` | Partial | 43 routes, SSE/WebSocket streaming, shell guard, per-key rate limiting, opt-in API-key auth. Auth is enabled with `APEX_REQUIRE_AUTH` (`1`/`true`/`yes`/`on`); `/health`, `/ws` and `/ws/events` stay exempt. Carriers follow Python: `Authorization: Bearer …` → `?api_key=` → `X-API-Key`; `POST /api/v1/auth/{login,logout}` and `GET /api/v1/auth/status` are wired and auth-protected. Python's `apex serve` enables auth by default, the Rust port does not (the TUI backend sends no key) — documented divergence. Full route parity is still missing. |
 | `lsp.py`, `lsp_diagnostics.py` | `lsp.rs` | Partial | Definition, references, hover, diagnostics tools. No persistent per-workspace manager or completion/code-action tools. |
 | `mcp.py` | `mcp_client.rs`, `jsonrpc.rs` | Wired | Stdio JSON-RPC, server discovery, tool bridge, global registry; CLI and server use it. |
 | `memory.py` | `memory.rs` | Wired | CLI list/add/search/context/remove/clear, REPL `/memory`, session context injection. No automatic fact extraction. |
 | `permission.py` | `permission.rs` | Wired | `dispatch_gate` enforces rules at both agent dispatch sites (one-shot and streaming). Headless manager: `*` → ALLOW (no prompt surface), ASK refuses with the rule reason. `APEX_PERMISSION_DENY` / `APEX_PERMISSION_ASK` env rules. Interactive request/approve flow is unwired (no prompt surface). |
 | `plugins.py` | `plugins.rs` | Wired | Manifest discovery, namespaced plugin tools, CLI/server listing and execution. Rust invokes declared tools; it does not execute Python plugin source in-process. |
-| `rate_limiter.py` | `rate_limiter.rs` | Wired | Per-key in-memory limiter enforced by middleware on every `serve` route except `/health` (`X-API-Key` / `Bearer` key, 429 + `Retry-After`); `GET /api/v1/rate-limit` exposes counters; limits via `APEX_RATE_LIMIT_*`. SQLite backend not ported. |
+| `rate_limiter.py` | `rate_limiter.rs` | Wired | Per-key in-memory limiter enforced by middleware on every `serve` route except `/health` (bucket is `key:{key_id}` once auth validates the key — Python parity — else the carrier from `Authorization`/`?api_key=`/`X-API-Key`, or `anonymous`; 429 + `Retry-After`). `GET /api/v1/rate-limit` exposes the caller's counters, limits and `reset_at`; limits via `APEX_RATE_LIMIT_*`. SQLite backend not ported. |
 | `session.py` | `share.rs`, `session_crypto.rs`, `server.rs` | Partial | Fernet-compatible encrypted save/load/list, CLI and HTTP session routes. Branching and all Python session metadata are absent. |
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
@@ -75,7 +78,8 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `theme_manager.py` | `server.rs` | Partial | Read-only `/api/v1/themes` route. No theme mutation, custom themes, or UI integration. |
 | `commands.py`, `commands_manager.py` | `main.rs` | Partial | Built-in clap subcommands only. No user/project custom command loading. |
 | `workspace.py`, `workspace_rollback.py` | - | Missing | No workspace awareness, side-git snapshots, or `/restore`. |
-| `api_key.py`, `billing.py` | - | Missing | API keys come from environment variables; no key workspaces or billing/trial logic. |
+| `api_key.py` | `api_key.rs` | Partial | JSON-file key store (`~/.apex/api_keys.json`, overridable with `APEX_API_KEYS_FILE`; Python uses SQLite) re-read on every operation, so CLI changes reach a running server. `apex_` + 32 random bytes (urlsafe base64), sha256 at rest, expiry/active checks, `last_used`/`request_count`, CLI `key {create,list,revoke,delete}`. Python's per-key rate limits/permissions/metadata are carried in the schema but not enforced (its `validate_key` does not check them either); workspace CRUD is not ported (fixed `default` workspace). Writes are atomic (temp + rename) but not transactionally serialised across processes like SQLite. |
+| `billing.py` | - | Missing | No billing, cost-history limits, or trial logic. |
 | `sandbox.py` | - | Missing | No isolated code execution. |
 | `task_queue.py` | - | Missing | No durable background tasks. |
 | `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
@@ -126,7 +130,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current allow inventory (30 attributes)
+### Current allow inventory (27 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
@@ -152,13 +156,12 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `permission.rs` | `get_request` | Request flow unwired: no prompt surface | Wire approval |
 | Item | `permission.rs` | `get_tool_permission` | Consumed by the unwired request flow | Wire approval |
 | Item | `permission.rs` | `PermissionRequestDenied` | Thrown by the unwired request flow | Wire approval |
-| Item | `rate_limiter.rs` | `RateLimitResult::reset_at` | Python tests assert it; no API reads it | Surface reset time in `GET /api/v1/rate-limit` |
 | Item | `server.rs` | `ChatReq::agent` | Chat selects one agent | Select requested agent in `/api/v1/chat` |
 | Item | `shell_security.rs` | `CommandCategory::Package` | Python never returns it | Classify pip/npm installs |
 | Item | `skills.rs` | `three_way_diff` | No diff3 tool | Add `diff3_files` |
 | Item | `skills.rs` | `get_skill_manager` | Tools construct managers directly | Share a cached manager |
 
-There are currently no module-level allows; the 30 item-level attributes
+There are currently no module-level allows; the 27 item-level attributes
 are the complete inventory.
 
 ## Verification
@@ -171,20 +174,23 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 157 unit tests (156 on Windows - the atomic-write rollback
-test is POSIX-gated) + 11 binary E2E tests. The E2E suite runs
+Current baseline: 171 unit tests (170 on Windows - the atomic-write rollback
+test is POSIX-gated) + 12 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
 (including encrypted files and JSON output), security verdicts plus the
 `run_command` guard, the context CLI commands, the `serve` context HTTP
-routes, the `github` CLI (install/run/usage parity and issue/PR/automate
-error paths against a dead local port), the `skill` add/list/remove
-lifecycle, and the absence of the crate-level allow.
+routes with auth off by default, the `github` CLI (install/run/usage parity
+and issue/PR/automate error paths against a dead local port), the `skill`
+add/list/remove lifecycle, the full HTTP-auth flow (CLI-created key, the three
+carriers, exact 401 body, protected auth routes, out-of-band revoke, 429 +
+`Retry-After` with 401s not consuming budget), and the absence of the
+crate-level allow.
 
 ## Next increments
 
-1. Add HTTP authentication and route-level E2E coverage for the rate-limited
-   server (the limiter itself is wired and unit-tested).
-2. Add a Python-written Fernet session fixture to prove cross-language
+1. Add a Python-written Fernet session fixture to prove cross-language
    compatibility, not just self-round-tripping.
+2. Port the workspace/key-workspace layer (`workspace.py`, key scoping) or
+   record why it stays out of the Rust port.
