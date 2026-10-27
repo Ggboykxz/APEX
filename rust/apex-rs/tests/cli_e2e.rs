@@ -44,6 +44,32 @@ impl Sandbox {
             "APEX_MEMORY_FILE",
             "APEX_PLUGINS_DIR",
             "APEX_GITHUB_API",
+            "APEX_REQUIRE_AUTH",
+            "APEX_API_KEYS_FILE",
+            "APEX_RATE_LIMIT_PER_MINUTE",
+            "APEX_RATE_LIMIT_PER_HOUR",
+            "APEX_RATE_LIMIT_PER_DAY",
+            "APEX_RATE_LIMIT_BURST",
+            // Provider keys: `/api/v1/auth/status` must be deterministic.
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "XAI_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "MISTRAL_API_KEY",
+            "DASHSCOPE_API_KEY",
+            "LLAMA_API_KEY",
+            "GROQ_API_KEY",
+            "OPENROUTER_API_KEY",
+            "CEREBRAS_API_KEY",
+            "FIREWORKS_API_KEY",
+            "TOGETHER_API_KEY",
+            "HF_TOKEN",
+            "PERPLEXITY_API_KEY",
+            "NVIDIA_API_KEY",
+            "CLOUDFLARE_API_KEY",
+            "COHERE_API_KEY",
+            "GITHUB_TOKEN",
         ] {
             cmd.env_remove(key);
         }
@@ -57,11 +83,14 @@ impl Sandbox {
             .expect("run apex-rs")
     }
 
-    /// Spawn a long-running server child (stdout/stderr discarded).
-    fn spawn_serve(&self, args: &[&str]) -> std::process::Child {
-        self.base_command()
-            .args(args)
-            .stdout(std::process::Stdio::null())
+    /// Spawn a server with extra environment overrides.
+    fn spawn_serve_with(&self, args: &[&str], envs: &[(&str, &str)]) -> std::process::Child {
+        let mut cmd = self.base_command();
+        cmd.args(args);
+        for (key, value) in envs {
+            cmd.env(key, value);
+        }
+        cmd.stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
             .expect("spawn apex-rs serve")
@@ -93,6 +122,61 @@ fn assert_success(out: &Output, context: &str) {
         "{context} panicked:\n{}",
         stderr(out)
     );
+}
+
+/// Kills and reaps a spawned `serve` child on drop, so a panicking test cannot
+/// leak a server that keeps the test binary locked on Windows.
+struct ServerGuard(std::process::Child);
+
+impl ServerGuard {
+    fn spawn(sandbox: &Sandbox, args: &[&str]) -> Self {
+        Self::spawn_with(sandbox, args, &[])
+    }
+
+    fn spawn_with(sandbox: &Sandbox, args: &[&str], envs: &[(&str, &str)]) -> Self {
+        Self(sandbox.spawn_serve_with(args, envs))
+    }
+}
+
+impl Drop for ServerGuard {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+fn free_port() -> u16 {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind an ephemeral port");
+    listener.local_addr().unwrap().port()
+}
+
+/// Poll `/health` until the server answers (150 × 100 ms), like a supervisor.
+async fn wait_for_health(client: &reqwest::Client, base: &str) -> bool {
+    for _ in 0..150 {
+        match client.get(format!("{base}/health")).send().await {
+            Ok(response) if response.status().is_success() => return true,
+            _ => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
+        }
+    }
+    false
+}
+
+/// `apex-rs key create NAME` → (key id, plaintext key).
+fn create_key(sandbox: &Sandbox, name: &str) -> (String, String) {
+    let out = sandbox.run(&["key", "create", name]);
+    assert_success(&out, "key create");
+    let text = stdout(&out);
+    let mut lines = text.lines();
+    let header = lines.next().unwrap_or_default();
+    let key_id = header
+        .strip_prefix("Created key ")
+        .and_then(|rest| rest.split(':').next())
+        .unwrap_or_default()
+        .to_string();
+    let key = lines.next().unwrap_or_default().trim().to_string();
+    assert!(!key_id.is_empty(), "missing key id in:\n{text}");
+    assert!(key.starts_with("apex_"), "missing key in:\n{text}");
+    (key_id, key)
 }
 
 fn session_files(home: &Path) -> Vec<PathBuf> {
@@ -127,6 +211,7 @@ fn help_lists_subcommands() {
         "context",
         "github",
         "skill",
+        "key",
     ] {
         assert!(
             text.contains(subcommand),
@@ -392,7 +477,7 @@ async fn serve_exposes_context_routes() {
     let port = listener.local_addr().unwrap().port();
     drop(listener);
 
-    let mut child = sb.spawn_serve(&["serve", "--port", &port.to_string()]);
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
     let base = format!("http://127.0.0.1:{port}");
     let client = reqwest::Client::new();
 
@@ -409,6 +494,19 @@ async fn serve_exposes_context_routes() {
         }
     }
     assert!(healthy, "apex-rs serve did not become healthy");
+
+    // Auth is opt-in in the Rust port (the TUI backend sends no key), so the
+    // default server answers without credentials — unlike Python's `apex serve`.
+    assert_eq!(
+        client
+            .get(format!("{base}/api/v1/auth/status"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200,
+        "auth must stay off unless APEX_REQUIRE_AUTH is set"
+    );
 
     let map: serde_json::Value = client
         .get(format!("{base}/api/v1/context/repo-map"))
@@ -481,9 +579,305 @@ async fn serve_exposes_context_routes() {
         .await
         .unwrap();
     assert!(bad["error"].as_str().is_some(), "got: {bad}");
+}
 
-    child.kill().unwrap();
-    let _ = child.wait();
+#[tokio::test]
+async fn serve_http_auth_and_rate_limit_are_hermetic() {
+    let sb = Sandbox::new();
+    let client = reqwest::Client::new();
+    let (key_id, key) = create_key(&sb, "e2e");
+
+    // Only the sha256 hash is persisted.
+    let store = sb.apex_path().join("api_keys.json");
+    let stored = std::fs::read_to_string(&store).unwrap();
+    assert!(!stored.contains(&key), "plaintext key must not be stored");
+    assert!(stored.contains(&key_id), "key id must be stored");
+    let keys_file = store.to_str().unwrap().to_string();
+
+    let protected = |base: &str| format!("{base}/api/v1/context/repo-map");
+
+    // ── Server 1: auth on, generous rate limit ──────────────────────────
+    let port = free_port();
+    let server = ServerGuard::spawn_with(
+        &sb,
+        &["serve", "--port", &port.to_string()],
+        &[
+            ("APEX_REQUIRE_AUTH", "1"),
+            ("APEX_API_KEYS_FILE", keys_file.as_str()),
+            ("APEX_RATE_LIMIT_PER_MINUTE", "1000"),
+        ],
+    );
+    let base = format!("http://127.0.0.1:{port}");
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve (auth) did not become healthy"
+    );
+
+    // Every protected route demands the exact Python 401 body.
+    let denied = client.get(protected(&base)).send().await.unwrap();
+    assert_eq!(denied.status(), 401);
+    let body: serde_json::Value = denied.json().await.unwrap();
+    assert_eq!(body["error"], "Authentication required");
+    assert_eq!(body["code"], "AUTH_REQUIRED");
+
+    // Unknown keys are rejected the same way.
+    assert_eq!(
+        client
+            .get(protected(&base))
+            .header("X-API-Key", "apex_unknown")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+
+    // The three Python carriers all authenticate.
+    for request in [
+        client
+            .get(protected(&base))
+            .header("Authorization", format!("Bearer {key}")),
+        client.get(format!("{}?api_key={key}", protected(&base))),
+        client.get(protected(&base)).header("X-API-Key", &key),
+    ] {
+        assert_eq!(request.send().await.unwrap().status(), 200);
+    }
+
+    // An empty Bearer does not fall back to the query parameter (Python
+    // parity); it is unit-tested because HTTP stacks trim trailing spaces.
+
+    // Unmatched routes stay 404s; they never leak the auth challenge.
+    assert_eq!(
+        client
+            .get(format!("{base}/nope"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+
+    // Auth handlers are protected too.
+    let login_body = serde_json::json!({"provider": "anthropic", "api_key": "sk-test"});
+    assert_eq!(
+        client
+            .post(format!("{base}/api/v1/auth/login"))
+            .json(&login_body)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+
+    // Deterministic status: every provider env var is stripped for the child.
+    let status: serde_json::Value = client
+        .get(format!("{base}/api/v1/auth/status"))
+        .header("X-API-Key", &key)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(status["providers"].as_array().unwrap().len(), 19);
+    assert_eq!(status["configured_count"], 0);
+    assert_eq!(status["any_configured"], false);
+    assert!(status["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|provider| provider["env_var"] == "ANTHROPIC_API_KEY"
+            && provider["configured"] == false));
+
+    // Login: lowercase input, env var mapping, then status reflects it.
+    let login: serde_json::Value = client
+        .post(format!("{base}/api/v1/auth/login"))
+        .header("X-API-Key", &key)
+        .json(&login_body)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(login["configured"], true);
+    assert_eq!(login["provider"], "ANTHROPIC");
+    assert_eq!(login["env_var"], "ANTHROPIC_API_KEY");
+
+    let status: serde_json::Value = client
+        .get(format!("{base}/api/v1/auth/status"))
+        .header("X-API-Key", &key)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(status["configured_count"], 1);
+    assert_eq!(status["any_configured"], true);
+
+    // Provider names are uppercased and spaces become underscores.
+    let unknown = client
+        .post(format!("{base}/api/v1/auth/login"))
+        .header("X-API-Key", &key)
+        .json(&serde_json::json!({"provider": "open ai", "api_key": "x"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unknown.status(), 400);
+    let body: serde_json::Value = unknown.json().await.unwrap();
+    assert_eq!(body["error"], "Unknown provider: OPEN_AI");
+
+    let missing = client
+        .post(format!("{base}/api/v1/auth/login"))
+        .header("X-API-Key", &key)
+        .json(&serde_json::json!({"provider": "anthropic", "api_key": ""}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), 400);
+    let body: serde_json::Value = missing.json().await.unwrap();
+    assert_eq!(body["error"], "provider and api_key required");
+
+    // Logout removes one provider, including the HF special case.
+    let logout: serde_json::Value = client
+        .post(format!("{base}/api/v1/auth/logout"))
+        .header("X-API-Key", &key)
+        .json(&serde_json::json!({"provider": "Anthropic"}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(logout["removed"], true);
+    assert_eq!(logout["env_var"], "ANTHROPIC_API_KEY");
+
+    let hf: serde_json::Value = client
+        .post(format!("{base}/api/v1/auth/login"))
+        .header("X-API-Key", &key)
+        .json(&serde_json::json!({"provider": "hf", "api_key": "hf_test"}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(hf["env_var"], "HF_TOKEN");
+
+    // Provider-less logout clears every known key (empty body is allowed).
+    let logout_all: serde_json::Value = client
+        .post(format!("{base}/api/v1/auth/logout"))
+        .header("X-API-Key", &key)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(logout_all["removed"], true);
+    assert!(logout_all["env_vars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|name| name == "HF_TOKEN"));
+
+    // A CLI revoke is visible to the running server immediately: the store is
+    // re-read per request (no cache).
+    let revoked = sb.run(&["key", "revoke", &key_id]);
+    assert_success(&revoked, "key revoke");
+    assert!(stdout(&revoked).contains(&format!("Revoked key {key_id}")));
+    assert_eq!(
+        client
+            .get(protected(&base))
+            .header("X-API-Key", &key)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+
+    drop(server);
+
+    // ── Server 2: auth on, two requests per minute ──────────────────────
+    let (rate_id, rate_key) = create_key(&sb, "rate");
+    let port = free_port();
+    let server = ServerGuard::spawn_with(
+        &sb,
+        &["serve", "--port", &port.to_string()],
+        &[
+            ("APEX_REQUIRE_AUTH", "1"),
+            ("APEX_API_KEYS_FILE", keys_file.as_str()),
+            ("APEX_RATE_LIMIT_PER_MINUTE", "2"),
+            ("APEX_RATE_LIMIT_PER_HOUR", "1000"),
+            ("APEX_RATE_LIMIT_PER_DAY", "10000"),
+        ],
+    );
+    let base = format!("http://127.0.0.1:{port}");
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve (rate limit) did not become healthy"
+    );
+
+    // Rejected requests never consume the key's budget: auth wraps the
+    // limiter, like Python's `_check_auth` running before `_check_rate_limit`.
+    for _ in 0..5 {
+        assert_eq!(
+            client.get(protected(&base)).send().await.unwrap().status(),
+            401
+        );
+    }
+    for _ in 0..2 {
+        assert_eq!(
+            client
+                .get(protected(&base))
+                .header("X-API-Key", &rate_key)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            200
+        );
+    }
+    let limited = client
+        .get(protected(&base))
+        .header("Authorization", format!("Bearer {rate_key}"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(limited.status(), 429);
+    assert!(limited.headers().get("retry-after").is_some());
+    let body: serde_json::Value = limited.json().await.unwrap();
+    assert_eq!(body["error"], "Rate limit exceeded");
+    assert_eq!(body["code"], "RATE_LIMITED");
+
+    // `/health` stays probeable once the budget is exhausted.
+    assert_eq!(
+        client
+            .get(format!("{base}/health"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+
+    drop(server);
+
+    // The CLI sees the counters the servers recorded; revoked keys stay listed.
+    let list = sb.run(&["key", "list"]);
+    assert_success(&list, "key list");
+    let text = stdout(&list);
+    assert!(
+        text.contains(&format!("{key_id} - e2e [revoked] requests=")),
+        "got:\n{text}"
+    );
+    assert!(
+        text.contains(&format!("{rate_id} - rate [active] requests=3")),
+        "got:\n{text}"
+    );
 }
 
 #[test]
