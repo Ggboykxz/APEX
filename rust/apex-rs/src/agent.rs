@@ -197,6 +197,18 @@ impl Agent {
         Ok(())
     }
 
+    /// Base system prompt plus the `[WORKSPACE CONTEXT]` block.
+    ///
+    /// Python exports `WorkspaceManager.get_system_prompt_context` but never
+    /// calls it; the Rust port wires it into both agent entry points.
+    fn system_prompt(&self) -> String {
+        let mut prompt = String::from("You are APEX, a helpful coding assistant.");
+        let mut manager = crate::workspace::WorkspaceManager::new(self.config.cwd.clone());
+        prompt.push_str("\n\n");
+        prompt.push_str(&manager.get_system_prompt_context());
+        prompt
+    }
+
     pub async fn chat(&mut self, user_input: &str) -> Result<String> {
         self.last_call_usage = Usage::default();
         let expanded = self.expand_mentions(user_input);
@@ -212,10 +224,9 @@ impl Agent {
         }
 
         let client = reqwest::Client::new();
+        let system_message = json!({"role":"system","content": self.system_prompt()});
         for _ in 0..10 {
-            let mut messages = vec![
-                json!({"role":"system","content":"You are APEX, a helpful coding assistant."}),
-            ];
+            let mut messages = vec![system_message.clone()];
             messages.extend(self.history.clone());
 
             let body = json!({
@@ -352,10 +363,9 @@ impl Agent {
         }
 
         let client = reqwest::Client::new();
+        let system_message = json!({"role":"system","content": self.system_prompt()});
         for _ in 0..10 {
-            let mut messages = vec![
-                json!({"role":"system","content":"You are APEX, a helpful coding assistant."}),
-            ];
+            let mut messages = vec![system_message.clone()];
             messages.extend(self.history.clone());
 
             let body = json!({
@@ -514,6 +524,34 @@ mod tests {
         let agent = Agent::new(cfg);
         let out = agent.expand_mentions("hello @README.md");
         assert!(out.contains("hello"));
+    }
+
+    #[test]
+    fn system_prompt_includes_workspace_context() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "[package]\n").unwrap();
+        std::fs::write(dir.path().join("Cargo.lock"), "").unwrap();
+
+        let mut cfg = Config::from_env();
+        cfg.cwd = dir.path().to_path_buf();
+        let agent = Agent::new(cfg);
+
+        let prompt = agent.system_prompt();
+        assert!(
+            prompt.starts_with("You are APEX, a helpful coding assistant."),
+            "got: {prompt}"
+        );
+        assert!(prompt.contains("[WORKSPACE CONTEXT]"), "got: {prompt}");
+        assert!(prompt.contains("Language: Rust"), "got: {prompt}");
+        assert!(prompt.contains("Package manager: cargo"), "got: {prompt}");
+        assert!(
+            prompt.contains("Test framework: cargo test"),
+            "got: {prompt}"
+        );
+        assert!(
+            !prompt.contains("Git branch:"),
+            "a tempdir has no .git directory: {prompt}"
+        );
     }
 
     #[test]

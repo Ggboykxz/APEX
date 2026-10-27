@@ -23,6 +23,7 @@ mod skills;
 mod task_queue;
 mod tools;
 mod web;
+mod workspace;
 
 use clap::{Parser, Subcommand};
 use config::Config;
@@ -85,6 +86,14 @@ enum Commands {
     Context {
         #[command(subcommand)]
         action: ContextAction,
+    },
+    /// Workspace awareness: git state, language, package manager, test framework
+    Workspace {
+        /// Path to analyze (defaults to the current directory)
+        path: Option<String>,
+        /// Print the full context as JSON instead of the system-prompt block
+        #[arg(long)]
+        json: bool,
     },
     /// GitHub: install/run parity plus issue/PR operations and automation flows
     Github {
@@ -554,6 +563,24 @@ async fn main() {
                 }
             }
         },
+        Some(Commands::Workspace { path, json }) => {
+            // Python's `WorkspaceManager()` defaults to `Path.cwd()`; an
+            // explicit path is kept exactly as given.
+            let root = match path {
+                Some(path) => std::path::PathBuf::from(path),
+                None => std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+            };
+            let mut manager = workspace::WorkspaceManager::new(root);
+            if json {
+                let context = manager.analyze();
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&context).unwrap_or_default()
+                );
+            } else {
+                println!("{}", manager.get_system_prompt_context());
+            }
+        }
         Some(Commands::Github { action }) => match action {
             None => {
                 // Python's `_cmd_github` prints its own usage for a missing subcommand.
