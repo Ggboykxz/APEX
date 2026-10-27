@@ -114,9 +114,8 @@ impl SkillManager {
         Some(result)
     }
 
-    // Test-only today: users author skills as markdown, the CLI does not edit them.
-    // TODO(v2.6): expose `apex-rs skill add/remove` backed by these methods.
-    #[allow(dead_code)]
+    /// Backs `apex-rs skill add`; the CLI also persists the skill to disk
+    /// (see `save_skill_file`) because Python's in-memory `add` is unwired.
     pub fn add(&mut self, name: &str, description: &str, prompt: &str) {
         self.skills.insert(
             name.to_string(),
@@ -128,11 +127,47 @@ impl SkillManager {
         );
     }
 
-    // Test-only today: users author skills as markdown, the CLI does not edit them.
-    // TODO(v2.6): expose `apex-rs skill add/remove` backed by these methods.
-    #[allow(dead_code)]
+    /// Backs `apex-rs skill remove`; the CLI also deletes the project skill
+    /// file when present (see `remove_skill_file`).
     pub fn remove(&mut self, name: &str) -> bool {
         self.skills.remove(name).is_some()
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Skill file authoring (CLI `skill add` / `skill remove`)
+//
+// Python's `add`/`remove` are in-memory only and never wired to a command;
+// the CLI persists skills as the markdown files `load_skill_file` parses,
+// so a fresh process sees them.
+// ──────────────────────────────────────────────────────────────────────
+
+/// Skill names become file names under `.apex/skills/`; reject anything that
+/// would escape the directory.
+pub fn valid_skill_name(name: &str) -> bool {
+    !name.is_empty() && !name.contains(['/', '\\', '\0']) && !name.contains("..")
+}
+
+/// Write `skill` to `<cwd>/.apex/skills/<name>.md` in the exact format
+/// `load_skill_file` parses, and return the written path.
+pub fn save_skill_file(cwd: &Path, skill: &Skill) -> std::io::Result<PathBuf> {
+    let dir = cwd.join(".apex").join("skills");
+    fs::create_dir_all(&dir)?;
+    let path = dir.join(format!("{}.md", skill.name));
+    let content = format!(
+        "## Description: {}\n\n## Prompt\n{}\n",
+        skill.description, skill.prompt
+    );
+    fs::write(&path, content)?;
+    Ok(path)
+}
+
+/// Delete `<cwd>/.apex/skills/<name>.md` when present.
+pub fn remove_skill_file(cwd: &Path, name: &str) -> bool {
+    let path = cwd.join(".apex").join("skills").join(format!("{name}.md"));
+    match fs::remove_file(&path) {
+        Ok(()) => true,
+        Err(_) => false,
     }
 }
 
@@ -512,6 +547,73 @@ mod tests {
         fs::write(skills.join("empty.md"), "## Description: no prompt here\n").unwrap();
         let sm = SkillManager::new(dir.path());
         assert!(sm.list_skills().is_empty());
+    }
+
+    #[test]
+    fn save_skill_file_roundtrips_through_loader() {
+        let dir = tempdir().unwrap();
+        let skill = Skill {
+            name: "parity-roundtrip-skill".to_string(),
+            description: "A skill written by the CLI".to_string(),
+            prompt: "Do the thing\nThen report {status}".to_string(),
+        };
+        let path = save_skill_file(dir.path(), &skill).unwrap();
+        assert_eq!(
+            path,
+            dir.path()
+                .join(".apex")
+                .join("skills")
+                .join("parity-roundtrip-skill.md")
+        );
+
+        // A fresh manager (like a fresh CLI process) must load it back.
+        let sm = SkillManager::new(dir.path());
+        let loaded = sm.get("parity-roundtrip-skill").expect("skill must load");
+        assert_eq!(loaded.description, "A skill written by the CLI");
+        assert_eq!(loaded.prompt, "Do the thing\nThen report {status}");
+        assert_eq!(
+            sm.render("parity-roundtrip-skill", &args(&[("status", "ok")]))
+                .unwrap(),
+            "Do the thing\nThen report ok"
+        );
+    }
+
+    #[test]
+    fn remove_skill_file_removes_written_skill() {
+        let dir = tempdir().unwrap();
+        let skill = Skill {
+            name: "removable-skill".to_string(),
+            description: "gone soon".to_string(),
+            prompt: "body".to_string(),
+        };
+        save_skill_file(dir.path(), &skill).unwrap();
+        assert!(remove_skill_file(dir.path(), "removable-skill"));
+        assert!(
+            !remove_skill_file(dir.path(), "removable-skill"),
+            "second delete"
+        );
+        assert!(!SkillManager::new(dir.path())
+            .get("removable-skill")
+            .is_some());
+        // Removing an unknown name is not an error, just a no-op.
+        assert!(!remove_skill_file(dir.path(), "never-existed"));
+    }
+
+    #[test]
+    fn valid_skill_name_rejects_path_traversal() {
+        for ok in ["greet", "my-skill_2"] {
+            assert!(valid_skill_name(ok), "{ok} must be valid");
+        }
+        for bad in ["", "a/b", "a\\b", "a..b", "..", "a\0b"] {
+            assert!(!valid_skill_name(bad), "{bad:?} must be rejected");
+        }
+    }
+
+    fn args(pairs: &[(&str, &str)]) -> std::collections::BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     #[cfg(unix)]
