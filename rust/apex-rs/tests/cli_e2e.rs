@@ -124,6 +124,25 @@ fn assert_success(out: &Output, context: &str) {
     );
 }
 
+/// Run git in the sandbox with a fixed identity (workspace E2E only).
+fn git(dir: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_AUTHOR_NAME", "Test")
+        .env("GIT_AUTHOR_EMAIL", "test@example.com")
+        .env("GIT_COMMITTER_NAME", "Test")
+        .env("GIT_COMMITTER_EMAIL", "test@example.com")
+        .output()
+        .expect("git must be installed for the workspace E2E test");
+    assert!(
+        out.status.success(),
+        "git {:?} failed: {}",
+        args,
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
 /// Kills and reaps a spawned `serve` child on drop, so a panicking test cannot
 /// leak a server that keeps the test binary locked on Windows.
 struct ServerGuard(std::process::Child);
@@ -209,6 +228,7 @@ fn help_lists_subcommands() {
         "session",
         "security",
         "context",
+        "workspace",
         "github",
         "skill",
         "key",
@@ -524,6 +544,48 @@ fn context_commands_report_repository_state() {
     // A missing path is a hard error, not empty output.
     let missing = sb.run(&["context", "tree", "does-not-exist"]);
     assert!(!missing.status.success(), "missing path must exit non-zero");
+}
+
+#[test]
+fn workspace_cli_reports_git_and_marker_detection() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("Cargo.toml"), "[package]\n").unwrap();
+    std::fs::write(sb.cwd.join("Cargo.lock"), "").unwrap();
+    git(&sb.cwd, &["init"]);
+    git(&sb.cwd, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+    git(&sb.cwd, &["add", "-A"]);
+    git(&sb.cwd, &["commit", "-m", "init"]);
+    // Uncommitted change: the prompt block must report a dirty tree.
+    std::fs::write(sb.cwd.join("Cargo.toml"), "[package]\nname = \"changed\"\n").unwrap();
+
+    let out = sb.run(&["workspace"]);
+    assert_success(&out, "workspace");
+    assert_eq!(
+        stdout(&out).trim(),
+        "[WORKSPACE CONTEXT]\n\
+         Git branch: main\n\
+         Git status: dirty (uncommitted changes)\n\
+         Language: Rust\n\
+         Package manager: cargo\n\
+         Test framework: cargo test",
+        "got: {}",
+        stdout(&out)
+    );
+
+    let json = sb.run(&["workspace", "--json"]);
+    assert_success(&json, "workspace --json");
+    let v: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("`workspace --json` must print JSON");
+    assert_eq!(v["git"]["branch"], "main");
+    assert_eq!(v["git"]["is_dirty"], true);
+    assert_eq!(v["git"]["commit"].as_str().map(str::len), Some(8));
+    assert_eq!(v["language"], "Rust");
+    assert_eq!(v["package_manager"], "cargo");
+    assert_eq!(v["test_framework"], "cargo test");
+    assert_eq!(
+        v["root"].as_str().unwrap(),
+        sb.cwd.to_string_lossy().as_ref()
+    );
 }
 
 #[tokio::test]

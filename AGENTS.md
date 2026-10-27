@@ -1192,6 +1192,35 @@ The same functions back two registry tools:
 `get_context_info` has no Rust counterpart: it reads the agent's message
 history, which the stateless Rust dispatch does not keep.
 
+### Workspace awareness
+
+`workspace.rs` ports `apex/workspace.py` and is wired further than the Python
+module (which exports `WorkspaceManager` but never calls it):
+
+```bash
+apex-rs workspace                  # [WORKSPACE CONTEXT] block for the cwd
+apex-rs workspace ../project       # explicit root
+apex-rs workspace --json           # full context as JSON
+```
+
+- Git: branch, 8-character commit, dirty flag, `origin` URL, GitHub
+  `owner/repo`, commits ahead/behind the upstream, `GITHUB_HEAD_REF` +
+  `GITHUB_PR_NUMBER`, and the first five tags. Every git call has the same
+  5-second timeout as Python; failures degrade to defaults.
+- Detection: language (`pyproject.toml`/`requirements.txt`/`setup.py` →
+  Python, `package.json`, `go.mod`, `Cargo.toml`, `pom.xml`,
+  `build.gradle`), package manager (`package-lock.json`, `yarn.lock`,
+  `pnpm-lock.yaml`, `requirements.txt`, `pyproject.toml`, `go.mod`,
+  `Cargo.lock`, `Gemfile`) and test framework (`pytest.ini`,
+  `pyproject.toml`, `jest.config.js`, `vitest.config.ts`, `go.sum`,
+  `Cargo.toml`) in Python's marker order.
+- The block is appended to the system prompt of both agent entry points
+  (`chat` and `chat_stream`), analyzed once per user turn so a ten-round
+  tool loop does not respawn git ten times.
+- Divergences recorded in `PARITY.md`: no `git fetch --dry-run` network
+  call, an empty tag list on tagless repositories (Python yields `[""]`),
+  and no process-global singleton.
+
 ### Editing tools
 
 `edit_file` and `apply_patch` close the surgical-editing gap in the Rust
@@ -1303,9 +1332,10 @@ so `tests/cli_e2e.rs` can point `~/.apex` at a temp directory. The E2E suite
 runs the compiled binary and covers help, tool listing, cost, memory and
 encrypted session lifecycles (including Python-written Fernet fixtures under
 both the native and legacy key derivations), security verdicts, the
-repository-context commands, HTTP auth (all three carriers, exact 401 body,
-auth routes, a CLI revoke observed by a running server, and 429 +
-`Retry-After`), and the no-crate-level-allow regression.
+repository-context commands, the workspace prompt block and JSON output,
+HTTP auth (all three carriers, exact 401 body, auth routes, a CLI revoke
+observed by a running server, and 429 + `Retry-After`), and the
+no-crate-level-allow regression.
 
 ```bash
 cd rust/apex-rs
