@@ -20,6 +20,7 @@ mod session_crypto;
 mod share;
 mod shell_security;
 mod skills;
+pub mod snapshot_manager;
 mod task_queue;
 mod tools;
 mod web;
@@ -115,6 +116,11 @@ enum Commands {
     Key {
         #[command(subcommand)]
         action: KeyAction,
+    },
+    /// Git-powered undo/redo for file changes (snapshot.py parity)
+    Snapshot {
+        #[command(subcommand)]
+        action: SnapshotAction,
     },
 }
 
@@ -339,6 +345,60 @@ enum KeyAction {
     Revoke { key_id: String },
     /// Delete a key by id
     Delete { key_id: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum SnapshotAction {
+    /// Track a file before modification (creates a snapshot)
+    Track {
+        /// Path to the file
+        path: String,
+        /// Action type (file_write, file_edit, file_delete, dir_create, dir_delete, command_exec)
+        #[arg(long, default_value = "file_edit")]
+        action_type: String,
+        /// Working directory (defaults to current directory)
+        #[arg(long, default_value = ".")]
+        cwd: String,
+    },
+    /// Undo the last tracked change
+    Undo {
+        /// Working directory (defaults to current directory)
+        #[arg(long, default_value = ".")]
+        cwd: String,
+    },
+    /// Redo the last undone change
+    Redo {
+        /// Working directory (defaults to current directory)
+        #[arg(long, default_value = ".")]
+        cwd: String,
+    },
+    /// Check if undo is available
+    CanUndo {
+        /// Working directory (defaults to current directory)
+        #[arg(long, default_value = ".")]
+        cwd: String,
+    },
+    /// Check if redo is available
+    CanRedo {
+        /// Working directory (defaults to current directory)
+        #[arg(long, default_value = ".")]
+        cwd: String,
+    },
+    /// List snapshot history
+    History {
+        /// Maximum number of snapshots to show
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+        /// Working directory (defaults to current directory)
+        #[arg(long, default_value = ".")]
+        cwd: String,
+    },
+    /// Clear all snapshots
+    Clear {
+        /// Working directory (defaults to current directory)
+        #[arg(long, default_value = ".")]
+        cwd: String,
+    },
 }
 
 fn load_mcp_servers() {
@@ -969,6 +1029,78 @@ async fn main() {
                 }
             }
         }
+        Some(Commands::Snapshot { action }) => match action {
+            SnapshotAction::Track {
+                path,
+                action_type,
+                cwd,
+            } => {
+                match snapshot_manager::cli_snapshot_track_file(
+                    &path,
+                    &action_type,
+                    Path::new(&cwd),
+                ) {
+                    Ok(Some(id)) => println!("{id}"),
+                    Ok(None) => eprintln!("File not found: {path}"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            SnapshotAction::Undo { cwd } => {
+                match snapshot_manager::cli_snapshot_undo(Path::new(&cwd)) {
+                    Ok(Some(id)) => println!("Undid: {id}"),
+                    Ok(None) => eprintln!("Nothing to undo"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            SnapshotAction::Redo { cwd } => {
+                match snapshot_manager::cli_snapshot_redo(Path::new(&cwd)) {
+                    Ok(Some(id)) => println!("Redid: {id}"),
+                    Ok(None) => eprintln!("Nothing to redo"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            SnapshotAction::CanUndo { cwd } => {
+                let can = snapshot_manager::cli_snapshot_can_undo(Path::new(&cwd));
+                println!("{}", if can { "true" } else { "false" });
+            }
+            SnapshotAction::CanRedo { cwd } => {
+                let can = snapshot_manager::cli_snapshot_can_redo(Path::new(&cwd));
+                println!("{}", if can { "true" } else { "false" });
+            }
+            SnapshotAction::History { limit, cwd } => {
+                match snapshot_manager::cli_snapshot_history(Path::new(&cwd), limit) {
+                    Ok(snapshots) => {
+                        if snapshots.is_empty() {
+                            println!("No snapshots");
+                        } else {
+                            for s in snapshots {
+                                println!("{} - {} - {} files", s.id, s.timestamp, s.files.len());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            SnapshotAction::Clear { cwd } => {
+                if let Err(e) = snapshot_manager::cli_snapshot_clear(Path::new(&cwd)) {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+                println!("Cleared all snapshots");
+            }
+        },
         None => {
             println!("APEX (Rust) — type 'apex-rs --help'");
         }
