@@ -68,8 +68,10 @@ pub struct RateLimitResult {
     pub remaining_minute: i64,
     pub remaining_hour: i64,
     pub remaining_day: i64,
-    /// Epoch seconds at which the enforcing window resets (Python's
-    /// `RateLimitResult.reset_at`); surfaced by `GET /api/v1/rate-limit`.
+    /// Parity with Python's `RateLimitResult` (its tests assert this too);
+    /// no API surface reads it yet.
+    // TODO(v2.6): surface the reset timestamp in `GET /api/v1/rate-limit`.
+    #[allow(dead_code)]
     pub reset_at: f64,
     pub retry_after: Option<u64>,
 }
@@ -179,11 +181,11 @@ impl RateLimiter {
         }
     }
 
-    /// Decide whether `key` may proceed right now **without** consuming
-    /// budget: exactly what `check_rate_limit` would return, minus the
-    /// increment. The `remaining_*` values are post-consumption, so a status
-    /// endpoint reports what the next caller would see.
-    pub fn peek(&self, key: &str) -> RateLimitResult {
+    pub fn check_rate_limit(&mut self, key: &str) -> RateLimitResult {
+        if now_secs() - self.last_cleanup > self.cleanup_interval {
+            self.storage.cleanup_expired();
+            self.last_cleanup = now_secs();
+        }
         let [minute, hour, day] = self.storage.get_counts(key);
         let now = now_secs();
 
@@ -218,6 +220,10 @@ impl RateLimiter {
             };
         }
 
+        self.storage.increment(key, "minute");
+        self.storage.increment(key, "hour");
+        self.storage.increment(key, "day");
+
         RateLimitResult {
             allowed: true,
             remaining_minute: self.config.requests_per_minute as i64 - minute as i64 - 1,
@@ -228,32 +234,13 @@ impl RateLimiter {
         }
     }
 
-    pub fn check_rate_limit(&mut self, key: &str) -> RateLimitResult {
-        if now_secs() - self.last_cleanup > self.cleanup_interval {
-            self.storage.cleanup_expired();
-            self.last_cleanup = now_secs();
-        }
-        let result = self.peek(key);
-        if result.allowed {
-            self.storage.increment(key, "minute");
-            self.storage.increment(key, "hour");
-            self.storage.increment(key, "day");
-        }
-        result
-    }
-
     pub fn get_status(&self, key: &str) -> serde_json::Value {
         let [minute, hour, day] = self.storage.get_counts(key);
-        let peek = self.peek(key);
         serde_json::json!({
             "minute": {"used": minute, "limit": self.config.requests_per_minute},
             "hour": {"used": hour, "limit": self.config.requests_per_hour},
             "day": {"used": day, "limit": self.config.requests_per_day},
             "burst": self.config.burst_size,
-            // Python's `RateLimitResult.reset_at` semantics: epoch seconds at
-            // which the minute window (the enforcing window by default)
-            // refills.
-            "reset_at": peek.reset_at,
         })
     }
 }
@@ -319,22 +306,6 @@ mod tests {
         assert_eq!(status["minute"]["used"], 1);
         assert_eq!(status["minute"]["limit"], 1);
         assert_eq!(status["burst"], 10);
-        // `reset_at` is the minute-window reset (Python's RateLimitResult).
-        assert!(status["reset_at"].as_f64().unwrap() > now_secs());
-    }
-
-    #[test]
-    fn peek_does_not_consume_budget() {
-        let mut rl = limiter_with(2);
-        let before = rl.peek("p");
-        assert!(before.allowed);
-        // `remaining_minute` is the post-consumption value a check returns.
-        assert_eq!(before.remaining_minute, 1);
-        assert!(rl.peek("p").allowed);
-        assert!(rl.check_rate_limit("p").allowed);
-        assert!(rl.check_rate_limit("p").allowed);
-        assert!(!rl.peek("p").allowed);
-        assert!(!rl.check_rate_limit("p").allowed);
     }
 
     #[test]
