@@ -8,6 +8,7 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 - **opencode AI maintainer** — `.github/workflows/opencode.yml` answers `/oc` / `/opencode` comments from maintainers only (`OWNER` / `MEMBER` / `COLLABORATOR`, bots rejected) on issues, PRs, and review lines. It uses OIDC app tokens, a 30-minute timeout, per-issue concurrency, no session sharing, and fails with a clear message when no provider key is configured. The archived upstream action is pinned to `github-v1.2.28` (`17b79f4e…`). Setup requires the `opencode-agent` GitHub App plus `DEEPSEEK_API_KEY` or `ANTHROPIC_API_KEY`; the `OPENCODE_MODEL` repository variable overrides the default DeepSeek model.
 - **Stale workflow** — dependency PRs are exempt from the `stale` workflow (`dependencies` joins `pinned`, `security` and `keep-open`), so Dependabot updates are never auto-closed for inactivity.
+- **Merge queue & Dependabot auto-merge** — `merge_group` is enabled on `CI`, `Security` and `TUI`; repository auto-merge is enabled. A new `dependabot-auto-merge` workflow auto-approves and enables auto-merge for Dependabot patch/minor updates. PR metadata workflows (`commitlint`, `pr-checks`, `labeler`, `welcome`, `dependency-review`, `release-drafter`) remain PR-event only.
 
 ### v2.5 — Wave 1 (Repository Map, TUI streaming, governance)
 
