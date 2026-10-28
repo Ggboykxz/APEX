@@ -23,3 +23,7 @@ aes = "0.8"
 cbc = { version = "0.1", features = ["alloc"] }
 hmac = "0.12"
 sha2 = "0.10"
+getrandom = "0.2"
+chrono = { version = "0.4", features = ["serde"] }
+hex = "0.4"
+rand = "0.8"
