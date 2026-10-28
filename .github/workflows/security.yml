@@ -5,6 +5,7 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main]
+  merge_group:
   schedule:
     - cron: "0 6 * * 1"  # Every Monday at 6:00 UTC
   workflow_dispatch:
