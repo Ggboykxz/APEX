@@ -11,6 +11,7 @@ on:
     paths:
       - "tui-frontend/**"
       - ".github/workflows/tui.yml"
+  merge_group:
 
 concurrency:
   group: tui-${{ github.ref }}

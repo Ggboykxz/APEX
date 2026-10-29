@@ -128,6 +128,7 @@ apex --model gpt-4o            # Start with GPT-4o
 - **12 Themes**: apex, nord, catppuccin, tokyonight, gruvbox, matrix, etc.
 - **Agent Theming**: Title bar and status bar change color per agent
 - **75+ Tools**: File, Code, Shell, Git, Web, Database, Docker, K8s, Security
+- **Reversible Workspaces**: Git-backed snapshots, turn history, one-command restore
 - **MCP/LSP**: Server status monitoring
 - **Leader Keys**: Ctrl+X + mnemonic for all actions
 - **Command Palette**: Ctrl+P with fuzzy search
@@ -282,12 +283,44 @@ APEX_CONFIG_CONTENT='{"model": "gpt-4o"}'
 - **Custom commands** — define via `.apex/commands/*.md`
 - **Auto-formatting** — ruff, prettier, gofmt, rustfmt, etc.
 - **File watching** — configurable ignore patterns
+- **Roll back safely** — snapshot the workspace and restore any turn
 - **Session sharing** — public URLs for collaboration
 - **Fix bugs** — diagnoses, patches, and verifies
 - **Write features** — complete implementations
 - **Refactor code** — preserves your style
 - **Write tests** — pytest, jest, go test, and more
 - **Explain code** — line by line if needed
+
+---
+
+## 🦀 Rust Backend (Internal GA)
+
+`rust/apex-rs/` is the progressively ported Rust backend. It is an internal
+GA: the agent loop, HTTP server, and tool registry are usable, but nothing is
+published (see [ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
+The wired surface includes workspace awareness, workspace rollback, and **Git-powered undo/redo (snapshot.py parity)**:
+
+```bash
+cd rust/apex-rs
+cargo run -- workspace                  # repository context prompt block
+cargo run -- workspace --json           # same context as JSON
+cargo run -- rollback snapshot [LABEL]  # snapshot the workspace
+cargo run -- rollback list [--json]     # snapshots (text view shows the last 10)
+cargo run -- rollback restore <NAME>    # restore a snapshot
+cargo run -- rollback record --data '{"query":"…"}'
+cargo run -- rollback revert 1          # restore the turn recorded 1 turn ago
+
+# Snapshot manager (file-level undo/redo)
+cargo run -- snapshot track <PATH>      # track a file before modification
+cargo run -- snapshot undo              # undo last change
+cargo run -- snapshot redo              # redo last undone change
+cargo run -- snapshot history           # show snapshot history
+cargo run -- snapshot clear             # clear all snapshots
+```
+
+Snapshots live in `.apex/snapshots/`; turn history is `.apex/turns.json`.
+Python ↔ Rust parity and divergences are tracked in
+[`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md).
 
 ---
 

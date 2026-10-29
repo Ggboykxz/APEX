@@ -27,6 +27,24 @@ pub(crate) fn shell_command(command: &str) -> Command {
 static BACKUP_STACK: Mutex<Vec<(PathBuf, String)>> = Mutex::new(Vec::new());
 static REDO_STACK: Mutex<Vec<(PathBuf, String, String)>> = Mutex::new(Vec::new());
 
+/// Python: the `BUILTIN_AGENTS` keys in `apex/agents.py` - the
+/// `agent_manager.agents` set the `task` tool validates against. Custom
+/// agents from `.apex/agents/*.md` or config JSON are not scanned by the
+/// Rust port.
+const BUILTIN_AGENTS: &[&str] = &[
+    "build",
+    "plan",
+    "planner",
+    "reviewer",
+    "shell",
+    "general",
+    "explore",
+    "scout",
+    "compaction",
+    "title",
+    "summary",
+];
+
 /// Restore the last file overwritten by `write_file`.
 pub fn undo_last_edit() -> String {
     let mut stack = match BACKUP_STACK.lock() {
@@ -69,9 +87,14 @@ pub fn redo_last_edit() -> String {
 }
 
 pub fn tool_schemas() -> Value {
-    let base = json!([
+    // The literal is split into chunks: a single json! with this many
+    // entries exceeds serde_json's macro expansion recursion limit.
+    let mut base: Vec<Value> = Vec::new();
+    base.extend(json!([
         {"type":"function","function":{"name":"read_file","description":"Read a file","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"write_file","description":"Write a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}},
+        {"type":"function","function":{"name":"edit_file","description":"Replace a unique string in a file with new content.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to the file to edit"},"old_string":{"type":"string","description":"Unique string to find and replace"},"new_string":{"type":"string","description":"String to replace it with"}},"required":["path","old_string","new_string"]}}},
+        {"type":"function","function":{"name":"apply_patch","description":"Apply a multi-file patch atomically. Supports Codex-style patches (***) and unified diffs (--- a/path, +++ b/path). All files are validated before any write; use dry_run to preview. Paths must be relative to the project root.","parameters":{"type":"object","properties":{"patch":{"type":"string","description":"Patch content to apply"},"dry_run":{"type":"boolean","description":"Validate and preview without writing files"}},"required":["patch"]}}},
         {"type":"function","function":{"name":"list_files","description":"List files in a directory","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"run_command","description":"Run a shell command","parameters":{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}}},
         {"type":"function","function":{"name":"git_status","description":"Show git working tree status","parameters":{"type":"object","properties":{}}}},
@@ -82,6 +105,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"redo_last_edit","description":"Re-apply the last undone file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_undo","description":"Revert uncommitted changes (git checkout)","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
+    ]).as_array().cloned().unwrap_or_default());
+    base.extend(json!([
         {"type":"function","function":{"name":"lsp_diagnostics","description":"Get LSP diagnostics for a file","parameters":{"type":"object","properties":{"path":{"type":"string"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_definition","description":"Go to definition using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_references","description":"Find references using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
@@ -95,6 +120,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"git_list_branches","description":"List all git branches.","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_pre_commit","description":"Run git pre-commit checks.","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_create_pr","description":"Create a GitHub pull request.","parameters":{"type":"object","properties":{"title":{"type":"string","description":"PR title"},"body":{"type":"string","description":"PR description"},"base":{"type":"string","description":"Target branch"}},"required":["title"]}}},
+    ]).as_array().cloned().unwrap_or_default());
+    base.extend(json!([
         {"type":"function","function":{"name":"refactor_code","description":"Refactor code (add types, make async, extract method).","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to refactor"},"function":{"type":"string","description":"Function name"},"style":{"type":"string","description":"Style: async, type_hints, modern"}},"required":["path","function"]}}},
         {"type":"function","function":{"name":"generate_db_model","description":"Generate database model from table schema.","parameters":{"type":"object","properties":{"table":{"type":"string","description":"Table name"},"columns":{"type":"array","items":{"type":"object"},"description":"Column definitions"}},"required":["table","columns"]}}},
         {"type":"function","function":{"name":"generate_dockerfile","description":"Generate Dockerfile for language.","parameters":{"type":"object","properties":{"language":{"type":"string","description":"Language: python, node, go, rust, java"}},"required":["language"]}}},
@@ -108,9 +135,19 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"use_skill","description":"Use a skill with arguments.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Skill name"},"args":{"type":"object","description":"Skill arguments"}},"required":["name"]}}},
         {"type":"function","function":{"name":"replace_in_files","description":"Search and replace across multiple files.","parameters":{"type":"object","properties":{"pattern":{"type":"string","description":"Search pattern (regex)"},"replacement":{"type":"string","description":"Replacement string"},"files":{"type":"array","items":{"type":"string"},"description":"Glob patterns to match files"},"dry_run":{"type":"boolean","description":"Preview without applying"}},"required":["pattern","replacement"]}}},
         {"type":"function","function":{"name":"analyze_code","description":"Analyze code structure and complexity.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}},
-        {"type":"function","function":{"name":"explain_code","description":"Explain what a code block does.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to explain"},"start":{"type":"integer","description":"Start line"},"end":{"type":"integer","description":"End line"}},"required":["path"]}}}
-    ]);
-    let mut arr = base.as_array().cloned().unwrap_or_default();
+        {"type":"function","function":{"name":"explain_code","description":"Explain what a code block does.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to explain"},"start":{"type":"integer","description":"Start line"},"end":{"type":"integer","description":"End line"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"get_repo_map","description":"Generate repository map showing file structure and key files.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to repository (default: .)"}}}}},
+        {"type":"function","function":{"name":"get_file_tree","description":"Show directory structure as ASCII tree.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Directory to display (default: .)"},"max_depth":{"type":"integer","description":"Maximum depth to display (default: 3)"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"web_search","description":"Search the web for information.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Search query"}},"required":["query"]}}},
+        {"type":"function","function":{"name":"fetch_url","description":"Fetch and clean a webpage.","parameters":{"type":"object","properties":{"url":{"type":"string","description":"URL to fetch"}},"required":["url"]}}},
+        {"type":"function","function":{"name":"task","description":"Delegate a task to a subagent for parallel execution.","parameters":{"type":"object","properties":{"agent":{"type":"string","description":"Subagent to invoke (general, explore)"},"task":{"type":"string","description":"Task description for the subagent"}},"required":["agent","task"]}}},
+        {"type":"function","function":{"name":"plan_approve","description":"Approve the pending plan to proceed with execution.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"plan_reject","description":"Reject the pending plan.","parameters":{"type":"object","properties":{"reason":{"type":"string","description":"Reason for rejection"}},"required":["reason"]}}},
+        {"type":"function","function":{"name":"submit_task","description":"Submit async task to queue.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Task name"},"command":{"type":"string","description":"Command to run"}},"required":["name","command"]}}},
+        {"type":"function","function":{"name":"list_tasks","description":"List all tasks.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"get_task","description":"Get task status.","parameters":{"type":"object","properties":{"task_id":{"type":"string","description":"Task ID"}},"required":["task_id"]}}}
+    ]).as_array().cloned().unwrap_or_default());
+    let mut arr = base;
     for t in crate::mcp_client::global_tools() {
         arr.push(t);
     }
@@ -179,6 +216,143 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                     format!("Wrote {} ({})", full.display(), fmt)
                 }
                 Err(e) => format!("ERROR: {e}"),
+            }
+        }
+        "edit_file" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let old_string = args
+                .get("old_string")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let new_string = args
+                .get("new_string")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let full = resolve(path, cwd);
+            if !full.exists() {
+                format!("ERROR: File not found: {}", full.display())
+            } else {
+                match fs::read_to_string(&full) {
+                    Ok(content) => {
+                        if !content.contains(old_string) {
+                            "ERROR: String not found in file. Use read_file to see content."
+                                .to_string()
+                        } else {
+                            let new_content = content.replacen(old_string, new_string, 1);
+                            match fs::write(&full, new_content) {
+                                Ok(_) => format!("SUCCESS: Edited {}", full.display()),
+                                Err(e) => format!("ERROR: Cannot edit file: {e}"),
+                            }
+                        }
+                    }
+                    Err(e) => format!("ERROR: Cannot edit file: {e}"),
+                }
+            }
+        }
+        "apply_patch" => {
+            let patch = args.get("patch").and_then(|v| v.as_str()).unwrap_or("");
+            let dry_run = args
+                .get("dry_run")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            match crate::patch::apply_patch(patch, cwd, dry_run) {
+                Ok(result) => {
+                    let count = result.files.len();
+                    let header = if result.dry_run { "PREVIEW" } else { "SUCCESS" };
+                    let action = if result.dry_run {
+                        "Patch would apply"
+                    } else {
+                        "Patch applied"
+                    };
+                    let mut lines = vec![format!(
+                        "{header}: {action} ({count} files, +{}/-{})",
+                        result.additions, result.deletions
+                    )];
+                    for w in &result.warnings {
+                        lines.push(format!("warning: {w}"));
+                    }
+                    lines.join("\n")
+                }
+                Err(e) => {
+                    let mut detail = format!("{}: {}", e.reason, e.message);
+                    if let Some(p) = &e.path {
+                        if !e.message.contains(p.as_str()) {
+                            detail.push_str(&format!(" ({p})"));
+                        }
+                    }
+                    format!("ERROR: {detail}")
+                }
+            }
+        }
+        "get_repo_map" => crate::context::get_repo_map(cwd),
+        "get_file_tree" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
+            let full = resolve(path, cwd);
+            // Python's `_resolve` canonicalizes; keep the name lookup in parity.
+            let full = full.canonicalize().unwrap_or(full);
+            let max_depth = args
+                .get("max_depth")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(3)
+                .max(0) as usize;
+            match crate::context::file_tree(&full, max_depth) {
+                Ok(t) => t,
+                Err(e) => e,
+            }
+        }
+        "web_search" => {
+            let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+            crate::web::web_search(query)
+        }
+        "fetch_url" => {
+            let url = args.get("url").and_then(|v| v.as_str()).unwrap_or("");
+            crate::web::fetch_url(url)
+        }
+        "task" => {
+            let agent = args.get("agent").and_then(|v| v.as_str()).unwrap_or("");
+            let task = args.get("task").and_then(|v| v.as_str()).unwrap_or("");
+            if BUILTIN_AGENTS.contains(&agent) {
+                format!("[Delegated to @{agent}]: {task}")
+            } else {
+                format!("ERROR: Unknown agent: {agent}")
+            }
+        }
+        "plan_approve" => {
+            // Python reads `self._plan_approval`, which nothing ever sets on
+            // the executor, so this always errors; the stateless Rust
+            // dispatch reproduces the same result.
+            "ERROR: No pending plan to approve".to_string()
+        }
+        "plan_reject" => "ERROR: No pending plan to reject".to_string(),
+        "submit_task" => {
+            let name = args.get("name").and_then(|v| v.as_str()).unwrap_or("");
+            let command = args.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            let id = crate::task_queue::submit(name, command, cwd);
+            format!("Task submitted: {id} ({name})")
+        }
+        "list_tasks" => {
+            let tasks = crate::task_queue::list();
+            if tasks.is_empty() {
+                "No tasks".to_string()
+            } else {
+                let mut lines = vec!["Tasks:".to_string(), "=".repeat(40)];
+                for (id, name, status, _) in tasks {
+                    lines.push(format!("  {id} - {name} [{status}]"));
+                }
+                lines.join("\n")
+            }
+        }
+        "get_task" => {
+            let task_id = args.get("task_id").and_then(|v| v.as_str()).unwrap_or("");
+            match crate::task_queue::get(task_id) {
+                Some(t) => format!(
+                    "Task: {}\nStatus: {}\nResult: {}\nError: {}",
+                    t.name,
+                    t.status,
+                    t.result.as_deref().unwrap_or("None"),
+                    t.error.as_deref().unwrap_or("None")
+                ),
+                None => format!("ERROR: Task {task_id} not found"),
             }
         }
         "undo_last_edit" => undo_last_edit(),
@@ -1137,5 +1311,290 @@ mod tests {
             client.contains("def get_things(self, **kwargs):"),
             "got {client}"
         );
+    }
+
+    #[test]
+    fn edit_file_replaces_first_occurrence() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().join("doc.txt");
+        fs::write(&p, "alpha beta alpha\n").unwrap();
+        let out = execute_tool(
+            "edit_file",
+            &serde_json::json!({"path": "doc.txt", "old_string": "alpha", "new_string": "ALPHA"}),
+            dir.path(),
+        );
+        assert!(out.starts_with("SUCCESS: Edited"), "got {out}");
+        assert_eq!(fs::read_to_string(p).unwrap(), "ALPHA beta alpha\n");
+    }
+
+    #[test]
+    fn edit_file_error_paths() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("doc.txt"), "hello\n").unwrap();
+        assert_eq!(
+            execute_tool(
+                "edit_file",
+                &serde_json::json!({"path": "missing.txt", "old_string": "a", "new_string": "b"}),
+                dir.path()
+            ),
+            format!(
+                "ERROR: File not found: {}",
+                dir.path().join("missing.txt").display()
+            )
+        );
+        assert_eq!(
+            execute_tool(
+                "edit_file",
+                &serde_json::json!({"path": "doc.txt", "old_string": "nope", "new_string": "b"}),
+                dir.path()
+            ),
+            "ERROR: String not found in file. Use read_file to see content."
+        );
+    }
+
+    #[test]
+    fn apply_patch_tool_applies_and_previews() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("a.txt"), "one\ntwo\n").unwrap();
+        let patch = "--- a/a.txt\n+++ b/a.txt\n@@ -1,2 +1,2 @@\n one\n-two\n+TWO\n";
+
+        let preview = execute_tool(
+            "apply_patch",
+            &serde_json::json!({"patch": patch, "dry_run": true}),
+            dir.path(),
+        );
+        assert!(
+            preview.starts_with("PREVIEW: Patch would apply (1 files, +1/-1)"),
+            "got {preview}"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+            "one\ntwo\n"
+        );
+
+        let applied = execute_tool(
+            "apply_patch",
+            &serde_json::json!({"patch": patch}),
+            dir.path(),
+        );
+        assert!(
+            applied.starts_with("SUCCESS: Patch applied (1 files, +1/-1)"),
+            "got {applied}"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.path().join("a.txt")).unwrap(),
+            "one\nTWO\n"
+        );
+    }
+
+    #[test]
+    fn apply_patch_tool_reports_engine_errors() {
+        let dir = tempdir().unwrap();
+        let out = execute_tool(
+            "apply_patch",
+            &serde_json::json!({"patch": "*** Begin Patch\n*** Add File: ../evil.txt\n+x\n*** End Patch\n"}),
+            dir.path(),
+        );
+        assert!(
+            out.starts_with("ERROR: path_traversal: '..' is not allowed"),
+            "got {out}"
+        );
+        assert!(out.contains("evil.txt"), "got {out}");
+    }
+
+    #[test]
+    fn get_file_tree_tool_ascii_and_limits() {
+        let dir = tempdir().unwrap();
+        fs::create_dir_all(dir.path().join("src").join("sub")).unwrap();
+        fs::write(
+            dir.path().join("src").join("sub").join("b.rs"),
+            "fn main() {}\n",
+        )
+        .unwrap();
+        fs::write(dir.path().join("top.txt"), "top\n").unwrap();
+        fs::write(dir.path().join(".hidden"), "secret\n").unwrap();
+
+        let out = execute_tool(
+            "get_file_tree",
+            &serde_json::json!({"path": dir.path().to_str().unwrap()}),
+            dir.path(),
+        );
+        assert!(out.contains("├── src"), "got {out}");
+        assert!(out.contains("│   └── sub"), "got {out}");
+        assert!(out.contains("│       └── b.rs"), "got {out}");
+        assert!(out.contains("└── top.txt"), "got {out}");
+        assert!(!out.contains(".hidden"), "got {out}");
+
+        let shallow = execute_tool(
+            "get_file_tree",
+            &serde_json::json!({"path": dir.path().to_str().unwrap(), "max_depth": 1}),
+            dir.path(),
+        );
+        assert!(shallow.contains("│   └── sub"), "got {shallow}");
+        assert!(!shallow.contains("b.rs"), "got {shallow}");
+
+        assert!(execute_tool(
+            "get_file_tree",
+            &serde_json::json!({"path": "does-not-exist"}),
+            dir.path()
+        )
+        .starts_with("ERROR: Path not found:"));
+    }
+
+    #[test]
+    fn get_repo_map_tool_lists_structure() {
+        let dir = tempdir().unwrap();
+        fs::create_dir(dir.path().join("pkg")).unwrap();
+        fs::write(dir.path().join("main.py"), "print('hi')\n").unwrap();
+
+        let out = execute_tool("get_repo_map", &serde_json::json!({}), dir.path());
+        assert!(out.starts_with("Repository:"), "got {out}");
+        assert!(out.contains("[DIRECTORIES]"), "got {out}");
+        assert!(out.contains("📁 pkg/"), "got {out}");
+        assert!(out.contains("[SOURCE FILES]"), "got {out}");
+        assert!(out.contains("• main.py"), "got {out}");
+    }
+
+    /// Serializes the test that touches the process-wide task queue.
+    static QUEUE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Poll a queued task until it reaches the wanted status (2 s budget).
+    fn wait_task_status(task_id: &str, want: &str) -> bool {
+        for _ in 0..100 {
+            if let Some(t) = crate::task_queue::get(task_id) {
+                if t.status == want {
+                    return true;
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        false
+    }
+
+    #[test]
+    fn task_tool_delegates_or_rejects_unknown_agent() {
+        let dir = tempdir().unwrap();
+        assert_eq!(
+            execute_tool(
+                "task",
+                &serde_json::json!({"agent": "general", "task": "explore the repo"}),
+                dir.path()
+            ),
+            "[Delegated to @general]: explore the repo"
+        );
+        assert_eq!(
+            execute_tool(
+                "task",
+                &serde_json::json!({"agent": "nobody", "task": "x"}),
+                dir.path()
+            ),
+            "ERROR: Unknown agent: nobody"
+        );
+    }
+
+    #[test]
+    fn plan_tools_report_no_pending_plan() {
+        // Python reads `self._plan_approval`, which nothing ever sets on the
+        // executor, so both tools always error - the stateless Rust dispatch
+        // reproduces the same result.
+        let dir = tempdir().unwrap();
+        assert_eq!(
+            execute_tool("plan_approve", &serde_json::json!({}), dir.path()),
+            "ERROR: No pending plan to approve"
+        );
+        assert_eq!(
+            execute_tool(
+                "plan_reject",
+                &serde_json::json!({"reason": "too risky"}),
+                dir.path()
+            ),
+            "ERROR: No pending plan to reject"
+        );
+    }
+
+    #[test]
+    fn task_queue_submit_list_and_get() {
+        let _guard = QUEUE_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        crate::task_queue::test_reset();
+        let dir = tempdir().unwrap();
+
+        assert_eq!(
+            execute_tool("list_tasks", &serde_json::json!({}), dir.path()),
+            "No tasks"
+        );
+        assert_eq!(
+            execute_tool(
+                "get_task",
+                &serde_json::json!({"task_id": "nope"}),
+                dir.path()
+            ),
+            "ERROR: Task nope not found"
+        );
+
+        // `echo hi` runs under both `sh -c` and `cmd /C`.
+        let out = execute_tool(
+            "submit_task",
+            &serde_json::json!({"name": "hello", "command": "echo hi"}),
+            dir.path(),
+        );
+        assert!(out.starts_with("Task submitted: "), "got {out}");
+        assert!(out.ends_with(" (hello)"), "got {out}");
+        let task_id = out
+            .trim_start_matches("Task submitted: ")
+            .split(' ')
+            .next()
+            .unwrap_or("")
+            .to_string();
+        assert_eq!(task_id.len(), 8);
+        assert!(
+            wait_task_status(&task_id, "completed"),
+            "task did not complete"
+        );
+        let status = execute_tool(
+            "get_task",
+            &serde_json::json!({"task_id": task_id}),
+            dir.path(),
+        );
+        assert!(status.contains("Task: hello"), "got {status}");
+        assert!(status.contains("Status: completed"), "got {status}");
+        assert!(status.contains("Result: hi"), "got {status}");
+        assert!(status.ends_with("Error: None"), "got {status}");
+
+        // A task whose cwd does not exist fails with a spawn error.
+        let bad = execute_tool(
+            "submit_task",
+            &serde_json::json!({"name": "broken", "command": "echo hi"}),
+            &dir.path().join("does-not-exist"),
+        );
+        let bad_id = bad
+            .trim_start_matches("Task submitted: ")
+            .split(' ')
+            .next()
+            .unwrap_or("")
+            .to_string();
+        assert!(wait_task_status(&bad_id, "failed"), "task did not fail");
+        let bad_status = execute_tool(
+            "get_task",
+            &serde_json::json!({"task_id": bad_id}),
+            dir.path(),
+        );
+        assert!(bad_status.contains("Task: broken"), "got {bad_status}");
+        assert!(bad_status.contains("Status: failed"), "got {bad_status}");
+        assert!(
+            bad_status
+                .lines()
+                .any(|l| l.starts_with("Error: ") && l != "Error: None"),
+            "got {bad_status}"
+        );
+
+        // list_tasks: header, insertion order.
+        let listing = execute_tool("list_tasks", &serde_json::json!({}), dir.path());
+        assert!(
+            listing.starts_with(&format!("Tasks:\n{}", "=".repeat(40))),
+            "got {listing}"
+        );
+        let hello_pos = listing.find(" - hello [completed]").unwrap_or(usize::MAX);
+        let broken_pos = listing.find(" - broken [failed]").unwrap_or(usize::MAX);
+        assert!(hello_pos < broken_pos, "got {listing}");
     }
 }

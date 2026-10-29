@@ -5,6 +5,7 @@ on:
     branches: [main, dev]
   pull_request:
     branches: [main]
+  merge_group:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -98,7 +99,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
