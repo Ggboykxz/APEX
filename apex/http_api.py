@@ -766,13 +766,15 @@ class HTTPServer:
         try:
             sessions_dir = Path.home() / ".apex" / "sessions"
             found = False
-            for fpath in sessions_dir.glob(f"*{session_id}*"):
+            # Sorted globs make duplicate deletion deterministic: filesystem
+            # enumeration order differs across platforms and filesystems.
+            for fpath in sorted(sessions_dir.glob(f"*{session_id}*")):
                 if fpath.is_file() and not fpath.is_symlink():
                     fpath.unlink()
                     found = True
                     break
             if not found:
-                for fpath in sessions_dir.glob("*.json"):
+                for fpath in sorted(sessions_dir.glob("*.json")):
                     if fpath.is_symlink():
                         continue
                     try:
