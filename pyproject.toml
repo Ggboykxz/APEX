@@ -8,7 +8,7 @@ version = "2.0.0"
 description = "Universal AI coding agent — every model, one terminal"
 readme = "README.md"
 license-files = ["LICENSE"]
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 authors = [
     {name = "Ggboykxz", email = "ggboykxz@gmail.com"}
 ]
@@ -34,7 +34,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "litellm>=1.40.0,<2.0.0",
+    "litellm>=1.103.10,<2.0.0",
     "rich>=13.7.0,<16.0.0",
     "prompt-toolkit>=3.0.43,<4.0.0",
     "python-dotenv>=1.0.0,<2.0.0",

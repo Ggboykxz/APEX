@@ -367,7 +367,6 @@ description = "The AWS SDK for Python (Boto3)"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "boto3-1.43.121-py3-none-any.whl", hash = "sha256:fc41ea80507416c30a3f7bdea3682124551ec0c36405c0d8149efaf65d9628e7"},
     {file = "boto3-1.43.121.tar.gz", hash = "sha256:0599bdde7d0c03d914d9247b0a328ea48c15b0b3b5fb31a153857fa5bc7a4fd3"},
@@ -388,7 +387,6 @@ description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "botocore-1.43.121-py3-none-any.whl", hash = "sha256:39bfd17e69f3370350e6aac2072df64045d002f9878e09115e85b87c772bd473"},
     {file = "botocore-1.43.121.tar.gz", hash = "sha256:69eb571c74ff140cc3a716aed3bc25d09eb7b12de4ea2f990c03785a634f9dcf"},
@@ -947,7 +945,6 @@ description = "Distro - an OS platform information API"
 optional = false
 python-versions = ">=3.6"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "distro-1.9.0-py3-none-any.whl", hash = "sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2"},
     {file = "distro-1.9.0.tar.gz", hash = "sha256:2fa77c6fd8940f116ee1d6b94a2f90b13b5ea8d019b98bc8bafdcabcdd9bdbed"},
@@ -1306,7 +1303,6 @@ description = "Pure-Python HTTP/2 protocol implementation"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "h2-4.4.1-py3-none-any.whl", hash = "sha256:0e25f1462b23c9cb82d9eb02e28bc706dac2a68cb457c6a0d74d63c8a2a5d0e6"},
     {file = "h2-4.4.1.tar.gz", hash = "sha256:4e866ffb1a869ae14dd9b5e6beb5c24a13da0495ad72b65925ded182521c1516"},
@@ -1354,7 +1350,6 @@ description = "Pure-Python HPACK header encoding"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "hpack-4.2.0-py3-none-any.whl", hash = "sha256:858ac0b02280fa582b5080d68db0899c62a80375e0e5413a74970c5e518b6986"},
     {file = "hpack-4.2.0.tar.gz", hash = "sha256:0895cfa3b5531fc65fe439c05eb65144f123bf7a394fcaa56aa423548d8e45c0"},
@@ -1515,7 +1510,6 @@ description = "Pure-Python HTTP/2 framing"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "hyperframe-6.1.0-py3-none-any.whl", hash = "sha256:b03380493a519fce58ea5af42e4a42317bf9bd425596f7a0835ffce80f1a42e5"},
     {file = "hyperframe-6.1.0.tar.gz", hash = "sha256:f630908a00854a7adeabd6382b43923a4c4cd4b821fcb527e6ab9e15382a3b08"},
@@ -1543,7 +1537,6 @@ description = "Read metadata from Python packages"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "importlib_metadata-8.9.0-py3-none-any.whl", hash = "sha256:e0f761b6ea91ced3b0844c14c9d955224d538105921f8e6754c00f6ca79fba7f"},
     {file = "importlib_metadata-8.9.0.tar.gz", hash = "sha256:58850626cef4bd2df100378b0f2aea9724a7b92f10770d547725b047078f99ee"},
@@ -1559,31 +1552,6 @@ doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linke
 enabler = ["pytest-enabler (>=3.4)"]
 perf = ["ipython"]
 test = ["packaging", "pyfakefs", "pytest (>=6,!=8.1.*)", "pytest-perf (>=0.9.2)"]
-type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
-
-[[package]]
-name = "importlib-metadata"
-version = "10.1.0"
-description = "Read metadata from Python packages"
-optional = false
-python-versions = ">=3.11"
-groups = ["main"]
-markers = "python_version >= \"3.15\""
-files = [
-    {file = "importlib_metadata-10.1.0-py3-none-any.whl", hash = "sha256:cf45ce66a929c64e994185a809c04840d0501db17e663810d993d0f4829265c7"},
-    {file = "importlib_metadata-10.1.0.tar.gz", hash = "sha256:82b04047fa09792c1a8cfeddfe08bec79e4b13c29c8469b0d3949860f61017e8"},
-]
-
-[package.dependencies]
-zipp = ">=3.20"
-
-[package.extras]
-check = ["pytest-checkdocs (>=2.14)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\""]
-cover = ["pytest-cov"]
-doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
-enabler = ["pytest-enabler (>=3.4)"]
-perf = ["ipython"]
-test = ["packaging", "pyfakefs", "pytest (>=6,!=8.1.*)", "pytest-perf (>=0.17)"]
 type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 
 [[package]]
@@ -1753,7 +1721,6 @@ description = "JSON Matching Expressions"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64"},
     {file = "jmespath-1.1.0.tar.gz", hash = "sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d"},
@@ -1946,47 +1913,11 @@ files = [
 
 [[package]]
 name = "litellm"
-version = "1.80.0"
-description = "Library to easily interface with LLM API providers"
-optional = false
-python-versions = "!=2.7.*,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,!=3.7.*,>=3.8"
-groups = ["main"]
-markers = "python_version >= \"3.15\""
-files = [
-    {file = "litellm-1.80.0-py3-none-any.whl", hash = "sha256:fd0009758f4772257048d74bf79bb64318859adb4ea49a8b66fdbc718cd80b6e"},
-    {file = "litellm-1.80.0.tar.gz", hash = "sha256:eeac733eb6b226f9e5fb020f72fe13a32b3354b001dc62bcf1bc4d9b526d6231"},
-]
-
-[package.dependencies]
-aiohttp = ">=3.10"
-click = "*"
-fastuuid = ">=0.13.0"
-httpx = ">=0.23.0"
-importlib-metadata = ">=6.8.0"
-jinja2 = ">=3.1.2,<4.0.0"
-jsonschema = ">=4.22.0,<5.0.0"
-openai = ">=1.99.5"
-pydantic = ">=2.5.0,<3.0.0"
-python-dotenv = ">=0.2.0"
-tiktoken = ">=0.7.0"
-tokenizers = "*"
-
-[package.extras]
-caching = ["diskcache (>=5.6.1,<6.0.0)"]
-extra-proxy = ["azure-identity (>=1.15.0,<2.0.0)", "azure-keyvault-secrets (>=4.8.0,<5.0.0)", "google-cloud-iam (>=2.19.1,<3.0.0)", "google-cloud-kms (>=2.21.3,<3.0.0)", "prisma (==0.11.0)", "redisvl (>=0.4.1,<0.5.0) ; python_version >= \"3.9\" and python_version < \"3.14\"", "resend (>=0.8.0,<0.9.0)"]
-mlflow = ["mlflow (>3.1.4) ; python_version >= \"3.10\""]
-proxy = ["PyJWT (>=2.8.0,<3.0.0)", "apscheduler (>=3.10.4,<4.0.0)", "azure-identity (>=1.15.0,<2.0.0)", "azure-storage-blob (>=12.25.1,<13.0.0)", "backoff", "boto3 (==1.36.0)", "cryptography", "fastapi (>=0.120.1)", "fastapi-sso (>=0.16.0,<0.17.0)", "gunicorn (>=23.0.0,<24.0.0)", "litellm-enterprise (==0.1.21)", "litellm-proxy-extras (==0.4.5)", "mcp (>=1.10.0,<2.0.0) ; python_version >= \"3.10\"", "orjson (>=3.9.7,<4.0.0)", "polars (>=1.31.0,<2.0.0) ; python_version >= \"3.10\"", "pynacl (>=1.5.0,<2.0.0)", "python-multipart (>=0.0.18,<0.0.19)", "pyyaml (>=6.0.1,<7.0.0)", "rich (==13.7.1)", "rq", "soundfile (>=0.12.1,<0.13.0)", "uvicorn (>=0.29.0,<0.30.0)", "uvloop (>=0.21.0,<0.22.0) ; sys_platform != \"win32\"", "websockets (>=13.1.0,<14.0.0)"]
-semantic-router = ["semantic-router ; python_version >= \"3.9\""]
-utils = ["numpydoc"]
-
-[[package]]
-name = "litellm"
 version = "1.103.10"
 description = "Library to easily interface with LLM API providers"
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "litellm-1.103.10-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:0085bb61fdb321ce17014eac697d8d7513f36e6681d490af845e8d8b9af8e613"},
     {file = "litellm-1.103.10-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:7451792391b9e268e812b17a4a5cc0d34dba9bac8d51615798ebcc58f10e1b09"},
@@ -2608,10 +2539,7 @@ ast-serialize = ">=0.12.1,<1.0.0"
 librt = {version = ">=0.16.0", markers = "platform_python_implementation != \"PyPy\""}
 mypy_extensions = ">=1.0.0"
 pathspec = ">=1.0.0"
-typing_extensions = [
-    {version = ">=4.6.0", markers = "python_version < \"3.15\""},
-    {version = ">=4.14.0", markers = "python_version >= \"3.15\""},
-]
+typing_extensions = {version = ">=4.6.0", markers = "python_version < \"3.15\""}
 
 [package.extras]
 dmypy = ["psutil (>=4.0)"]
@@ -2640,7 +2568,6 @@ description = "The official Python library for the openai API"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "openai-2.54.0-py3-none-any.whl", hash = "sha256:89089789197ccdb87f173a03145ed1598d00795220c93e96cf712b1cbf5e5f2b"},
     {file = "openai-2.54.0.tar.gz", hash = "sha256:e3e6f8bc1ba30ddf381ace1a14340eed381cb984a1a59bd0f34b5be3b5d49cfa"},
@@ -2662,35 +2589,6 @@ bedrock = ["botocore (>=1.40.0,<2)"]
 datalib = ["numpy (>=1)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
 httpx2 = ["anyio (>=4.10.0,<5)", "httpx (>=0.25.1,<1)", "httpx2 (>=2.7.0,<3)"]
 realtime = ["websockets (>=13,<16)"]
-voice-helpers = ["numpy (>=2.0.2)", "sounddevice (>=0.5.1)"]
-
-[[package]]
-name = "openai"
-version = "3.41.0"
-description = "The official Python library for the openai API"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-markers = "python_version >= \"3.15\""
-files = [
-    {file = "openai-3.41.0-py3-none-any.whl", hash = "sha256:7060a74b239609b21f2919eb98807a8aad463b4f510b8b3b388b15559360b0a8"},
-    {file = "openai-3.41.0.tar.gz", hash = "sha256:d065fc59d3d7d8537a77b3ceb527732952c6ff610158e8a2a95b246be637e86f"},
-]
-
-[package.dependencies]
-anyio = ">=4.10.0,<5"
-httpx2 = ">=2.12.0,<3"
-jiter = ">=0.16.0,<1"
-pydantic = ">=1.10.13,<2.0.dev0 || >=2.4.dev0,<3"
-sniffio = "*"
-typing-extensions = ">=4.14,<5"
-
-[package.extras]
-aiohttp = ["aiohttp (>=3.14.3)"]
-bedrock = ["botocore (>=1.40.0,<2)", "urllib3 (>=2.7.0,<3)"]
-datalib = ["numpy (>=1)", "pandas (>=1.2.3)"]
-realtime = ["websockets (>=13,<16)"]
-vertex = ["google-auth[requests] (>=2.36,<3)"]
 voice-helpers = ["numpy (>=2.0.2)", "sounddevice (>=0.5.1)"]
 
 [[package]]
@@ -3121,7 +3019,6 @@ description = "Settings management using Pydantic"
 optional = false
 python-versions = ">=3.11"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "pydantic_settings-2.16.2-py3-none-any.whl", hash = "sha256:8d523e5c129b097686bde019bd6109bff53f4c8c3f63f1ddf9933ffa42e5ab4f"},
     {file = "pydantic_settings-2.16.2.tar.gz", hash = "sha256:3dc08ffabed2bbd5dc2dd55ead7b78b4e4c5cd776aecd04310db5f1224caaf46"},
@@ -3275,7 +3172,6 @@ description = "Extensions to the standard Python datetime module"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "python-dateutil-2.9.0.post0.tar.gz", hash = "sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3"},
     {file = "python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hash = "sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"},
@@ -3283,23 +3179,6 @@ files = [
 
 [package.dependencies]
 six = ">=1.5"
-
-[[package]]
-name = "python-dateutil"
-version = "3.0.0"
-description = "Extensions to the standard Python datetime module"
-optional = true
-python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
-groups = ["main"]
-markers = "python_version >= \"3.15\" and extra == \"dev\""
-files = [
-    {file = "python_dateutil-3.0.0-py2.py3-none-any.whl", hash = "sha256:3c79630202e4152c6add678446984236efe4f57e84d8e892aab0637bab82e9fd"},
-    {file = "python_dateutil-3.0.0.tar.gz", hash = "sha256:7ebcb3c29a92f3ceafe79a7a48a5c45677e9e004bbeec5742ac0bbb00560b7a2"},
-]
-
-[package.dependencies]
-six = ">=1.6"
-tzdata = "*"
 
 [[package]]
 name = "python-dotenv"
@@ -3787,7 +3666,6 @@ description = "An Amazon S3 Transfer Manager"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "s3transfer-0.19.3-py3-none-any.whl", hash = "sha256:24eb7535804306355e31c952a90022bf5b2f9d760f9a11062c7493a217c08553"},
     {file = "s3transfer-0.19.3.tar.gz", hash = "sha256:8326acc3d056d7f7b8a37110c7d2aea41f67e83f6ae79cd3b5fbcca34c726406"},
@@ -3806,7 +3684,6 @@ description = "Python 2 and 3 compatibility utilities"
 optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 groups = ["main"]
-markers = "extra == \"dev\" or python_version < \"3.15\""
 files = [
     {file = "six-1.17.0-py2.py3-none-any.whl", hash = "sha256:4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"},
     {file = "six-1.17.0.tar.gz", hash = "sha256:ff70335d468e7eb6ec65b95b99d3a2836546063f63acc5171de367e834932a81"},
@@ -4028,7 +3905,7 @@ description = "Provider of IANA time zone data"
 optional = true
 python-versions = ">=2"
 groups = ["main"]
-markers = "extra == \"dev\" and (sys_platform == \"win32\" or python_version >= \"3.15\")"
+markers = "extra == \"dev\" and sys_platform == \"win32\""
 files = [
     {file = "tzdata-2026.6-py2.py3-none-any.whl", hash = "sha256:0a10eec6e13ef16b627fabed9a5f2ba61a62b1c67f327305f4e7e412a70b4aec"},
     {file = "tzdata-2026.6.tar.gz", hash = "sha256:85d2cd9c09f81f0bb29db27759fc83af4f1e620efb814f8c5bf8b4cc4feece6d"},
@@ -4313,5 +4190,5 @@ dev = ["mkdocs-git-revision-date-localized-plugin", "mkdocs-material", "mypy", "
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.11"
-content-hash = "1700fd21d0e8b4865946a17511ce7c9e682b64a827b977aa2c62006cb2c86fac"
+python-versions = ">=3.11,<3.15"
+content-hash = "40fc3476ee97f3f2e9400b5d6d0e1e1b2fe2ecf2b25199c0c7892395bba1804c"
