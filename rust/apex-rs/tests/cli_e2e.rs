@@ -44,6 +44,32 @@ impl Sandbox {
             "APEX_MEMORY_FILE",
             "APEX_PLUGINS_DIR",
             "APEX_GITHUB_API",
+            "APEX_REQUIRE_AUTH",
+            "APEX_API_KEYS_FILE",
+            "APEX_RATE_LIMIT_PER_MINUTE",
+            "APEX_RATE_LIMIT_PER_HOUR",
+            "APEX_RATE_LIMIT_PER_DAY",
+            "APEX_RATE_LIMIT_BURST",
+            // Provider keys: `/api/v1/auth/status` must be deterministic.
+            "ANTHROPIC_API_KEY",
+            "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "XAI_API_KEY",
+            "DEEPSEEK_API_KEY",
+            "MISTRAL_API_KEY",
+            "DASHSCOPE_API_KEY",
+            "LLAMA_API_KEY",
+            "GROQ_API_KEY",
+            "OPENROUTER_API_KEY",
+            "CEREBRAS_API_KEY",
+            "FIREWORKS_API_KEY",
+            "TOGETHER_API_KEY",
+            "HF_TOKEN",
+            "PERPLEXITY_API_KEY",
+            "NVIDIA_API_KEY",
+            "CLOUDFLARE_API_KEY",
+            "COHERE_API_KEY",
+            "GITHUB_TOKEN",
         ] {
             cmd.env_remove(key);
         }
@@ -57,11 +83,14 @@ impl Sandbox {
             .expect("run apex-rs")
     }
 
-    /// Spawn a long-running server child (stdout/stderr discarded).
-    fn spawn_serve(&self, args: &[&str]) -> std::process::Child {
-        self.base_command()
-            .args(args)
-            .stdout(std::process::Stdio::null())
+    /// Spawn a server with extra environment overrides.
+    fn spawn_serve_with(&self, args: &[&str], envs: &[(&str, &str)]) -> std::process::Child {
+        let mut cmd = self.base_command();
+        cmd.args(args);
+        for (key, value) in envs {
+            cmd.env(key, value);
+        }
+        cmd.stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
             .expect("spawn apex-rs serve")
@@ -95,6 +124,82 @@ fn assert_success(out: &Output, context: &str) {
     );
 }
 
+/// Run git in the sandbox with a fixed identity (workspace E2E only).
+fn git(dir: &Path, args: &[&str]) {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_AUTHOR_NAME", "Test")
+        .env("GIT_AUTHOR_EMAIL", "test@example.com")
+        .env("GIT_COMMITTER_NAME", "Test")
+        .env("GIT_COMMITTER_EMAIL", "test@example.com")
+        .output()
+        .expect("git must be installed for the workspace E2E test");
+    assert!(
+        out.status.success(),
+        "git {:?} failed: {}",
+        args,
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+/// Kills and reaps a spawned `serve` child on drop, so a panicking test cannot
+/// leak a server that keeps the test binary locked on Windows.
+struct ServerGuard(std::process::Child);
+
+impl ServerGuard {
+    fn spawn(sandbox: &Sandbox, args: &[&str]) -> Self {
+        Self::spawn_with(sandbox, args, &[])
+    }
+
+    fn spawn_with(sandbox: &Sandbox, args: &[&str], envs: &[(&str, &str)]) -> Self {
+        Self(sandbox.spawn_serve_with(args, envs))
+    }
+}
+
+impl Drop for ServerGuard {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
+}
+
+fn free_port() -> u16 {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind an ephemeral port");
+    listener.local_addr().unwrap().port()
+}
+
+/// Poll `/health` until the server answers (600 × 100 ms). The generous
+/// window keeps the suite stable when all E2E tests compile and spawn
+/// servers in parallel on a loaded CI runner.
+async fn wait_for_health(client: &reqwest::Client, base: &str) -> bool {
+    for _ in 0..600 {
+        match client.get(format!("{base}/health")).send().await {
+            Ok(response) if response.status().is_success() => return true,
+            _ => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
+        }
+    }
+    false
+}
+
+/// `apex-rs key create NAME` → (key id, plaintext key).
+fn create_key(sandbox: &Sandbox, name: &str) -> (String, String) {
+    let out = sandbox.run(&["key", "create", name]);
+    assert_success(&out, "key create");
+    let text = stdout(&out);
+    let mut lines = text.lines();
+    let header = lines.next().unwrap_or_default();
+    let key_id = header
+        .strip_prefix("Created key ")
+        .and_then(|rest| rest.split(':').next())
+        .unwrap_or_default()
+        .to_string();
+    let key = lines.next().unwrap_or_default().trim().to_string();
+    assert!(!key_id.is_empty(), "missing key id in:\n{text}");
+    assert!(key.starts_with("apex_"), "missing key in:\n{text}");
+    (key_id, key)
+}
+
 fn session_files(home: &Path) -> Vec<PathBuf> {
     let dir = home.join(".apex").join("sessions");
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -125,6 +230,11 @@ fn help_lists_subcommands() {
         "session",
         "security",
         "context",
+        "workspace",
+        "rollback",
+        "github",
+        "skill",
+        "key",
     ] {
         assert!(
             text.contains(subcommand),
@@ -248,6 +358,68 @@ fn session_lifecycle_is_hermetic() {
         value["cwd"].as_str().unwrap(),
         sb.cwd.to_string_lossy().as_ref()
     );
+}
+
+#[test]
+fn loads_python_written_fernet_session_fixture() {
+    let sb = Sandbox::new();
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("fixtures")
+        .join("session");
+    let sessions = sb.home.join(".apex").join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    let key_path = sb.home.join(".apex").join(".session_key");
+
+    // Native Fernet key file, as Python writes it.
+    let fernet_key = std::fs::read(fixtures.join("fernet.key")).unwrap();
+    std::fs::write(&key_path, &fernet_key).unwrap();
+    std::fs::copy(
+        fixtures.join("python_session.enc"),
+        sessions.join("20260102_030405_python-fixture.enc"),
+    )
+    .unwrap();
+
+    let show = sb.run(&["session", "show", "python-fixture"]);
+    assert_success(&show, "session show (python fixture)");
+    let value: serde_json::Value =
+        serde_json::from_slice(&show.stdout).expect("`session show` must print JSON");
+    assert_eq!(value["name"], "python-fixture");
+    assert_eq!(value["timestamp"], "2026-01-02T03:04:05.123456");
+    assert_eq!(value["model"], "anthropic/claude-sonnet-4-5");
+    assert_eq!(value["cwd"], "/home/python/project");
+    assert_eq!(value["history"].as_array().map(Vec::len), Some(2));
+    assert_eq!(value["history"][1]["role"], "assistant");
+    assert_eq!(value["usage"]["total_tokens"], 59);
+
+    let list = sb.run(&["session", "list"]);
+    assert_success(&list, "session list (python fixture)");
+    assert!(
+        stdout(&list).contains(
+            "python-fixture\t2026-01-02T03:04:05.123456\tanthropic/claude-sonnet-4-5\t2 msgs"
+        ),
+        "got: {}",
+        stdout(&list)
+    );
+
+    // Legacy 32-byte raw key: Python and Rust both derive the Fernet key as
+    // urlsafe_b64encode(sha256(raw + b":fernet")), so that file loads too.
+    let legacy_key = std::fs::read(fixtures.join("legacy.key")).unwrap();
+    assert_eq!(legacy_key.len(), 32);
+    std::fs::write(&key_path, &legacy_key).unwrap();
+    std::fs::copy(
+        fixtures.join("python_session_legacy.enc"),
+        sessions.join("20260102_030406_python-legacy.enc"),
+    )
+    .unwrap();
+
+    let show = sb.run(&["session", "show", "python-legacy"]);
+    assert_success(&show, "session show (legacy python fixture)");
+    let value: serde_json::Value =
+        serde_json::from_slice(&show.stdout).expect("`session show` must print JSON");
+    assert_eq!(value["name"], "python-legacy");
+    assert_eq!(value["model"], "openai/gpt-5");
+    assert_eq!(value["history"].as_array().map(Vec::len), Some(2));
 }
 
 #[test]
@@ -377,6 +549,168 @@ fn context_commands_report_repository_state() {
     assert!(!missing.status.success(), "missing path must exit non-zero");
 }
 
+#[test]
+fn workspace_cli_reports_git_and_marker_detection() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("Cargo.toml"), "[package]\n").unwrap();
+    std::fs::write(sb.cwd.join("Cargo.lock"), "").unwrap();
+    git(&sb.cwd, &["init"]);
+    git(&sb.cwd, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+    git(&sb.cwd, &["add", "-A"]);
+    git(&sb.cwd, &["commit", "-m", "init"]);
+    // Uncommitted change: the prompt block must report a dirty tree.
+    std::fs::write(sb.cwd.join("Cargo.toml"), "[package]\nname = \"changed\"\n").unwrap();
+
+    let out = sb.run(&["workspace"]);
+    assert_success(&out, "workspace");
+    assert_eq!(
+        stdout(&out).trim(),
+        "[WORKSPACE CONTEXT]\n\
+         Git branch: main\n\
+         Git status: dirty (uncommitted changes)\n\
+         Language: Rust\n\
+         Package manager: cargo\n\
+         Test framework: cargo test",
+        "got: {}",
+        stdout(&out)
+    );
+
+    let json = sb.run(&["workspace", "--json"]);
+    assert_success(&json, "workspace --json");
+    let v: serde_json::Value =
+        serde_json::from_slice(&json.stdout).expect("`workspace --json` must print JSON");
+    assert_eq!(v["git"]["branch"], "main");
+    assert_eq!(v["git"]["is_dirty"], true);
+    assert_eq!(v["git"]["commit"].as_str().map(str::len), Some(8));
+    assert_eq!(v["language"], "Rust");
+    assert_eq!(v["package_manager"], "cargo");
+    assert_eq!(v["test_framework"], "cargo test");
+    assert_eq!(
+        v["root"].as_str().unwrap(),
+        sb.cwd.to_string_lossy().as_ref()
+    );
+}
+
+#[test]
+fn rollback_cli_snapshots_restore_and_delete() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("tracked.txt"), "original\n").unwrap();
+    git(&sb.cwd, &["init"]);
+    git(&sb.cwd, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+    git(&sb.cwd, &["add", "-A"]);
+    git(&sb.cwd, &["commit", "-m", "init"]);
+
+    std::fs::write(sb.cwd.join("tracked.txt"), "modified\n").unwrap();
+    let created = sb.run(&["rollback", "snapshot", "demo"]);
+    assert_success(&created, "rollback snapshot");
+    let name = stdout(&created).trim().to_string();
+    assert!(name.starts_with("snapshot_"), "got: {name}");
+    assert!(name.ends_with("_demo"), "got: {name}");
+
+    let listed = sb.run(&["rollback", "list", "--json"]);
+    assert_success(&listed, "rollback list --json");
+    let snapshots: Vec<serde_json::Value> = serde_json::from_slice(&listed.stdout)
+        .expect("`rollback list --json` must print a JSON array");
+    assert_eq!(snapshots.len(), 1);
+    assert_eq!(snapshots[0]["name"], name);
+    assert_eq!(snapshots[0]["label"], "demo");
+    assert_eq!(snapshots[0]["created_at"].as_str().map(str::len), Some(26));
+
+    let text = sb.run(&["rollback", "list"]);
+    assert_success(&text, "rollback list");
+    assert!(stdout(&text).contains("Available snapshots:"));
+    assert!(stdout(&text).contains(&name));
+
+    std::fs::write(sb.cwd.join("tracked.txt"), "later\n").unwrap();
+    let restored = sb.run(&["rollback", "restore", name.as_str()]);
+    assert_success(&restored, "rollback restore");
+    assert_eq!(
+        stdout(&restored).trim(),
+        format!("Restored snapshot: {name}")
+    );
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("tracked.txt")).unwrap(),
+        "modified\n"
+    );
+
+    let deleted = sb.run(&["rollback", "delete", name.as_str()]);
+    assert_success(&deleted, "rollback delete");
+    assert_eq!(stdout(&deleted).trim(), format!("Deleted snapshot: {name}"));
+    let empty = sb.run(&["rollback", "list"]);
+    assert_success(&empty, "rollback list after delete");
+    assert_eq!(stdout(&empty).trim(), "No snapshots available");
+
+    let missing = sb.run(&["rollback", "restore", name.as_str()]);
+    assert!(!missing.status.success(), "a missing snapshot must fail");
+    assert!(
+        stderr(&missing).contains(&format!("Failed to restore: {name}")),
+        "got: {}",
+        stderr(&missing)
+    );
+}
+
+#[test]
+fn rollback_cli_records_reverts_and_reports_history() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("tracked.txt"), "original\n").unwrap();
+    git(&sb.cwd, &["init"]);
+    git(&sb.cwd, &["symbolic-ref", "HEAD", "refs/heads/main"]);
+    git(&sb.cwd, &["add", "-A"]);
+    git(&sb.cwd, &["commit", "-m", "init"]);
+
+    std::fs::write(sb.cwd.join("tracked.txt"), "one\n").unwrap();
+    let first = sb.run(&["rollback", "record", "--data", r#"{"query":"q1"}"#]);
+    assert_success(&first, "rollback record (turn 1)");
+    assert!(stdout(&first).contains("turn_1"), "got: {}", stdout(&first));
+
+    std::fs::write(sb.cwd.join("tracked.txt"), "two\n").unwrap();
+    let second = sb.run(&["rollback", "record", "--data", r#"{"query":"q2"}"#]);
+    assert_success(&second, "rollback record (turn 2)");
+    assert!(
+        stdout(&second).contains("turn_2"),
+        "got: {}",
+        stdout(&second)
+    );
+
+    let history = sb.run(&["rollback", "history"]);
+    assert_success(&history, "rollback history");
+    let turns: Vec<serde_json::Value> = serde_json::from_slice(&history.stdout)
+        .expect("`rollback history` must print a JSON array");
+    assert_eq!(turns.len(), 2);
+    assert_eq!(turns[0]["turn_number"], 1);
+    assert_eq!(turns[1]["turn_number"], 2);
+    assert_eq!(turns[1]["data"]["query"], "q2");
+    assert_eq!(turns[0]["timestamp"].as_str().map(str::len), Some(26));
+
+    // Two turns back: the workspace is restored to the first snapshot.
+    std::fs::write(sb.cwd.join("tracked.txt"), "three\n").unwrap();
+    let reverted = sb.run(&["rollback", "revert", "2"]);
+    assert_success(&reverted, "rollback revert 2");
+    assert_eq!(stdout(&reverted).trim(), "Reverted 2 turn(s)");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("tracked.txt")).unwrap(),
+        "one\n"
+    );
+
+    // An over-large value is clamped to the first turn.
+    std::fs::write(sb.cwd.join("tracked.txt"), "four\n").unwrap();
+    let clamped = sb.run(&["rollback", "revert", "99"]);
+    assert_success(&clamped, "rollback revert 99");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("tracked.txt")).unwrap(),
+        "one\n"
+    );
+
+    // WorkspaceRollback::rollback_turn targets the newest snapshot (turn 2).
+    std::fs::write(sb.cwd.join("tracked.txt"), "five\n").unwrap();
+    let turn = sb.run(&["rollback", "turn", "1"]);
+    assert_success(&turn, "rollback turn 1");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("tracked.txt")).unwrap(),
+        "two\n"
+    );
+}
+
 #[tokio::test]
 async fn serve_exposes_context_routes() {
     let sb = Sandbox::new();
@@ -390,23 +724,25 @@ async fn serve_exposes_context_routes() {
     let port = listener.local_addr().unwrap().port();
     drop(listener);
 
-    let mut child = sb.spawn_serve(&["serve", "--port", &port.to_string()]);
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
     let base = format!("http://127.0.0.1:{port}");
     let client = reqwest::Client::new();
 
-    let mut healthy = false;
-    for _ in 0..150 {
-        match client.get(format!("{base}/health")).send().await {
-            Ok(r) if r.status().is_success() => {
-                healthy = true;
-                break;
-            }
-            _ => {
-                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            }
-        }
-    }
+    let healthy = wait_for_health(&client, &base).await;
     assert!(healthy, "apex-rs serve did not become healthy");
+
+    // Auth is opt-in in the Rust port (the TUI backend sends no key), so the
+    // default server answers without credentials — unlike Python's `apex serve`.
+    assert_eq!(
+        client
+            .get(format!("{base}/api/v1/auth/status"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200,
+        "auth must stay off unless APEX_REQUIRE_AUTH is set"
+    );
 
     let map: serde_json::Value = client
         .get(format!("{base}/api/v1/context/repo-map"))
@@ -479,9 +815,455 @@ async fn serve_exposes_context_routes() {
         .await
         .unwrap();
     assert!(bad["error"].as_str().is_some(), "got: {bad}");
+}
 
-    child.kill().unwrap();
-    let _ = child.wait();
+#[tokio::test]
+async fn serve_http_auth_and_rate_limit_are_hermetic() {
+    let sb = Sandbox::new();
+    let client = reqwest::Client::new();
+    let (key_id, key) = create_key(&sb, "e2e");
+
+    // Only the sha256 hash is persisted.
+    let store = sb.apex_path().join("api_keys.json");
+    let stored = std::fs::read_to_string(&store).unwrap();
+    assert!(!stored.contains(&key), "plaintext key must not be stored");
+    assert!(stored.contains(&key_id), "key id must be stored");
+    let keys_file = store.to_str().unwrap().to_string();
+
+    let protected = |base: &str| format!("{base}/api/v1/context/repo-map");
+
+    // ── Server 1: auth on, generous rate limit ──────────────────────────
+    let port = free_port();
+    let server = ServerGuard::spawn_with(
+        &sb,
+        &["serve", "--port", &port.to_string()],
+        &[
+            ("APEX_REQUIRE_AUTH", "1"),
+            ("APEX_API_KEYS_FILE", keys_file.as_str()),
+            ("APEX_RATE_LIMIT_PER_MINUTE", "1000"),
+        ],
+    );
+    let base = format!("http://127.0.0.1:{port}");
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve (auth) did not become healthy"
+    );
+
+    // Every protected route demands the exact Python 401 body.
+    let denied = client.get(protected(&base)).send().await.unwrap();
+    assert_eq!(denied.status(), 401);
+    let body: serde_json::Value = denied.json().await.unwrap();
+    assert_eq!(body["error"], "Authentication required");
+    assert_eq!(body["code"], "AUTH_REQUIRED");
+
+    // Unknown keys are rejected the same way.
+    assert_eq!(
+        client
+            .get(protected(&base))
+            .header("X-API-Key", "apex_unknown")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+
+    // The three Python carriers all authenticate.
+    for request in [
+        client
+            .get(protected(&base))
+            .header("Authorization", format!("Bearer {key}")),
+        client.get(format!("{}?api_key={key}", protected(&base))),
+        client.get(protected(&base)).header("X-API-Key", &key),
+    ] {
+        assert_eq!(request.send().await.unwrap().status(), 200);
+    }
+
+    // An empty Bearer does not fall back to the query parameter (Python
+    // parity); it is unit-tested because HTTP stacks trim trailing spaces.
+
+    // Unmatched routes stay 404s; they never leak the auth challenge.
+    assert_eq!(
+        client
+            .get(format!("{base}/nope"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+
+    // Auth handlers are protected too.
+    let login_body = serde_json::json!({"provider": "anthropic", "api_key": "sk-test"});
+    assert_eq!(
+        client
+            .post(format!("{base}/api/v1/auth/login"))
+            .json(&login_body)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+
+    // Deterministic status: every provider env var is stripped for the child.
+    let status: serde_json::Value = client
+        .get(format!("{base}/api/v1/auth/status"))
+        .header("X-API-Key", &key)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(status["providers"].as_array().unwrap().len(), 19);
+    assert_eq!(status["configured_count"], 0);
+    assert_eq!(status["any_configured"], false);
+    assert!(status["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|provider| provider["env_var"] == "ANTHROPIC_API_KEY"
+            && provider["configured"] == false));
+
+    // Login: lowercase input, env var mapping, then status reflects it.
+    let login: serde_json::Value = client
+        .post(format!("{base}/api/v1/auth/login"))
+        .header("X-API-Key", &key)
+        .json(&login_body)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(login["configured"], true);
+    assert_eq!(login["provider"], "ANTHROPIC");
+    assert_eq!(login["env_var"], "ANTHROPIC_API_KEY");
+
+    let status: serde_json::Value = client
+        .get(format!("{base}/api/v1/auth/status"))
+        .header("X-API-Key", &key)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(status["configured_count"], 1);
+    assert_eq!(status["any_configured"], true);
+
+    // Provider names are uppercased and spaces become underscores.
+    let unknown = client
+        .post(format!("{base}/api/v1/auth/login"))
+        .header("X-API-Key", &key)
+        .json(&serde_json::json!({"provider": "open ai", "api_key": "x"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unknown.status(), 400);
+    let body: serde_json::Value = unknown.json().await.unwrap();
+    assert_eq!(body["error"], "Unknown provider: OPEN_AI");
+
+    let missing = client
+        .post(format!("{base}/api/v1/auth/login"))
+        .header("X-API-Key", &key)
+        .json(&serde_json::json!({"provider": "anthropic", "api_key": ""}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), 400);
+    let body: serde_json::Value = missing.json().await.unwrap();
+    assert_eq!(body["error"], "provider and api_key required");
+
+    // Logout removes one provider, including the HF special case.
+    let logout: serde_json::Value = client
+        .post(format!("{base}/api/v1/auth/logout"))
+        .header("X-API-Key", &key)
+        .json(&serde_json::json!({"provider": "Anthropic"}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(logout["removed"], true);
+    assert_eq!(logout["env_var"], "ANTHROPIC_API_KEY");
+
+    let hf: serde_json::Value = client
+        .post(format!("{base}/api/v1/auth/login"))
+        .header("X-API-Key", &key)
+        .json(&serde_json::json!({"provider": "hf", "api_key": "hf_test"}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(hf["env_var"], "HF_TOKEN");
+
+    // Provider-less logout clears every known key (empty body is allowed).
+    let logout_all: serde_json::Value = client
+        .post(format!("{base}/api/v1/auth/logout"))
+        .header("X-API-Key", &key)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(logout_all["removed"], true);
+    assert!(logout_all["env_vars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|name| name == "HF_TOKEN"));
+
+    // A CLI revoke is visible to the running server immediately: the store is
+    // re-read per request (no cache).
+    let revoked = sb.run(&["key", "revoke", &key_id]);
+    assert_success(&revoked, "key revoke");
+    assert!(stdout(&revoked).contains(&format!("Revoked key {key_id}")));
+    assert_eq!(
+        client
+            .get(protected(&base))
+            .header("X-API-Key", &key)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+
+    drop(server);
+
+    // ── Server 2: auth on, two requests per minute ──────────────────────
+    let (rate_id, rate_key) = create_key(&sb, "rate");
+    let port = free_port();
+    let server = ServerGuard::spawn_with(
+        &sb,
+        &["serve", "--port", &port.to_string()],
+        &[
+            ("APEX_REQUIRE_AUTH", "1"),
+            ("APEX_API_KEYS_FILE", keys_file.as_str()),
+            ("APEX_RATE_LIMIT_PER_MINUTE", "2"),
+            ("APEX_RATE_LIMIT_PER_HOUR", "1000"),
+            ("APEX_RATE_LIMIT_PER_DAY", "10000"),
+        ],
+    );
+    let base = format!("http://127.0.0.1:{port}");
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve (rate limit) did not become healthy"
+    );
+
+    // Rejected requests never consume the key's budget: auth wraps the
+    // limiter, like Python's `_check_auth` running before `_check_rate_limit`.
+    for _ in 0..5 {
+        assert_eq!(
+            client.get(protected(&base)).send().await.unwrap().status(),
+            401
+        );
+    }
+    for _ in 0..2 {
+        assert_eq!(
+            client
+                .get(protected(&base))
+                .header("X-API-Key", &rate_key)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            200
+        );
+    }
+    let limited = client
+        .get(protected(&base))
+        .header("Authorization", format!("Bearer {rate_key}"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(limited.status(), 429);
+    assert!(limited.headers().get("retry-after").is_some());
+    let body: serde_json::Value = limited.json().await.unwrap();
+    assert_eq!(body["error"], "Rate limit exceeded");
+    assert_eq!(body["code"], "RATE_LIMITED");
+
+    // `/health` stays probeable once the budget is exhausted.
+    assert_eq!(
+        client
+            .get(format!("{base}/health"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+
+    drop(server);
+
+    // The CLI sees the counters the servers recorded; revoked keys stay listed.
+    let list = sb.run(&["key", "list"]);
+    assert_success(&list, "key list");
+    let text = stdout(&list);
+    assert!(
+        text.contains(&format!("{key_id} - e2e [revoked] requests=")),
+        "got:\n{text}"
+    );
+    assert!(
+        text.contains(&format!("{rate_id} - rate [active] requests=3")),
+        "got:\n{text}"
+    );
+}
+
+#[test]
+fn github_cli_install_run_and_error_paths() {
+    let sb = Sandbox::new();
+
+    // install: Python parity, exactly the three info lines.
+    let install = sb.run(&["github", "install"]);
+    assert_success(&install, "github install");
+    assert_eq!(
+        stdout(&install).trim(),
+        "Installing GitHub agent...\n\
+         This sets up APEX as a GitHub Actions workflow.\n\
+         See: https://github.com/Ggboykxz/APEX"
+    );
+
+    // No subcommand: the usage fallback, exit 0.
+    let usage = sb.run(&["github"]);
+    assert_success(&usage, "github usage");
+    let text = stdout(&usage);
+    assert!(text.contains("Usage: apex-rs github"), "got: {text}");
+    assert!(
+        text.contains("install") && text.contains("run"),
+        "got: {text}"
+    );
+
+    // Every network path points at a dead local port: no network, deterministic.
+    fn dead(sb: &Sandbox, args: &[&str]) -> Output {
+        sb.base_command()
+            .env("APEX_GITHUB_API", "http://127.0.0.1:9")
+            .args(args)
+            .output()
+            .expect("run apex-rs")
+    }
+
+    let run = dead(&sb, &["github", "run"]);
+    assert_success(&run, "github run");
+    let text = stdout(&run);
+    assert!(text.contains("Running GitHub agent..."), "got: {text}");
+    assert!(text.contains("Found 0 issues and 0 PRs"), "got: {text}");
+
+    let issue = dead(&sb, &["github", "issue", "3"]);
+    assert!(!issue.status.success(), "unreachable API must fail");
+    assert!(
+        stderr(&issue).contains("ERROR: Issue 3 not found"),
+        "got: {}",
+        stderr(&issue)
+    );
+
+    let close = dead(&sb, &["github", "issue-close", "3"]);
+    assert!(!close.status.success());
+    assert!(stderr(&close).contains("ERROR: Failed to close issue 3"));
+
+    let pr = dead(&sb, &["github", "pr", "3"]);
+    assert!(!pr.status.success());
+    assert!(stderr(&pr).contains("ERROR: Pull request 3 not found"));
+
+    let merge = dead(&sb, &["github", "pr-merge", "3"]);
+    assert!(!merge.status.success());
+    assert!(stderr(&merge).contains("ERROR: Failed to merge PR 3"));
+
+    let todos = dead(&sb, &["github", "automate", "todos"]);
+    assert_success(&todos, "github automate todos");
+    let text = stdout(&todos);
+    assert!(text.contains("Todo issues:"), "got: {text}");
+    assert!(text.contains("No issues found"), "got: {text}");
+
+    let list = dead(&sb, &["github", "automate", "list", "--label", "bug"]);
+    assert_success(&list, "github automate list");
+    let text = stdout(&list);
+    assert!(text.contains("Open issues for label 'bug':"), "got: {text}");
+    assert!(text.contains("No issues found"), "got: {text}");
+
+    let closed = dead(&sb, &["github", "automate", "close-completed"]);
+    assert_success(&closed, "github automate close-completed");
+    assert_eq!(stdout(&closed).trim(), "0 merged PR(s)");
+
+    // The write flows require a detectable repository.
+    let create = dead(
+        &sb,
+        &[
+            "github",
+            "automate",
+            "create-pr",
+            "--title",
+            "t",
+            "--branch",
+            "b",
+        ],
+    );
+    assert!(!create.status.success());
+    assert!(
+        stderr(&create).contains("ERROR: No GitHub repository detected"),
+        "got: {}",
+        stderr(&create)
+    );
+}
+
+#[test]
+fn skill_lifecycle_is_hermetic() {
+    let sb = Sandbox::new();
+
+    let bad = sb.run(&["skill", "add", "../escape", "d", "p"]);
+    assert!(
+        !bad.status.success(),
+        "path-traversal name must be rejected"
+    );
+    assert!(stderr(&bad).contains("ERROR: Invalid skill name"));
+
+    let add = sb.run(&[
+        "skill",
+        "add",
+        "e2e-skill",
+        "A demo skill",
+        "Say hello to {name}",
+    ]);
+    assert_success(&add, "skill add");
+    assert!(
+        stdout(&add).starts_with("Added skill: e2e-skill"),
+        "got: {}",
+        stdout(&add)
+    );
+    let file = sb.cwd.join(".apex").join("skills").join("e2e-skill.md");
+    assert!(file.exists(), "skill must persist under the project dir");
+
+    // A fresh process (new SkillManager) must load the written file.
+    let list = sb.run(&["skill", "list"]);
+    assert_success(&list, "skill list");
+    assert!(
+        stdout(&list).contains("e2e-skill: A demo skill"),
+        "got: {}",
+        stdout(&list)
+    );
+
+    let remove = sb.run(&["skill", "remove", "e2e-skill"]);
+    assert_success(&remove, "skill remove");
+    assert!(stdout(&remove).contains("Removed skill: e2e-skill"));
+    assert!(!file.exists(), "skill file must be deleted");
+
+    let empty = sb.run(&["skill", "list"]);
+    assert_success(&empty, "skill list after remove");
+    assert!(
+        stdout(&empty).contains("No skills found"),
+        "got: {}",
+        stdout(&empty)
+    );
+
+    let missing = sb.run(&["skill", "remove", "e2e-skill"]);
+    assert!(!missing.status.success(), "second remove must fail");
+    assert!(stderr(&missing).contains("ERROR: Skill not found: e2e-skill"));
 }
 
 #[test]

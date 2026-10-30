@@ -1,0 +1,4 @@
+# Fernet tokens and raw keys must be byte-for-byte stable; Git's autocrlf
+# would otherwise be free to rewrite them on checkout.
+*.enc -text
+*.key -text

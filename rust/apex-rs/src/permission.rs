@@ -23,6 +23,9 @@ pub enum PermissionAction {
 }
 
 impl PermissionAction {
+    /// Python's `value()`; no CLI/API surface reads action strings yet.
+    // TODO(v2.6): `apex-rs permission list` prints actions via this.
+    #[allow(dead_code)]
     pub fn value(&self) -> &'static str {
         match self {
             PermissionAction::Allow => "allow",
@@ -43,6 +46,9 @@ pub struct PermissionRule {
     pub action: PermissionAction,
     pub reason: Option<String>,
     pub expires_at: Option<f64>,
+    /// Parity field; consumed by the not-yet-wired request flow.
+    // TODO(v2.6): read it when the approval flow ships.
+    #[allow(dead_code)]
     pub remember: bool,
 }
 
@@ -66,7 +72,10 @@ fn now_secs() -> f64 {
 // PermissionRequest
 // ────────────────────────────────────────────────────────────
 
-/// Port of `PermissionRequest`.
+/// Port of `PermissionRequest`. The interactive request/approve/deny flow
+/// is unwired: the headless backend has no prompt surface.
+// TODO(v2.6): wire approval over a `serve` route or `/ws/events`.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PermissionRequest {
     pub request_id: String,
@@ -113,7 +122,13 @@ fn fnmatch_regex(pattern: &str) -> Regex {
 /// initialized at construction (default rules are always present).
 pub struct PermissionManager {
     rules: Vec<PermissionRule>,
+    /// Backing store for the not-yet-wired request flow.
+    // TODO(v2.6): used when approval requests are served.
+    #[allow(dead_code)]
     requests: HashMap<String, PermissionRequest>,
+    /// Backing store for the not-yet-wired request flow.
+    // TODO(v2.6): used when approval requests are served.
+    #[allow(dead_code)]
     request_id_counter: u64,
 }
 
@@ -196,6 +211,9 @@ impl PermissionManager {
         self.rules.insert(0, rule);
     }
 
+    /// Rule-management parity; only tests call it so far.
+    // TODO(v2.6): expose via an `apex-rs permission rule remove` command.
+    #[allow(dead_code)]
     pub fn remove_rule(&mut self, pattern: &str, action: PermissionAction) -> bool {
         let before = self.rules.len();
         self.rules
@@ -203,9 +221,66 @@ impl PermissionManager {
         self.rules.len() < before
     }
 
+    /// Rule-management parity; only tests call it so far.
+    // TODO(v2.6): expose via an `apex-rs permission rule clear` command.
+    #[allow(dead_code)]
     pub fn clear_rules(&mut self) {
         self.rules.clear();
         self.setup_default_rules();
+    }
+
+    /// Headless Rust backend variant of the manager.
+    ///
+    /// Same rules as `new()`, except the catch-all is ALLOW instead of ASK:
+    /// Python's `*` → ASK default models an interactive user who can answer
+    /// permission prompts, and the Rust backend has no prompt surface, so
+    /// mirroring it would refuse every tool without an explicit allow rule
+    /// (all writes, all commands). Explicit DENY/ASK rules and the
+    /// `APEX_PERMISSION_DENY` / `APEX_PERMISSION_ASK` env rules still win.
+    pub fn headless() -> Self {
+        let mut m = Self::new();
+        m.rules
+            .retain(|r| !(r.pattern == "*" && r.action == PermissionAction::Ask));
+        m.rules.push(PermissionRule {
+            pattern: "*".into(),
+            action: PermissionAction::Allow,
+            reason: Some("Rust headless default: allow".into()),
+            expires_at: None,
+            remember: false,
+        });
+        m
+    }
+
+    /// The action of the first non-expired rule matching the tool, or `None`.
+    pub fn matching_action(&self, tool_name: &str) -> Option<PermissionAction> {
+        self.rules
+            .iter()
+            .find(|r| !r.is_expired() && fnmatch_regex(&r.pattern).is_match(tool_name))
+            .map(|r| r.action)
+    }
+
+    /// Add rules from `APEX_PERMISSION_DENY` and `APEX_PERMISSION_ASK`
+    /// (comma-separated fnmatch patterns). Intended to be called once per
+    /// manager; inserted first so they win over the defaults.
+    pub fn install_env_rules(&mut self) {
+        for p in env_patterns("APEX_PERMISSION_DENY") {
+            self.add_rule(
+                &p,
+                PermissionAction::Deny,
+                Some(format!("Denied by APEX_PERMISSION_DENY ({p})")),
+                None,
+                false,
+            );
+        }
+        for p in env_patterns("APEX_PERMISSION_ASK") {
+            self.add_rule(
+                &p,
+                PermissionAction::Ask,
+                Some(format!("Requires approval (APEX_PERMISSION_ASK {p})")),
+                None,
+                false,
+            );
+        }
     }
 
     /// Returns `(allowed, reason_or_message)` — port of `can_execute_tool`.
@@ -249,6 +324,10 @@ impl PermissionManager {
         )
     }
 
+    /// Part of the interactive request flow, unwired: the headless backend
+    /// has no prompt surface (ASK refuses in `dispatch_gate` instead).
+    // TODO(v2.6): wire approval over a `serve` route or `/ws/events`.
+    #[allow(dead_code)]
     pub fn request_permission(
         &mut self,
         tool_name: &str,
@@ -273,6 +352,10 @@ impl PermissionManager {
         request_id
     }
 
+    /// Part of the interactive request flow, unwired: the headless backend
+    /// has no prompt surface.
+    // TODO(v2.6): wire approval over a `serve` route or `/ws/events`.
+    #[allow(dead_code)]
     pub fn approve_request(
         &mut self,
         request_id: &str,
@@ -295,6 +378,10 @@ impl PermissionManager {
         true
     }
 
+    /// Part of the interactive request flow, unwired: the headless backend
+    /// has no prompt surface.
+    // TODO(v2.6): wire approval over a `serve` route or `/ws/events`.
+    #[allow(dead_code)]
     pub fn deny_request(&mut self, request_id: &str, remember: bool) -> bool {
         let Some(request) = self.requests.remove(request_id) else {
             return false;
@@ -312,24 +399,78 @@ impl PermissionManager {
         true
     }
 
+    /// Part of the interactive request flow, unwired: the headless backend
+    /// has no prompt surface.
+    // TODO(v2.6): wire approval over a `serve` route or `/ws/events`.
+    #[allow(dead_code)]
     pub fn get_pending_requests(&self) -> Vec<PermissionRequest> {
         self.requests.values().cloned().collect()
     }
 
+    /// Part of the interactive request flow, unwired: the headless backend
+    /// has no prompt surface.
+    // TODO(v2.6): wire approval over a `serve` route or `/ws/events`.
+    #[allow(dead_code)]
     pub fn get_request(&self, request_id: &str) -> Option<PermissionRequest> {
         self.requests.get(request_id).cloned()
     }
 }
 
-/// Module-level manager, mirroring `permission_manager`.
+/// Module-level manager, mirroring `permission_manager`. The Rust backend
+/// is headless, so it runs the `headless()` policy (default-allow catch-all).
 pub static PERMISSION_MANAGER: LazyLock<Mutex<PermissionManager>> =
-    LazyLock::new(|| Mutex::new(PermissionManager::new()));
+    LazyLock::new(|| Mutex::new(PermissionManager::headless()));
+
+static ENV_RULES_INSTALLED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Comma-separated fnmatch patterns from env var `name` (empty segments
+/// dropped, missing var → empty list).
+fn env_patterns(name: &str) -> Vec<String> {
+    std::env::var(name)
+        .ok()
+        .map(|v| {
+            v.split(',')
+                .map(|p| p.trim().to_string())
+                .filter(|p| !p.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn ensure_env_rules() {
+    use std::sync::atomic::Ordering;
+    if ENV_RULES_INSTALLED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let mut manager = PERMISSION_MANAGER.lock().unwrap();
+    manager.install_env_rules();
+}
+
+/// Permission decision for tool dispatch in the headless Rust backend.
+///
+/// The global manager's rules decide (headless default-allow catch-all,
+/// explicit DENY/ASK rules, `APEX_PERMISSION_DENY` / `APEX_PERMISSION_ASK`
+/// installed on first use). ASK refuses: there is no prompt surface, so an
+/// unanswered "ask" cannot become an allow.
+pub fn dispatch_gate(tool_name: &str) -> (bool, String) {
+    ensure_env_rules();
+    let manager = PERMISSION_MANAGER.lock().unwrap();
+    match manager.matching_action(tool_name) {
+        Some(PermissionAction::Allow) => (true, String::new()),
+        // DENY and ASK both refuse; `can_execute_tool` carries the rule reason.
+        _ => manager.can_execute_tool(tool_name, None, None),
+    }
+}
 
 // ────────────────────────────────────────────────────────────
 // Tool → permission mapping
 // ────────────────────────────────────────────────────────────
 
-/// Port of `get_tool_permission`.
+/// Port of `get_tool_permission`. Consumed by the request flow, which is
+/// unwired in the headless backend.
+// TODO(v2.6): used when approval requests ship (names the permission asked for).
+#[allow(dead_code)]
 pub fn get_tool_permission(tool_name: &str) -> &'static str {
     const MAP: &[(&str, &str)] = &[
         ("read_file", "file:read"),
@@ -351,7 +492,10 @@ pub fn get_tool_permission(tool_name: &str) -> &'static str {
     "tool:execute"
 }
 
-/// Port of `PermissionRequestDenied`.
+/// Port of `PermissionRequestDenied`. Thrown by the request flow, which is
+/// unwired in the headless backend.
+// TODO(v2.6): surfaced when approval requests ship.
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct PermissionRequestDenied {
     pub tool_name: String,
@@ -474,5 +618,119 @@ mod tests {
         assert_eq!(get_tool_permission("bash"), "shell:execute");
         assert_eq!(get_tool_permission("mcp_fetch"), "mcp:execute");
         assert_eq!(get_tool_permission("whatever"), "tool:execute");
+    }
+
+    // Tests that mutate process env vars must run sequentially.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn headless_allows_unlisted_tools() {
+        let m = PermissionManager::headless();
+        // `new()` asks for `bash` (falls through to the `*` ASK catch-all);
+        // the headless catch-all is ALLOW.
+        assert_eq!(
+            m.can_execute_tool("bash", None, None),
+            (true, "Rust headless default: allow".to_string())
+        );
+        assert!(m.can_execute_tool("totally_custom_tool", None, None).0);
+        // Explicit allow rules are preserved.
+        assert_eq!(
+            m.can_execute_tool("read_file", None, None),
+            (true, "Reading files is safe".to_string())
+        );
+    }
+
+    #[test]
+    fn headless_still_honours_explicit_rules() {
+        let mut m = PermissionManager::headless();
+        m.add_rule(
+            "write_file",
+            PermissionAction::Deny,
+            Some("No writes".into()),
+            None,
+            false,
+        );
+        m.add_rule(
+            "bash",
+            PermissionAction::Ask,
+            Some("Watch the shell".into()),
+            None,
+            false,
+        );
+        let (ok, msg) = m.can_execute_tool("write_file", None, None);
+        assert!(!ok);
+        assert_eq!(msg, "No writes");
+        // ASK refuses headlessly (no prompt surface).
+        let (ok, msg) = m.can_execute_tool("bash", None, None);
+        assert!(!ok);
+        assert!(msg.contains("Requires permission"));
+        // The catch-all still applies to everything else.
+        assert!(m.can_execute_tool("other_tool", None, None).0);
+    }
+
+    #[test]
+    fn matching_action_follows_first_rule() {
+        let mut m = PermissionManager::headless();
+        m.add_rule("demo_*", PermissionAction::Allow, None, None, false);
+        m.add_rule("demo_*", PermissionAction::Deny, None, None, false);
+        // `add_rule` inserts at position 0, so the later rule matches first.
+        assert_eq!(m.matching_action("demo_tool"), Some(PermissionAction::Deny));
+        // Unlisted tools fall through to the headless catch-all.
+        assert_eq!(
+            m.matching_action("unlisted_tool"),
+            Some(PermissionAction::Allow)
+        );
+    }
+
+    #[test]
+    fn env_rules_take_precedence_over_headless_default() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("APEX_PERMISSION_DENY", "env_deny_tool");
+        std::env::set_var("APEX_PERMISSION_ASK", "env_ask_tool");
+        let mut m = PermissionManager::headless();
+        m.install_env_rules();
+        // DENY wins over the headless allow catch-all.
+        let (ok, msg) = m.can_execute_tool("env_deny_tool", None, None);
+        assert!(!ok);
+        assert!(msg.contains("APEX_PERMISSION_DENY"));
+        // ASK wins too (and refuses headlessly).
+        let (ok, msg) = m.can_execute_tool("env_ask_tool", None, None);
+        assert!(!ok);
+        assert!(msg.contains("Requires permission"));
+        // Unmatched tools stay allowed.
+        assert!(m.can_execute_tool("env_free_tool", None, None).0);
+        std::env::remove_var("APEX_PERMISSION_DENY");
+        std::env::remove_var("APEX_PERMISSION_ASK");
+    }
+
+    #[test]
+    fn dispatch_gate_refuses_global_deny_rule() {
+        // A made-up tool: the headless global manager allows it.
+        assert!(dispatch_gate("rm_rf_tool").0);
+        let mut manager = PERMISSION_MANAGER.lock().unwrap();
+        manager.add_rule(
+            "rm_rf_tool",
+            PermissionAction::Deny,
+            Some("Test deny rule".into()),
+            None,
+            false,
+        );
+        drop(manager);
+        let (ok, msg) = dispatch_gate("rm_rf_tool");
+        assert!(!ok);
+        assert!(msg.contains("Test deny rule"));
+        // Cleanup: restore the headless default for the other test threads.
+        let mut manager = PERMISSION_MANAGER.lock().unwrap();
+        assert!(manager.remove_rule("rm_rf_tool", PermissionAction::Deny));
+        drop(manager);
+        assert!(dispatch_gate("rm_rf_tool").0);
+    }
+
+    #[test]
+    fn dispatch_gate_allows_headless_default() {
+        // `new()` would ask for `bash`; the global headless manager allows it.
+        let (ok, reason) = dispatch_gate("bash");
+        assert!(ok);
+        assert!(reason.is_empty());
     }
 }

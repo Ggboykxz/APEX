@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::cost::{CostTracker, Usage};
+use crate::permission;
 use crate::tools;
 use anyhow::Result;
 use serde_json::{json, Value};
@@ -196,6 +197,18 @@ impl Agent {
         Ok(())
     }
 
+    /// Base system prompt plus the `[WORKSPACE CONTEXT]` block.
+    ///
+    /// Python exports `WorkspaceManager.get_system_prompt_context` but never
+    /// calls it; the Rust port wires it into both agent entry points.
+    fn system_prompt(&self) -> String {
+        let mut prompt = String::from("You are APEX, a helpful coding assistant.");
+        let mut manager = crate::workspace::WorkspaceManager::new(self.config.cwd.clone());
+        prompt.push_str("\n\n");
+        prompt.push_str(&manager.get_system_prompt_context());
+        prompt
+    }
+
     pub async fn chat(&mut self, user_input: &str) -> Result<String> {
         self.last_call_usage = Usage::default();
         let expanded = self.expand_mentions(user_input);
@@ -211,10 +224,9 @@ impl Agent {
         }
 
         let client = reqwest::Client::new();
+        let system_message = json!({"role":"system","content": self.system_prompt()});
         for _ in 0..10 {
-            let mut messages = vec![
-                json!({"role":"system","content":"You are APEX, a helpful coding assistant."}),
-            ];
+            let mut messages = vec![system_message.clone()];
             messages.extend(self.history.clone());
 
             let body = json!({
@@ -267,6 +279,12 @@ impl Agent {
                     if self.config.denied_tools.iter().any(|d| d == name) {
                         let tool_call_id = tc["id"].as_str().unwrap_or("");
                         self.history.push(json!({"role":"tool","tool_call_id":tool_call_id,"content":"ERROR: Permission denied"}));
+                        continue;
+                    }
+                    let (allowed, reason) = permission::dispatch_gate(name);
+                    if !allowed {
+                        let tool_call_id = tc["id"].as_str().unwrap_or("");
+                        self.history.push(json!({"role":"tool","tool_call_id":tool_call_id,"content":format!("ERROR: Permission denied: {reason}")}));
                         continue;
                     }
                     let result = tools::execute_tool(name, &args, &self.config.cwd);
@@ -345,10 +363,9 @@ impl Agent {
         }
 
         let client = reqwest::Client::new();
+        let system_message = json!({"role":"system","content": self.system_prompt()});
         for _ in 0..10 {
-            let mut messages = vec![
-                json!({"role":"system","content":"You are APEX, a helpful coding assistant."}),
-            ];
+            let mut messages = vec![system_message.clone()];
             messages.extend(self.history.clone());
 
             let body = json!({
@@ -472,6 +489,11 @@ impl Agent {
                         self.history.push(json!({"role":"tool","tool_call_id": id, "content": "ERROR: Permission denied"}));
                         continue;
                     }
+                    let (allowed, reason) = permission::dispatch_gate(name);
+                    if !allowed {
+                        self.history.push(json!({"role":"tool","tool_call_id": id, "content": format!("ERROR: Permission denied: {reason}")}));
+                        continue;
+                    }
                     let result = tools::execute_tool(name, &parsed_args, &self.config.cwd);
                     self.history
                         .push(json!({"role":"tool","tool_call_id": id, "content": result}));
@@ -502,6 +524,34 @@ mod tests {
         let agent = Agent::new(cfg);
         let out = agent.expand_mentions("hello @README.md");
         assert!(out.contains("hello"));
+    }
+
+    #[test]
+    fn system_prompt_includes_workspace_context() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "[package]\n").unwrap();
+        std::fs::write(dir.path().join("Cargo.lock"), "").unwrap();
+
+        let mut cfg = Config::from_env();
+        cfg.cwd = dir.path().to_path_buf();
+        let agent = Agent::new(cfg);
+
+        let prompt = agent.system_prompt();
+        assert!(
+            prompt.starts_with("You are APEX, a helpful coding assistant."),
+            "got: {prompt}"
+        );
+        assert!(prompt.contains("[WORKSPACE CONTEXT]"), "got: {prompt}");
+        assert!(prompt.contains("Language: Rust"), "got: {prompt}");
+        assert!(prompt.contains("Package manager: cargo"), "got: {prompt}");
+        assert!(
+            prompt.contains("Test framework: cargo test"),
+            "got: {prompt}"
+        );
+        assert!(
+            !prompt.contains("Git branch:"),
+            "a tempdir has no .git directory: {prompt}"
+        );
     }
 
     #[test]
@@ -738,5 +788,100 @@ mod tests {
         let content = tool_msg["content"].as_str().unwrap();
         assert!(content.contains("Permission denied"));
         assert!(!content.contains("secret body"));
+    }
+
+    /// Fake API that asks for a `grep` tool call on the first round, then
+    /// answers with plain text.
+    async fn fake_grep_api(
+        axum::extract::State(calls): axum::extract::State<
+            std::sync::Arc<std::sync::atomic::AtomicUsize>,
+        >,
+        axum::Json(_body): axum::Json<serde_json::Value>,
+    ) -> axum::Json<serde_json::Value> {
+        use std::sync::atomic::Ordering;
+        let n = calls.fetch_add(1, Ordering::SeqCst);
+        if n == 0 {
+            axum::Json(serde_json::json!({
+                "choices": [{
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "role": "assistant",
+                        "content": null,
+                        "tool_calls": [{
+                            "id": "call_g1",
+                            "type": "function",
+                            "function": {"name": "grep", "arguments": "{\"pattern\":\"secret\"}"}
+                        }]
+                    }
+                }],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+            }))
+        } else {
+            axum::Json(serde_json::json!({
+                "choices": [{
+                    "finish_reason": "stop",
+                    "message": {"role": "assistant", "content": "done"}
+                }],
+                "usage": {"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25}
+            }))
+        }
+    }
+
+    #[tokio::test]
+    async fn permission_gate_denies_tool_in_agent_loop() {
+        use axum::{routing::post, Router};
+        use std::sync::atomic::AtomicUsize;
+        use std::sync::Arc;
+
+        // `grep` is allowed by default, so only this test's global DENY rule
+        // can refuse it (no other agent test dispatches `grep`).
+        {
+            let mut manager = crate::permission::PERMISSION_MANAGER.lock().unwrap();
+            manager.add_rule(
+                "grep",
+                crate::permission::PermissionAction::Deny,
+                Some("Gate test deny".into()),
+                None,
+                false,
+            );
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("note.txt"), "secret body").unwrap();
+
+        let calls = Arc::new(AtomicUsize::new(0));
+        let app = Router::new()
+            .route("/chat/completions", post(fake_grep_api))
+            .with_state(calls.clone());
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let mut cfg = Config::from_env();
+        cfg.base_url = format!("http://{addr}");
+        cfg.model = "fake-model".to_string();
+        cfg.api_key = "test".to_string();
+        cfg.cwd = dir.path().to_path_buf();
+
+        let mut agent = Agent::new(cfg);
+        let _ = agent.chat("grep for secret").await.unwrap();
+        let tool_msg = agent
+            .history
+            .iter()
+            .find(|m| m.get("role").and_then(|r| r.as_str()) == Some("tool"))
+            .expect("tool message missing");
+        // The gate reason must be visible, and the file must not be searched.
+        let content = tool_msg["content"].as_str().unwrap();
+        assert!(content.contains("Permission denied"));
+        assert!(content.contains("Gate test deny"));
+        assert!(!content.contains("secret body"));
+
+        // Cleanup: restore the default for the other test threads.
+        {
+            let mut manager = crate::permission::PERMISSION_MANAGER.lock().unwrap();
+            assert!(manager.remove_rule("grep", crate::permission::PermissionAction::Deny));
+        }
     }
 }

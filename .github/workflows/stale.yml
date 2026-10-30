@@ -58,8 +58,8 @@ jobs:
             - Add the `keep-open` label to prevent future auto-closure
 
           # --- Exemptions ---
-          exempt-issue-labels: pinned,security,keep-open
-          exempt-pr-labels: pinned,security,keep-open
+          exempt-issue-labels: pinned,security,keep-open,dependencies
+          exempt-pr-labels: pinned,security,keep-open,dependencies
           exempt-milestones: true
           exempt-assignees: true
           exempt-draft-pr: true
