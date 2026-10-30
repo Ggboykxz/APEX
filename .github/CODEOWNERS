@@ -1,7 +1,0 @@
-# Default owner for the whole repository.
-* @Ggboykxz
-
-# Release, CI, and governance surfaces require explicit owner review.
-/.github/ @Ggboykxz
-/docs/adr/ @Ggboykxz
-/SECURITY.md @Ggboykxz
