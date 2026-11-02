@@ -1,4 +1,5 @@
 use crate::agent::Agent;
+use crate::api_key::KeyManager;
 use crate::config::Config;
 use crate::rate_limiter::{MemoryStorage, RateLimitConfig, RateLimiter};
 use crate::tools;
@@ -27,6 +28,12 @@ struct AppState {
     events: tokio::sync::broadcast::Sender<String>,
     /// Per-key request limiter shared by every route except `/health`.
     rate_limiter: Arc<Mutex<RateLimiter>>,
+    /// API key store for `APEX_REQUIRE_AUTH`.
+    key_manager: Arc<KeyManager>,
+    /// Auth is opt-in: the Rust `serve` is the TUI backend and the TUI sends
+    /// no key, so the default stays off (Python's `apex serve` defaults on;
+    /// documented divergence).
+    require_auth: bool,
 }
 
 /// Chat request. The TUI sends `message`, the CLI/API docs use `prompt`.
@@ -159,14 +166,26 @@ fn run_shell_capture(command: &str, cwd: &std::path::Path) -> serde_json::Value 
     }
 }
 
+/// Rate-limit bucket for a caller: the validated key id when auth is on
+/// (Python's `key:{key_id}`), otherwise the raw carrier (or `anonymous`).
+#[derive(Clone)]
+struct AuthenticatedKey(String);
+
+fn request_rate_limit_key(request: &axum::extract::Request) -> String {
+    if let Some(key) = request.extensions().get::<AuthenticatedKey>() {
+        return format!("key:{}", key.0);
+    }
+    extract_api_key(request.headers(), request.uri()).unwrap_or_else(|| "anonymous".to_string())
+}
+
 /// Rate-limit middleware shared by every route except `/health`.
 ///
-/// The key is the `X-API-Key` value, or the `Authorization: Bearer …`
-/// token, or `anonymous` when neither is present — mirroring Python's
-/// per-key limiting with the in-memory backend the Rust port supports.
+/// The key is the validated key id when auth is on, else the `X-API-Key`
+/// value / `Authorization: Bearer …` token / `?api_key=` value, or
+/// `anonymous` when none is present — mirroring Python's per-key limiting
+/// with the in-memory backend the Rust port supports.
 async fn rate_limit(
     State(state): State<AppState>,
-    headers: HeaderMap,
     request: axum::extract::Request,
     next: Next,
 ) -> Response {
@@ -174,18 +193,7 @@ async fn rate_limit(
     if request.uri().path() == "/health" {
         return next.run(request).await;
     }
-    let key = headers
-        .get(HeaderName::from_static("x-api-key"))
-        .and_then(|v| v.to_str().ok())
-        .or_else(|| {
-            headers
-                .get(header::AUTHORIZATION)
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.strip_prefix("Bearer "))
-        })
-        .map(|v| v.trim().to_string())
-        .filter(|v| !v.is_empty())
-        .unwrap_or_else(|| "anonymous".to_string());
+    let key = request_rate_limit_key(&request);
     let mut limiter = state.rate_limiter.lock().await;
     let result = limiter.check_rate_limit(&key);
     if !result.allowed {
@@ -216,6 +224,319 @@ async fn rate_limit(
     next.run(request).await
 }
 
+// ────────────────────────────────────────────────────────────
+// Authentication (port of Python's AuthMiddleware + auth routes)
+// ────────────────────────────────────────────────────────────
+
+/// `APEX_REQUIRE_AUTH` truthy values: `1`, `true`, `yes`, `on`
+/// (case-insensitive). Unset or anything else keeps auth off.
+fn auth_required_from_env() -> bool {
+    match std::env::var("APEX_REQUIRE_AUTH") {
+        Ok(value) => matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
+        Err(_) => false,
+    }
+}
+
+/// Python's `AuthMiddleware.authenticate` precedence:
+/// `Authorization: Bearer …`, then `?api_key=`, then `X-API-Key`.
+///
+/// A Bearer prefix with an empty value is a failure (Python does not fall
+/// back in that case either).
+fn extract_api_key(headers: &HeaderMap, uri: &axum::http::Uri) -> Option<String> {
+    if let Some(value) = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+    {
+        if let Some(key) = value.strip_prefix("Bearer ") {
+            // Python reads the token verbatim (`auth_header[7:]`) and treats
+            // an empty value as a hard failure — it never falls back.
+            return if key.is_empty() {
+                None
+            } else {
+                Some(key.to_string())
+            };
+        }
+    }
+    if let Some(query) = uri.query() {
+        for pair in query.split('&') {
+            if let Some(raw) = pair.strip_prefix("api_key=") {
+                let key = percent_decode(raw);
+                if !key.is_empty() {
+                    return Some(key);
+                }
+            }
+        }
+    }
+    headers
+        .get(HeaderName::from_static("x-api-key"))
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+/// Minimal query-value decoding: `%XX` escapes only (API keys are urlsafe).
+fn percent_decode(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' && index + 2 < bytes.len() {
+            if let (Some(high), Some(low)) =
+                (hex_digit(bytes[index + 1]), hex_digit(bytes[index + 2]))
+            {
+                out.push(high * 16 + low);
+                index += 3;
+                continue;
+            }
+        }
+        out.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        b'A'..=b'F' => Some(byte - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn unauthorized() -> Response {
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(serde_json::json!({
+            "error": "Authentication required",
+            "code": "AUTH_REQUIRED",
+        })),
+    )
+        .into_response()
+}
+
+/// Require a valid API key on every route when `APEX_REQUIRE_AUTH` is on.
+///
+/// Exempt routes are the ones Python never guards with `_check_auth`:
+/// `/health` and the WebSocket event stream (`/ws`, `/ws/events`). Unmatched
+/// paths fall through to the 404 handler, like aiohttp's router.
+async fn require_auth(
+    State(state): State<AppState>,
+    mut request: axum::extract::Request,
+    next: Next,
+) -> Response {
+    if !state.require_auth {
+        return next.run(request).await;
+    }
+    match request.uri().path() {
+        "/health" | "/ws" | "/ws/events" => return next.run(request).await,
+        _ => {}
+    }
+    let candidate = extract_api_key(request.headers(), request.uri());
+    match candidate {
+        Some(key) => match state.key_manager.validate_key(&key) {
+            Ok(info) => {
+                request
+                    .extensions_mut()
+                    .insert(AuthenticatedKey(info.key_id));
+                next.run(request).await
+            }
+            Err(_) => unauthorized(),
+        },
+        None => unauthorized(),
+    }
+}
+
+/// `_VALID_PROVIDERS` from Python's HTTP API (login accepts these only).
+const VALID_PROVIDERS: [&str; 22] = [
+    "ANTHROPIC",
+    "OPENAI",
+    "GEMINI",
+    "DEEPSEEK",
+    "MISTRAL",
+    "COHERE",
+    "GROQ",
+    "XAI",
+    "TOGETHER",
+    "FIREWORKS",
+    "CEREBRAS",
+    "PERPLEXITY",
+    "HF",
+    "GITHUB",
+    "NVIDIA",
+    "CLOUDFLARE",
+    "DASHSCOPE",
+    "LLAMA",
+    "OPENROUTER",
+    "HUGGINGFACE",
+    "BEDROCK",
+    "AZURE",
+];
+
+/// `_API_KEY_ENV_VARS` from Python's HTTP API (status + provider-less logout).
+const API_KEY_ENV_VARS: [&str; 19] = [
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+    "XAI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "MISTRAL_API_KEY",
+    "DASHSCOPE_API_KEY",
+    "LLAMA_API_KEY",
+    "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+    "CEREBRAS_API_KEY",
+    "FIREWORKS_API_KEY",
+    "TOGETHER_API_KEY",
+    "HF_TOKEN",
+    "PERPLEXITY_API_KEY",
+    "NVIDIA_API_KEY",
+    "CLOUDFLARE_API_KEY",
+    "COHERE_API_KEY",
+    "GITHUB_TOKEN",
+];
+
+/// Python's login/logout mapping: `{PROVIDER}_API_KEY`, with HF/GITHUB
+/// special-cased.
+fn provider_env_var(provider: &str) -> String {
+    match provider {
+        "HF" => "HF_TOKEN".to_string(),
+        "GITHUB" => "GITHUB_TOKEN".to_string(),
+        other => format!("{other}_API_KEY"),
+    }
+}
+
+/// Python's display name: strip `_API_KEY`/`_TOKEN`, title-case words.
+fn provider_display_name(env_var: &str) -> String {
+    env_var
+        .replace("_API_KEY", "")
+        .replace("_TOKEN", "")
+        .split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => {
+                    let mut name = first.to_uppercase().to_string();
+                    name.push_str(&chars.as_str().to_ascii_lowercase());
+                    name
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn provider_configured(env_var: &str) -> bool {
+    let upper = std::env::var(env_var)
+        .map(|value| !value.is_empty())
+        .unwrap_or(false);
+    upper
+        || std::env::var(env_var.to_ascii_lowercase())
+            .map(|value| !value.is_empty())
+            .unwrap_or(false)
+}
+
+/// `POST /api/v1/auth/login` — store a provider key in the server process.
+async fn auth_login(Json(request): Json<serde_json::Value>) -> Response {
+    let provider = request
+        .get("provider")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .to_uppercase()
+        .replace(' ', "_");
+    let api_key = request
+        .get("api_key")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    if provider.is_empty() || api_key.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "provider and api_key required"})),
+        )
+            .into_response();
+    }
+    if !VALID_PROVIDERS.contains(&provider.as_str()) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("Unknown provider: {provider}")})),
+        )
+            .into_response();
+    }
+    let env_var = provider_env_var(&provider);
+    std::env::set_var(&env_var, api_key);
+    Json(serde_json::json!({
+        "configured": true,
+        "provider": provider,
+        "env_var": env_var,
+    }))
+    .into_response()
+}
+
+/// `POST /api/v1/auth/logout` — remove one provider key, or every known one
+/// when the body carries no provider.
+async fn auth_logout(body: axum::body::Bytes) -> Json<serde_json::Value> {
+    let data: serde_json::Value = if body.is_empty() {
+        serde_json::json!({})
+    } else {
+        serde_json::from_slice(&body).unwrap_or_else(|_| serde_json::json!({}))
+    };
+    let provider = data
+        .get("provider")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .to_uppercase()
+        .replace(' ', "_");
+    if !provider.is_empty() {
+        let env_var = provider_env_var(&provider);
+        std::env::remove_var(&env_var);
+        std::env::remove_var(env_var.to_ascii_lowercase());
+        return Json(serde_json::json!({"removed": true, "env_var": env_var}));
+    }
+    let mut removed = Vec::new();
+    for env_var in API_KEY_ENV_VARS {
+        for name in [env_var.to_string(), env_var.to_ascii_lowercase()] {
+            if let Ok(value) = std::env::var(&name) {
+                std::env::remove_var(&name);
+                if !value.is_empty() {
+                    removed.push(name);
+                }
+            }
+        }
+    }
+    Json(serde_json::json!({"removed": true, "env_vars": removed}))
+}
+
+/// `GET /api/v1/auth/status` — which provider keys are set in this process.
+///
+/// Python derives the list from its model registry; the Rust port reports the
+/// `_API_KEY_ENV_VARS` table (no model registry), same shape otherwise.
+async fn auth_status() -> Json<serde_json::Value> {
+    let providers: Vec<serde_json::Value> = API_KEY_ENV_VARS
+        .iter()
+        .map(|env_var| {
+            serde_json::json!({
+                "name": provider_display_name(env_var),
+                "env_var": env_var,
+                "configured": provider_configured(env_var),
+            })
+        })
+        .collect();
+    let configured_count = providers
+        .iter()
+        .filter(|provider| provider["configured"] == true)
+        .count();
+    Json(serde_json::json!({
+        "providers": providers,
+        "configured_count": configured_count,
+        "any_configured": configured_count > 0,
+    }))
+}
+
 pub async fn serve(config: Config, port: u16) {
     let (events, _) = tokio::sync::broadcast::channel::<String>(256);
     let state = AppState {
@@ -226,6 +547,8 @@ pub async fn serve(config: Config, port: u16) {
             RateLimitConfig::from_env(),
             Box::new(MemoryStorage::default()),
         ))),
+        key_manager: Arc::new(KeyManager::default_store()),
+        require_auth: auth_required_from_env(),
     };
 
     let app = Router::new()
@@ -546,14 +869,21 @@ pub async fn serve(config: Config, port: u16) {
                 }
             },
         ))
+        .route("/api/v1/auth/login", post(auth_login))
+        .route("/api/v1/auth/logout", post(auth_logout))
+        .route("/api/v1/auth/status", get(auth_status))
         .route(
             "/api/v1/rate-limit",
-            get(|State(st): State<AppState>| async move {
+            get(|State(st): State<AppState>, request: axum::extract::Request| async move {
+                let key = request_rate_limit_key(&request);
                 let limiter = st.rate_limiter.lock().await;
-                Json(limiter.get_status("anonymous"))
+                Json(limiter.get_status(&key))
             }),
         )
         .route_layer(middleware::from_fn_with_state(state.clone(), rate_limit))
+        // Auth wraps the limiter: Python's `_check_auth` runs before
+        // `_check_rate_limit`, so rejected requests never consume budget.
+        .route_layer(middleware::from_fn_with_state(state.clone(), require_auth))
         .with_state(state);
 
     let addr = format!("127.0.0.1:{port}");
@@ -809,6 +1139,7 @@ mod tests {
     async fn rate_limit_middleware_blocks_per_key() {
         let (events, _) = tokio::sync::broadcast::channel::<String>(256);
         let config = Config::from_env();
+        let dir = tempfile::tempdir().unwrap();
         let state = AppState {
             agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
             config,
@@ -822,6 +1153,8 @@ mod tests {
                 },
                 Box::new(MemoryStorage::default()),
             ))),
+            key_manager: Arc::new(KeyManager::new(dir.path().join("api_keys.json"))),
+            require_auth: false,
         };
         let app = Router::new()
             .route("/api/v1/rate-limit", get(|| async { "status" }))
@@ -863,5 +1196,201 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(via_bearer.status(), 200);
+    }
+
+    #[test]
+    fn percent_decode_handles_escapes() {
+        assert_eq!(percent_decode("a%2Db%5Fc"), "a-b_c");
+        assert_eq!(percent_decode("plain"), "plain");
+        // Malformed escapes survive verbatim, like aiohttp's lenient parsing.
+        assert_eq!(percent_decode("bad%zz"), "bad%zz");
+        assert_eq!(percent_decode("trailing%"), "trailing%");
+    }
+
+    #[test]
+    fn extract_api_key_matches_python_precedence() {
+        let uri: axum::http::Uri = "/x?api_key=query-key".parse().unwrap();
+        let mut headers = HeaderMap::new();
+        // No Authorization header: the query parameter wins.
+        assert_eq!(
+            extract_api_key(&headers, &uri).as_deref(),
+            Some("query-key")
+        );
+
+        // Bearer wins over the query parameter.
+        headers.insert(header::AUTHORIZATION, "Bearer bearer-key".parse().unwrap());
+        assert_eq!(
+            extract_api_key(&headers, &uri).as_deref(),
+            Some("bearer-key")
+        );
+
+        // An empty Bearer is a hard failure, never a fallback (Python parity);
+        // a whitespace-only token is passed through verbatim and fails
+        // validation, exactly like `auth_header[7:]` in Python.
+        headers.insert(header::AUTHORIZATION, "Bearer ".parse().unwrap());
+        assert_eq!(extract_api_key(&headers, &uri), None);
+        headers.insert(header::AUTHORIZATION, "Bearer  ".parse().unwrap());
+        assert_eq!(extract_api_key(&headers, &uri).as_deref(), Some(" "));
+
+        // Without Authorization and without a query value, `X-API-Key` is the
+        // last carrier (Python: `query.get("api_key") or X-API-Key`).
+        headers.remove(header::AUTHORIZATION);
+        headers.insert("x-api-key", "header-key".parse().unwrap());
+        let no_query: axum::http::Uri = "/x".parse().unwrap();
+        assert_eq!(
+            extract_api_key(&headers, &no_query).as_deref(),
+            Some("header-key")
+        );
+        // The query parameter wins over the header.
+        assert_eq!(
+            extract_api_key(&headers, &uri).as_deref(),
+            Some("query-key")
+        );
+
+        // A non-Bearer Authorization header is ignored, not rejected.
+        headers.insert(header::AUTHORIZATION, "Basic abc".parse().unwrap());
+        assert_eq!(
+            extract_api_key(&headers, &uri).as_deref(),
+            Some("query-key")
+        );
+
+        // Query values are percent-decoded.
+        let encoded: axum::http::Uri = "/x?api_key=apex_a%2Db".parse().unwrap();
+        assert_eq!(
+            extract_api_key(&HeaderMap::new(), &encoded).as_deref(),
+            Some("apex_a-b")
+        );
+    }
+
+    #[test]
+    fn provider_env_mapping_matches_python() {
+        assert_eq!(provider_env_var("HF"), "HF_TOKEN");
+        assert_eq!(provider_env_var("GITHUB"), "GITHUB_TOKEN");
+        assert_eq!(provider_env_var("ANTHROPIC"), "ANTHROPIC_API_KEY");
+        assert_eq!(provider_display_name("ANTHROPIC_API_KEY"), "Anthropic");
+        assert_eq!(provider_display_name("HF_TOKEN"), "Hf");
+        assert_eq!(provider_display_name("XAI_API_KEY"), "Xai");
+    }
+
+    #[test]
+    fn auth_required_from_env_accepts_truthy_values() {
+        let previous = std::env::var_os("APEX_REQUIRE_AUTH");
+        for value in ["1", "true", "TRUE", " yes ", "On"] {
+            std::env::set_var("APEX_REQUIRE_AUTH", value);
+            assert!(auth_required_from_env(), "{value:?} should enable auth");
+        }
+        for value in ["", "0", "false", "no", "off", "enabled"] {
+            std::env::set_var("APEX_REQUIRE_AUTH", value);
+            assert!(!auth_required_from_env(), "{value:?} should leave auth off");
+        }
+        std::env::remove_var("APEX_REQUIRE_AUTH");
+        assert!(!auth_required_from_env(), "unset means auth off");
+        match previous {
+            Some(value) => std::env::set_var("APEX_REQUIRE_AUTH", value),
+            None => std::env::remove_var("APEX_REQUIRE_AUTH"),
+        }
+    }
+
+    #[tokio::test]
+    async fn auth_middleware_requires_a_valid_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = Arc::new(KeyManager::new(dir.path().join("api_keys.json")));
+        let (key, info) = manager.create_key("middleware", None);
+        let (revoked_key, revoked_info) = manager.create_key("revoked", None);
+        assert!(manager.revoke_key(&revoked_info.key_id));
+
+        let (events, _) = tokio::sync::broadcast::channel::<String>(256);
+        let config = Config::from_env();
+        let state = AppState {
+            agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
+            config,
+            events,
+            rate_limiter: Arc::new(Mutex::new(RateLimiter::new(
+                RateLimitConfig {
+                    requests_per_minute: 100,
+                    requests_per_hour: 1000,
+                    requests_per_day: 10_000,
+                    burst_size: 10,
+                },
+                Box::new(MemoryStorage::default()),
+            ))),
+            key_manager: manager.clone(),
+            require_auth: true,
+        };
+        let app = Router::new()
+            .route("/api/v1/protected", get(|| async { "ok" }))
+            .route("/health", get(|| async { "ok" }))
+            .route_layer(middleware::from_fn_with_state(state.clone(), require_auth))
+            .with_state(state);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let client = reqwest::Client::new();
+        let url = format!("http://{addr}/api/v1/protected");
+
+        // No credentials: exact Python body and status.
+        let denied = client.get(&url).send().await.unwrap();
+        assert_eq!(denied.status(), 401);
+        let body: serde_json::Value = denied.json().await.unwrap();
+        assert_eq!(body["error"], "Authentication required");
+        assert_eq!(body["code"], "AUTH_REQUIRED");
+
+        // The three Python carriers all authenticate.
+        for request in [
+            client
+                .get(&url)
+                .header("Authorization", format!("Bearer {key}")),
+            client.get(format!("{url}?api_key={key}")),
+            client.get(&url).header("X-API-Key", &key),
+        ] {
+            assert_eq!(request.send().await.unwrap().status(), 200);
+        }
+
+        // An empty Bearer is covered by the unit test: the wire strips
+        // trailing header whitespace, so it cannot be asserted over HTTP.
+
+        // Revoked keys are rejected, and `/health` stays exempt.
+        assert_eq!(
+            client
+                .get(&url)
+                .header("X-API-Key", &revoked_key)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            401
+        );
+        assert_eq!(
+            client
+                .get(format!("http://{addr}/health"))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            200
+        );
+
+        // Unmatched paths are 404s from the router, never 401s.
+        assert_eq!(
+            client
+                .get(format!("http://{addr}/nope"))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            404
+        );
+
+        // A valid request updates the store exactly like Python's validate_key.
+        let listed = manager.list_keys();
+        let used = listed
+            .iter()
+            .find(|candidate| candidate.key_id == info.key_id)
+            .unwrap();
+        assert_eq!(used.request_count, 3);
+        assert!(used.last_used.is_some());
     }
 }
