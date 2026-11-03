@@ -3,6 +3,7 @@ mod api_key;
 mod codegen;
 mod config;
 mod context;
+mod context_tracking;
 mod cost;
 mod formatter;
 mod github;

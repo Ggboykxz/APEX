@@ -55,7 +55,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `config.py`, `config_v2.py` | `config.rs` | Partial | Env/model/cwd config and shared home resolution. No JSONC hierarchy, migration, or validation layer. |
 | `config_tools.py` | - | Missing | No config-defined custom tools. |
 | `context.py` | `context.rs` | Wired | CLI `context repo-map\|git\|stats\|ctags\|tree\|glob` and `GET /api/v1/context/*`: repo map, git info, language stats, ctags file list, file tree, glob search. `get_repo_map` and `get_file_tree` are also exposed as tools on top of the same functions. |
-| `context_manager.py`, `context_tracking.py` | - | Missing | No summarisation/compaction accounting. |
+| `context_manager.py`, `context_tracking.py` | `context_tracking.rs` | Ported | Per-session token/message accounting, compaction trigger threshold (default 80% of 128k budget), compaction history (prune/summarize/merge), session add/remove/list. No Python system prompts/top_p; wiring into the agent loop/dispatch gate pending. See PR 334. |
 | `cost_local.py` | `cost.rs` | Wired | Pricing table, usage, cost history; CLI `cost` and HTTP cost routes. |
 | `codegen.py` | `codegen.rs` | Partial | Refactor, DB model, Dockerfile/compose, API client, docs, profile, optimize tools. Six helper operations remain test-only. |
 | `formatter.py` | `formatter.rs` | Partial | `format_file` tool only. No format-on-write pipeline or formatter discovery parity. |
@@ -195,7 +195,6 @@ crate-level allow.
 
 ## Next increments
 
-1. Port `snapshot.py` (Git-powered undo/redo with patches, distinct from the
-   side-git rollback store).
-2. Port Python's remaining session metadata (forks and branch history) beyond
-   `name`/`timestamp`/`model`/`cwd`/`history`/`usage`.
+1. Port `mentions.py` — `@file`/`@agent` mention expansion into messages (text files inlined, images embedded as base64).
+2. Port `structured_message.py` — structured message parts instead of plain strings/JSON.
+3. Port Python's remaining session metadata beyond `name`/`timestamp`/`model`/`cwd`/`history`/`usage` (already partially done via session forks/branches).
