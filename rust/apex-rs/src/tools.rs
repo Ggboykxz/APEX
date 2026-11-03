@@ -812,7 +812,11 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         "format_file" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let full = resolve(path, cwd);
-            formatter::format_file(&full)
+            if formatter::format_file(&full) {
+                format!("Formatted {}", full.display())
+            } else {
+                format!("ERROR: Failed to format {}", full.display())
+            }
         }
         _ => format!("ERROR: Unknown tool '{name}'"),
     };
