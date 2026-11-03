@@ -1,4 +1,5 @@
 mod agent;
+mod agents;
 mod api_key;
 mod codegen;
 mod config;
@@ -110,6 +111,11 @@ enum Commands {
     Skill {
         #[command(subcommand)]
         action: SkillAction,
+    },
+    /// Manage agents (`.apex/agents/*.md`)
+    Agent {
+        #[command(subcommand)]
+        action: AgentAction,
     },
     /// Manage HTTP API keys (`~/.apex/api_keys.json`)
     Key {
@@ -322,6 +328,26 @@ enum SkillAction {
     },
     /// Remove a skill by name
     Remove { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum AgentAction {
+    /// List agents (name, mode, color, description)
+    List,
+    /// Show an agent as JSON
+    Show { name: String },
+    /// Create a custom agent markdown file
+    Create {
+        name: String,
+        #[arg(long)]
+        description: String,
+        #[arg(long)]
+        mode: Option<String>,
+        #[arg(long)]
+        model: Option<String>,
+    },
+    /// Delete a custom agent
+    Delete { name: String },
 }
 
 #[derive(Subcommand, Debug)]
@@ -929,6 +955,85 @@ async fn main() {
                 }
                 skills::remove_skill_file(&config.cwd, &name);
                 println!("Removed skill: {name}");
+            }
+        },
+        Some(Commands::Agent { action }) => match action {
+            AgentAction::List => {
+                let mut reg = agents::AgentRegistry::new();
+                reg.load_markdown_agents_from(&config.cwd);
+                for agent in reg.list() {
+                    println!(
+                        "{}\t{}\t{}\t{}",
+                        agent.name,
+                        agent.mode.as_str(),
+                        agent.color.as_deref().unwrap_or(""),
+                        agent.description
+                    );
+                }
+            }
+            AgentAction::Show { name } => {
+                let mut reg = agents::AgentRegistry::new();
+                reg.load_markdown_agents_from(&config.cwd);
+                match reg.get(&name) {
+                    Some(agent) => {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(agent).unwrap_or_default()
+                        )
+                    }
+                    None => {
+                        eprintln!("ERROR: Agent not found: {name}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            AgentAction::Create {
+                name,
+                description,
+                mode,
+                model,
+            } => {
+                if !agents::valid_agent_name(&name) {
+                    eprintln!("ERROR: Invalid agent name: {name}");
+                    std::process::exit(1);
+                }
+                let mode = agents::AgentMode::parse(mode.as_deref().unwrap_or("subagent"));
+                let agent = agents::Agent {
+                    name: name.clone(),
+                    description,
+                    mode,
+                    model,
+                    temperature: None,
+                    max_steps: None,
+                    permission: std::collections::HashMap::new(),
+                    color: Some("cyan".to_string()),
+                    hidden: false,
+                    disabled: false,
+                    is_builtin: false,
+                };
+                match agents::save_agent_file(&config.cwd, &agent) {
+                    Ok(path) => println!("Created agent: {} ({})", name, path.display()),
+                    Err(e) => {
+                        eprintln!("ERROR: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            AgentAction::Delete { name } => {
+                if !agents::valid_agent_name(&name) {
+                    eprintln!("ERROR: Invalid agent name: {name}");
+                    std::process::exit(1);
+                }
+                if agents::builtin_agents().contains_key(&name) {
+                    eprintln!("ERROR: Cannot delete built-in agent: {name}");
+                    std::process::exit(1);
+                }
+                if agents::remove_agent_file(&config.cwd, &name) {
+                    println!("Deleted agent: {name}");
+                } else {
+                    eprintln!("ERROR: Agent not found: {name}");
+                    std::process::exit(1);
+                }
             }
         },
         Some(Commands::Key { action }) => {
