@@ -86,7 +86,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
 | `watcher.py` | - | Missing | No file watcher. |
 | `project.py` | - | Missing | No project initialisation/analysis. |
-| `mentions.py` | - | Missing | No `@file`/`@agent` mention expansion. |
+| `mentions.py` | `mentions.rs` | Ported | `@file`/`@agent` mention expansion: MentionParser with regex identical to Python (`@boundary` and `in-word-with-dot`), case-insensitive agent dedup (build, plan, planner, reviewer, shell, general, explore, scout, compaction, title, summary), `resolve_file()` relative-to-cwd, `read_mentioned_files()` (capped at 5000 chars, skips unreadable), `FileMentionCompleter` with ignore list. Not yet wired into the agent message dispatch. See PR 335. |
 | `slash.py` | - | Missing | No slash-command system. |
 | `structured_message.py` | - | Missing | Messages are plain strings/JSON, not structured parts. |
 | `task`/plan tooling in `tools.py` | `task_queue.rs`, `tools.rs` | Partial | `task` (delegates against the 11 built-in agent names; custom agents from `.apex/agents/*.md` are not scanned), `submit_task`/`list_tasks`/`get_task` (in-memory queue, one background thread per task - Python's `asyncio.run` actually cancels the spawned coroutine on loop teardown, so a task stays `pending` there), `plan_approve`/`plan_reject` (always `No pending plan` - Python's `_plan_approval` is never set on the executor either). `TaskQueue.cancel()` and the durable `task_queue.py` remain unported. |
@@ -195,7 +195,5 @@ crate-level allow.
 
 ## Next increments
 
-1. Port `snapshot.py` (Git-powered undo/redo with patches, distinct from the
-   side-git rollback store).
-2. Port Python's remaining session metadata (forks and branch history) beyond
-   `name`/`timestamp`/`model`/`cwd`/`history`/`usage`.
+1. Port `structured_message.py` — structured message parts (text/file/tool_call/tool_result/image/snapshot) instead of plain strings/JSON.
+2. Remaining Vague 2/3/4 items: formatter pipeline, watcher, slash-commands, project init, missing tools (51→102 schemas), billing, gateway, server route parity.

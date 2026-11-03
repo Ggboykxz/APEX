@@ -11,6 +11,7 @@ mod jsonrpc;
 mod lsp;
 mod mcp_client;
 mod memory;
+mod mentions;
 mod patch;
 mod permission;
 mod plugins;
