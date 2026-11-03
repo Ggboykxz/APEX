@@ -24,3 +24,4 @@ cbc = { version = "0.1", features = ["alloc"] }
 hmac = "0.12"
 sha2 = "0.10"
 getrandom = "0.2"
+lazy_static = "1.4"
