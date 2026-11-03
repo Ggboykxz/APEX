@@ -5,6 +5,7 @@
 //!   * `latest_<name>.json` is a symlink to the newest `.enc` file
 //!   * sharing/exporting sanitizes secrets before writing.
 
+use crate::session_crypto::{BranchEntry, SessionMetadata};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -172,7 +173,7 @@ pub fn history_of(data: &Value) -> Vec<Value> {
         .unwrap_or_default()
 }
 
-fn safe_session_name(name: &str) -> String {
+pub fn safe_session_name(name: &str) -> String {
     name.chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
@@ -184,15 +185,47 @@ fn safe_session_name(name: &str) -> String {
         .collect()
 }
 
-/// Write an encrypted session and refresh the `latest_<name>.json` symlink.
-pub fn save_session(name: &str, model: &str, cwd: &str, history: &[Value]) -> Option<PathBuf> {
+/// Extract fork/branch metadata from a session payload.
+pub fn metadata_of(data: &Value) -> SessionMetadata {
+    // Try to parse the metadata fields from the session value.
+    // We deserialize the whole value as SessionMetadata, which will use
+    // defaults for any missing fields.
+    serde_json::from_value(data.clone()).unwrap_or_default()
+}
+
+/// Merge `SessionMetadata` into a session payload.
+pub fn with_metadata(data: Value, meta: &SessionMetadata) -> Value {
+    let mut obj = match data {
+        Value::Object(obj) => obj,
+        other => return other,
+    };
+    if let Ok(Value::Object(meta_obj)) = serde_json::to_value(meta) {
+        for (k, val) in meta_obj {
+            // Only insert if not null/empty (to preserve skip_serializing_if behavior)
+            if !val.is_null() && !(val.is_array() && val.as_array().unwrap().is_empty()) {
+                obj.insert(k, val);
+            }
+        }
+    }
+    Value::Object(obj)
+}
+
+/// Write an encrypted session with optional fork/branch metadata.
+pub fn save_session_with_metadata(
+    name: &str,
+    model: &str,
+    cwd: &str,
+    history: &[Value],
+    metadata: Option<&SessionMetadata>,
+) -> Option<PathBuf> {
     let dir = sessions_dir();
     std::fs::create_dir_all(&dir).ok()?;
     let safe = safe_session_name(name);
     let (ts, iso) = now_stamps();
     let filename = format!("{ts}_{safe}.enc");
     let filepath = dir.join(&filename);
-    let payload = json!({
+
+    let mut payload = json!({
         "name": name,
         "timestamp": iso,
         "model": model,
@@ -200,6 +233,12 @@ pub fn save_session(name: &str, model: &str, cwd: &str, history: &[Value]) -> Op
         "history": history,
         "usage": {},
     });
+
+    // Merge metadata if provided
+    if let Some(meta) = metadata {
+        payload = with_metadata(payload, meta);
+    }
+
     let plain = serde_json::to_string(&payload).ok()?;
     let token = crate::session_crypto::encrypt(&plain)?;
     std::fs::write(&filepath, token).ok()?;
@@ -219,6 +258,11 @@ pub fn save_session(name: &str, model: &str, cwd: &str, history: &[Value]) -> Op
         let _ = std::fs::copy(&filepath, &latest);
     }
     Some(filepath)
+}
+
+/// Backward-compatible save_session without metadata.
+pub fn save_session(name: &str, model: &str, cwd: &str, history: &[Value]) -> Option<PathBuf> {
+    save_session_with_metadata(name, model, cwd, history, None)
 }
 
 /// List sessions (name, timestamp, model, history_len), newest first.
@@ -259,6 +303,74 @@ pub fn list_sessions() -> Vec<Value> {
             .cmp(a["timestamp"].as_str().unwrap_or(""))
     });
     sessions
+}
+
+/// Fork a session: load the parent, write a child session with the same model,
+/// cwd, and history but tagged with fork metadata.
+///
+/// Returns the `(child_id, child_path)` on success, or `None` if the parent
+/// session could not be loaded or the child could not be saved.
+pub fn fork_session(
+    parent_id: &str,
+    child_name: &str,
+    branch_name: &str,
+    fork_point: u32,
+) -> Option<(String, PathBuf)> {
+    let parent_data = load_session(parent_id)?;
+    let model = parent_data
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let cwd = parent_data
+        .get("cwd")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let history: Vec<Value> = history_of(&parent_data);
+
+    let mut metadata = SessionMetadata::new_fork(
+        parent_id.to_string(),
+        branch_name.to_string(),
+        fork_point,
+    );
+    // Record this fork as a branch-history entry.
+    let (_ts, iso) = now_stamps();
+    metadata.add_branch_entry(BranchEntry {
+        session_id: child_name.to_string(),
+        branch_name: branch_name.to_string(),
+        timestamp: iso,
+        parent_id: Some(parent_id.to_string()),
+    });
+
+    let path = save_session_with_metadata(
+        child_name,
+        &model,
+        &cwd,
+        &history,
+        Some(&metadata),
+    )?;
+
+    // Use the session name as the child id for lookups
+    let child_id = safe_session_name(child_name);
+
+    Some((child_id, path))
+}
+
+/// Return the branch history for a session, or an empty vector if absent.
+pub fn branch_history_of(data: &Value) -> Vec<BranchEntry> {
+    metadata_of(data).branch_history
+}
+
+/// Extract fork/branch metadata from a session as a JSON value.
+pub fn metadata_json(data: &Value) -> Value {
+    serde_json::to_value(metadata_of(data)).unwrap_or_default()
+}
+
+/// Extract branch history as a JSON array (for HTTP responses).
+pub fn branch_history_json(data: &Value) -> Value {
+    let history = branch_history_of(data);
+    serde_json::to_value(history).unwrap_or_default()
 }
 
 // -------------------------------------------------------------------- shares
@@ -391,5 +503,84 @@ mod tests {
     fn safe_names() {
         assert_eq!(safe_session_name("my/session..name"), "my_session__name");
         assert_eq!(safe_session_name("ok-name_1"), "ok-name_1");
+    }
+
+    #[test]
+    fn metadata_roundtrip_with_fork() {
+        let data = json!({
+            "name": "child",
+            "fork_parent_id": "parent-123",
+            "branch_name": "feature",
+            "fork_point": 7,
+            "branch_history": [
+                {"session_id": "parent-123", "branch_name": "main", "timestamp": "2026-01-01T00:00:00Z", "parent_id": null}
+            ],
+        });
+        let meta = metadata_of(&data);
+        assert_eq!(meta.fork_parent_id.as_deref(), Some("parent-123"));
+        assert_eq!(meta.branch_name.as_deref(), Some("feature"));
+        assert_eq!(meta.fork_point, Some(7));
+        assert_eq!(meta.branch_history.len(), 1);
+        assert_eq!(meta.branch_history[0].session_id, "parent-123");
+        assert_eq!(meta.branch_history[0].branch_name, "main");
+    }
+
+    #[test]
+    fn metadata_backward_compat_no_fields() {
+        let data = json!({
+            "name": "old",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "model": "gpt-4",
+            "cwd": "/tmp",
+            "history": [],
+            "usage": {},
+        });
+        let meta = metadata_of(&data);
+        assert_eq!(meta.fork_parent_id, None);
+        assert_eq!(meta.branch_name, None);
+        assert_eq!(meta.fork_point, None);
+        assert!(meta.branch_history.is_empty());
+    }
+
+    #[test]
+    fn with_metadata_merges_fields() {
+        let data = json!({"name": "test", "history": []});
+        let meta = SessionMetadata::new_fork("p1".into(), "br".into(), 3);
+        let merged = with_metadata(data.clone(), &meta);
+        assert_eq!(merged["fork_parent_id"], "p1");
+        assert_eq!(merged["branch_name"], "br");
+        assert_eq!(merged["fork_point"], 3);
+        assert_eq!(merged["name"], "test");
+    }
+
+    #[test]
+    fn with_metadata_omits_empty() {
+        let data = json!({"name": "test", "history": []});
+        let meta = SessionMetadata::default();
+        let merged = with_metadata(data.clone(), &meta);
+        assert!(merged.get("fork_parent_id").is_none());
+        assert!(merged.get("branch_name").is_none());
+        assert!(merged.get("fork_point").is_none());
+        assert!(merged.get("branch_history").is_none());
+        assert_eq!(merged["name"], "test");
+    }
+
+    #[test]
+    fn branch_history_of_extracts() {
+        let data = json!({
+            "branch_history": [
+                {"session_id": "s1", "branch_name": "main", "timestamp": "2026-01-01T00:00:00Z", "parent_id": null}
+            ]
+        });
+        let history = branch_history_of(&data);
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].session_id, "s1");
+    }
+
+    #[test]
+    fn branch_history_of_empty_when_absent() {
+        let data = json!({"name": "no-branch"});
+        let history = branch_history_of(&data);
+        assert!(history.is_empty());
     }
 }

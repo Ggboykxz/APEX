@@ -164,9 +164,103 @@ pub fn encrypt(plain: &str) -> Option<String> {
     Some(B64.encode(body))
 }
 
+// ---------------------------------------------------------------- Session metadata
+
+/// A single entry in the branch history of a session.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct BranchEntry {
+    pub session_id: String,
+    pub branch_name: String,
+    pub timestamp: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+}
+
+/// Fork/branch metadata stored alongside the standard session fields.
+///
+/// All fields are optional / default to backward compatibility: a session
+/// persisted before this struct existed deserialises with every field unset.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct SessionMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fork_parent_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fork_point: Option<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub branch_history: Vec<BranchEntry>,
+}
+
+impl SessionMetadata {
+    /// Build metadata that marks a new session as a fork of `parent_id`.
+    pub fn new_fork(parent_id: String, branch_name: String, fork_point: u32) -> Self {
+        Self {
+            fork_parent_id: Some(parent_id),
+            branch_name: Some(branch_name),
+            fork_point: Some(fork_point),
+            branch_history: Vec::new(),
+        }
+    }
+
+    /// Push a branch-history entry.
+    pub fn add_branch_entry(&mut self, entry: BranchEntry) {
+        self.branch_history.push(entry);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn roundtrip_empty_metadata() {
+        let meta = SessionMetadata::default();
+        let json = serde_json::to_string(&meta).unwrap();
+        // Empty fields should be omitted
+        assert!(!json.contains("fork_parent_id"));
+        assert!(!json.contains("branch_name"));
+        assert!(!json.contains("fork_point"));
+        assert!(!json.contains("branch_history"));
+
+        let parsed: SessionMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, meta);
+    }
+
+    #[test]
+    fn roundtrip_with_fork() {
+        let mut meta = SessionMetadata::new_fork(
+            "parent-123".to_string(),
+            "feature-branch".to_string(),
+            5,
+        );
+        meta.add_branch_entry(BranchEntry {
+            session_id: "parent-123".to_string(),
+            branch_name: "main".to_string(),
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            parent_id: None,
+        });
+
+        let json = serde_json::to_string(&meta).unwrap();
+        assert!(json.contains("fork_parent_id"));
+        assert!(json.contains("feature-branch"));
+        assert!(json.contains("fork_point"));
+        assert!(json.contains("branch_history"));
+
+        let parsed: SessionMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, meta);
+    }
+
+    #[test]
+    fn backward_compat_missing_fields() {
+        // JSON without the new fields should deserialize with defaults
+        let json = r#"{"name":"test","timestamp":"2026-01-01T00:00:00Z","model":"gpt-4","cwd":"/tmp","history":[],"usage":{}}"#;
+        let meta: SessionMetadata = serde_json::from_str(json).unwrap();
+        assert_eq!(meta.fork_parent_id, None);
+        assert_eq!(meta.branch_name, None);
+        assert_eq!(meta.fork_point, None);
+        assert!(meta.branch_history.is_empty());
+    }
 
     #[test]
     fn roundtrip() {

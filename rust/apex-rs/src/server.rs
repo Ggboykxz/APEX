@@ -4,7 +4,7 @@ use crate::config::Config;
 use crate::rate_limiter::{MemoryStorage, RateLimitConfig, RateLimiter};
 use crate::tools;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{header, HeaderMap, HeaderName, StatusCode};
 use axum::middleware::{self, Next};
 use axum::response::sse::{Event, Sse};
@@ -738,6 +738,64 @@ pub async fn serve(config: Config, port: u16) {
                     }))
                 }
                 None => Json(serde_json::json!({"id": id, "error": "session not found"})),
+            }
+        }))
+        .route("/api/v1/sessions/:id/fork", post({
+            move |Path(id): Path<String>, opt: Option<Json<serde_json::Value>>| async move {
+                let req = opt.map(|j| j.0).unwrap_or_default();
+                let branch_name = req
+                    .get("branch_name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                // Accept either `fork_point` or `from_turn` as the turn index.
+                let fork_point = req
+                    .get("fork_point")
+                    .or_else(|| req.get("from_turn"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as u32;
+                // Child name follows the CLI convention: the branch name, or a
+                // default derived from the parent id when none is given.
+                let child_name = if branch_name.is_empty() {
+                    let parent_safe = crate::share::safe_session_name(&id);
+                    format!("{parent_safe}-fork")
+                } else {
+                    branch_name.clone()
+                };
+                match crate::share::fork_session(&id, &child_name, &branch_name, fork_point) {
+                    Some((child_id, path)) => Json(serde_json::json!({
+                        "ok": true,
+                        "id": child_id,
+                        "child_id": child_id,
+                        "parent_id": id,
+                        "branch_name": branch_name,
+                        "fork_point": fork_point,
+                        "path": path.to_string_lossy(),
+                    })),
+                    None => Json(serde_json::json!({
+                        "ok": false,
+                        "error": "session not found",
+                        "parent_id": id,
+                    })),
+                }
+            }
+        }))
+        .route("/api/v1/sessions/:id/branches", get({
+            move |Path(id): Path<String>| async move {
+                match crate::share::load_session(&id) {
+                    Some(data) => Json(serde_json::json!({
+                        "id": id,
+                        "branches": crate::share::branch_history_json(&data),
+                        "branch_history": crate::share::branch_history_json(&data),
+                        "metadata": crate::share::metadata_json(&data),
+                    })),
+                    None => Json(serde_json::json!({
+                        "id": id,
+                        "error": "session not found",
+                        "branches": [],
+                        "branch_history": [],
+                    })),
+                }
             }
         }))
         .route("/api/v1/share", post({
