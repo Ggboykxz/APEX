@@ -116,6 +116,9 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"lsp_definition","description":"Go to definition using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_references","description":"Find references using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_hover","description":"Show hover information using LSP","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"lsp_completions","description":"Get LSP completion items at a position","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"lsp_code_actions","description":"Get LSP code actions at a position","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"lsp_workspace_symbol","description":"Search workspace symbols by query","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Symbol query string"},"server":{"type":"string"}},"required":["query"]}}},
         {"type":"function","function":{"name":"git_stage","description":"Stage files for commit.","parameters":{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"},"description":"Files to stage"}},"required":["files"]}}},
         {"type":"function","function":{"name":"git_unstage","description":"Unstage files.","parameters":{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"},"description":"Files to unstage"}}}}},
         {"type":"function","function":{"name":"git_commit","description":"Commit staged changes.","parameters":{"type":"object","properties":{"message":{"type":"string","description":"Commit message"}},"required":["message"]}}},
@@ -398,28 +401,47 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         "lsp_diagnostics" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
-            run_lsp_op("diagnostics", path, 0, 0, server, cwd)
+            run_lsp_op("diagnostics", path, 0, 0, "", server, cwd)
         }
         "lsp_definition" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
             let line = args.get("line").and_then(|v| v.as_i64()).unwrap_or(0);
             let column = args.get("column").and_then(|v| v.as_i64()).unwrap_or(0);
-            run_lsp_op("definition", path, line, column, server, cwd)
+            run_lsp_op("definition", path, line, column, "", server, cwd)
         }
         "lsp_references" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
             let line = args.get("line").and_then(|v| v.as_i64()).unwrap_or(0);
             let column = args.get("column").and_then(|v| v.as_i64()).unwrap_or(0);
-            run_lsp_op("references", path, line, column, server, cwd)
+            run_lsp_op("references", path, line, column, "", server, cwd)
         }
         "lsp_hover" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
             let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
             let line = args.get("line").and_then(|v| v.as_i64()).unwrap_or(0);
             let column = args.get("column").and_then(|v| v.as_i64()).unwrap_or(0);
-            run_lsp_op("hover", path, line, column, server, cwd)
+            run_lsp_op("hover", path, line, column, "", server, cwd)
+        }
+        "lsp_completions" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
+            let line = args.get("line").and_then(|v| v.as_i64()).unwrap_or(0);
+            let column = args.get("column").and_then(|v| v.as_i64()).unwrap_or(0);
+            run_lsp_op("completions", path, line, column, "", server, cwd)
+        }
+        "lsp_code_actions" => {
+            let path = args.get("path").and_then(|v| v.as_str()).unwrap_or("");
+            let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
+            let line = args.get("line").and_then(|v| v.as_i64()).unwrap_or(0);
+            let column = args.get("column").and_then(|v| v.as_i64()).unwrap_or(0);
+            run_lsp_op("code_actions", path, line, column, "", server, cwd)
+        }
+        "lsp_workspace_symbol" => {
+            let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+            let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
+            run_lsp_op("workspace_symbol", "", 0, 0, query, server, cwd)
         }
         "list_files" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
@@ -881,7 +903,8 @@ fn lsp_server_for(path: &str, server: &str) -> (String, Vec<String>) {
     }
 }
 
-/// Run one LSP operation (`diagnostics`, `definition`, `references`, `hover`).
+/// Run one LSP operation (`diagnostics`, `definition`, `references`, `hover`,
+/// `completions`, `code_actions`, `workspace_symbol`).
 ///
 /// Same nested-runtime concern as MCP: the client runs on a dedicated thread
 /// with its own Tokio runtime.
@@ -890,6 +913,7 @@ fn run_lsp_op(
     path: &str,
     line: i64,
     column: i64,
+    query: &str,
     server: &str,
     cwd: &std::path::Path,
 ) -> String {
@@ -907,6 +931,7 @@ fn run_lsp_op(
     };
     let root = cwd.to_string_lossy().to_string();
     let op = op.to_string();
+    let query = query.to_string();
     std::thread::spawn(move || {
         let rt = match tokio::runtime::Runtime::new() {
             Ok(r) => r,
@@ -922,11 +947,11 @@ fn run_lsp_op(
             let _ = lsp.did_open(&full_path).await;
             // …and wait for indexing to finish (rust-analyzer returns `null` while loading).
             lsp.wait_ready(15000).await;
-            let mut res = run_op(&mut lsp, &op, &full_path, line, column).await;
+            let mut res = run_op(&mut lsp, &op, &full_path, line, column, &query).await;
             // The server may not be fully indexed yet: wait, then retry once.
             if matches!(&res, Ok(v) if v.is_null()) {
                 lsp.wait_ready(15000).await;
-                res = run_op(&mut lsp, &op, &full_path, line, column).await;
+                res = run_op(&mut lsp, &op, &full_path, line, column, &query).await;
             }
             lsp.shutdown().await;
             match res {
@@ -946,11 +971,16 @@ async fn run_op(
     path: &str,
     line: i64,
     column: i64,
+    query: &str,
 ) -> anyhow::Result<Value> {
     match op {
         "definition" => lsp.definition(path, line, column).await,
         "references" => lsp.references(path, line, column).await,
         "hover" => lsp.hover(path, line, column).await,
+        "diagnostics" => lsp.diagnostics(path).await,
+        "completions" => lsp.completions(path, line, column).await,
+        "code_actions" => lsp.code_actions(path, line, column).await,
+        "workspace_symbol" => lsp.workspace_symbol(query).await,
         _ => lsp.diagnostics(path).await,
     }
 }

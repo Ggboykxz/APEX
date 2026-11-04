@@ -42,7 +42,7 @@ context (`repo-map`, `git`, `stats`, `ctags`, `tree`, `glob`),
 `/api/v1/rate-limit`, and WebSockets. API-key auth is opt-in with
 `APEX_REQUIRE_AUTH` (`/health` and the WebSocket routes exempt).
 
-Tool registry: 65 schemas. Python exposes 102 schema names in `apex/tools.py`.
+Tool registry: 68 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 ## Module matrix
 
@@ -104,7 +104,7 @@ Tool registry: 65 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Shell | `run_command` (guarded), `run_test`, `install_package` | Partial | `run_command_custom`, `run_shell`, `start_shell`, `close_shell`, `run_code` |
 | Git | 11 `git_*` tools including `git_create_pr` and `git_undo`, plus `add_git_hook`, `git_status_enhanced`, `git_log_enhanced` | Wired | `run_command_custom`, `run_shell`, `start_shell`, `close_shell`, `run_code` |
 | Codegen | `refactor_code`, DB/Docker/API-client/docs generators, `profile_code`, `optimize_code`, `generate_tests`, `inline_edit`, `apply_code_action` | Partial | - |
-| LSP | `lsp_definition`, `lsp_references`, `lsp_hover`, `lsp_diagnostics` | Partial | completions, code actions, workspace-symbol search |
+| LSP | `lsp_definition`, `lsp_references`, `lsp_hover`, `lsp_diagnostics`, `lsp_completions`, `lsp_code_actions`, `lsp_workspace_symbol` | Partial | - |
 | Skills | `list_skills`, `use_skill` | Partial | skill authoring/removal now lives in the `skill` CLI (not a tool) |
 | Context | `get_repo_map`, `get_file_tree` | Partial | `get_context_info` (needs the agent message state; the Rust dispatch is stateless) |
 | Web | `web_search` (Brave/Tavily/Exa/DuckDuckGo provider chain with DuckDuckGo fallback), `fetch_url` (cleaned text, 3000-char cap) | Wired | - |
