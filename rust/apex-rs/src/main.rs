@@ -2,6 +2,7 @@ mod agent;
 mod agents;
 mod api_key;
 mod codegen;
+mod codegen_tools;
 mod config;
 mod context;
 mod context_tracking;

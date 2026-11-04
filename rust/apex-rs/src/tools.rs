@@ -135,6 +135,9 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"generate_docs","description":"Generate documentation.","parameters":{"type":"object","properties":{"type":{"type":"string","description":"Type: readme, api, markdoc"},"path":{"type":"string","description":"File path for api docs"}},"required":["type"]}}},
         {"type":"function","function":{"name":"profile_code","description":"Profile code complexity and performance.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to profile"}},"required":["path"]}}},
         {"type":"function","function":{"name":"optimize_code","description":"Get optimization suggestions.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to analyze"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"generate_tests","description":"Generate unit tests for a file or function.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to generate tests for"},"framework":{"type":"string","description":"Test framework (pytest/jest)"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"inline_edit","description":"Edit a specific line range in a file.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"File to edit"},"line":{"type":"integer","description":"Line number to start at (1-based)"},"content":{"type":"string","description":"Content to insert"},"replace":{"type":"integer","description":"Number of lines to replace"}},"required":["path","content"]}}},
+        {"type":"function","function":{"name":"apply_code_action","description":"Apply a suggested code action/fix.","parameters":{"type":"object","properties":{"action_id":{"type":"string","description":"Action ID to apply"}},"required":["action_id"]}}},
         {"type":"function","function":{"name":"diff_files","description":"Show unified diff between two files.","parameters":{"type":"object","properties":{"path_a":{"type":"string","description":"Path to first file"},"path_b":{"type":"string","description":"Path to second file"}},"required":["path_a","path_b"]}}},
         {"type":"function","function":{"name":"list_skills","description":"List available skills.","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"use_skill","description":"Use a skill with arguments.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Skill name"},"args":{"type":"object","description":"Skill arguments"}},"required":["name"]}}},
@@ -675,6 +678,9 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             }
             out
         }
+        "generate_tests" => crate::codegen_tools::generate_tests(args, cwd),
+        "inline_edit" => crate::codegen_tools::inline_edit(args, cwd),
+        "apply_code_action" => crate::codegen_tools::apply_code_action(args),
         "diff_files" => {
             let path_a = args.get("path_a").and_then(|v| v.as_str()).unwrap_or("");
             let path_b = args.get("path_b").and_then(|v| v.as_str()).unwrap_or("");
