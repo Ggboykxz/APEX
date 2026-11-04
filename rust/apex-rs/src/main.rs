@@ -4,6 +4,7 @@ mod codegen;
 mod config;
 mod context;
 mod cost;
+mod files;
 mod formatter;
 mod github;
 mod hooks;
