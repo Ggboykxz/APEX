@@ -17,6 +17,7 @@ mod plugins;
 mod rate_limiter;
 mod server;
 mod session_crypto;
+mod slash;
 mod share;
 mod shell_security;
 mod skills;

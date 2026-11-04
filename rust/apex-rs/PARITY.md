@@ -87,7 +87,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `watcher.py` | - | Missing | No file watcher. |
 | `project.py` | - | Missing | No project initialisation/analysis. |
 | `mentions.py` | - | Missing | No `@file`/`@agent` mention expansion. |
-| `slash.py` | - | Missing | No slash-command system. |
+| `slash.py` | `slash.rs` | Ported | Slash command manager: 20+ built-in commands (agent, model, cwd, clear, save, load, share, undo, redo, git, map, help, cost, agents, subagents, models, init, analyze, approve, reject, shell, commands), alias support, argument validation, `/name arg1 arg2` parsing. Not yet wired into the agent message dispatch. See PR 339. |
 | `structured_message.py` | - | Missing | Messages are plain strings/JSON, not structured parts. |
 | `task`/plan tooling in `tools.py` | `task_queue.rs`, `tools.rs` | Partial | `task` (delegates against the 11 built-in agent names; custom agents from `.apex/agents/*.md` are not scanned), `submit_task`/`list_tasks`/`get_task` (in-memory queue, one background thread per task - Python's `asyncio.run` actually cancels the spawned coroutine on loop teardown, so a task stays `pending` there), `plan_approve`/`plan_reject` (always `No pending plan` - Python's `_plan_approval` is never set on the executor either). `TaskQueue.cancel()` and the durable `task_queue.py` remain unported. |
 | `ui.py`, `i18n.py` | - | Missing | No terminal UI or localisation; the TUI remains separate. |
@@ -195,7 +195,5 @@ crate-level allow.
 
 ## Next increments
 
-1. Port `snapshot.py` (Git-powered undo/redo with patches, distinct from the
-   side-git rollback store).
-2. Port Python's remaining session metadata (forks and branch history) beyond
-   `name`/`timestamp`/`model`/`cwd`/`history`/`usage`.
+1. Remaining Vague 3 items: slash-commands (done in PR 339), project init.
+2. Remaining Vague 4 items: missing tools (51→102 schemas), billing, gateway, server route parity.
