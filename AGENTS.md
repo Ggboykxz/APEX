@@ -1396,6 +1396,19 @@ Existing LSP tools (`lsp_definition`, `lsp_references`, `lsp_hover`,
 - `retry_last` — retries the last tool executed (headless: no state).
 - `retry_tool` — retries a specific tool (headless: `advanced.py` not ported).
 
+### Billing tools
+
+`billing.rs` ports the billing system from `apex/billing.py`
+(`tool registry is now 80 schemas`):
+
+- `billing_cost` — calculates cost for token usage based on the model pricing table.
+- `billing_quota` — checks if a user's quota allows the requested token usage.
+- `billing_usage` — records usage for a user and updates their monthly totals.
+- `billing_plan` — updates a user's billing plan (free/pro/enterprise/custom).
+- `billing_summary` — returns a usage summary for a user including total cost, tokens, and request count.
+
+The billing manager supports plan types (Free/Pro/Enterprise/Custom) with different monthly limits, token limits, and rate limits, plus trial periods and overage handling.
+
 ### Task queue & plans
 
 `task_queue.rs` ports the `TaskQueue` from `apex/extras.py` (tool registry
