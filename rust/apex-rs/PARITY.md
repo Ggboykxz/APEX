@@ -87,7 +87,7 @@ Tool registry: 59 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `watcher.py` | `watcher.rs` | Ported | Polling-based file watcher with debounced callbacks, gitignore-aware ignore patterns (`.gitignore` + configurable patterns), per-extension pattern matching, start/stop lifecycle. Not yet wired into the agent loop. See PR 338. |
 | `project.py` | - | Missing | No project initialisation/analysis. |
 | `mentions.py` | `mentions.rs` | Ported | `@file`/`@agent` mention expansion: MentionParser with regex identical to Python (`@boundary` and `in-word-with-dot`), case-insensitive agent dedup (build, plan, planner, reviewer, shell, general, explore, scout, compaction, title, summary), `resolve_file()` relative-to-cwd, `read_mentioned_files()` (capped at 5000 chars, skips unreadable), `FileMentionCompleter` with ignore list. Not yet wired into the agent message dispatch. See PR 335. |
-| `slash.py` | - | Missing | No slash-command system. |
+| `slash.py` | `slash.rs` | Ported | Slash command manager: 20+ built-in commands (agent, model, cwd, clear, save, load, share, undo, redo, git, map, help, cost, agents, subagents, models, init, analyze, approve, reject, shell, commands), alias support, argument validation, `/name arg1 arg2` parsing. Not yet wired into the agent message dispatch. See PR 339. |
 | `structured_message.py` | `structured_message.rs` | Ported | Structured message parts (text/file/tool_call/tool_result/image/snapshot) with MessagePart/Message/TokenUsage, to_dict/from_dict round-trip, factory `create_message`, serialize/deserialize helpers. Not yet wired into the agent message dispatch. See PR 336. |
 | `task`/plan tooling in `tools.py` | `task_queue.rs`, `tools.rs` | Partial | `task` (delegates against the 11 built-in agent names; custom agents from `.apex/agents/*.md` are not scanned), `submit_task`/`list_tasks`/`get_task` (in-memory queue, one background thread per task - Python's `asyncio.run` actually cancels the spawned coroutine on loop teardown, so a task stays `pending` there), `plan_approve`/`plan_reject` (always `No pending plan` - Python's `_plan_approval` is never set on the executor either). `TaskQueue.cancel()` and the durable `task_queue.py` remain unported. |
 | `ui.py`, `i18n.py` | - | Missing | No terminal UI or localisation; the TUI remains separate. |
@@ -198,4 +198,4 @@ crate-level allow.
 ## Next increments
 
 1. Port Python's remaining session metadata beyond `name`/`timestamp`/`model`/`cwd`/`history`/`usage` (already partially done via session forks/branches).
-2. Remaining Vague 2/3/4 items: formatter pipeline, watcher, slash-commands, project init, missing tools (51→102 schemas), billing, gateway, server route parity.
+2. Remaining Vague 3/4 items: project init, missing tools (51→102 schemas), billing, gateway, server route parity.
