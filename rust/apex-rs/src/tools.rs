@@ -125,6 +125,11 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"clipboard_write","description":"Write text to clipboard.","parameters":{"type":"object","properties":{"text":{"type":"string","description":"Text to copy"}},"required":["text"]}}},
         {"type":"function","function":{"name":"retry_last","description":"Retry the last tool executed.","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"retry_tool","description":"Retry a specific tool.","parameters":{"type":"object","properties":{"tool":{"type":"string","description":"Tool name to retry"},"retries":{"type":"integer","description":"Max retries"}},"required":["tool"]}}},
+        {"type":"function","function":{"name":"billing_cost","description":"Calculate cost for token usage.","parameters":{"type":"object","properties":{"model":{"type":"string","description":"Model name"},"input_tokens":{"type":"integer","description":"Input tokens"},"output_tokens":{"type":"integer","description":"Output tokens"}},"required":["model","input_tokens","output_tokens"]}}},
+        {"type":"function","function":{"name":"billing_quota","description":"Check quota for a user.","parameters":{"type":"object","properties":{"user_id":{"type":"string","description":"User ID"},"model":{"type":"string","description":"Model name"},"input_tokens":{"type":"integer","description":"Input tokens"},"output_tokens":{"type":"integer","description":"Output tokens"}},"required":["user_id","model","input_tokens","output_tokens"]}}},
+        {"type":"function","function":{"name":"billing_usage","description":"Record usage for a user.","parameters":{"type":"object","properties":{"user_id":{"type":"string","description":"User ID"},"model":{"type":"string","description":"Model name"},"input_tokens":{"type":"integer","description":"Input tokens"},"output_tokens":{"type":"integer","description":"Output tokens"}},"required":["user_id","model","input_tokens","output_tokens"]}}},
+        {"type":"function","function":{"name":"billing_plan","description":"Update user's billing plan.","parameters":{"type":"object","properties":{"user_id":{"type":"string","description":"User ID"},"plan_type":{"type":"string","description":"Plan type (free/pro/enterprise/custom)"}},"required":["user_id","plan_type"]}}},
+        {"type":"function","function":{"name":"billing_summary","description":"Get usage summary for a user.","parameters":{"type":"object","properties":{"user_id":{"type":"string","description":"User ID"}},"required":["user_id"]}}},
         {"type":"function","function":{"name":"git_stage","description":"Stage files for commit.","parameters":{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"},"description":"Files to stage"}},"required":["files"]}}},
         {"type":"function","function":{"name":"git_unstage","description":"Unstage files.","parameters":{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"},"description":"Files to unstage"}}}}},
         {"type":"function","function":{"name":"git_commit","description":"Commit staged changes.","parameters":{"type":"object","properties":{"message":{"type":"string","description":"Commit message"}},"required":["message"]}}},
@@ -455,6 +460,93 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
         "clipboard_write" => crate::ux_tools::clipboard_write(args),
         "retry_last" => crate::ux_tools::retry_last(),
         "retry_tool" => crate::ux_tools::retry_tool(args),
+        "billing_cost" => {
+            let model = args.get("model").and_then(|v| v.as_str()).unwrap_or("");
+            let input_tokens = args
+                .get("input_tokens")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            let output_tokens = args
+                .get("output_tokens")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            let cost = crate::billing::billing_manager()
+                .lock()
+                .unwrap()
+                .calculate_cost(model, input_tokens, output_tokens, false, 0);
+            format!("{}", cost)
+        }
+        "billing_quota" => {
+            let user_id = args.get("user_id").and_then(|v| v.as_str()).unwrap_or("");
+            let model = args.get("model").and_then(|v| v.as_str()).unwrap_or("");
+            let input_tokens = args
+                .get("input_tokens")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            let output_tokens = args
+                .get("output_tokens")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            let (ok, msg) = crate::billing::billing_manager()
+                .lock()
+                .unwrap()
+                .check_quota(user_id, model, input_tokens, output_tokens);
+            if ok {
+                format!("QUOTA OK: {msg}")
+            } else {
+                format!("QUOTA DENIED: {msg}")
+            }
+        }
+        "billing_usage" => {
+            let user_id = args.get("user_id").and_then(|v| v.as_str()).unwrap_or("");
+            let model = args.get("model").and_then(|v| v.as_str()).unwrap_or("");
+            let input_tokens = args
+                .get("input_tokens")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            let output_tokens = args
+                .get("output_tokens")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            let record = crate::billing::billing_manager()
+                .lock()
+                .unwrap()
+                .record_usage(user_id, model, input_tokens, output_tokens, None, None);
+            format!(
+                "Usage recorded: {} tokens in, {} tokens out, cost {}",
+                record.input_tokens, record.output_tokens, record.cost
+            )
+        }
+        "billing_plan" => {
+            let user_id = args.get("user_id").and_then(|v| v.as_str()).unwrap_or("");
+            let plan_type_str = args
+                .get("plan_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("free");
+            let plan_type = match plan_type_str {
+                "pro" => crate::billing::PlanType::Pro,
+                "enterprise" => crate::billing::PlanType::Enterprise,
+                "custom" => crate::billing::PlanType::Custom,
+                _ => crate::billing::PlanType::Free,
+            };
+            let account = crate::billing::billing_manager()
+                .lock()
+                .unwrap()
+                .update_plan(user_id, plan_type);
+            format!(
+                "Plan updated to {} for user {}",
+                account.plan.name, account.user_id
+            )
+        }
+        "billing_summary" => {
+            let user_id = args.get("user_id").and_then(|v| v.as_str()).unwrap_or("");
+            let summary = crate::billing::billing_manager()
+                .lock()
+                .unwrap()
+                .get_usage_summary(user_id);
+            serde_json::to_string_pretty(&summary)
+                .unwrap_or_else(|_| "ERROR: Failed to serialize summary".to_string())
+        }
         "list_files" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
             let full = resolve(path, cwd);

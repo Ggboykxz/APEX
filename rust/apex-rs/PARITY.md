@@ -42,7 +42,7 @@ context (`repo-map`, `git`, `stats`, `ctags`, `tree`, `glob`),
 `/api/v1/rate-limit`, and WebSockets. API-key auth is opt-in with
 `APEX_REQUIRE_AUTH` (`/health` and the WebSocket routes exempt).
 
-Tool registry: 74 schemas. Python exposes 102 schema names in `apex/tools.py`.
+Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 ## Module matrix
 
@@ -72,7 +72,7 @@ Tool registry: 74 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill authoring is wired through the `skill` CLI (`list`/`add`/`remove`); `add`/`remove` also persist to `.apex/skills/*.md` (Python's are in-memory only and unwired there). Three-way diff remains unwired. |
-| `tools.py` | `tools.rs`, `shell_tools.rs`, `web.rs`, `task_queue.rs`, `files.rs`, `git_tools.rs`, `codegen_tools.rs` | Partial | 65 tools: files, shell, git, codegen, LSP, skills, repository context, web, task queue & plans. Python exposes 102 schema names; the tool table below records the uncovered categories. |
+| `tools.py` | `tools.rs`, `shell_tools.rs`, `web.rs`, `task_queue.rs`, `files.rs`, `git_tools.rs`, `codegen_tools.rs`, `billing.rs`, `ux_tools.rs` | Partial | 80 tools: files, shell, git, codegen, LSP, skills, repository context, web, task queue & plans, billing, UX. Python exposes 102 schema names; the tool table below records the uncovered categories. |
 | `git_undo.py` | `tools.rs` | Partial | `git_undo`, `undo_last_edit`, `redo_last_edit`. No stash-style undo/redo history (side-git workspace snapshots live in `workspace_rollback.rs`). |
 | `advanced.py` | `server.rs` | Partial | SSE streaming exists. Retry, batching, and timeout policy are not ported. |
 | `theme_manager.py` | `server.rs` | Partial | Read-only `/api/v1/themes` route. No theme mutation, custom themes, or UI integration. |
@@ -80,7 +80,7 @@ Tool registry: 74 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `workspace.py` | `workspace.rs` | Wired | Git branch, 8-char commit, dirty flag, `origin` URL, GitHub `owner/repo`, ahead/behind counts, `GITHUB_HEAD_REF`/`GITHUB_PR_NUMBER`, first 5 tags; language, package-manager and test-framework detection in Python's marker order. `WorkspaceManager::get_system_prompt_context` produces the same `[WORKSPACE CONTEXT]` block, appended to both agent system prompts (one-shot and streaming, analyzed once per user turn) and exposed by `apex-rs workspace [PATH] [--json]`. Python exports the class but never wires it. Divergences: no `git fetch --dry-run` network call, empty tag list on tagless repos (Python returns `[""]`), and no process-global `workspace_manager` singleton. |
 | `workspace_rollback.py` | `workspace_rollback.rs` | Wired | Side-git snapshots under `.apex/snapshots/`: metadata, `git diff --name-only` backup of tracked modifications (untracked files stay in `git_status.txt` only, like Python), status capture, restore with parent creation, sorted listing with missing-metadata defaults, delete, and `rollback_turn` clamping. `TurnTracker` persists `.apex/turns.json` and restores a recorded turn (`revert_turn` 0/overflow target the first turn, matching Python's `turns[-0]`/clamp). CLI `rollback {snapshot,list,restore,delete,turn,record,revert,history}`; Python only wires `/restore` and `/revert`, so Rust exposes the full surface. Divergences: UTC timestamps (Python uses local time), labels and snapshot names are validated as bare path components (Python joins them directly, so `../` can escape), `rollback turn 0` is a clear error (Python raises `IndexError`), and copies do not preserve modification times (`shutil.copy2` does). |
 | `api_key.py` | `api_key.rs` | Partial | JSON-file key store (`~/.apex/api_keys.json`, overridable with `APEX_API_KEYS_FILE`; Python uses SQLite) re-read on every operation, so CLI changes reach a running server. `apex_` + 32 random bytes (urlsafe base64), sha256 at rest, expiry/active checks, `last_used`/`request_count`, CLI `key {create,list,revoke,delete}`. Python's per-key rate limits/permissions/metadata are carried in the schema but not enforced (its `validate_key` does not check them either); workspace CRUD is not ported (fixed `default` workspace). Writes are atomic (temp + rename) but not transactionally serialised across processes like SQLite. |
-| `billing.py` | - | Missing | No billing, cost-history limits, or trial logic. |
+| `billing.py` | `billing.rs` | Wired | BillingManager with plan types (Free/Pro/Enterprise/Custom), model cost table, usage tracking, quota checking, and summary reporting. Tools: billing_cost, billing_quota, billing_usage, billing_plan, billing_summary. |
 | `sandbox.py` | - | Missing | No isolated code execution. |
 | `task_queue.py` | - | Missing | No durable background tasks. |
 | `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
@@ -111,6 +111,7 @@ Tool registry: 74 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Tasks/plans | `task`, `submit_task`, `get_task`, `list_tasks`, `plan_approve`, `plan_reject` | Partial | `TaskQueue.cancel()` (no Python tool exposes it either), durable `task_queue.py` |
 | Session/shares | HTTP routes only | Partial | `share_session`, `bookmark_session`, `restore_bookmark` |
 | Env/config | - | Missing | `get_env`, `set_env`, `list_env`, `set_theme`, `get_keybindings`, tool timeouts |
+| Billing | `billing_cost`, `billing_quota`, `billing_usage`, `billing_plan`, `billing_summary` | Wired | cost-history limits, trial logic |
 | UX/interaction | `ask_user`, `select_files`, `clipboard_read`, `clipboard_write`, `retry_last`, `retry_tool` | Partial | history search |
 
 ## Dead-code policy

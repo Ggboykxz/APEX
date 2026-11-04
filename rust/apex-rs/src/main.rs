@@ -1,6 +1,7 @@
 mod agent;
 mod agents;
 mod api_key;
+mod billing;
 mod codegen;
 mod codegen_tools;
 mod config;
