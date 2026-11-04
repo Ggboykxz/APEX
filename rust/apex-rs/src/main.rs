@@ -124,6 +124,11 @@ enum Commands {
         #[command(subcommand)]
         action: KeyAction,
     },
+    /// Manage configuration (show, validate, migrate)
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -389,6 +394,29 @@ enum KeyAction {
     Revoke { key_id: String },
     /// Delete a key by id
     Delete { key_id: String },
+}
+
+/// Configuration management actions
+#[derive(Subcommand, Debug)]
+enum ConfigAction {
+    /// Show the merged effective config (JSON)
+    Show {
+        /// Output as JSON (default)
+        #[arg(long, default_value_t = true)]
+        json: bool,
+    },
+    /// Validate the config and report errors
+    Validate {
+        /// Path to a specific config file (defaults to merged config)
+        #[arg(short, long)]
+        path: Option<String>,
+    },
+    /// Migrate old config format to new
+    Migrate {
+        /// Path to a specific config file (defaults to v1 migration)
+        #[arg(short, long)]
+        path: Option<String>,
+    },
 }
 
 fn load_mcp_servers() {
@@ -1139,6 +1167,26 @@ async fn main() {
                 }
             }
         }
+        Some(Commands::Config { action }) => match action {
+            ConfigAction::Show { json } => {
+                if let Err(e) = config::cmd_config_show(json) {
+                    eprintln!("ERROR: {e}");
+                    std::process::exit(1);
+                }
+            }
+            ConfigAction::Validate { path } => {
+                if let Err(e) = config::cmd_config_validate(path.as_deref()) {
+                    eprintln!("ERROR: {e}");
+                    std::process::exit(1);
+                }
+            }
+            ConfigAction::Migrate { path } => {
+                if let Err(e) = config::cmd_config_migrate(path.as_deref()) {
+                    eprintln!("ERROR: {e}");
+                    std::process::exit(1);
+                }
+            }
+        },
         None => {
             println!("APEX (Rust) — type 'apex-rs --help'");
         }

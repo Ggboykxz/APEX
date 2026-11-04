@@ -93,6 +93,7 @@ dependencies = [
  "getrandom 0.2.17",
  "glob",
  "hmac",
+ "lazy_static",
  "regex",
  "reqwest",
  "serde",
@@ -832,6 +833,12 @@ dependencies = [
  "futures-util",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "lazy_static"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20870f649af7073d53e38067b2a84312175d56ea15217e1b15bc83506ec50afb"
 
 [[package]]
 name = "libc"
