@@ -119,6 +119,12 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"lsp_completions","description":"Get LSP completion items at a position","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_code_actions","description":"Get LSP code actions at a position","parameters":{"type":"object","properties":{"path":{"type":"string"},"line":{"type":"integer"},"column":{"type":"integer"},"server":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"lsp_workspace_symbol","description":"Search workspace symbols by query","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Symbol query string"},"server":{"type":"string"}},"required":["query"]}}},
+        {"type":"function","function":{"name":"ask_user","description":"Request user input (headless: returns a waiting message).","parameters":{"type":"object","properties":{"question":{"type":"string","description":"Question to ask"},"options":{"type":"array","items":{"type":"string"},"description":"Multiple-choice options"}},"required":["question"]}}},
+        {"type":"function","function":{"name":"select_files","description":"Find files by glob patterns.","parameters":{"type":"object","properties":{"patterns":{"type":"array","items":{"type":"string"},"description":"Glob patterns"}},"required":["patterns"]}}},
+        {"type":"function","function":{"name":"clipboard_read","description":"Read clipboard content.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"clipboard_write","description":"Write text to clipboard.","parameters":{"type":"object","properties":{"text":{"type":"string","description":"Text to copy"}},"required":["text"]}}},
+        {"type":"function","function":{"name":"retry_last","description":"Retry the last tool executed.","parameters":{"type":"object","properties":{}}}},
+        {"type":"function","function":{"name":"retry_tool","description":"Retry a specific tool.","parameters":{"type":"object","properties":{"tool":{"type":"string","description":"Tool name to retry"},"retries":{"type":"integer","description":"Max retries"}},"required":["tool"]}}},
         {"type":"function","function":{"name":"git_stage","description":"Stage files for commit.","parameters":{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"},"description":"Files to stage"}},"required":["files"]}}},
         {"type":"function","function":{"name":"git_unstage","description":"Unstage files.","parameters":{"type":"object","properties":{"files":{"type":"array","items":{"type":"string"},"description":"Files to unstage"}}}}},
         {"type":"function","function":{"name":"git_commit","description":"Commit staged changes.","parameters":{"type":"object","properties":{"message":{"type":"string","description":"Commit message"}},"required":["message"]}}},
@@ -443,6 +449,12 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             let server = args.get("server").and_then(|v| v.as_str()).unwrap_or("");
             run_lsp_op("workspace_symbol", "", 0, 0, query, server, cwd)
         }
+        "ask_user" => crate::ux_tools::ask_user(args),
+        "select_files" => crate::ux_tools::select_files(args, cwd),
+        "clipboard_read" => crate::ux_tools::clipboard_read(),
+        "clipboard_write" => crate::ux_tools::clipboard_write(args),
+        "retry_last" => crate::ux_tools::retry_last(),
+        "retry_tool" => crate::ux_tools::retry_tool(args),
         "list_files" => {
             let path = args.get("path").and_then(|v| v.as_str()).unwrap_or(".");
             let full = resolve(path, cwd);

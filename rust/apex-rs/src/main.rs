@@ -32,6 +32,7 @@ mod slash;
 mod structured_message;
 mod task_queue;
 mod tools;
+mod ux_tools;
 mod watcher;
 mod web;
 mod workspace;

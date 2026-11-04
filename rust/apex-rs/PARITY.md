@@ -42,7 +42,7 @@ context (`repo-map`, `git`, `stats`, `ctags`, `tree`, `glob`),
 `/api/v1/rate-limit`, and WebSockets. API-key auth is opt-in with
 `APEX_REQUIRE_AUTH` (`/health` and the WebSocket routes exempt).
 
-Tool registry: 68 schemas. Python exposes 102 schema names in `apex/tools.py`.
+Tool registry: 74 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 ## Module matrix
 
@@ -111,7 +111,7 @@ Tool registry: 68 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Tasks/plans | `task`, `submit_task`, `get_task`, `list_tasks`, `plan_approve`, `plan_reject` | Partial | `TaskQueue.cancel()` (no Python tool exposes it either), durable `task_queue.py` |
 | Session/shares | HTTP routes only | Partial | `share_session`, `bookmark_session`, `restore_bookmark` |
 | Env/config | - | Missing | `get_env`, `set_env`, `list_env`, `set_theme`, `get_keybindings`, tool timeouts |
-| UX/interaction | - | Missing | `ask_user`, `select_files`, clipboard, history search, retry |
+| UX/interaction | `ask_user`, `select_files`, `clipboard_read`, `clipboard_write`, `retry_last`, `retry_tool` | Partial | history search |
 
 ## Dead-code policy
 

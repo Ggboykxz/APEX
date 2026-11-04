@@ -1383,6 +1383,19 @@ The following shell tools remain pending (they depend on `sandbox.py` /
 Existing LSP tools (`lsp_definition`, `lsp_references`, `lsp_hover`,
 `lsp_diagnostics`) remain wired as before.
 
+### UX tools
+
+`ux_tools.rs` ports six user-interaction tools from `apex/tools.py`
+(`tool registry is now 74 schemas`):
+
+- `ask_user` — requests user input (headless: returns a waiting message;
+  no prompt surface exists on the Rust backend).
+- `select_files` — finds files by glob patterns relative to cwd.
+- `clipboard_read` — reads clipboard (headless: not available).
+- `clipboard_write` — writes to clipboard (headless: not available).
+- `retry_last` — retries the last tool executed (headless: no state).
+- `retry_tool` — retries a specific tool (headless: `advanced.py` not ported).
+
 ### Task queue & plans
 
 `task_queue.rs` ports the `TaskQueue` from `apex/extras.py` (tool registry
