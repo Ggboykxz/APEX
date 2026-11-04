@@ -1342,7 +1342,7 @@ The following shell tools remain pending (they depend on `sandbox.py` /
 ### Codegen tools
 
 `codegen_tools.rs` ports three code generation tools from `apex/tools.py`
-(`tool registry is now 65 schemas`):
+(`tool registry is now 68 schemas`):
 
 - `generate_tests` — analyzes a file with `CodeAnalyzer` and generates pytest
   or Jest test stubs for up to 5 functions.
@@ -1354,7 +1354,7 @@ The following shell tools remain pending (they depend on `sandbox.py` /
 ### Git tools
 
 `git_tools.rs` ports three git tools from `apex/tools.py`
-(`tool registry is now 65 schemas`):
+(`tool registry is now 68 schemas`):
 
 - `add_git_hook` — installs a git hook script under `.git/hooks/<hook>`.
   Validates the hook name against git's official list, rejects dangerous
@@ -1365,7 +1365,23 @@ The following shell tools remain pending (they depend on `sandbox.py` /
   file separation (`Staged:`, `Unstaged:`, `Untracked:` sections, or
   `[working tree clean]`).
 - `git_log_enhanced` — shows recent commits with hash, subject, author,
+- `git_log_enhanced` — shows recent commits with hash, subject, author,
   and date (`[no commits]` when the repo has no history).
+
+### LSP tools
+
+`lsp.rs` ports three new LSP tools from `apex/tools.py`
+(`tool registry is now 68 schemas`):
+
+- `lsp_completions` — gets LSP completion items at a position in a file
+  (`textDocument/completion`).
+- `lsp_code_actions` — gets LSP code actions/fixes at a position
+  (`textDocument/codeAction`).
+- `lsp_workspace_symbol` — searches workspace symbols by query string
+  (`workspace/symbol`).
+
+Existing LSP tools (`lsp_definition`, `lsp_references`, `lsp_hover`,
+`lsp_diagnostics`) remain wired as before.
 
 ### Task queue & plans
 
