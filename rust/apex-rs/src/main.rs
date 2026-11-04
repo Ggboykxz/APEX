@@ -23,6 +23,7 @@ mod skills;
 mod task_queue;
 mod tools;
 mod web;
+mod watcher;
 mod workspace;
 mod workspace_rollback;
 

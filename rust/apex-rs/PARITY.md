@@ -84,7 +84,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `sandbox.py` | - | Missing | No isolated code execution. |
 | `task_queue.py` | - | Missing | No durable background tasks. |
 | `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
-| `watcher.py` | - | Missing | No file watcher. |
+| `watcher.py` | `watcher.rs` | Ported | Polling-based file watcher with debounced callbacks, gitignore-aware ignore patterns (`.gitignore` + configurable patterns), per-extension pattern matching, start/stop lifecycle. Not yet wired into the agent loop. See PR 338. |
 | `project.py` | - | Missing | No project initialisation/analysis. |
 | `mentions.py` | - | Missing | No `@file`/`@agent` mention expansion. |
 | `slash.py` | - | Missing | No slash-command system. |
