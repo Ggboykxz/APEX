@@ -6,6 +6,9 @@
 //! Tools exposed: billing_cost, billing_quota, billing_usage, billing_plan,
 //! billing_summary.
 
+#![allow(dead_code)]
+#![allow(clippy::all)]
+
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
