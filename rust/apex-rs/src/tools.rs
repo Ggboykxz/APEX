@@ -97,6 +97,8 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"apply_patch","description":"Apply a multi-file patch atomically. Supports Codex-style patches (***) and unified diffs (--- a/path, +++ b/path). All files are validated before any write; use dry_run to preview. Paths must be relative to the project root.","parameters":{"type":"object","properties":{"patch":{"type":"string","description":"Patch content to apply"},"dry_run":{"type":"boolean","description":"Validate and preview without writing files"}},"required":["patch"]}}},
         {"type":"function","function":{"name":"list_files","description":"List files in a directory","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
         {"type":"function","function":{"name":"run_command","description":"Run a shell command","parameters":{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}}},
+        {"type":"function","function":{"name":"run_test","description":"Run tests using pytest, jest, cargo, or npm.","parameters":{"type":"object","properties":{"framework":{"type":"string","description":"Test framework (pytest, jest, cargo)"},"path":{"type":"string","description":"Path to run tests (file, directory, or specific test)"}},"required":["framework","path"]}}},
+        {"type":"function","function":{"name":"install_package","description":"Install a package via pip, npm, yarn, or cargo.","parameters":{"type":"object","properties":{"manager":{"type":"string","description":"Package manager (pip, npm, yarn, cargo)"},"package":{"type":"string","description":"Package name to install"}},"required":["manager","package"]}}},
         {"type":"function","function":{"name":"git_status","description":"Show git working tree status","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_diff","description":"Show git diff","parameters":{"type":"object","properties":{"ref":{"type":"string"}}}}},
         {"type":"function","function":{"name":"git_log","description":"Show recent git commits","parameters":{"type":"object","properties":{"n":{"type":"integer"}}}}},
@@ -440,6 +442,8 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 Err(e) => format!("ERROR: {e}"),
             }
         }
+        "run_test" => crate::shell_tools::run_test(args, cwd),
+        "install_package" => crate::shell_tools::install_package(args, cwd),
         "git_status" => run_git(cwd, &["status", "--porcelain"]),
         "git_stage" => {
             let files = string_array(args, "files");

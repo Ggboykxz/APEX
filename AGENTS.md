@@ -1299,6 +1299,25 @@ HTTP runs on a dedicated thread with its own runtime (same pattern as
 `github::http_json`), so both tools work from the `call-tool` CLI and from
 inside the agent loop's Tokio runtime.
 
+### Shell tools
+
+`shell_tools.rs` ports two shell tools from `apex/tools.py`
+(`tool registry is now 53 schemas`):
+
+- `run_test` — runs pytest, jest, cargo, or npm test with a 300 s timeout.
+  Returns combined stdout/stderr, `[no output]` when empty, `[exit N]` on
+  non-zero exit, or `ERROR: …` on timeout/missing binary.
+- `install_package` — installs a package via pip, npm, yarn, or cargo with
+  a 300 s timeout. Returns `SUCCESS: Installed <package> via <manager>` on
+  success, `ERROR: …` on failure.
+
+The following shell tools remain pending (they depend on `sandbox.py` /
+`commands.py`, ported in later waves):
+
+- `run_command_custom` → `commands.py` (command manager)
+- `run_code` → `sandbox.py` (ShellSession)
+- `start_shell` / `run_shell` / `close_shell` → `sandbox.py` (ShellSession)
+
 ### Task queue & plans
 
 `task_queue.rs` ports the `TaskQueue` from `apex/extras.py` (tool registry

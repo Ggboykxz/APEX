@@ -42,7 +42,7 @@ context (`repo-map`, `git`, `stats`, `ctags`, `tree`, `glob`),
 `/api/v1/rate-limit`, and WebSockets. API-key auth is opt-in with
 `APEX_REQUIRE_AUTH` (`/health` and the WebSocket routes exempt).
 
-Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
+Tool registry: 53 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 ## Module matrix
 
@@ -72,7 +72,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill authoring is wired through the `skill` CLI (`list`/`add`/`remove`); `add`/`remove` also persist to `.apex/skills/*.md` (Python's are in-memory only and unwired there). Three-way diff remains unwired. |
-| `tools.py` | `tools.rs`, `web.rs`, `task_queue.rs` | Partial | 51 tools: files, shell, git, codegen, LSP, skills, repository context, web, task queue & plans. Python exposes 102 schema names; the tool table below records the uncovered categories. |
+| `tools.py` | `tools.rs`, `shell_tools.rs`, `web.rs`, `task_queue.rs` | Partial | 53 tools: files, shell, git, codegen, LSP, skills, repository context, web, task queue & plans. Python exposes 102 schema names; the tool table below records the uncovered categories. |
 | `git_undo.py` | `tools.rs` | Partial | `git_undo`, `undo_last_edit`, `redo_last_edit`. No stash-style undo/redo history (side-git workspace snapshots live in `workspace_rollback.rs`). |
 | `advanced.py` | `server.rs` | Partial | SSE streaming exists. Retry, batching, and timeout policy are not ported. |
 | `theme_manager.py` | `server.rs` | Partial | Read-only `/api/v1/themes` route. No theme mutation, custom themes, or UI integration. |
@@ -101,7 +101,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Category | Rust tools | Status | Notable Python tools not ported |
 | --- | --- | --- | --- |
 | Files | `read_file`, `write_file`, `edit_file`, `apply_patch`, `list_files`, `search_in_files`, `replace_in_files`, `diff_files`, `get_file_tree` | Partial | `apply_edit`, `preview_edit`, `create_directory`, `delete_file`, `batch_read`, `batch_write`, `read_image`, `glob_search` |
-| Shell | `run_command` (guarded) | Partial | `run_command_custom`, `run_shell`, `start_shell`, `close_shell`, `install_package`, `run_code`, `run_test` |
+| Shell | `run_command` (guarded), `run_test`, `install_package` | Partial | `run_command_custom`, `run_shell`, `start_shell`, `close_shell`, `run_code` |
 | Git | 11 `git_*` tools including `git_create_pr` and `git_undo` | Partial | `add_git_hook`, richer status/log helpers |
 | Codegen | `refactor_code`, DB/Docker/API-client/docs generators, `profile_code`, `optimize_code` | Partial | `generate_tests`, `inline_edit`, `apply_code_action` |
 | LSP | `lsp_definition`, `lsp_references`, `lsp_hover`, `lsp_diagnostics` | Partial | completions, code actions, workspace-symbol search |
