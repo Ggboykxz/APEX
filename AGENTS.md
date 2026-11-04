@@ -1339,10 +1339,22 @@ The following shell tools remain pending (they depend on `sandbox.py` /
 - `run_code` → `sandbox.py` (ShellSession)
 - `start_shell` / `run_shell` / `close_shell` → `sandbox.py` (ShellSession)
 
+### Codegen tools
+
+`codegen_tools.rs` ports three code generation tools from `apex/tools.py`
+(`tool registry is now 65 schemas`):
+
+- `generate_tests` — analyzes a file with `CodeAnalyzer` and generates pytest
+  or Jest test stubs for up to 5 functions.
+- `inline_edit` — replaces N lines starting at a given line number with new
+  content (`SUCCESS: Edited <path> at line N`, `ERROR: File not found: …`).
+- `apply_code_action` — applies a suggested LSP code action/fix (currently
+  returns a placeholder; full LSP integration is pending).
+
 ### Git tools
 
 `git_tools.rs` ports three git tools from `apex/tools.py`
-(`tool registry is now 62 schemas`):
+(`tool registry is now 65 schemas`):
 
 - `add_git_hook` — installs a git hook script under `.git/hooks/<hook>`.
   Validates the hook name against git's official list, rejects dangerous
