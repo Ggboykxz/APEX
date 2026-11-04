@@ -25,6 +25,7 @@ mod share;
 mod shell_security;
 mod shell_tools;
 mod skills;
+mod structured_message;
 mod task_queue;
 mod tools;
 mod web;
