@@ -148,6 +148,28 @@ enum SessionAction {
     Show { id: String },
     /// Save the current (empty) history under this name
     Save { name: String },
+    /// Fork a session, creating a child with fork metadata
+    Fork {
+        /// Parent session id to fork from
+        parent_id: String,
+        /// Branch name for the forked session
+        #[arg(long)]
+        branch_name: Option<String>,
+        /// Turn number at which the fork occurs (defaults to 0)
+        #[arg(long, default_value_t = 0)]
+        from_turn: u32,
+    },
+    /// List branch history entries for a session
+    Branch {
+        /// Session id to inspect
+        id: String,
+        /// New branch name to switch to (optional, just lists history if omitted)
+        #[arg(long)]
+        name: Option<String>,
+        /// Turn number for the new branch (used with --name)
+        #[arg(long, default_value_t = 0)]
+        from_turn: u32,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -567,6 +589,47 @@ async fn main() {
                     None => eprintln!("failed to save session"),
                 }
             }
+            SessionAction::Fork {
+                parent_id,
+                branch_name,
+                from_turn,
+            } => {
+                let branch = branch_name.unwrap_or_else(|| {
+                    let (compact, _) = share::now_stamps();
+                    format!("fork-{compact}")
+                });
+                match share::fork_session(&parent_id, &branch, &branch, from_turn) {
+                    Some((child_id, path)) => {
+                        println!("Forked session '{parent_id}' -> '{child_id}'");
+                        println!("Branch: {branch}");
+                        println!("Saved {}", path.display());
+                    }
+                    None => eprintln!("failed to fork session: parent '{parent_id}' not found"),
+                }
+            }
+            SessionAction::Branch {
+                id,
+                name: _,
+                from_turn: _,
+            } => match share::load_session(&id) {
+                Some(data) => {
+                    let history = share::branch_history_of(&data);
+                    if history.is_empty() {
+                        println!("No branch history for session '{id}'");
+                    } else {
+                        println!("Branch history for '{id}':");
+                        for entry in history {
+                            println!(
+                                "  {} - {} (parent: {})",
+                                entry.branch_name,
+                                entry.session_id,
+                                entry.parent_id.as_deref().unwrap_or("(root)")
+                            );
+                        }
+                    }
+                }
+                None => eprintln!("session not found: {id}"),
+            },
         },
         Some(Commands::Security { action }) => match action {
             SecurityAction::Check { command } => {
