@@ -5,12 +5,13 @@
 //! paths relative to a working directory, and can inline mentioned file
 //! content (capped at 5000 chars) back into a message.
 
-use std::collections::{HashSet, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::collections::{BTreeSet, HashSet};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// A mention of a file in the text.
-#[allow(dead_code)] // wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
+#[allow(dead_code)]
+// wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileMention {
     pub path: String,
@@ -19,7 +20,8 @@ pub struct FileMention {
 }
 
 /// A mention of an agent in the text.
-#[allow(dead_code)] // wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
+#[allow(dead_code)]
+// wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentMention {
     pub name: String,
@@ -103,7 +105,7 @@ impl MentionParser {
             let m0 = cap.get(0).unwrap();
             let name = cap.get(2).unwrap().as_str().to_string();
             let at_pos = m0.start() + 1; // skip the preceding non-space char
-            // Skip if already covered by boundary pattern (dedup by @ position).
+                                         // Skip if already covered by boundary pattern (dedup by @ position).
             if matches.iter().any(|m| m.1 == at_pos) {
                 continue;
             }

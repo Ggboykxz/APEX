@@ -152,7 +152,10 @@ impl SlashCommandManager {
                 "save",
                 "Save current session",
                 Box::new(|_, args| {
-                    let name = args.first().cloned().unwrap_or_else(|| "default".to_string());
+                    let name = args
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| "default".to_string());
                     format!("Session saved as '{}'", name)
                 }),
             )
@@ -232,8 +235,10 @@ impl SlashCommandManager {
             "help",
             "Show available commands",
             Box::new(|mgr, _| {
-                let mut lines: Vec<String> =
-                    vec!["Available Commands:".to_string(), "=".repeat(40).to_string()];
+                let mut lines: Vec<String> = vec![
+                    "Available Commands:".to_string(),
+                    "=".repeat(40).to_string(),
+                ];
                 let mut cmds: Vec<&Command> = mgr.commands().values().collect();
                 cmds.sort_by(|a, b| a.name.cmp(&b.name));
                 for cmd in cmds {
@@ -265,9 +270,7 @@ impl SlashCommandManager {
         self.register(Command::new(
             "subagents",
             "List all subagents",
-            Box::new(|_, _| {
-                "[SUBAGENTS] explore (read-only), general (full access)".to_string()
-            }),
+            Box::new(|_, _| "[SUBAGENTS] explore (read-only), general (full access)".to_string()),
         ));
 
         // models — list all available models
@@ -300,9 +303,7 @@ impl SlashCommandManager {
         self.register(Command::new(
             "approve",
             "Approve pending plan",
-            Box::new(|_, _| {
-                "Plan approved. Use the build agent to execute the plan.".to_string()
-            }),
+            Box::new(|_, _| "Plan approved. Use the build agent to execute the plan.".to_string()),
         ));
 
         // reject — reject pending plan
@@ -403,8 +404,7 @@ impl SlashCommandManager {
 }
 
 /// Global slash command manager instance.
-static SLASH_COMMAND_MANAGER: std::sync::OnceLock<SlashCommandManager> =
-    std::sync::OnceLock::new();
+static SLASH_COMMAND_MANAGER: std::sync::OnceLock<SlashCommandManager> = std::sync::OnceLock::new();
 
 /// Returns the global slash command manager.
 pub fn slash_command_manager() -> &'static SlashCommandManager {

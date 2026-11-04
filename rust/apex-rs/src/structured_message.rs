@@ -228,7 +228,8 @@ impl Message {
                 Some(MessagePart {
                     part_type,
                     content: p.get("content")?.clone(),
-                    metadata: p.get("metadata")
+                    metadata: p
+                        .get("metadata")
                         .and_then(|m| m.as_object())
                         .map(|m| m.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
                         .unwrap_or_default(),
@@ -236,12 +237,10 @@ impl Message {
             })
             .collect();
 
-        let token_usage = data.get("token_usage").map(|tu| {
-            TokenUsage {
-                prompt_tokens: tu["prompt_tokens"].as_u64().unwrap_or(0) as usize,
-                completion_tokens: tu["completion_tokens"].as_u64().unwrap_or(0) as usize,
-                total_tokens: tu["total_tokens"].as_u64().unwrap_or(0) as usize,
-            }
+        let token_usage = data.get("token_usage").map(|tu| TokenUsage {
+            prompt_tokens: tu["prompt_tokens"].as_u64().unwrap_or(0) as usize,
+            completion_tokens: tu["completion_tokens"].as_u64().unwrap_or(0) as usize,
+            total_tokens: tu["total_tokens"].as_u64().unwrap_or(0) as usize,
         });
 
         let cost_usd = data.get("cost_usd").and_then(|v| v.as_f64());
@@ -311,7 +310,10 @@ mod tests {
         let mut msg = Message::new("m1", "assistant");
         msg.add_file("src/main.rs", "fn main() {}");
         msg.add_tool_call("read_file", serde_json::json!({ "path": "src/main.rs" }));
-        msg.add_tool_result("read_file", serde_json::json!({ "content": "fn main() {}" }));
+        msg.add_tool_result(
+            "read_file",
+            serde_json::json!({ "content": "fn main() {}" }),
+        );
 
         assert_eq!(msg.parts.len(), 3);
         assert_eq!(msg.parts[0].part_type, PartType::File);
@@ -392,7 +394,10 @@ mod tests {
     #[test]
     fn message_part_metadata() {
         let mut metadata = HashMap::new();
-        metadata.insert("name".to_string(), serde_json::Value::String("x.rs".to_string()));
+        metadata.insert(
+            "name".to_string(),
+            serde_json::Value::String("x.rs".to_string()),
+        );
         let part = MessagePart::with_metadata(
             PartType::File,
             serde_json::json!({ "path": "x.rs", "content": "" }),

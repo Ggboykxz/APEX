@@ -57,10 +57,7 @@ impl ProjectInitializer {
         let mut lines: Vec<String> = Vec::new();
         lines.push(format!(
             "# {}",
-            self.cwd
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
+            self.cwd.file_name().unwrap_or_default().to_string_lossy()
         ));
         lines.push(String::new());
         lines.push(format!(
@@ -69,24 +66,15 @@ impl ProjectInitializer {
         ));
         lines.push(format!(
             "Package Manager: {}",
-            analysis
-                .package_manager
-                .as_deref()
-                .unwrap_or("unknown")
+            analysis.package_manager.as_deref().unwrap_or("unknown")
         ));
         lines.push(format!(
             "Test Framework: {}",
-            analysis
-                .test_framework
-                .as_deref()
-                .unwrap_or("unknown")
+            analysis.test_framework.as_deref().unwrap_or("unknown")
         ));
         lines.push(format!(
             "LSP Server: {}",
-            analysis
-                .lsp_server
-                .as_deref()
-                .unwrap_or("not configured")
+            analysis.lsp_server.as_deref().unwrap_or("not configured")
         ));
         lines.push(String::new());
         lines.push("## Available Scripts".to_string());
@@ -125,10 +113,7 @@ impl ProjectInitializer {
             lines.push(format!("- {}", dep));
         }
 
-        lines.extend([
-            "".to_string(),
-            "## Configuration Files".to_string(),
-        ]);
+        lines.extend(["".to_string(), "## Configuration Files".to_string()]);
 
         for cf in &analysis.structure.config_files {
             lines.push(format!("- {}", cf));
@@ -320,7 +305,11 @@ impl ProjectInitializer {
         if let Ok(entries) = fs::read_dir(&self.cwd) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                let name = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned();
                 if name.starts_with('.') || ignore.contains(&name.as_str()) {
                     continue;
                 }
@@ -367,12 +356,7 @@ impl ProjectInitializer {
                             .and_then(|v| v.as_object())
                             .map(|m| {
                                 m.iter()
-                                    .map(|(k, v)| {
-                                        (
-                                            k.clone(),
-                                            v.as_str().unwrap_or("").to_string(),
-                                        )
-                                    })
+                                    .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
                                     .collect()
                             })
                             .unwrap_or_default();
@@ -414,12 +398,7 @@ impl ProjectInitializer {
                         .and_then(|v| v.as_object())
                         .map(|m| {
                             m.iter()
-                                .map(|(k, v)| {
-                                    (
-                                        k.clone(),
-                                        v.as_str().unwrap_or("").to_string(),
-                                    )
-                                })
+                                .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
                                 .collect()
                         })
                         .unwrap_or_default();
@@ -469,8 +448,11 @@ mod tests {
     #[test]
     fn detect_python_project() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("pyproject.toml"), "[project]\nname = \"test\"\n")
-            .unwrap();
+        std::fs::write(
+            dir.path().join("pyproject.toml"),
+            "[project]\nname = \"test\"\n",
+        )
+        .unwrap();
         std::fs::write(dir.path().join("requirements.txt"), "requests\n").unwrap();
 
         let initializer = ProjectInitializer::new(dir.path());
@@ -500,8 +482,11 @@ mod tests {
     #[test]
     fn detect_rust_project() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("Cargo.toml"), "[package]\nname = \"test\"\n")
-            .unwrap();
+        std::fs::write(
+            dir.path().join("Cargo.toml"),
+            "[package]\nname = \"test\"\n",
+        )
+        .unwrap();
 
         let initializer = ProjectInitializer::new(dir.path());
         let analysis = initializer.analyze();
@@ -530,8 +515,11 @@ mod tests {
     #[test]
     fn create_context_file_writes_agents_md() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("pyproject.toml"), "[project]\nname = \"test\"\n")
-            .unwrap();
+        std::fs::write(
+            dir.path().join("pyproject.toml"),
+            "[project]\nname = \"test\"\n",
+        )
+        .unwrap();
 
         let initializer = ProjectInitializer::new(dir.path());
         let path = initializer.create_context_file();

@@ -299,7 +299,11 @@ impl FormatterManager {
                 return;
             }
             Some(serde_json::Value::Object(obj)) => {
-                if obj.get("disabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+                if obj
+                    .get("disabled")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
                     for fmt in &mut self.formatters {
                         fmt.disabled = true;
                     }
@@ -314,10 +318,7 @@ impl FormatterManager {
 
                 for (name, opts) in obj {
                     if let serde_json::Value::Object(opts_obj) = opts {
-                        let existing = self
-                            .formatters
-                            .iter_mut()
-                            .find(|f| f.name == *name);
+                        let existing = self.formatters.iter_mut().find(|f| f.name == *name);
                         if let Some(existing) = existing {
                             if let Some(disabled) =
                                 opts_obj.get("disabled").and_then(|v| v.as_bool())
@@ -348,9 +349,7 @@ impl FormatterManager {
                                     .map(|(k, v)| {
                                         (
                                             k.clone(),
-                                            v.as_str()
-                                                .unwrap_or(&v.to_string())
-                                                .to_string(),
+                                            v.as_str().unwrap_or(&v.to_string()).to_string(),
                                         )
                                     })
                                     .collect();
@@ -572,8 +571,7 @@ impl FormatterManager {
 }
 
 /// Global formatter manager instance (created lazily per process).
-static FORMATTER_MANAGER: std::sync::OnceLock<FormatterManager> =
-    std::sync::OnceLock::new();
+static FORMATTER_MANAGER: std::sync::OnceLock<FormatterManager> = std::sync::OnceLock::new();
 
 /// Returns the global formatter manager.
 pub fn formatter_manager() -> &'static FormatterManager {

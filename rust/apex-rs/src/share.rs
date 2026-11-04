@@ -329,11 +329,8 @@ pub fn fork_session(
         .to_string();
     let history: Vec<Value> = history_of(&parent_data);
 
-    let mut metadata = SessionMetadata::new_fork(
-        parent_id.to_string(),
-        branch_name.to_string(),
-        fork_point,
-    );
+    let mut metadata =
+        SessionMetadata::new_fork(parent_id.to_string(), branch_name.to_string(), fork_point);
     // Record this fork as a branch-history entry.
     let (_ts, iso) = now_stamps();
     metadata.add_branch_entry(BranchEntry {
@@ -343,13 +340,7 @@ pub fn fork_session(
         parent_id: Some(parent_id.to_string()),
     });
 
-    let path = save_session_with_metadata(
-        child_name,
-        &model,
-        &cwd,
-        &history,
-        Some(&metadata),
-    )?;
+    let path = save_session_with_metadata(child_name, &model, &cwd, &history, Some(&metadata))?;
 
     // Use the session name as the child id for lookups
     let child_id = safe_session_name(child_name);
