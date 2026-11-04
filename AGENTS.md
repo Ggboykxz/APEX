@@ -1280,6 +1280,27 @@ registry:
   `\ No newline at end of file` markers, and atomic temp-file + rename writes
   with best-effort rollback. `dry_run` previews without touching the disk.
 
+### File tools
+
+`files.rs` ports the eight missing file operations from `apex/tools.py`
+(`tool registry is now 59 schemas`):
+
+- `apply_edit` — replaces the first occurrence of `old_string` with
+  `new_string`; mirrors Python exactly (`SUCCESS: Edited …`,
+  `ERROR: File not found: …`, `ERROR: String not found in file. …`).
+- `preview_edit` — previews the edit as a unified diff (`PREVIEW:\n…`)
+  without touching the disk.
+- `create_directory` — creates a directory and all parents (`SUCCESS: Created directory …`).
+- `delete_file` — deletes a file or directory (`SUCCESS: Deleted …`,
+  `ERROR: Path not found: …`).
+- `batch_read` — reads up to 50 files at once, prefixing each with `--- <path>`.
+- `batch_write` — writes up to 50 files at once from `{path, content}` operations,
+  reporting success count plus any per-file errors.
+- `read_image` — reads a png/jpg/jpeg/gif/bmp/webp/svg file and returns a
+  `data:image/<ext>;base64,…` data URL.
+- `glob_search` — finds files by glob pattern relative to a directory,
+  returning matching relative paths, one per line.
+
 ### Web tools
 
 `web.rs` ports the two web tools from `tools.py` (tool registry is now 45

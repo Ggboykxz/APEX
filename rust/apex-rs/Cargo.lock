@@ -91,6 +91,7 @@ dependencies = [
  "dirs",
  "futures",
  "getrandom 0.2.17",
+ "glob",
  "hmac",
  "regex",
  "reqwest",
@@ -562,6 +563,12 @@ dependencies = [
  "rand_core 0.10.1",
  "wasm-bindgen",
 ]
+
+[[package]]
+name = "glob"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
 name = "heck"

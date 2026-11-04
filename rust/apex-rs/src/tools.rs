@@ -145,7 +145,15 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"plan_reject","description":"Reject the pending plan.","parameters":{"type":"object","properties":{"reason":{"type":"string","description":"Reason for rejection"}},"required":["reason"]}}},
         {"type":"function","function":{"name":"submit_task","description":"Submit async task to queue.","parameters":{"type":"object","properties":{"name":{"type":"string","description":"Task name"},"command":{"type":"string","description":"Command to run"}},"required":["name","command"]}}},
         {"type":"function","function":{"name":"list_tasks","description":"List all tasks.","parameters":{"type":"object","properties":{}}}},
-        {"type":"function","function":{"name":"get_task","description":"Get task status.","parameters":{"type":"object","properties":{"task_id":{"type":"string","description":"Task ID"}},"required":["task_id"]}}}
+        {"type":"function","function":{"name":"get_task","description":"Get task status.","parameters":{"type":"object","properties":{"task_id":{"type":"string","description":"Task ID"}},"required":["task_id"]}}},
+        {"type":"function","function":{"name":"apply_edit","description":"Replace first occurrence of old_string with new_string in a file.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to file"},"old_string":{"type":"string","description":"String to find"},"new_string":{"type":"string","description":"String to replace with"}},"required":["path","old_string","new_string"]}}},
+        {"type":"function","function":{"name":"preview_edit","description":"Preview an edit as a unified diff without applying it.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to file"},"old_string":{"type":"string","description":"String to find"},"new_string":{"type":"string","description":"String to replace with"}},"required":["path","old_string","new_string"]}}},
+        {"type":"function","function":{"name":"create_directory","description":"Create a directory (and parents if needed).","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to directory"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"delete_file","description":"Delete a file or empty directory.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to file or directory"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"batch_read","description":"Read multiple files at once.","parameters":{"type":"object","properties":{"paths":{"type":"array","items":{"type":"string"},"description":"Paths to read"}},"required":["paths"]}}},
+        {"type":"function","function":{"name":"batch_write","description":"Write multiple files at once.","parameters":{"type":"object","properties":{"operations":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}},"required":["operations"]}}},
+        {"type":"function","function":{"name":"read_image","description":"Read an image file and return base64 encoding.","parameters":{"type":"object","properties":{"path":{"type":"string","description":"Path to image"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"glob_search","description":"Find files by glob pattern.","parameters":{"type":"object","properties":{"pattern":{"type":"string","description":"Glob pattern"},"directory":{"type":"string","description":"Directory to search (default: .)"}},"required":["pattern"]}}},
     ]).as_array().cloned().unwrap_or_default());
     let mut arr = base;
     for t in crate::mcp_client::global_tools() {
@@ -355,6 +363,14 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 None => format!("ERROR: Task {task_id} not found"),
             }
         }
+        "apply_edit" => crate::files::apply_edit(args, cwd),
+        "preview_edit" => crate::files::preview_edit(args, cwd),
+        "create_directory" => crate::files::create_directory(args, cwd),
+        "delete_file" => crate::files::delete_file(args, cwd),
+        "batch_read" => crate::files::batch_read(args, cwd),
+        "batch_write" => crate::files::batch_write(args, cwd),
+        "read_image" => crate::files::read_image(args, cwd),
+        "glob_search" => crate::files::glob_search(args, cwd),
         "undo_last_edit" => undo_last_edit(),
         "redo_last_edit" => redo_last_edit(),
         "git_undo" => {
