@@ -85,7 +85,7 @@ Tool registry: 51 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `task_queue.py` | - | Missing | No durable background tasks. |
 | `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
 | `watcher.py` | - | Missing | No file watcher. |
-| `project.py` | - | Missing | No project initialisation/analysis. |
+| `project.py` | `project.rs` | Ported | ProjectInitializer: language/package-manager/test-framework/LSP/formatter/build-system detection, project structure analysis, dependency/script extraction, AGENTS.md generation. Not yet wired into CLI commands. See PR 340. |
 | `mentions.py` | - | Missing | No `@file`/`@agent` mention expansion. |
 | `slash.py` | - | Missing | No slash-command system. |
 | `structured_message.py` | - | Missing | Messages are plain strings/JSON, not structured parts. |

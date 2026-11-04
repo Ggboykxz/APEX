@@ -5,6 +5,7 @@ mod config;
 mod context;
 mod cost;
 mod formatter;
+mod project;
 mod github;
 mod hooks;
 mod jsonrpc;
