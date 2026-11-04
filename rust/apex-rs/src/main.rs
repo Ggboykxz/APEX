@@ -20,6 +20,7 @@ mod server;
 mod session_crypto;
 mod share;
 mod shell_security;
+mod shell_tools;
 mod skills;
 mod task_queue;
 mod tools;
