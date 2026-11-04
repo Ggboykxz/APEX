@@ -229,11 +229,8 @@ mod tests {
 
     #[test]
     fn roundtrip_with_fork() {
-        let mut meta = SessionMetadata::new_fork(
-            "parent-123".to_string(),
-            "feature-branch".to_string(),
-            5,
-        );
+        let mut meta =
+            SessionMetadata::new_fork("parent-123".to_string(), "feature-branch".to_string(), 5);
         meta.add_branch_entry(BranchEntry {
             session_id: "parent-123".to_string(),
             branch_name: "main".to_string(),

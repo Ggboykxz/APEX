@@ -354,7 +354,8 @@ fn is_path_allowed(p: &Path) -> bool {
         None => return false,
     };
 
-    let mut allowed_dirs: Vec<PathBuf> = vec![home.join(".config").join("apex"), home.join(".apex")];
+    let mut allowed_dirs: Vec<PathBuf> =
+        vec![home.join(".config").join("apex"), home.join(".apex")];
 
     // Include any project-specific allowed dirs registered via load_config.
     if let Ok(extra) = EXTRA_ALLOWED_DIRS.lock() {
@@ -590,14 +591,14 @@ pub fn migrate_v1_to_v2() -> bool {
 // Config loading & merging (hierarchy)
 // ─────────────────────────────────────────────────────────────────────
 
-    /// Load and merge config from all layers (global → custom → project → inline).
-    pub fn load_config(project_dir: Option<&Path>) -> Value {
-        apply_opencode_aliases();
+/// Load and merge config from all layers (global → custom → project → inline).
+pub fn load_config(project_dir: Option<&Path>) -> Value {
+    apply_opencode_aliases();
 
-        // Register the project directory (plus the standard home dirs) as an
-        // allowed source for `{file:...}` interpolation — parity with Python's
-        // `_init_allowed_dirs`.
-        if let Ok(mut extra) = EXTRA_ALLOWED_DIRS.lock() {
+    // Register the project directory (plus the standard home dirs) as an
+    // allowed source for `{file:...}` interpolation — parity with Python's
+    // `_init_allowed_dirs`.
+    if let Ok(mut extra) = EXTRA_ALLOWED_DIRS.lock() {
         extra.clear();
         if let Some(p) = project_dir {
             if let Ok(resolved) = p.canonicalize() {

@@ -9,10 +9,11 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A recorded compaction operation.
-#[allow(dead_code)] // context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
+#[allow(dead_code)]
+// context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct CompactionRecord {
-    pub strategy: String,        // "prune" | "summarize" | "merge"
+    pub strategy: String, // "prune" | "summarize" | "merge"
     pub tokens_before: usize,
     pub tokens_after: usize,
     pub removed_messages: usize,
@@ -20,7 +21,8 @@ pub struct CompactionRecord {
 }
 
 /// Per-session context accounting.
-#[allow(dead_code)] // context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
+#[allow(dead_code)]
+// context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
 pub struct SessionContext {
     pub session_id: String,
@@ -32,7 +34,8 @@ pub struct SessionContext {
 }
 
 /// Tracks context usage across sessions and decides when compaction is needed.
-#[allow(dead_code)] // context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
+#[allow(dead_code)]
+// context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
 #[derive(Debug, Clone, Default)]
 pub struct ContextTracker {
     sessions: HashMap<String, SessionContext>,

@@ -12,8 +12,8 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
@@ -322,8 +322,7 @@ impl FileWatcher {
 
     /// Return true if the watcher has been started and not stopped.
     pub fn is_running(&self) -> bool {
-        !self.stop.load(Ordering::Relaxed)
-            && self.project_dir.lock().unwrap().is_some()
+        !self.stop.load(Ordering::Relaxed) && self.project_dir.lock().unwrap().is_some()
     }
 
     /// Return the currently configured ignore patterns.
@@ -515,7 +514,10 @@ mod tests {
 
     #[test]
     fn matches_pattern_double_star_dir() {
-        assert!(matches_pattern("src/node_modules/pkg/index.js", "**/node_modules/**"));
+        assert!(matches_pattern(
+            "src/node_modules/pkg/index.js",
+            "**/node_modules/**"
+        ));
         assert!(!matches_pattern("src/pkg/index.js", "**/node_modules/**"));
     }
 
@@ -573,7 +575,10 @@ mod tests {
         let w = FileWatcher::new();
         // Enable the watcher and scan directly (avoids starting the thread).
         *w.config.lock().unwrap() = WatcherConfig {
-            ignore_patterns: DEFAULT_IGNORE_PATTERNS.iter().map(|s| s.to_string()).collect(),
+            ignore_patterns: DEFAULT_IGNORE_PATTERNS
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             enabled: true,
         };
         *w.project_dir.lock().unwrap() = Some(dir.path().to_path_buf());

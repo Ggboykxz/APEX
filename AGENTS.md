@@ -1339,6 +1339,22 @@ The following shell tools remain pending (they depend on `sandbox.py` /
 - `run_code` → `sandbox.py` (ShellSession)
 - `start_shell` / `run_shell` / `close_shell` → `sandbox.py` (ShellSession)
 
+### Git tools
+
+`git_tools.rs` ports three git tools from `apex/tools.py`
+(`tool registry is now 62 schemas`):
+
+- `add_git_hook` — installs a git hook script under `.git/hooks/<hook>`.
+  Validates the hook name against git's official list, rejects dangerous
+  commands via the shell security analyzer, and makes the hook executable
+  (`SUCCESS: Added <hook> hook`, `ERROR: Not a git repository`,
+  `ERROR: Invalid git hook name: …`).
+- `git_status_enhanced` — shows git status with staged/unstaged/untracked
+  file separation (`Staged:`, `Unstaged:`, `Untracked:` sections, or
+  `[working tree clean]`).
+- `git_log_enhanced` — shows recent commits with hash, subject, author,
+  and date (`[no commits]` when the repo has no history).
+
 ### Task queue & plans
 
 `task_queue.rs` ports the `TaskQueue` from `apex/extras.py` (tool registry
