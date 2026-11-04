@@ -8,6 +8,7 @@ mod context_tracking;
 mod cost;
 mod files;
 mod formatter;
+mod project;
 mod github;
 mod hooks;
 mod jsonrpc;
