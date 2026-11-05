@@ -51,13 +51,30 @@ fn apply_opencode_aliases() {
 // Legacy Config (still used by main.rs)
 // ─────────────────────────────────────────────────────────────────────
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Config {
     pub model: String,
     pub api_key: String,
     pub base_url: String,
     pub cwd: PathBuf,
     pub denied_tools: Vec<String>,
+    pub theme: String,
+}
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            model: String::new(),
+            api_key: String::new(),
+            base_url: String::new(),
+            cwd: PathBuf::new(),
+            denied_tools: Vec::new(),
+            theme: String::new(),
+        }
+    }
+}
+    pub theme: String,
     pub auto_compact: bool,
     pub compact_threshold: usize,
     pub theme: String,
