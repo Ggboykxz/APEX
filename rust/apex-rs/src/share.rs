@@ -136,7 +136,10 @@ fn read_session_file(path: &Path) -> Option<Value> {
 
 /// Resolve and read a session by name (latest symlink, then newest matching .enc).
 pub fn load_session(session_id: &str) -> Option<Value> {
-    let dir = sessions_dir();
+    load_session_in(&sessions_dir(), session_id)
+}
+
+fn load_session_in(dir: &Path, session_id: &str) -> Option<Value> {
     let latest = dir.join(format!("latest_{session_id}.json"));
     let mut candidates: Vec<PathBuf> = Vec::new();
     if latest.exists() {
@@ -148,7 +151,7 @@ pub fn load_session(session_id: &str) -> Option<Value> {
     }
     if candidates.iter().all(|p| !p.exists()) {
         let mut matching: Vec<PathBuf> = Vec::new();
-        if let Ok(rd) = std::fs::read_dir(&dir) {
+        if let Ok(rd) = std::fs::read_dir(dir) {
             for e in rd.flatten() {
                 let name = e.file_name().to_string_lossy().to_string();
                 if name.ends_with(&format!("_{session_id}.enc")) {
@@ -261,16 +264,37 @@ pub fn with_metadata(data: Value, meta: &SessionMetadata) -> Value {
     Value::Object(obj)
 }
 
+/// Python's `agent.usage` for an idle agent: all-zero counters.
+pub fn zero_usage() -> Value {
+    json!({
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0
+    })
+}
+
 /// Write an encrypted session with optional fork/branch metadata.
 pub fn save_session_with_metadata(
     name: &str,
     model: &str,
     cwd: &str,
     history: &[Value],
+    usage: &Value,
     metadata: Option<&SessionMetadata>,
 ) -> Option<PathBuf> {
-    let dir = sessions_dir();
-    std::fs::create_dir_all(&dir).ok()?;
+    save_session_in(&sessions_dir(), name, model, cwd, history, usage, metadata)
+}
+
+fn save_session_in(
+    dir: &Path,
+    name: &str,
+    model: &str,
+    cwd: &str,
+    history: &[Value],
+    usage: &Value,
+    metadata: Option<&SessionMetadata>,
+) -> Option<PathBuf> {
+    std::fs::create_dir_all(dir).ok()?;
     let safe = safe_session_name(name);
     let (ts, iso) = now_stamps();
     let filename = format!("{ts}_{safe}.enc");
@@ -282,7 +306,7 @@ pub fn save_session_with_metadata(
         "model": model,
         "cwd": cwd,
         "history": history,
-        "usage": {},
+        "usage": usage,
     });
 
     // Merge metadata if provided
@@ -311,9 +335,15 @@ pub fn save_session_with_metadata(
     Some(filepath)
 }
 
-/// Backward-compatible save_session without metadata.
-pub fn save_session(name: &str, model: &str, cwd: &str, history: &[Value]) -> Option<PathBuf> {
-    save_session_with_metadata(name, model, cwd, history, None)
+/// Save a session without fork/branch metadata.
+pub fn save_session(
+    name: &str,
+    model: &str,
+    cwd: &str,
+    history: &[Value],
+    usage: &Value,
+) -> Option<PathBuf> {
+    save_session_with_metadata(name, model, cwd, history, usage, None)
 }
 
 /// List sessions (name, timestamp, model, history_len), newest first.
@@ -367,7 +397,23 @@ pub fn fork_session(
     branch_name: &str,
     fork_point: u32,
 ) -> Option<(String, PathBuf)> {
-    let parent_data = load_session(parent_id)?;
+    fork_session_in(
+        &sessions_dir(),
+        parent_id,
+        child_name,
+        branch_name,
+        fork_point,
+    )
+}
+
+fn fork_session_in(
+    dir: &Path,
+    parent_id: &str,
+    child_name: &str,
+    branch_name: &str,
+    fork_point: u32,
+) -> Option<(String, PathBuf)> {
+    let parent_data = load_session_in(dir, parent_id)?;
     let model = parent_data
         .get("model")
         .and_then(|v| v.as_str())
@@ -379,6 +425,14 @@ pub fn fork_session(
         .unwrap_or("")
         .to_string();
     let history: Vec<Value> = history_of(&parent_data);
+    // The fork inherits the parent's usage (Rust-only metadata extension;
+    // Python's fork path copies model/cwd/history only). A parent payload
+    // without a `usage` object falls back to Python's idle-agent counters.
+    let usage = parent_data
+        .get("usage")
+        .filter(|v| v.is_object())
+        .cloned()
+        .unwrap_or_else(zero_usage);
 
     let mut metadata =
         SessionMetadata::new_fork(parent_id.to_string(), branch_name.to_string(), fork_point);
@@ -391,7 +445,15 @@ pub fn fork_session(
         parent_id: Some(parent_id.to_string()),
     });
 
-    let path = save_session_with_metadata(child_name, &model, &cwd, &history, Some(&metadata))?;
+    let path = save_session_in(
+        dir,
+        child_name,
+        &model,
+        &cwd,
+        &history,
+        &usage,
+        Some(&metadata),
+    )?;
 
     // Use the session name as the child id for lookups
     let child_id = safe_session_name(child_name);
@@ -636,5 +698,87 @@ mod tests {
         let data = json!({"name": "no-branch"});
         let history = branch_history_of(&data);
         assert!(history.is_empty());
+    }
+
+    #[test]
+    fn save_load_roundtrip_persists_usage() {
+        let dir = tempfile::tempdir().unwrap();
+        let usage = json!({"prompt_tokens": 120, "completion_tokens": 340, "total_tokens": 460});
+        let path = save_session_in(
+            dir.path(),
+            "usage-roundtrip",
+            "gpt-4o",
+            "/tmp/proj",
+            &[json!({"role": "user", "content": "hi"})],
+            &usage,
+            None,
+        )
+        .expect("save_session_in must succeed");
+        assert!(path.exists());
+        let data = load_session_in(dir.path(), "usage-roundtrip").expect("load must succeed");
+        assert_eq!(
+            data["usage"], usage,
+            "usage counters must survive the roundtrip"
+        );
+        assert_eq!(data["model"], "gpt-4o");
+        assert_eq!(data["cwd"], "/tmp/proj");
+        assert_eq!(history_of(&data).len(), 1);
+    }
+
+    #[test]
+    fn fork_carries_parent_usage() {
+        let dir = tempfile::tempdir().unwrap();
+        let usage = json!({"prompt_tokens": 50, "completion_tokens": 60, "total_tokens": 110});
+        save_session_in(
+            dir.path(),
+            "fork-parent",
+            "claude-sonnet",
+            "/tmp/proj",
+            &[json!({"role": "user", "content": "hi"})],
+            &usage,
+            None,
+        )
+        .expect("parent save must succeed");
+
+        let (child_id, child_path) =
+            fork_session_in(dir.path(), "fork-parent", "fork-child", "feature", 1)
+                .expect("fork must succeed");
+        assert_eq!(child_id, "fork-child");
+        assert!(child_path.exists());
+        let data = load_session_in(dir.path(), "fork-child").expect("child load must succeed");
+        assert_eq!(
+            data["usage"], usage,
+            "the fork must inherit the parent usage"
+        );
+        assert_eq!(data["fork_parent_id"], "fork-parent");
+        assert_eq!(data["branch_name"], "feature");
+    }
+
+    #[test]
+    fn fork_zeroes_usage_when_parent_has_none() {
+        let dir = tempfile::tempdir().unwrap();
+        // A payload without any `usage` key (pre-PR-351 session files look
+        // like this); written as a raw encrypted file.
+        let payload = json!({
+            "name": "legacy",
+            "timestamp": "2026-01-01T00:00:00",
+            "model": "gpt-4o",
+            "cwd": "/tmp",
+            "history": [],
+        });
+        let token = crate::session_crypto::encrypt(&serde_json::to_string(&payload).unwrap())
+            .expect("encrypt must succeed");
+        std::fs::write(dir.path().join("20260101_000000_legacy.enc"), token).unwrap();
+
+        let (_child_id, child_path) =
+            fork_session_in(dir.path(), "legacy", "legacy-child", "main", 0)
+                .expect("fork must succeed");
+        assert!(child_path.exists());
+        let data = load_session_in(dir.path(), "legacy-child").expect("child load must succeed");
+        assert_eq!(
+            data["usage"],
+            zero_usage(),
+            "a parent without usage must yield idle-agent counters on the child"
+        );
     }
 }

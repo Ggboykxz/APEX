@@ -1551,7 +1551,11 @@ and the diff preview accept/reject lifecycle against a real git repository
 reject/restore of a working-tree change). PR 350 adds the gateway lifecycle:
 CLI key generation and status, all eight routes, the tier model gate, usage
 counters, the admin trio, and an out-of-band revoke — against a local fake
-OpenRouter upstream, with no network and no API key.
+OpenRouter upstream, with no network and no API key. PR 351 adds session
+metadata: the CLI `session save` path persists the idle-agent usage shape
+(three zero counters, never an empty object), `Agent::load_session` restores
+model and cwd (Python defaults) with usage left fresh, and a fork carries the
+parent usage over.
 
 ```bash
 cd rust/apex-rs

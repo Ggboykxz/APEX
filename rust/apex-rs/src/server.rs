@@ -1548,9 +1548,10 @@ pub async fn serve(config: Config, port: u16) {
                             a.config.model.clone(),
                             a.config.cwd.to_string_lossy().to_string(),
                             a.history.clone(),
+                            a.usage_json(),
                         )
                     };
-                    match crate::share::save_session(name, &live.0, &live.1, &live.2) {
+                    match crate::share::save_session(name, &live.0, &live.1, &live.2, &live.3) {
                         Some(path) => {
                             Json(serde_json::json!({"saved": path.to_string_lossy()})).into_response()
                         }

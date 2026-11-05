@@ -181,20 +181,43 @@ impl Agent {
         before - self.history.len()
     }
 
-    /// Persist the session in the Python-compatible encrypted format.
+    /// Persist the session in the Python-compatible encrypted format,
+    /// including the live usage counters (Python's `SessionManager.save`
+    /// writes `agent.usage` into the payload).
     pub fn save_session(&self, id: &str) -> anyhow::Result<()> {
         let cwd = self.config.cwd.to_string_lossy().to_string();
-        crate::share::save_session(id, &self.config.model, &cwd, &self.history)
-            .map(|_| ())
-            .ok_or_else(|| anyhow::anyhow!("failed to save session {id}"))
+        crate::share::save_session(
+            id,
+            &self.config.model,
+            &cwd,
+            &self.history,
+            &self.usage_json(),
+        )
+        .map(|_| ())
+        .ok_or_else(|| anyhow::anyhow!("failed to save session {id}"))
     }
 
     /// Load a session (encrypted `.enc`, `latest_*` symlink, or plain JSON).
     pub fn load_session(&mut self, id: &str) -> anyhow::Result<()> {
         if let Some(data) = crate::share::load_session(id) {
-            self.history = crate::share::history_of(&data);
+            self.apply_loaded_session(&data);
         }
         Ok(())
+    }
+
+    /// Restore state from a session payload, mirroring Python's
+    /// `SessionManager.load`: history, model (default `claude-sonnet`) and
+    /// cwd (default `.`). Usage is intentionally not restored — Python's
+    /// counters start fresh on load, and the Rust port keeps that parity.
+    fn apply_loaded_session(&mut self, data: &Value) {
+        self.history = crate::share::history_of(data);
+        self.config.model = data
+            .get("model")
+            .and_then(|v| v.as_str())
+            .unwrap_or("claude-sonnet")
+            .to_string();
+        self.config.cwd =
+            std::path::PathBuf::from(data.get("cwd").and_then(|v| v.as_str()).unwrap_or("."));
     }
 
     /// Base system prompt plus the `[WORKSPACE CONTEXT]` block.
@@ -589,6 +612,43 @@ mod tests {
         agent.compact_context("merge");
         assert_eq!(agent.history.len(), 2);
         assert!(before >= 2);
+    }
+
+    #[test]
+    fn apply_loaded_session_restores_model_cwd_history() {
+        let cfg = Config::from_env();
+        let mut agent = Agent::new(cfg);
+        let data = serde_json::json!({
+            "name": "s",
+            "model": "anthropic/claude-sonnet-4-5",
+            "cwd": "/tmp/proj",
+            "history": [{"role": "user", "content": "hi"}],
+            "usage": {"prompt_tokens": 5, "completion_tokens": 6, "total_tokens": 11},
+        });
+        agent.apply_loaded_session(&data);
+        assert_eq!(agent.config.model, "anthropic/claude-sonnet-4-5");
+        assert_eq!(agent.config.cwd, std::path::PathBuf::from("/tmp/proj"));
+        assert_eq!(agent.history.len(), 1);
+        // Python's `SessionManager.load` does not restore usage: the
+        // counters start fresh, and the Rust port keeps that parity.
+        let u = agent.usage_json();
+        assert_eq!(u["prompt_tokens"], 0);
+        assert_eq!(u["completion_tokens"], 0);
+        assert_eq!(u["total_tokens"], 0);
+    }
+
+    #[test]
+    fn apply_loaded_session_missing_fields_use_python_defaults() {
+        let cfg = Config::from_env();
+        let mut agent = Agent::new(cfg);
+        agent
+            .history
+            .push(serde_json::json!({"role": "user", "content": "stale"}));
+        let data = serde_json::json!({"name": "legacy", "history": []});
+        agent.apply_loaded_session(&data);
+        assert_eq!(agent.config.model, "claude-sonnet");
+        assert_eq!(agent.config.cwd, std::path::PathBuf::from("."));
+        assert!(agent.history.is_empty());
     }
 
     /// Fake OpenAI-compatible API: first call asks for a `read_file` tool call,

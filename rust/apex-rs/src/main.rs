@@ -729,7 +729,9 @@ async fn main() {
             },
             SessionAction::Save { name } => {
                 let cwd = config.cwd.to_string_lossy().to_string();
-                match share::save_session(&name, &config.model, &cwd, &[]) {
+                // No agent state here: persist the idle-agent usage shape,
+                // exactly what Python's `agent.usage` is for a fresh agent.
+                match share::save_session(&name, &config.model, &cwd, &[], &share::zero_usage()) {
                     Some(p) => println!("Saved {}", p.display()),
                     None => eprintln!("failed to save session"),
                 }
