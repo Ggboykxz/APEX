@@ -1158,6 +1158,26 @@ header and a JSON error body.
 - `GET /api/v1/rate-limit` reports the caller's counters, limits and the
   minute-window `reset_at` (epoch seconds; Python's
   `RateLimitResult.reset_at`).
+- The limiter's lock is released before the handler runs, so routes that
+  read limiter status in-request (`GET /api/v1/rate-limit`,
+  `GET /rate-limit/status`, `POST /chat`, `GET /metrics`,
+  `GET /api/v1/stats`) cannot deadlock on the non-reentrant tokio mutex.
+
+### HTTP route parity
+
+The `serve` router covers all 52 routes of Python's `apex/http_api.py`
+(`GET /`, `POST /chat`, `GET /stream`, models/providers, sessions and
+shares, `POST /session/save|load`, config, themes, stats, formatters and
+`POST /api/v1/format`, commands and `POST /api/v1/command`,
+`POST /api/v1/init`, `GET /find/file`, export/import,
+`GET /api/v1/session/{id}/diff{,/decision}`, `POST /api/v1/session/{id}/{fork,abort}`,
+LSP/formatter/MCP status, `GET /global/event` SSE, `GET /metrics`,
+`GET /rate-limit/status`, `GET /global/health`, auth) plus 26 Rust-only
+extras. The authoritative per-route table and the divergence list live in
+[`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md) (route parity section);
+update it in the same PR as any surface change.
+New helper modules back the ported routes: `models.rs` (static model
+table) and `commands.rs` (markdown custom-command manager).
 
 ### Permission gate
 
@@ -1487,8 +1507,12 @@ both the native and legacy key derivations), security verdicts, the
 repository-context commands, the workspace prompt block and JSON output,
 the rollback snapshot and turn lifecycles, HTTP auth (all three carriers,
 exact 401 body, auth routes, a CLI revoke
-observed by a running server, and 429 + `Retry-After`), and the
-no-crate-level-allow regression.
+observed by a running server, and 429 + `Retry-After`), the no-crate-level-allow
+regression, the Python-parity HTTP routes (every route that does not require
+an LLM call, the SSE `connected` frame, and the diff/decision error paths),
+and the diff preview accept/reject lifecycle against a real git repository
+(fingerprint change, `409 diff_changed` on a stale fingerprint, and
+reject/restore of a working-tree change).
 
 ```bash
 cd rust/apex-rs

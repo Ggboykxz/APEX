@@ -15,6 +15,7 @@ use axum::{
 };
 use futures::stream::StreamExt;
 use serde::Serialize;
+use sha2::Digest;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -115,6 +116,226 @@ fn list_files(root: &std::path::Path, max: usize) -> Vec<String> {
     out
 }
 
+/// Subsequence fuzzy match (port of Python's `fuzzy_match` in
+/// `api_find_file`): every character of `q` must appear in `name` in order.
+fn fuzzy_subsequence(name: &str, q: &str) -> bool {
+    let q_chars: Vec<char> = q.chars().collect();
+    let mut qi = 0usize;
+    for ch in name.chars() {
+        if qi < q_chars.len() && ch == q_chars[qi] {
+            qi += 1;
+        }
+    }
+    qi == q_chars.len()
+}
+
+/// File search for `GET /find/file` (port of Python's `api_find_file`
+/// walk: same ignore set, dot-part pruning, trailing `/` on directories,
+/// match on the relative path, capped at `limit`).
+fn find_file_matches(
+    cwd: &std::path::Path,
+    query: &str,
+    file_type: &str,
+    limit: usize,
+) -> Vec<String> {
+    const IGNORE: [&str; 13] = [
+        "node_modules",
+        ".git",
+        "__pycache__",
+        ".venv",
+        "venv",
+        "dist",
+        "build",
+        ".next",
+        "target",
+        ".tox",
+        "coverage",
+        ".apex",
+        ".opencode",
+    ];
+    let mut results: Vec<String> = Vec::new();
+    let mut stack = vec![cwd.to_path_buf()];
+    'walk: while let Some(dir) = stack.pop() {
+        let Ok(rd) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in rd.flatten() {
+            let path = entry.path();
+            let Ok(rel) = path.strip_prefix(cwd) else {
+                continue;
+            };
+            let parts: Vec<String> = rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().to_string())
+                .collect();
+            if parts.iter().any(|p| IGNORE.contains(&p.as_str())) {
+                continue;
+            }
+            // Dot-prefixed parents are pruned (the final component may be a
+            // dotfile, like Python's `parts[:-1]` check).
+            let parent_len = parts.len().saturating_sub(1);
+            if parts.iter().take(parent_len).any(|p| p.starts_with('.')) {
+                continue;
+            }
+            let is_dir = path.is_dir();
+            if file_type == "file" && is_dir {
+                continue;
+            }
+            if file_type == "directory" && !is_dir {
+                continue;
+            }
+            let mut rel_str = rel.to_string_lossy().replace('\\', "/");
+            if is_dir {
+                rel_str.push('/');
+            }
+            if fuzzy_subsequence(&rel_str.to_lowercase(), query) {
+                results.push(rel_str);
+                if results.len() >= limit {
+                    break 'walk;
+                }
+            }
+            if is_dir {
+                stack.push(path);
+            }
+        }
+    }
+    results
+}
+
+/// Run `git <args>` in `cwd` with the same 30-second timeout as Python's
+/// `_collect_diff` / `_restore_diff_path`. Non-zero exits are returned as
+/// output (Python ignores them in `_collect_diff`); errors are spawn
+/// failures and timeouts only.
+async fn git_run(cwd: &std::path::Path, args: &[&str]) -> Result<std::process::Output, String> {
+    tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        tokio::process::Command::new("git")
+            .args(args)
+            .current_dir(cwd)
+            .output(),
+    )
+    .await
+    .map_err(|_| format!("git timed out after 30s: {}", args.join(" ")))?
+    .map_err(|e| e.to_string())
+}
+
+/// Port of Python's `_collect_diff`: (stat, diff, changed paths,
+/// sha256 fingerprint of the diff text).
+async fn collect_diff(
+    cwd: &std::path::Path,
+) -> Result<(String, String, Vec<String>, String), String> {
+    let stat = git_run(cwd, &["diff", "--stat"]).await?;
+    let diff = git_run(cwd, &["diff"]).await?;
+    let names = git_run(cwd, &["diff", "--name-only"]).await?;
+    let diff_text = String::from_utf8_lossy(&diff.stdout).to_string();
+    let paths: Vec<String> = String::from_utf8_lossy(&names.stdout)
+        .lines()
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect();
+    let mut hasher = sha2::Sha256::new();
+    sha2::Digest::update(&mut hasher, diff_text.as_bytes());
+    let fingerprint = format!("{:x}", sha2::Digest::finalize(hasher));
+    let stat = String::from_utf8_lossy(&stat.stdout).trim().to_string();
+    Ok((stat, diff_text, paths, fingerprint))
+}
+
+/// Port of Python's `_normalize_diff_path`: repo-relative, POSIX-style,
+/// without `..` (None when the raw value is not a usable path).
+fn normalize_diff_path(raw: &serde_json::Value) -> Option<String> {
+    let candidate = raw.as_str()?.trim().replace('\\', "/");
+    if candidate.is_empty() || candidate.contains('\0') {
+        return None;
+    }
+    if candidate.starts_with('/') {
+        return None;
+    }
+    // Reject Windows drive-qualified paths even on POSIX hosts.
+    let bytes = candidate.as_bytes();
+    if bytes.len() >= 2 && bytes[1] == b':' {
+        return None;
+    }
+    if candidate.split('/').any(|part| part == "..") {
+        return None;
+    }
+    Some(candidate)
+}
+
+/// Python-style `repr()` of a JSON value, for `invalid path: …` errors.
+fn python_repr(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => {
+            format!("'{}'", s.replace('\\', "\\\\").replace('\'', "\\'"))
+        }
+        serde_json::Value::Null => "None".to_string(),
+        serde_json::Value::Bool(true) => "True".to_string(),
+        serde_json::Value::Bool(false) => "False".to_string(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Array(items) => format!(
+            "[{}]",
+            items.iter().map(python_repr).collect::<Vec<_>>().join(", ")
+        ),
+        serde_json::Value::Object(map) => format!(
+            " {{{}}}",
+            map.iter()
+                .map(|(k, val)| {
+                    format!(
+                        "{}: {}",
+                        python_repr(&serde_json::Value::String(k.clone())),
+                        python_repr(val)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    }
+}
+
+/// Port of Python's `_diff_path_within`: true when the (already
+/// normalized) path resolves inside the repository root.
+fn diff_path_within(_root: &std::path::Path, relative_path: &str) -> bool {
+    // `normalize_diff_path` already rejects absolute paths, drive letters and
+    // `..`, so re-normalizing is the containment check (Python's
+    // `resolve().relative_to(root)`).
+    normalize_diff_path(&serde_json::json!(relative_path)).is_some()
+}
+
+/// Port of Python's `_restore_diff_path`: `git restore --worktree -- <path>`,
+/// falling back to `git checkout -- <path>`. `None` means success.
+async fn restore_diff_path(root: &std::path::Path, relative_path: &str) -> Option<String> {
+    let mut last_error = String::new();
+    let attempts: Vec<Vec<&str>> = vec![
+        vec!["restore", "--worktree", "--", relative_path],
+        vec!["checkout", "--", relative_path],
+    ];
+    for args in attempts {
+        match git_run(root, &args).await {
+            Err(e) => {
+                last_error = e;
+            }
+            Ok(o) => {
+                if o.status.success() {
+                    return None;
+                }
+                let stderr = String::from_utf8_lossy(&o.stderr).trim().to_string();
+                let stdout = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                last_error = if !stderr.is_empty() {
+                    stderr
+                } else if !stdout.is_empty() {
+                    stdout
+                } else {
+                    format!("git exited with {}", o.status.code().unwrap_or(-1))
+                };
+            }
+        }
+    }
+    if last_error.is_empty() {
+        Some(format!("could not restore {relative_path}"))
+    } else {
+        Some(last_error)
+    }
+}
+
 /// Query parameters shared by the `/api/v1/context/*` routes.
 #[derive(serde::Deserialize)]
 struct ContextQuery {
@@ -178,6 +399,21 @@ fn request_rate_limit_key(request: &axum::extract::Request) -> String {
     extract_api_key(request.headers(), request.uri()).unwrap_or_else(|| "anonymous".to_string())
 }
 
+/// Same key as `request_rate_limit_key`, computed from request parts only.
+/// Handlers that also parse a JSON body cannot take a `Request` extractor
+/// (`Request` and `Json` both consume the body, so only one may be the
+/// final extractor); they use `HeaderMap`/`Uri`/`Extensions` instead.
+fn request_rate_limit_key_from_parts(
+    headers: &HeaderMap,
+    uri: &axum::http::Uri,
+    extensions: &axum::http::Extensions,
+) -> String {
+    if let Some(key) = extensions.get::<AuthenticatedKey>() {
+        return format!("key:{}", key.0);
+    }
+    extract_api_key(headers, uri).unwrap_or_else(|| "anonymous".to_string())
+}
+
 /// Rate-limit middleware shared by every route except `/health`.
 ///
 /// The key is the validated key id when auth is on, else the `X-API-Key`
@@ -194,8 +430,14 @@ async fn rate_limit(
         return next.run(request).await;
     }
     let key = request_rate_limit_key(&request);
-    let mut limiter = state.rate_limiter.lock().await;
-    let result = limiter.check_rate_limit(&key);
+    // The check runs under the lock; the guard is dropped *before* the
+    // handler runs, because several routes (e.g. `GET /api/v1/rate-limit`,
+    // `POST /chat`, `GET /metrics`) read the limiter's status while serving
+    // the request and the tokio mutex is not reentrant.
+    let result = {
+        let mut limiter = state.rate_limiter.lock().await;
+        limiter.check_rate_limit(&key)
+    };
     if !result.allowed {
         let retry_after = result.retry_after.unwrap_or(60);
         let mut response = (
@@ -537,6 +779,58 @@ async fn auth_status() -> Json<serde_json::Value> {
     }))
 }
 
+/// API index page served on `GET /` (Python's `index` handler).
+const INDEX_HTML: &str = r#"
+        <!DOCTYPE html>
+        <html>
+        <head><title>APEX API</title></head>
+        <body>
+        <h1>APEX Agent API</h1>
+        <h2>Authentication</h2>
+        <p>Use <code>Authorization: Bearer YOUR_API_KEY</code> header or <code>?api_key=YOUR_API_KEY</code> query parameter.</p>
+        <h2>Endpoints</h2>
+        <ul>
+            <li>POST /chat - Send a chat message</li>
+            <li>GET /stream - SSE stream endpoint</li>
+            <li>POST /chat/stream - Chat with streaming</li>
+            <li>GET /models - List available models</li>
+            <li>POST /session/save - Save session</li>
+            <li>POST /session/load - Load session</li>
+            <li>GET /metrics - Get usage metrics</li>
+            <li>GET /health - Health check</li>
+            <li>GET /rate-limit/status - Rate limit status</li>
+            <li>GET /api/v1/config - Get config</li>
+            <li>POST /api/v1/config - Update config</li>
+            <li>GET /api/v1/agents - List agents</li>
+            <li>GET /api/v1/agents/{name} - Get agent</li>
+            <li>GET /api/v1/sessions - List sessions</li>
+            <li>DELETE /api/v1/sessions/{id} - Delete session</li>
+            <li>POST /api/v1/share - Share session</li>
+            <li>POST /api/v1/unshare/{share_id} - Unshare session</li>
+            <li>GET /api/v1/shares - List shared sessions</li>
+            <li>GET /api/v1/themes - List themes</li>
+            <li>POST /api/v1/themes - Set theme</li>
+            <li>GET /api/v1/stats - Usage statistics</li>
+            <li>GET /api/v1/formatters - List formatters</li>
+            <li>POST /api/v1/format - Format code</li>
+            <li>POST /api/v1/compact - Compact context</li>
+            <li>POST /api/v1/models/refresh - Refresh models</li>
+            <li>GET /api/v1/providers - List providers</li>
+            <li>POST /api/v1/auth/login - Add API key</li>
+            <li>POST /api/v1/auth/logout - Remove API key</li>
+            <li>GET /api/v1/auth/status - Auth status</li>
+            <li>POST /api/v1/commands/execute - Execute command</li>
+            <li>GET /api/v1/commands - List commands</li>
+            <li>POST /api/v1/undo - Undo</li>
+            <li>POST /api/v1/redo - Redo</li>
+            <li>POST /api/v1/init - Initialize project</li>
+            <li>GET /api/v1/export/{session_id} - Export session</li>
+            <li>POST /api/v1/import - Import session</li>
+        </ul>
+        </body>
+        </html>
+        "#;
+
 pub async fn serve(config: Config, port: u16) {
     let (events, _) = tokio::sync::broadcast::channel::<String>(256);
     let state = AppState {
@@ -599,8 +893,40 @@ pub async fn serve(config: Config, port: u16) {
         }))
         .route(
             "/api/v1/agents/:id",
-            get(|axum::extract::Path(id): axum::extract::Path<String>| async move {
-                Json(serde_json::json!({"id": id, "name": id}))
+            get(|State(st): State<AppState>, Path(id): Path<String>| async move {
+                let mut reg = crate::agents::AgentRegistry::new();
+                reg.load_markdown_agents_from(&st.config.cwd);
+                match reg.get(&id) {
+                    Some(agent) => {
+                        let permission: serde_json::Map<String, serde_json::Value> = agent
+                            .permission
+                            .iter()
+                            .map(|(k, v)| (k.clone(), serde_json::json!(v.as_str())))
+                            .collect();
+                        // The Rust `Agent` carries no `system_prompt`/`top_p`
+                        // (documented divergence).
+                        Json(serde_json::json!({
+                            "name": agent.name,
+                            "description": agent.description,
+                            "system_prompt": serde_json::Value::Null,
+                            "mode": agent.mode.as_str(),
+                            "model": agent.model,
+                            "temperature": agent.temperature,
+                            "top_p": serde_json::Value::Null,
+                            "max_steps": agent.max_steps,
+                            "hidden": agent.hidden,
+                            "disabled": agent.disabled,
+                            "color": agent.color,
+                            "permission": permission,
+                        }))
+                        .into_response()
+                    }
+                    None => (
+                        StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({"error": format!("Agent '{id}' not found")})),
+                    )
+                        .into_response(),
+                }
             }),
         )
         .route("/api/v1/plugins", get(|| async {
@@ -632,11 +958,31 @@ pub async fn serve(config: Config, port: u16) {
             let names: Vec<String> = ps.into_iter().map(|p| p.name).collect();
             Json(serde_json::json!({"plugins": names, "details": list}))
         }))
-        .route("/api/v1/agents", get(|| async {
-            Json(serde_json::json!({"agents": [
-                {"id":"build","name":"Build"},
-                {"id":"plan","name":"Plan"}
-            ]}))
+        .route("/api/v1/agents", get(|State(st): State<AppState>| async move {
+            let mut reg = crate::agents::AgentRegistry::new();
+            reg.load_markdown_agents_from(&st.config.cwd);
+            let agents: Vec<serde_json::Value> = reg
+                .list()
+                .iter()
+                .map(|agent| {
+                    let permission: serde_json::Map<String, serde_json::Value> = agent
+                        .permission
+                        .iter()
+                        .map(|(k, v)| (k.clone(), serde_json::json!(v.as_str())))
+                        .collect();
+                    serde_json::json!({
+                        "name": agent.name,
+                        "description": agent.description,
+                        "mode": agent.mode.as_str(),
+                        "model": agent.model,
+                        "hidden": agent.hidden,
+                        "disabled": agent.disabled,
+                        "color": agent.color,
+                        "permission": permission,
+                    })
+                })
+                .collect();
+            Json(serde_json::json!({"agents": agents}))
         }))
         .route("/api/v1/themes", get(|State(st): State<AppState>| async move {
             let themes = [
@@ -652,6 +998,61 @@ pub async fn serve(config: Config, port: u16) {
                 .collect();
             Json(serde_json::json!({"themes": list, "current": st.config.theme}))
         }))
+        .route("/api/v1/themes", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let name = req.get("theme").and_then(|v| v.as_str()).unwrap_or("");
+                if name.is_empty() {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "theme name required"})),
+                    )
+                        .into_response();
+                }
+                let mut a = state.agent.lock().await;
+                a.config.theme = name.to_string();
+                // Parity with Python's `event_bus.publish("theme_changed", …)`.
+                let _ = state.events.send(event(
+                    "theme_changed",
+                    serde_json::json!({"theme": a.config.theme}),
+                ));
+                // Python returns the resolved theme object; the Rust port has
+                // no theme resolver, so `resolved` is null (divergence).
+                Json(serde_json::json!({
+                    "theme": a.config.theme,
+                    "resolved": serde_json::Value::Null,
+                }))
+                .into_response()
+            }
+        }))
+        .route(
+            "/api/v1/stats",
+            get(|State(st): State<AppState>, request: axum::extract::Request| async move {
+                let a = st.agent.lock().await;
+                let usage = a.usage_json();
+                let mut stats = serde_json::json!({
+                    "sessions_count": crate::share::list_sessions().len(),
+                    "current_model": a.config.model,
+                    // The Rust Agent has no `current_agent` field.
+                    "current_agent": "build",
+                    "usage": {
+                        "prompt_tokens": usage.get("prompt_tokens").cloned().unwrap_or(serde_json::json!(0)),
+                        "completion_tokens": usage.get("completion_tokens").cloned().unwrap_or(serde_json::json!(0)),
+                        "total_tokens": usage.get("total_tokens").cloned().unwrap_or(serde_json::json!(0)),
+                    },
+                    "undo_available": crate::tools::can_undo(),
+                    "redo_available": crate::tools::can_redo(),
+                    "shares_count": crate::share::list_shares().len(),
+                });
+                drop(a);
+                // Python adds `rate_limit` only for authenticated keys.
+                if let Some(key) = request.extensions().get::<AuthenticatedKey>() {
+                    let limiter = st.rate_limiter.lock().await;
+                    stats["rate_limit"] = limiter.get_status(&format!("key:{}", key.0));
+                }
+                Json(stats)
+            }),
+        )
         .route("/api/v1/files", get(|State(st): State<AppState>| async move {
             let files = list_files(&st.config.cwd, 500);
             Json(serde_json::json!({"files": files}))
@@ -675,6 +1076,41 @@ pub async fn serve(config: Config, port: u16) {
                 "compact_threshold": a.config.compact_threshold,
                 "denied_tools": a.config.denied_tools,
             }))
+        }))
+        .route("/api/v1/config", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let mut a = state.agent.lock().await;
+                if let Some(v) = req.get("model").and_then(|v| v.as_str()) {
+                    a.config.model = v.to_string();
+                }
+                if let Some(v) = req.get("theme").and_then(|v| v.as_str()) {
+                    a.config.theme = v.to_string();
+                }
+                if let Some(v) = req.get("auto_compact").and_then(|v| v.as_bool()) {
+                    a.config.auto_compact = v;
+                }
+                if let Some(v) = req.get("compact_threshold").and_then(|v| v.as_u64()) {
+                    a.config.compact_threshold = v as usize;
+                }
+                if let Some(arr) = req.get("denied_tools").and_then(|v| v.as_array()) {
+                    a.config.denied_tools = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect();
+                }
+                // Same shape as GET /api/v1/config (Python re-serves the full
+                // sanitized apex config; the Rust Config has no other keys).
+                Json(serde_json::json!({
+                    "model": a.config.model,
+                    "base_url": a.config.base_url,
+                    "theme": a.config.theme,
+                    "cwd": a.config.cwd.to_string_lossy(),
+                    "auto_compact": a.config.auto_compact,
+                    "compact_threshold": a.config.compact_threshold,
+                    "denied_tools": a.config.denied_tools,
+                }))
+            }
         }))
         .route("/api/v1/undo", post(|| async {
             let msg = tools::undo_last_edit();
@@ -938,6 +1374,797 @@ pub async fn serve(config: Config, port: u16) {
                 Json(limiter.get_status(&key))
             }),
         )
+        // ── Python parity: index + OpenCode-compatible endpoints ──
+        .route(
+            "/",
+            get(|| async {
+                (
+                    [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+                    INDEX_HTML,
+                )
+            }),
+        )
+        .route("/global/health", get(|| async {
+            Json(serde_json::json!({
+                "healthy": true,
+                "version": env!("CARGO_PKG_VERSION"),
+            }))
+        }))
+        .route("/api/v1/lsp", get(|| async { Json(serde_json::json!([])) }))
+        .route("/api/v1/formatter", get(|| async {
+            let available = crate::formatter::formatter_manager().list_available();
+            let list: Vec<serde_json::Value> = available
+                .iter()
+                .map(|f| {
+                    serde_json::json!({"name": f.name, "available": true, "extensions": f.extensions})
+                })
+                .collect();
+            Json(serde_json::to_value(list).unwrap())
+        }))
+        .route("/api/v1/mcp", get(|| async {
+            Json(crate::mcp_client::global_server_status())
+        }))
+        .route("/api/v1/formatters", get(|| async {
+            let available = crate::formatter::formatter_manager().list_available();
+            Json(serde_json::json!({
+                "formatters": available.iter().map(|f| serde_json::json!({
+                    "name": f.name,
+                    "command": f.command,
+                    "extensions": f.extensions,
+                })).collect::<Vec<_>>()
+            }))
+        }))
+        .route("/api/v1/format", post({
+            move |Json(req): Json<serde_json::Value>| async move {
+                let file_path = req
+                    .get("file_path")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let code = req.get("code").and_then(|v| v.as_str()).unwrap_or("");
+                let extension = req
+                    .get("extension")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let manager = crate::formatter::formatter_manager();
+                if !file_path.is_empty() {
+                    if manager.format_file(file_path) {
+                        Json(serde_json::json!({"formatted": true, "file": file_path}))
+                            .into_response()
+                    } else {
+                        (
+                            StatusCode::BAD_REQUEST,
+                            Json(serde_json::json!({
+                                "error": "no formatter available for this file"
+                            })),
+                        )
+                            .into_response()
+                    }
+                } else if !code.is_empty() {
+                    let formatted = manager.format_code(code, extension);
+                    Json(serde_json::json!({"formatted": true, "code": formatted})).into_response()
+                } else {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "file_path or code required"})),
+                    )
+                        .into_response()
+                }
+            }
+        }))
+        .route(
+            "/rate-limit/status",
+            get(|State(st): State<AppState>, request: axum::extract::Request| async move {
+                let key = request_rate_limit_key(&request);
+                let limiter = st.rate_limiter.lock().await;
+                Json(limiter.get_status(&key))
+            }),
+        )
+        .route("/models", get(|| async {
+            Json(serde_json::json!({"models": crate::models::models_list()}))
+        }))
+        .route("/api/v1/models/refresh", post(|| async {
+            let models = crate::models::models_list();
+            let count = models.len();
+            Json(serde_json::json!({"models": models, "count": count}))
+        }))
+        .route("/api/v1/providers", get(|| async {
+            Json(serde_json::json!({"providers": crate::models::configured_providers()}))
+        }))
+        .route(
+            "/api/v1/session/:id/abort",
+            post(|_id: axum::extract::Path<String>| async move {
+                Json(serde_json::json!({"aborted": true}))
+            }),
+        )
+        // ── Python parity: session lifecycle routes ──
+        .route(
+            "/api/v1/sessions/:id",
+            axum::routing::delete(|Path(id): Path<String>| async move {
+                // Python: sorted `*{id}*` filename match first, then a
+                // `*.json` name/session_id scan. Both sorted, so the
+                // deletion is deterministic across filesystems.
+                let dir = crate::share::sessions_dir();
+                let mut files: Vec<std::path::PathBuf> = match std::fs::read_dir(&dir) {
+                    Ok(rd) => rd.flatten().map(|e| e.path()).collect(),
+                    Err(_) => Vec::new(),
+                };
+                files.sort();
+                let mut found = false;
+                for p in &files {
+                    let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if name.contains(id.as_str()) && p.is_file() && !p.is_symlink() {
+                        found = std::fs::remove_file(p).is_ok();
+                        break;
+                    }
+                }
+                if !found {
+                    for p in &files {
+                        if p.extension().and_then(|e| e.to_str()) != Some("json")
+                            || p.is_symlink()
+                        {
+                            continue;
+                        }
+                        let data = match std::fs::read_to_string(p)
+                            .ok()
+                            .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+                        {
+                            Some(d) => d,
+                            None => continue,
+                        };
+                        let is_target = data
+                            .get("name")
+                            .or_else(|| data.get("session_id"))
+                            .and_then(|v| v.as_str())
+                            == Some(id.as_str());
+                        if is_target {
+                            found = std::fs::remove_file(p).is_ok();
+                        }
+                        break;
+                    }
+                }
+                if found {
+                    Json(serde_json::json!({"deleted": id})).into_response()
+                } else {
+                    (
+                        StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({"error": "session not found"})),
+                    )
+                        .into_response()
+                }
+            }),
+        )
+        .route(
+            "/session/save",
+            post({
+                let state = state.clone();
+                move |Json(req): Json<serde_json::Value>| async move {
+                    let name = req
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("http_session");
+                    let live = {
+                        let a = state.agent.lock().await;
+                        (
+                            a.config.model.clone(),
+                            a.config.cwd.to_string_lossy().to_string(),
+                            a.history.clone(),
+                        )
+                    };
+                    match crate::share::save_session(name, &live.0, &live.1, &live.2) {
+                        Some(path) => {
+                            Json(serde_json::json!({"saved": path.to_string_lossy()})).into_response()
+                        }
+                        None => (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(serde_json::json!({"error": "failed to save session"})),
+                        )
+                            .into_response(),
+                    }
+                }
+            }),
+        )
+        .route(
+            "/session/load",
+            post({
+                let state = state.clone();
+                move |Json(req): Json<serde_json::Value>| async move {
+                    let name = req.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    if name.is_empty() {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(serde_json::json!({"error": "name required"})),
+                        )
+                            .into_response();
+                    }
+                    if crate::share::load_session(name).is_none() {
+                        return (
+                            StatusCode::NOT_FOUND,
+                            Json(serde_json::json!({"error": "session not found"})),
+                        )
+                            .into_response();
+                    }
+                    let mut a = state.agent.lock().await;
+                    let _ = a.load_session(name);
+                    Json(serde_json::json!({"loaded": name})).into_response()
+                }
+            }),
+        )
+        .route("/api/v1/export/:session_id", get(|Path(id): Path<String>| async move {
+            match crate::share::export_session_data(&id) {
+                Some(data) => Json(data).into_response(),
+                None => (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({"error": "session not found"})),
+                )
+                    .into_response(),
+            }
+        }))
+        .route("/api/v1/import", post(|Json(req): Json<serde_json::Value>| async move {
+            let file_path = req.get("file_path").and_then(|v| v.as_str()).unwrap_or("");
+            if !file_path.is_empty() {
+                return match crate::share::import_session(file_path) {
+                    Some(id) => {
+                        Json(serde_json::json!({"imported": true, "session_id": id})).into_response()
+                    }
+                    None => (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "import failed"})),
+                    )
+                        .into_response(),
+                };
+            }
+            if let Some(session_data) = req.get("data").cloned().filter(|v| !v.is_null()) {
+                let session_id = session_data
+                    .get("session_id")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .unwrap_or_else(crate::share::random_hex12);
+                let safe = crate::share::sanitize(&session_data);
+                let dir = crate::share::sessions_dir();
+                let (stamp, _) = crate::share::now_stamps();
+                let path = dir.join(format!("{stamp}_imported_{session_id}.json"));
+                return match std::fs::create_dir_all(&dir).and_then(|_| {
+                    std::fs::write(&path, serde_json::to_string_pretty(&safe).unwrap_or_default())
+                }) {
+                    Ok(()) => {
+                        Json(serde_json::json!({"imported": true, "session_id": session_id}))
+                            .into_response()
+                    }
+                    Err(_) => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"error": "import failed"})),
+                    )
+                        .into_response(),
+                };
+            }
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({"error": "file_path or data required"})),
+            )
+                .into_response()
+        }))
+        .route("/api/v1/unshare/:id", post(|Path(id): Path<String>| async move {
+            if crate::share::unshare_session(&id) {
+                Json(serde_json::json!({"unshared": id})).into_response()
+            } else {
+                (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({"error": "share not found"})),
+                )
+                    .into_response()
+            }
+        }))
+        .route(
+            "/api/v1/session/:id/fork",
+            post({
+                let state = state.clone();
+                move |Path(id): Path<String>| async move {
+                    let mut a = state.agent.lock().await;
+                    a.history.clear();
+                    Json(serde_json::json!({"forked": true, "session_id": id}))
+                }
+            }),
+        )
+        // ── Python parity: commands / init / slash / find ──
+        .route("/api/v1/commands", get(|State(st): State<AppState>| async move {
+            let mgr = crate::commands::command_manager(&st.config.cwd);
+            let mut cmds = mgr.list();
+            cmds.sort_by(|a, b| a.name.cmp(&b.name));
+            let commands: Vec<serde_json::Value> = cmds
+                .iter()
+                .map(|c| {
+                    serde_json::json!({
+                        "name": c.name,
+                        "description": c.description,
+                        "agent": c.agent,
+                        "model": c.model,
+                        "subtask": c.subtask,
+                    })
+                })
+                .collect();
+            Json(serde_json::json!({"commands": commands}))
+        }))
+        .route("/api/v1/commands/execute", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let name = req.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                if name.is_empty() {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "command name required"})),
+                    )
+                        .into_response();
+                }
+                let name = name.to_string();
+                let args: Vec<String> = req
+                    .get("args")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let cwd = state.config.cwd.clone();
+                // Rendering can run inline shell (`!cmd`); keep it off the
+                // async runtime like Python's synchronous `load_all` does.
+                let rendered = tokio::task::spawn_blocking({
+                    let name = name.clone();
+                    move || {
+                        let mgr = crate::commands::command_manager(&cwd);
+                        mgr.get(&name)
+                            .map(|cmd| (cmd.model.clone(), mgr.render(&name, &args, &cwd)))
+                    }
+                })
+                .await
+                .unwrap_or(None);
+                let Some((model, prompt)) = rendered else {
+                    return (
+                        StatusCode::NOT_FOUND,
+                        Json(serde_json::json!({"error": format!("Unknown command: {name}")})),
+                    )
+                        .into_response();
+                };
+                let prompt = prompt.unwrap_or_default();
+                let mut a = state.agent.lock().await;
+                // Python's `execute` switches the model when the command
+                // defines one (agent switching has no Rust counterpart).
+                if let Some(model) = model.filter(|m| !m.is_empty()) {
+                    a.config.model = model;
+                }
+                let response = a
+                    .chat(&prompt)
+                    .await
+                    .unwrap_or_else(|e| format!("ERROR: {e}"));
+                Json(serde_json::json!({
+                    "command": name,
+                    "response": response,
+                    "executed": true,
+                }))
+                .into_response()
+            }
+        }))
+        .route("/api/v1/init", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let cwd = req
+                    .get("cwd")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .unwrap_or_else(|| state.config.cwd.to_string_lossy().to_string());
+                // `analyze` + `create_context_file` both scan the tree
+                // (Python does the same double analysis).
+                let (path, analysis) =
+                    match tokio::task::spawn_blocking(move || {
+                        let initializer = crate::project::ProjectInitializer::new(&cwd);
+                        let analysis = initializer.analyze();
+                        let path = initializer.create_context_file();
+                        (path, analysis)
+                    })
+                    .await
+                {
+                    Ok(v) => v,
+                    Err(_) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(serde_json::json!({"error": "initialization failed"})),
+                        )
+                            .into_response();
+                    }
+                };
+                // Manual serialization: `ProjectAnalysis` has no Serialize
+                // derive; the shape mirrors Python's `analyze()` dict.
+                let analysis = serde_json::json!({
+                    "language": analysis.language,
+                    "package_manager": analysis.package_manager,
+                    "test_framework": analysis.test_framework,
+                    "lsp_server": analysis.lsp_server,
+                    "formatters": analysis.formatters,
+                    "build_system": analysis.build_system,
+                    "structure": {
+                        "src_dirs": analysis.structure.src_dirs,
+                        "test_dirs": analysis.structure.test_dirs,
+                        "config_files": analysis.structure.config_files,
+                    },
+                    "dependencies": analysis.dependencies,
+                    "dev_dependencies": analysis.dev_dependencies,
+                    "scripts": analysis.scripts,
+                });
+                Json(serde_json::json!({
+                    "initialized": true,
+                    "path": path,
+                    "analysis": analysis,
+                }))
+                .into_response()
+            }
+        }))
+        .route("/api/v1/command", post(|Json(req): Json<serde_json::Value>| async move {
+            let command = req.get("command").and_then(|v| v.as_str()).unwrap_or("");
+            if command.is_empty() {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({"error": "command required"})),
+                )
+                    .into_response();
+            }
+            let mgr = crate::slash::slash_command_manager();
+            let handled = mgr.parse(command).is_some();
+            let output = if handled { mgr.execute(command) } else { String::new() };
+            Json(serde_json::json!({"handled": handled, "output": output})).into_response()
+        }))
+        .route(
+            "/find/file",
+            get(|State(st): State<AppState>, Query(q): Query<std::collections::HashMap<String, String>>| async move {
+                let query = q.get("query").map(|s| s.as_str()).unwrap_or("");
+                let file_type = q.get("type").cloned().unwrap_or_default();
+                let limit: usize = q
+                    .get("limit")
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .map(|l| l.min(200))
+                    .unwrap_or(50);
+                if query.is_empty() {
+                    return Json(serde_json::json!([])).into_response();
+                }
+                let query_lower = query.to_lowercase();
+                let cwd = st.config.cwd.clone();
+                let results = tokio::task::spawn_blocking(move || {
+                    find_file_matches(&cwd, &query_lower, &file_type, limit)
+                })
+                .await
+                .unwrap_or_default();
+                Json(serde_json::to_value(&results).unwrap_or(serde_json::json!([]))).into_response()
+            }),
+        )
+        // ── Python parity: diff / chat / stream / SSE / metrics ──
+        .route(
+            "/api/v1/session/:id/diff",
+            get(|State(st): State<AppState>, Path(id): Path<String>| async move {
+                let cwd = st.config.cwd.clone();
+                match collect_diff(&cwd).await {
+                    Ok((stat, diff_text, paths, fingerprint)) => Json(serde_json::json!({
+                        "files": if stat.is_empty() { "(clean)" } else { stat.as_str() },
+                        "diff": diff_text,
+                        "session_id": id,
+                        "fingerprint": fingerprint,
+                        "paths": paths,
+                    }))
+                    .into_response(),
+                    Err(e) => (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({"error": e})),
+                    )
+                        .into_response(),
+                }
+            }),
+        )
+        .route("/api/v1/session/:id/diff/decision", post({
+            let state = state.clone();
+            move |_id: Path<String>, body: axum::body::Bytes| async move {
+                let data: serde_json::Value = match serde_json::from_slice(&body) {
+                    Ok(v) => v,
+                    Err(_) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(serde_json::json!({"error": "invalid JSON body"})),
+                        )
+                            .into_response();
+                    }
+                };
+                if !data.is_object() {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "invalid JSON body"})),
+                    )
+                        .into_response();
+                }
+                let decision = data.get("decision").and_then(|v| v.as_str()).unwrap_or("");
+                if decision != "accept" && decision != "reject" {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({"error": "decision must be 'accept' or 'reject'"})),
+                    )
+                        .into_response();
+                }
+                let requested: Option<Vec<String>> = match data.get("files") {
+                    None => None,
+                    Some(serde_json::Value::Array(items)) => {
+                        let mut normalized: Vec<String> = Vec::new();
+                        for raw in items {
+                            match normalize_diff_path(raw) {
+                                Some(p) => normalized.push(p),
+                                None => {
+                                    return (
+                                        StatusCode::BAD_REQUEST,
+                                        Json(serde_json::json!({
+                                            "error": format!("invalid path: {}", python_repr(raw)),
+                                        })),
+                                    )
+                                        .into_response();
+                                }
+                            }
+                        }
+                        // Preserve preview order, restore each path at most once.
+                        let mut seen = std::collections::HashSet::new();
+                        Some(
+                            normalized
+                                .into_iter()
+                                .filter(|p| seen.insert(p.clone()))
+                                .collect(),
+                        )
+                    }
+                    Some(_) => {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(serde_json::json!({"error": "files must be a list"})),
+                        )
+                            .into_response();
+                    }
+                };
+                let cwd = state.config.cwd.clone();
+                let (_stat, _diff_text, current_paths, fingerprint) = match collect_diff(&cwd).await
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(serde_json::json!({"error": e})),
+                        )
+                            .into_response();
+                    }
+                };
+                let selected: Vec<String> = match &requested {
+                    None => current_paths.clone(),
+                    Some(list) => list.clone(),
+                };
+                if decision == "reject" {
+                    match data
+                        .get("fingerprint")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                    {
+                        None => {
+                            return (
+                                StatusCode::BAD_REQUEST,
+                                Json(serde_json::json!({"error": "fingerprint required"})),
+                            )
+                                .into_response();
+                        }
+                        Some(supplied) if supplied != fingerprint => {
+                            return (
+                                StatusCode::CONFLICT,
+                                Json(serde_json::json!({
+                                    "error": "diff_changed",
+                                    "fingerprint": fingerprint,
+                                })),
+                            )
+                                .into_response();
+                        }
+                        Some(_) => {}
+                    }
+                }
+                let cwd_resolved = cwd.canonicalize().unwrap_or_else(|_| cwd.clone());
+                let current_set: std::collections::HashSet<&str> =
+                    current_paths.iter().map(String::as_str).collect();
+                for path in &selected {
+                    if !current_set.contains(path.as_str()) {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(serde_json::json!({
+                                "error": format!("path not in current diff: {path}"),
+                            })),
+                        )
+                            .into_response();
+                    }
+                    if !diff_path_within(&cwd_resolved, path) {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(serde_json::json!({
+                                "error": format!("path escapes working directory: {path}"),
+                            })),
+                        )
+                            .into_response();
+                    }
+                }
+                if decision == "accept" {
+                    return Json(serde_json::json!({
+                        "status": "accepted",
+                        "files": selected,
+                        "fingerprint": fingerprint,
+                    }))
+                    .into_response();
+                }
+                let mut reverted: Vec<String> = Vec::new();
+                let mut failed: Vec<String> = Vec::new();
+                for path in &selected {
+                    if restore_diff_path(&cwd_resolved, path).await.is_none() {
+                        reverted.push(path.clone());
+                    } else {
+                        failed.push(path.clone());
+                    }
+                }
+                Json(serde_json::json!({
+                    "status": "rejected",
+                    "files": selected,
+                    "reverted": reverted,
+                    "failed": failed,
+                    "fingerprint": fingerprint,
+                }))
+                .into_response()
+            }
+        }))
+        .route("/chat", post({
+            let state = state.clone();
+            move |
+                headers: HeaderMap,
+                uri: axum::http::Uri,
+                extensions: axum::http::Extensions,
+                Json(req): Json<ChatReq>,
+            | async move {
+                let message = req.text();
+                let (result, model, usage) = {
+                    let mut a = state.agent.lock().await;
+                    if let Some(model) = req.model.clone().filter(|m| !m.is_empty()) {
+                        a.config.model = model;
+                    }
+                    let outcome = a
+                        .chat(&message)
+                        .await
+                        .map_err(|e| e.to_string());
+                    (outcome, a.config.model.clone(), a.usage_json())
+                };
+                let response = match result {
+                    Ok(r) => r,
+                    Err(e) => {
+                        return (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            Json(serde_json::json!({"error": e})),
+                        )
+                            .into_response();
+                    }
+                };
+                // Read-only: the limiter middleware already counted this
+                // request, so `get_status` mirrors Python's
+                // `result.remaining_*` after the counting call.
+                let status = {
+                    let limiter = state.rate_limiter.lock().await;
+                    limiter.get_status(&request_rate_limit_key_from_parts(
+                        &headers, &uri, &extensions,
+                    ))
+                };
+                let remaining = |window: &str| -> u64 {
+                    let used = status
+                        .get(window)
+                        .and_then(|w| w.get("used"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let limit = status
+                        .get(window)
+                        .and_then(|w| w.get("limit"))
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    limit.saturating_sub(used)
+                };
+                Json(serde_json::json!({
+                    "response": response,
+                    "model": model,
+                    "usage": usage,
+                    "rate_limit": {
+                        "remaining_minute": remaining("minute"),
+                        "remaining_hour": remaining("hour"),
+                        "remaining_day": remaining("day"),
+                    },
+                }))
+                .into_response()
+            }
+        }))
+        .route("/stream", get(|State(state): State<AppState>| async move {
+            // Python streams `chat_streaming("ping")` chunks. The Rust port
+            // reuses the `/chat/stream` frame mapping, so `usage`/`done`
+            // frames are emitted as well (documented divergence).
+            let (tx, rx) = tokio::sync::mpsc::channel::<crate::agent::StreamEvent>(64);
+            let agent = state.agent.clone();
+            let events = state.events.clone();
+            tokio::spawn(async move {
+                let mut a = agent.lock().await;
+                if let Err(e) = a.chat_stream("ping", tx.clone()).await {
+                    let _ = tx
+                        .send(crate::agent::StreamEvent::Error(e.to_string()))
+                        .await;
+                }
+                let payload = event(
+                    "chat_complete",
+                    serde_json::json!({
+                        "model": a.config.model,
+                        "usage": a.last_usage_json(),
+                    }),
+                );
+                let _ = events.send(payload);
+            });
+            let stream = tokio_stream::wrappers::ReceiverStream::new(rx).map(|ev| {
+                let payload = match ev {
+                    crate::agent::StreamEvent::Chunk(text) => serde_json::json!({"chunk": text}),
+                    crate::agent::StreamEvent::Usage(usage) => serde_json::json!({"usage": usage}),
+                    crate::agent::StreamEvent::Done => serde_json::json!({"done": true}),
+                    crate::agent::StreamEvent::Error(message) => serde_json::json!({"error": message}),
+                }
+                .to_string();
+                Ok::<_, Infallible>(Event::default().data(payload))
+            });
+            Sse::new(stream)
+        }))
+        .route("/global/event", get(|| async {
+            let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(8);
+            tokio::spawn(async move {
+                // Python: `data: {"event": "connected", "version": "__version__"}`.
+                let connected = format!(
+                    "{{\"event\": \"connected\", \"version\": \"{}\"}}",
+                    env!("CARGO_PKG_VERSION")
+                );
+                if tx.send(Ok(Event::default().data(connected))).await.is_err() {
+                    return;
+                }
+                loop {
+                    // Python: a `: keepalive` comment every 30 seconds.
+                    if tx
+                        .send(Ok(Event::default().comment("keepalive")))
+                        .await
+                        .is_err()
+                    {
+                        return;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                }
+            });
+            let stream = tokio_stream::wrappers::ReceiverStream::new(rx);
+            Sse::new(stream)
+        }))
+        .route("/metrics", get(|State(st): State<AppState>, request: axum::extract::Request| async move {
+            let (usage, model) = {
+                let a = st.agent.lock().await;
+                (a.usage_json(), a.config.model.clone())
+            };
+            let mut metrics = serde_json::json!({
+                "prompt_tokens": usage.get("prompt_tokens").cloned().unwrap_or(serde_json::json!(0)),
+                "completion_tokens": usage.get("completion_tokens").cloned().unwrap_or(serde_json::json!(0)),
+                "total_tokens": usage.get("total_tokens").cloned().unwrap_or(serde_json::json!(0)),
+                "model": model,
+            });
+            // Python adds rate limit + usage summary for authenticated keys.
+            if let Some(key) = request.extensions().get::<AuthenticatedKey>() {
+                let key_id = key.0.clone();
+                metrics["rate_limit"] = {
+                    let limiter = st.rate_limiter.lock().await;
+                    limiter.get_status(&format!("key:{key_id}"))
+                };
+                // Divergence: Python keys billing by `workspace_id`; the Rust
+                // billing manager has no workspaces, so it keys by key id.
+                metrics["usage_summary"] =
+                    crate::billing::billing_manager().lock().unwrap().get_usage_summary(&key_id);
+            }
+            Json(metrics)
+        }))
         .route_layer(middleware::from_fn_with_state(state.clone(), rate_limit))
         // Auth wraps the limiter: Python's `_check_auth` runs before
         // `_check_rate_limit`, so rejected requests never consume budget.

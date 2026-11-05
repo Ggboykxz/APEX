@@ -173,6 +173,57 @@ pub fn history_of(data: &Value) -> Vec<Value> {
         .unwrap_or_default()
 }
 
+/// 12-hex-digit session id (Python's `uuid.uuid4().hex[:12]`; the Rust port
+/// has no `uuid` crate, so the bytes come from `getrandom`).
+pub(crate) fn random_hex12() -> String {
+    let mut bytes = [0u8; 6];
+    let _ = getrandom::getrandom(&mut bytes);
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Python's `ShareManager.import_session(file_path)`: read a session export
+/// (an exported document uses its `data` member, a raw document is taken
+/// as-is), sanitize it, and write it to
+/// `~/.apex/sessions/{YYYYmmdd_HHMMSS}_imported_{session_id}.json`.
+/// `None` when the file is missing or not valid JSON.
+pub fn import_session(file_path: &str) -> Option<String> {
+    let raw = Path::new(file_path);
+    let path = if let Some(stripped) = raw.to_str().and_then(|s| s.strip_prefix('~')) {
+        match crate::config::home_dir() {
+            Some(home) => home.join(stripped),
+            None => raw.to_path_buf(),
+        }
+    } else {
+        raw.to_path_buf()
+    };
+    // Python: `Path(file_path).expanduser().resolve()` — canonicalize when
+    // possible, fall back to the resolved path so a missing file still
+    // reaches the existence check below.
+    let path = path.canonicalize().unwrap_or(path);
+    if !path.exists() {
+        return None;
+    }
+    let text = std::fs::read_to_string(&path).ok()?;
+    let data: Value = serde_json::from_str(&text).ok()?;
+    let session_data = data.get("data").cloned().unwrap_or(data);
+    let session_id = session_data
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(random_hex12);
+    let safe = sanitize(&session_data);
+    let dir = sessions_dir();
+    std::fs::create_dir_all(&dir).ok()?;
+    let (stamp, _) = now_stamps();
+    std::fs::write(
+        dir.join(format!("{stamp}_imported_{session_id}.json")),
+        serde_json::to_string_pretty(&safe).ok()?,
+    )
+    .ok()?;
+    Some(session_id)
+}
+
 pub fn safe_session_name(name: &str) -> String {
     name.chars()
         .map(|c| {
@@ -433,6 +484,18 @@ pub fn list_shares() -> Vec<Value> {
 }
 
 /// Export a session to `session_<id>.json` in `cwd`. Returns the written path.
+/// Python's `ShareManager.export_session(session_id)`: the export payload as
+/// JSON, without writing a file. `None` when the session is not found.
+pub fn export_session_data(session_id: &str) -> Option<Value> {
+    let raw = load_session(session_id)?;
+    Some(json!({
+        "exported_at": now_iso_micro(),
+        "session_id": session_id,
+        "apex_version": env!("CARGO_PKG_VERSION"),
+        "data": sanitize(&raw),
+    }))
+}
+
 pub fn export_session(
     session_id: &str,
     cwd: &Path,
