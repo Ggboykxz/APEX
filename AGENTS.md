@@ -1179,6 +1179,42 @@ update it in the same PR as any surface change.
 New helper modules back the ported routes: `models.rs` (static model
 table) and `commands.rs` (markdown custom-command manager).
 
+### Gateway
+
+`gateway.rs` ports `apex/gateway/*` — the OpenRouter model proxy with
+per-key tiers, rate limits, and usage tracking:
+
+```bash
+apex-rs gateway start              # run the proxy (needs APEX_GATEWAY_KEY or OPENROUTER_API_KEY)
+apex-rs gateway key [tier] [label]  # generate an apex_ key, print it once
+apex-rs gateway status              # list registered keys (no plaintext)
+```
+
+- Tiers mirror Python's `config.py`: `free` (50 requests/day, 500k tokens,
+  10/min, 1 concurrent, 19 models), `pro` (500/day, 5M tokens, 60/min, 3
+  concurrent, 10 models) and `unlimited` (999999/day, 100M tokens, 300/min,
+  10 concurrent, every model). Unknown tier names fall back to `free`,
+  exactly like Python's `_get_tier`.
+- Eight routes: `POST /v1/chat/completions` (Bearer key → tier model gate →
+  sliding 60 s per-key rate limit → daily request and token caps → upstream
+  proxy; usage is recorded per key/day and `usage.apex_gateway` is injected
+  on 200), `POST /v1/register` (413 above 4096 bytes, `Invalid tier: …`),
+  `GET /v1/status`, `GET /v1/health`, `GET /v1/models` (sorted `free-`/`pro-`
+  aliases with provider), and the `X-Admin-Key`-protected `/admin/keys`,
+  `/admin/keys/generate`, `/admin/keys/revoke`. Rejections use Python's exact
+  error strings (`Missing or invalid Authorization header`, `Invalid or
+  revoked API key`, `Model '…' not available in '…' tier`,
+  `Rate limit exceeded ({n}/minute)`, `Daily request limit reached ({n})`,
+  `Upstream request timed out`, `Upstream error: …`).
+- The key/usage store is `~/.apex/gateway.json` (Python uses SQLite
+  `~/.apex/gateway.db`), re-read on every access: an admin or CLI revoke
+  takes effect without restarting the server. Re-revoking a known key
+  returns 200 (SQLite `UPDATE` row-count parity); only an unknown key is
+  404 `Key not found`.
+- `APEX_GATEWAY_UPSTREAM_BASE` overrides Python's hardcoded
+  `https://openrouter.ai/api/v1` so tests can point the proxy at a local
+  fake upstream; the divergences are recorded in `PARITY.md`.
+
 ### Permission gate
 
 Tool dispatch runs through `permission::dispatch_gate` at both agent
@@ -1512,7 +1548,10 @@ regression, the Python-parity HTTP routes (every route that does not require
 an LLM call, the SSE `connected` frame, and the diff/decision error paths),
 and the diff preview accept/reject lifecycle against a real git repository
 (fingerprint change, `409 diff_changed` on a stale fingerprint, and
-reject/restore of a working-tree change).
+reject/restore of a working-tree change). PR 350 adds the gateway lifecycle:
+CLI key generation and status, all eight routes, the tier model gate, usage
+counters, the admin trio, and an out-of-band revoke — against a local fake
+OpenRouter upstream, with no network and no API key.
 
 ```bash
 cd rust/apex-rs
