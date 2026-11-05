@@ -383,6 +383,12 @@ fn session_lifecycle_is_hermetic() {
         value["cwd"].as_str().unwrap(),
         sb.cwd.to_string_lossy().as_ref()
     );
+    // A CLI save has no agent state: the persisted usage must be the
+    // idle-agent shape Python's `agent.usage` starts with (three zero
+    // counters), never an empty object.
+    assert_eq!(value["usage"]["prompt_tokens"], 0);
+    assert_eq!(value["usage"]["completion_tokens"], 0);
+    assert_eq!(value["usage"]["total_tokens"], 0);
 }
 
 #[test]

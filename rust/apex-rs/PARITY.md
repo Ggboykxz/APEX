@@ -149,7 +149,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `permission.py` | `permission.rs` | Wired | `dispatch_gate` enforces rules at both agent dispatch sites (one-shot and streaming). Headless manager: `*` → ALLOW (no prompt surface), ASK refuses with the rule reason. `APEX_PERMISSION_DENY` / `APEX_PERMISSION_ASK` env rules. Interactive request/approve flow is unwired (no prompt surface). |
 | `plugins.py` | `plugins.rs` | Wired | Manifest discovery, namespaced plugin tools, CLI/server listing and execution. Rust invokes declared tools; it does not execute Python plugin source in-process. |
 | `rate_limiter.py` | `rate_limiter.rs` | Wired | Per-key in-memory limiter enforced by middleware on every `serve` route except `/health` (bucket is `key:{key_id}` once auth validates the key — Python parity — else the carrier from `Authorization`/`?api_key=`/`X-API-Key`, or `anonymous`; 429 + `Retry-After`). `GET /api/v1/rate-limit` exposes the caller's counters, limits and `reset_at`; limits via `APEX_RATE_LIMIT_*`. SQLite backend not ported. |
-| `session.py` | `share.rs`, `session_crypto.rs`, `server.rs` | Wired | Fernet-compatible encrypted save/load/list, CLI and HTTP session routes. Python-written fixtures prove cross-language loading for both native and legacy key derivations. Adds fork/branch metadata: `fork_parent_id`, `branch_name`, `fork_point`, `branch_history`; CLI `apex-rs session fork <parent_id> [--branch-name]` and `session branch <name> [--from-turn]`; HTTP `POST /api/v1/sessions/{id}/fork` and `GET /api/v1/sessions/{id}/branches`. PR 349 added the remaining Python session routes: `POST /session/save`, `POST /session/load`, `DELETE /api/v1/sessions/:id`, `POST /api/v1/session/:id/{abort,fork}`, `GET /api/v1/session/:id/diff`, `POST /api/v1/session/:id/diff/decision`, `GET /api/v1/export/:session_id`, `POST /api/v1/import`, `POST /api/v1/unshare/:id`. Backward compatible (missing fields deserialise to None/empty). Divergences: sessions keyed by name not UUID; branch history is JSON-derived from the session itself (no separate branch file). |
+| `session.py` | `share.rs`, `session_crypto.rs`, `server.rs` | Wired | Fernet-compatible encrypted save/load/list, CLI and HTTP session routes. Python-written fixtures prove cross-language loading for both native and legacy key derivations. Adds fork/branch metadata: `fork_parent_id`, `branch_name`, `fork_point`, `branch_history`; CLI `apex-rs session fork <parent_id> [--branch-name]` and `session branch <name> [--from-turn]`; HTTP `POST /api/v1/sessions/{id}/fork` and `GET /api/v1/sessions/{id}/branches`. PR 349 added the remaining Python session routes: `POST /session/save`, `POST /session/load`, `DELETE /api/v1/sessions/:id`, `POST /api/v1/session/:id/{abort,fork}`, `GET /api/v1/session/:id/diff`, `POST /api/v1/session/:id/diff/decision`, `GET /api/v1/export/:session_id`, `POST /api/v1/import`, `POST /api/v1/unshare/:id`. PR 351 persists the real usage counters: every save writes `agent.usage` (`{prompt_tokens, completion_tokens, total_tokens}`; idle-agent zeros on the CLI `session save` path, live counters on `Agent::save_session` and `POST /session/save`), and `Agent::load_session` restores model (default `claude-sonnet`) and cwd (default `.`) like Python's `SessionManager.load` — usage is intentionally not restored (Python's counters start fresh on load). Rust-only extension: a fork carries the parent's `usage` over (a parent without a `usage` object falls back to the idle-agent zeros). Backward compatible (missing fields deserialise to None/empty). Divergences: sessions keyed by name not UUID; branch history is JSON-derived from the session itself (no separate branch file); fork usage carry-over (Python forks copy model/cwd/history only). |
 | `share.py` | `share.rs`, `server.rs` | Wired | Redaction, share/unshare/list/export, CLI help through sessions, HTTP routes. |
 | `shell_security.py` | `shell_security.rs` | Wired (increment 1) | CLI `security check/allowed`, `POST /api/v1/security/analyze`, `run_command` tool guard, and `/api/v1/bash` guard. |
 | `skills.py`, `skills_system.py` | `skills.rs` | Partial | `list_skills`/`use_skill`, diffs, search/replace, code analysis tools. Skill authoring is wired through the `skill` CLI (`list`/`add`/`remove`); `add`/`remove` also persist to `.apex/skills/*.md` (Python's are in-memory only and unwired there). Three-way diff remains unwired. |
@@ -257,7 +257,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 327 unit tests + 19 binary E2E tests. The E2E suite runs
+Current baseline: 332 unit tests + 19 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
@@ -281,9 +281,11 @@ does not require an LLM call, plus the SSE `connected` frame and the
 diff/decision error paths) and `serve_diff_preview_accepts_and_rejects`
 (full diff preview lifecycle against a real git repository: clean tree,
 modified tree, fingerprint change, `409 diff_changed` on a stale
-fingerprint, and reject/restore of a working-tree change).
+fingerprint, and reject/restore of a working-tree change). PR 351 extends
+the hermetic session lifecycle: after a CLI `session save`, `session show`
+must report the idle-agent `usage` shape (three zero counters) instead of an
+empty object.
 
 ## Next increments
 
-1. Port Python's remaining session metadata beyond `name`/`timestamp`/`model`/`cwd`/`history`/`usage` (already partially done via session forks/branches).
-2. Remaining items: missing tools (80→102 schemas) and the Rust-only surface that still lacks a Python counterpart.
+1. Remaining items: missing tools (80→102 schemas) and the Rust-only surface that still lacks a Python counterpart.
