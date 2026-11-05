@@ -11,6 +11,7 @@ mod context_tracking;
 mod cost;
 mod files;
 mod formatter;
+mod gateway;
 mod git_tools;
 mod github;
 mod hooks;
@@ -73,6 +74,11 @@ enum Commands {
     Serve {
         #[arg(short, long, default_value = "8765")]
         port: u16,
+    },
+    /// APEX Gateway: model proxy with auth, rate limits, and usage tracking
+    Gateway {
+        #[command(subcommand)]
+        action: Option<GatewayAction>,
     },
     /// List tools
     Tools,
@@ -144,6 +150,19 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum GatewayAction {
+    /// Start the gateway server (needs APEX_GATEWAY_KEY or OPENROUTER_API_KEY)
+    Start,
+    /// Generate a gateway API key: `apex-rs gateway key [tier] [label]`
+    Key {
+        tier: Option<String>,
+        label: Option<String>,
+    },
+    /// Show registered gateway keys
+    Status,
 }
 
 #[derive(Subcommand, Debug)]
@@ -537,6 +556,63 @@ async fn main() {
         Some(Commands::Serve { port }) => {
             server::serve(config, port).await;
         }
+        Some(Commands::Gateway { action }) => match action {
+            Some(GatewayAction::Start) => {
+                // Python gate: checks the environment only (not the auth.json
+                // fallback) and exits 1 when neither key is set.
+                let env_empty =
+                    |name: &str| std::env::var(name).map(|v| v.is_empty()).unwrap_or(true);
+                if env_empty("APEX_GATEWAY_KEY") && env_empty("OPENROUTER_API_KEY") {
+                    eprintln!("ERROR: APEX_GATEWAY_KEY or OPENROUTER_API_KEY must be set in .env");
+                    eprintln!("Get a free key at https://openrouter.ai/keys");
+                    std::process::exit(1);
+                }
+                gateway::start(gateway::GatewayConfig::from_env()).await;
+            }
+            Some(GatewayAction::Key { tier, label }) => {
+                let cfg = gateway::GatewayConfig::from_env();
+                let auth = gateway::GatewayAuth::new(cfg.db_path);
+                let tier = tier.unwrap_or_else(|| "free".to_string());
+                let label = label.unwrap_or_default();
+                let key = auth.generate_key(&tier, &label);
+                println!("Gateway API key generated ({tier}):");
+                println!("{key}");
+            }
+            Some(GatewayAction::Status) => {
+                let cfg = gateway::GatewayConfig::from_env();
+                let auth = gateway::GatewayAuth::new(cfg.db_path);
+                let keys = auth.list_keys();
+                if keys.is_empty() {
+                    println!("No API keys registered");
+                } else {
+                    println!("Gateway keys ({}):", keys.len());
+                    for k in &keys {
+                        let label = k["label"].as_str().unwrap_or("");
+                        let state = if k["is_active"].as_bool().unwrap_or(false) {
+                            "(active)"
+                        } else {
+                            "(revoked)"
+                        };
+                        println!(
+                            "  [{}] {} — {} {}",
+                            k["tier"].as_str().unwrap_or(""),
+                            k["key_id"].as_str().unwrap_or(""),
+                            if label.is_empty() { "no label" } else { label },
+                            state
+                        );
+                    }
+                }
+            }
+            _ => {
+                println!("Usage:");
+                println!("  apex-rs gateway start              Start the gateway server");
+                println!("  apex-rs gateway key [tier] [label]  Generate an API key");
+                println!("  apex-rs gateway status              Show registered keys");
+                println!();
+                println!("Tiers: free (default), pro, unlimited");
+                println!("Set OPENROUTER_API_KEY or APEX_GATEWAY_KEY in .env");
+            }
+        },
         Some(Commands::Tools) => {
             let v = tools::tool_schemas();
             println!("{}", serde_json::to_string_pretty(&v).unwrap());

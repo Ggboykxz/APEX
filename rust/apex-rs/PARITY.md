@@ -1,14 +1,14 @@
 # Rust / Python Parity
 
 Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
-HTTP-route parity increment). The reference is the Python package in `apex/` on `dev`.
+gateway increment). The reference is the Python package in `apex/` on `dev`.
 "Parity" here means that a behaviour is reachable from the Rust binary, HTTP
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~25,918 lines of Python in `apex/*.py` versus ~28,081
-lines of Rust in `rust/apex-rs/src`. The Rust line count now matches Python's,
-but the tables below still record the behaviour gaps.
+Scale at this baseline: ~25,918 lines of Python in `apex/*.py` versus ~29,138
+lines of Rust in `rust/apex-rs/src` (48 files). The Rust line count now
+matches Python's, but the tables below still record the behaviour gaps.
 
 ## Status legend
 
@@ -32,7 +32,8 @@ context {repo-map,git,stats,ctags,tree,glob},
 github {install,run,issue,issue-close,pr,pr-merge,
         automate {create-pr,changes,issue,list,todos,close-completed}},
 skill {list,add,remove},
-key {create,list,revoke,delete}
+key {create,list,revoke,delete},
+gateway {start,key,status}
 ```
 
 HTTP server (`serve`): 79 route registrations covering all 52 routes of
@@ -127,7 +128,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
 | Python | Rust | Status | Notes |
 | --- | --- | --- | --- |
-| `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security, context, github, skill, key). Most of Python's command suite is not ported. |
+| `__init__.py`, `__main__.py`, `main.py` | `main.rs` | Partial | Core CLI (`run`, `chat`, `serve`, tools, cost, memory, session, security, context, github, skill, key, gateway). Most of Python's command suite is not ported. |
 | `apply_patch.py` | `patch.rs` | Wired | Multi-file patch engine reachable through the `apply_patch` tool (and `dry_run` preview): Codex-style and unified-diff dialects, pre-write validation (traversal, absolute, duplicate, size, binary), hunk matching with fuzz and signed offset warnings, no-newline markers, atomic temp-file + rename writes with best-effort rollback. |
 | `agent.py` | `agent.rs` | Partial | One-shot run, streaming REPL, tool-call loop, cost reporting. HTTP: `POST /chat` (non-streaming, `rate_limit` always present), `GET /stream` (reuses `chat_stream`, adds `usage`/`done` frames), `GET /metrics` and `GET /api/v1/stats` (PR 349). Session forking/rewind and some prompt features are absent. |
 | `agents.py` | `agents.rs` | Partial | Agent registry with 11 built-ins, markdown agent loading (`.apex/agents/*.md` and `~/.config/apex/agents/*.md`), per-agent permissions with glob patterns, merge rules for agent/env permissions, and `agent` CLI (`list`/`show`/`create`/`delete`). HTTP: `GET /api/v1/agents` and `GET /api/v1/agents/:id` (PR 349). Divergences: no Python system prompts/top_p, JSON config agents, or bash-specific permission helper; `Agent` does not store prompt body; env merge is agent-level rather than global permission manager. |
@@ -174,7 +175,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `telemetry.py` | - | Missing | No telemetry/logging pipeline. |
 | `rlm.py` | - | Missing | No batched remote-model query support. |
 | `extras.py` | `task_queue.rs` | Partial | `TaskQueue` (submit/list/get, in-memory, one background thread per task). Shell expansion, history search, env manager, and workspace validator are not ported. |
-| `apex/gateway/*` | - | Missing | No gateway auth/router/server. |
+| `apex/gateway/*` (`config.py`, `auth.py`, `router.py`, `server.py`) | `gateway.rs` | Wired | Full port of the model gateway: `free`/`pro`/`unlimited` tiers (identical limits, model lists, 19/10/`*`), a JSON key/usage store at `~/.apex/gateway.json` (Python uses SQLite `~/.apex/gateway.db`) re-read on every access, `apex_` + 48-hex keys with 16-hex ids, a sliding 60 s per-key rate limiter, and all eight routes: `POST /v1/chat/completions` (Bearer key → tier model gate → rate → daily cap → upstream proxy; usage recorded per key/day and `usage.apex_gateway` injected on 200), `POST /v1/register` (413 above 4096 bytes, `Invalid tier: …` 400), `GET /v1/status`, `GET /v1/health`, `GET /v1/models` (sorted `free-`/`pro-` aliases with provider), and the `X-Admin-Key`-protected `/admin/keys`, `/admin/keys/generate`, `/admin/keys/revoke`. CLI `gateway {start,key,status}` mirrors Python's `_cmd_gateway` exactly, including the env-only start gate (`APEX_GATEWAY_KEY`/`OPENROUTER_API_KEY` unset → error + exit 1). Divergences: JSON store instead of SQLite (same data, no concurrent writers), `APEX_GATEWAY_UPSTREAM_BASE` env override (Python hardcodes `https://openrouter.ai/api/v1`) so tests run hermetic, a malformed chat body is 400 `Invalid JSON` (Python raises → 500), `usage.apex_gateway.tier` carries the tier *name* (Python stores the non-serializable `TierConfig` dataclass there, which breaks its own response), and re-revoking a known key returns 200 (SQLite `UPDATE` row-count parity) — only an unknown key is 404. |
 
 ## Tool coverage
 
@@ -256,7 +257,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 319 unit tests + 18 binary E2E tests. The E2E suite runs
+Current baseline: 327 unit tests + 19 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
@@ -270,7 +271,10 @@ repositories), the `github` CLI (install/run/usage parity and
 issue/PR/automate error paths against a dead local port), the `skill`
 add/list/remove lifecycle, the full HTTP-auth flow (CLI-created key, the three
 carriers, exact 401 body, protected auth routes, out-of-band revoke, 429 +
-`Retry-After` with 401s not consuming budget), and the absence of the
+`Retry-After` with 401s not consuming budget), the gateway lifecycle against
+a local fake OpenRouter upstream (PR 350: CLI key generation and status, all
+eight routes, the tier model gate, usage counters, the admin trio, and an
+out-of-band revoke), and the absence of the
 crate-level allow. PR 349 adds two E2E tests:
 `serve_exposes_python_parity_routes` (hits every Python-parity route that
 does not require an LLM call, plus the SSE `connected` frame and the
@@ -282,4 +286,4 @@ fingerprint, and reject/restore of a working-tree change).
 ## Next increments
 
 1. Port Python's remaining session metadata beyond `name`/`timestamp`/`model`/`cwd`/`history`/`usage` (already partially done via session forks/branches).
-2. Remaining items: missing tools (80→102 schemas), gateway (`apex/gateway/*`), and the Rust-only surface that still lacks a Python counterpart.
+2. Remaining items: missing tools (80→102 schemas) and the Rust-only surface that still lacks a Python counterpart.

@@ -52,6 +52,11 @@ impl Sandbox {
             "APEX_RATE_LIMIT_PER_HOUR",
             "APEX_RATE_LIMIT_PER_DAY",
             "APEX_RATE_LIMIT_BURST",
+            "APEX_GATEWAY_HOST",
+            "APEX_GATEWAY_PORT",
+            "APEX_GATEWAY_KEY",
+            "APEX_GATEWAY_ADMIN_KEY",
+            "APEX_GATEWAY_UPSTREAM_BASE",
             // Provider keys: `/api/v1/auth/status` must be deterministic.
             "ANTHROPIC_API_KEY",
             "OPENAI_API_KEY",
@@ -1834,4 +1839,397 @@ fn crate_root_has_no_global_dead_code_allow() {
         "src/main.rs must not re-introduce the crate-level dead-code allow; \
          use a justified, item-scoped attribute instead"
     );
+}
+
+/// Index of the first occurrence of `needle` in `haystack` (fake upstreams).
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.len() > haystack.len() {
+        return None;
+    }
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// Full gateway lifecycle against a fake OpenRouter upstream: CLI key
+/// generation and status, the 8 HTTP routes (auth, 403 model gate,
+/// register, payload cap, proxy, usage injection, admin trio), and a
+/// revoke visible to both the server and the CLI.
+#[tokio::test]
+async fn gateway_proxy_lifecycle_is_hermetic() {
+    let sb = Sandbox::new();
+
+    // ── CLI: key generation + status against the temp `~/.apex` ──
+    let out = sb.run(&["gateway", "key", "free", "e2e-label"]);
+    assert_success(&out, "gateway key");
+    let text = stdout(&out);
+    assert!(
+        text.contains("Gateway API key generated (free):"),
+        "unexpected output:\n{text}"
+    );
+    let key = text.lines().nth(1).unwrap_or_default().trim().to_string();
+    assert!(key.starts_with("apex_"), "missing gateway key:\n{text}");
+
+    let listed = sb.run(&["gateway", "status"]);
+    assert_success(&listed, "gateway status");
+    let status_text = stdout(&listed);
+    assert!(
+        status_text.contains("Gateway keys (1):")
+            && status_text.contains("[free]")
+            && status_text.contains("e2e-label")
+            && status_text.contains("(active)"),
+        "got:\n{status_text}"
+    );
+
+    // ── Fake OpenRouter upstream: one request, fixed OpenAI-shaped body ──
+    let upstream_port = free_port();
+    let upstream = std::thread::spawn(move || {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind(format!("127.0.0.1:{upstream_port}")).unwrap();
+        let (mut stream, _) = listener.accept().unwrap();
+        let mut data: Vec<u8> = Vec::new();
+        let mut buf = [0u8; 8192];
+        let mut body_range: Option<(usize, usize)> = None;
+        loop {
+            let n = stream.read(&mut buf).unwrap();
+            assert!(n > 0, "upstream connection closed mid-request");
+            data.extend_from_slice(&buf[..n]);
+            if body_range.is_none() {
+                if let Some(pos) = find_bytes(&data, b"\r\n\r\n") {
+                    let headers = String::from_utf8_lossy(&data[..pos]).to_lowercase();
+                    let body_len = headers
+                        .lines()
+                        .find_map(|l| l.strip_prefix("content-length:"))
+                        .and_then(|v| v.trim().parse::<usize>().ok())
+                        .unwrap_or(0);
+                    body_range = Some((pos + 4, pos + 4 + body_len));
+                }
+            }
+            if let Some((start, end)) = body_range {
+                if data.len() >= end {
+                    let body_preview = String::from_utf8_lossy(&data[start..end]).to_string();
+                    assert!(
+                        body_preview.contains("free-or-qwen3-coder"),
+                        "body: {body_preview}"
+                    );
+                    let resp = r#"{"id":"chatcmpl-e2e","object":"chat.completion","model":"free-or-qwen3-coder","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}"#;
+                    let out = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{resp}",
+                        resp.len()
+                    );
+                    stream.write_all(out.as_bytes()).unwrap();
+                    return;
+                }
+            }
+        }
+    });
+
+    // ── Gateway server pointed at the fake upstream ──
+    let port = free_port();
+    let port_s = port.to_string();
+    let upstream_base = format!("http://127.0.0.1:{upstream_port}");
+    let _gw = ServerGuard::spawn_with(
+        &sb,
+        &["gateway", "start"],
+        &[
+            ("APEX_GATEWAY_PORT", &port_s),
+            ("APEX_GATEWAY_KEY", "test-upstream-key"),
+            ("APEX_GATEWAY_ADMIN_KEY", "admin-test"),
+            ("APEX_GATEWAY_UPSTREAM_BASE", &upstream_base),
+        ],
+    );
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+
+    // `wait_for_health` targets `/health`; the gateway answers on `/v1/health`.
+    let mut up = false;
+    for _ in 0..600 {
+        if client
+            .get(format!("{base}/v1/health"))
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false)
+        {
+            up = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(up, "apex-rs gateway start did not become healthy");
+
+    // Health + models.
+    let health: serde_json::Value = get(&client, &base, "/v1/health")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        health,
+        serde_json::json!({ "status": "ok", "service": "apex-gateway" })
+    );
+
+    let models: serde_json::Value = get(&client, &base, "/v1/models")
+        .await
+        .json()
+        .await
+        .unwrap();
+    let list = models["models"].as_array().expect("models must be a list");
+    assert!(!list.is_empty(), "free-/pro- aliases are missing");
+    for (i, m) in list.iter().enumerate() {
+        let id = m["id"].as_str().unwrap_or("");
+        assert!(
+            id.starts_with("free-") || id.starts_with("pro-"),
+            "unexpected model {id}"
+        );
+        assert!(m["provider"].is_string(), "missing provider: {m}");
+        if i > 0 {
+            assert!(
+                list[i - 1]["id"].as_str().unwrap_or("") <= id,
+                "models must be sorted by id"
+            );
+        }
+    }
+
+    // Register: success, invalid tier, oversized payload.
+    let reg = post_json(
+        &client,
+        &base,
+        "/v1/register",
+        &serde_json::json!({ "tier": "pro", "label": "registered" }),
+    )
+    .await;
+    assert_eq!(reg.status(), 200);
+    let reg_body: serde_json::Value = reg.json().await.unwrap();
+    assert!(reg_body["api_key"]
+        .as_str()
+        .unwrap_or("")
+        .starts_with("apex_"));
+    assert_eq!(reg_body["tier"], "pro");
+    assert_eq!(reg_body["label"], "registered");
+    assert_eq!(reg_body["limits"]["daily_requests"], 500);
+    assert_eq!(reg_body["limits"]["rate_per_minute"], 60);
+    assert_eq!(reg_body["limits"]["max_concurrent"], 3);
+
+    let bad_tier = post_json(
+        &client,
+        &base,
+        "/v1/register",
+        &serde_json::json!({ "tier": "bogus" }),
+    )
+    .await;
+    assert_eq!(bad_tier.status(), 400);
+    assert_eq!(
+        bad_tier.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Invalid tier: bogus" })
+    );
+
+    let big = post_json(
+        &client,
+        &base,
+        "/v1/register",
+        &serde_json::json!({ "label": "x".repeat(5000) }),
+    )
+    .await;
+    assert_eq!(big.status(), 413);
+    assert_eq!(
+        big.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Payload too large" })
+    );
+
+    // Chat: missing auth, unknown key, model not in tier, then the proxy.
+    let chat_body = serde_json::json!({ "model": "free-or-qwen3-coder", "messages": [] });
+    let anon = client
+        .post(format!("{base}/v1/chat/completions"))
+        .json(&chat_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(anon.status(), 401);
+    assert_eq!(
+        anon.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Missing or invalid Authorization header" })
+    );
+
+    let bad_key = client
+        .post(format!("{base}/v1/chat/completions"))
+        .bearer_auth("apex_bogus")
+        .json(&chat_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_key.status(), 401);
+    assert_eq!(
+        bad_key.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Invalid or revoked API key" })
+    );
+
+    let forbidden = client
+        .post(format!("{base}/v1/chat/completions"))
+        .bearer_auth(&key)
+        .json(&serde_json::json!({ "model": "pro-glm-5", "messages": [] }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(forbidden.status(), 403);
+    assert_eq!(
+        forbidden.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Model 'pro-glm-5' not available in 'free' tier" })
+    );
+
+    // The 200 path consumes the fake upstream's single request.
+    let ok = client
+        .post(format!("{base}/v1/chat/completions"))
+        .bearer_auth(&key)
+        .json(&chat_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(ok.status(), 200, "chat must proxy to the upstream");
+    let ok_body: serde_json::Value = ok.json().await.unwrap();
+    assert_eq!(ok_body["choices"][0]["message"]["content"], "ok");
+    assert_eq!(ok_body["usage"]["prompt_tokens"], 11);
+    assert_eq!(ok_body["usage"]["completion_tokens"], 7);
+    assert_eq!(ok_body["usage"]["apex_gateway"]["tier"], "free");
+    assert_eq!(ok_body["usage"]["apex_gateway"]["requests_today"], 1);
+
+    // Status: unauthenticated, then the free key's counters.
+    let no_auth = get(&client, &base, "/v1/status").await;
+    assert_eq!(no_auth.status(), 401);
+    assert_eq!(
+        no_auth.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Unauthorized" })
+    );
+
+    let st = client
+        .get(format!("{base}/v1/status"))
+        .bearer_auth(&key)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(st.status(), 200);
+    let st_body: serde_json::Value = st.json().await.unwrap();
+    assert_eq!(st_body["tier"], "free");
+    assert_eq!(st_body["requests_today"], 1);
+    assert_eq!(st_body["requests_limit"], 50);
+    assert_eq!(st_body["tokens_today"], 18);
+    assert_eq!(st_body["rate_per_minute"], 10);
+    assert_eq!(st_body["max_concurrent"], 1);
+
+    // Admin: auth gate, list, generate, revoke, revoke-again.
+    let no_admin = get(&client, &base, "/admin/keys").await;
+    assert_eq!(no_admin.status(), 401);
+    let wrong_admin = client
+        .get(format!("{base}/admin/keys"))
+        .header("X-Admin-Key", "wrong")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(wrong_admin.status(), 401);
+
+    let keys = client
+        .get(format!("{base}/admin/keys"))
+        .header("X-Admin-Key", "admin-test")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(keys.status(), 200);
+    let keys_body: serde_json::Value = keys.json().await.unwrap();
+    let rows = keys_body["keys"].as_array().expect("keys list");
+    assert!(
+        rows.iter()
+            .any(|k| k["tier"] == "free" && k["label"] == "e2e-label"),
+        "generated key must be listed: {}",
+        serde_json::to_string(rows).unwrap_or_default()
+    );
+    assert!(
+        rows.iter()
+            .all(|k| !k.as_object().unwrap().contains_key("api_key")),
+        "listings must not expose plaintext keys"
+    );
+
+    let gen = client
+        .post(format!("{base}/admin/keys/generate"))
+        .header("X-Admin-Key", "admin-test")
+        .json(&serde_json::json!({ "tier": "unlimited", "label": "boss" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(gen.status(), 200);
+    let gen_body: serde_json::Value = gen.json().await.unwrap();
+    assert!(gen_body["api_key"]
+        .as_str()
+        .unwrap_or("")
+        .starts_with("apex_"));
+    assert_eq!(gen_body["tier"], "unlimited");
+    assert_eq!(gen_body["label"], "boss");
+
+    let revoke = client
+        .post(format!("{base}/admin/keys/revoke"))
+        .header("X-Admin-Key", "admin-test")
+        .json(&serde_json::json!({ "api_key": key }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(revoke.status(), 200);
+    assert_eq!(
+        revoke.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "status": "revoked" })
+    );
+
+    let revoke_again = client
+        .post(format!("{base}/admin/keys/revoke"))
+        .header("X-Admin-Key", "admin-test")
+        .json(&serde_json::json!({ "api_key": key }))
+        .send()
+        .await
+        .unwrap();
+    // Python's `UPDATE ... WHERE api_key = ?` reports the row even when it
+    // is already revoked: re-revoking a known key returns 200.
+    assert_eq!(revoke_again.status(), 200);
+    assert_eq!(
+        revoke_again.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "status": "revoked" })
+    );
+
+    let unknown = client
+        .post(format!("{base}/admin/keys/revoke"))
+        .header("X-Admin-Key", "admin-test")
+        .json(&serde_json::json!({ "api_key": "apex_unknown" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unknown.status(), 404);
+    assert_eq!(
+        unknown.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Key not found" })
+    );
+
+    // The revoked key is rejected by a running server (re-read-on-access).
+    let revoked_chat = client
+        .post(format!("{base}/v1/chat/completions"))
+        .bearer_auth(&key)
+        .json(&chat_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(revoked_chat.status(), 401);
+    assert_eq!(
+        revoked_chat.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Invalid or revoked API key" })
+    );
+
+    // CLI sees the revoke and the two extra keys.
+    let after = sb.run(&["gateway", "status"]);
+    assert_success(&after, "gateway status (after revoke)");
+    let after_text = stdout(&after);
+    assert!(
+        after_text.contains("Gateway keys (3):")
+            && after_text.contains("[free]")
+            && after_text.contains("(revoked)")
+            && after_text.contains("[pro]")
+            && after_text.contains("[unlimited]"),
+        "got:\n{after_text}"
+    );
+
+    drop(_gw);
+    let _ = upstream.join();
 }
