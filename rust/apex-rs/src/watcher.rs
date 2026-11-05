@@ -256,8 +256,8 @@ impl FileWatcher {
             return;
         }
 
-        let project_dir = Some(project_dir.as_ref().to_path_buf());
-        *self.project_dir.lock().unwrap() = project_dir.clone();
+        let project_dir = project_dir.as_ref().to_path_buf();
+        *self.project_dir.lock().unwrap() = Some(project_dir.clone());
         *self.callback.lock().unwrap() = Some(Box::new(callback));
         self.stop.store(false, Ordering::Relaxed);
 
@@ -271,13 +271,12 @@ impl FileWatcher {
         let project_dir_ref = self.project_dir.lock().unwrap();
         let config_guard = self.config.lock().unwrap();
         let patterns = Self::all_patterns(project_dir_ref.as_ref().unwrap(), &config_guard);
-        let initial = Self::scan(project_dir.as_ref().unwrap(), &patterns);
+        let initial = Self::scan(&project_dir, &patterns);
         drop(config_guard);
         *self.mtimes.lock().unwrap() = initial;
         drop(project_dir_ref);
 
         // Spawn polling thread
-        let project_dir = project_dir.unwrap();
         let callback = self.callback.clone();
         let config = self.config.clone();
         let mtimes = self.mtimes.clone();

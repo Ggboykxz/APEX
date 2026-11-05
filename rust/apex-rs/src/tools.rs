@@ -45,6 +45,16 @@ const BUILTIN_AGENTS: &[&str] = &[
     "summary",
 ];
 
+/// Whether an undo is available (Python's `undo_manager.can_undo()`).
+pub fn can_undo() -> bool {
+    BACKUP_STACK.lock().map(|s| !s.is_empty()).unwrap_or(false)
+}
+
+/// Whether a redo is available (Python's `undo_manager.can_redo()`).
+pub fn can_redo() -> bool {
+    REDO_STACK.lock().map(|s| !s.is_empty()).unwrap_or(false)
+}
+
 /// Restore the last file overwritten by `write_file`.
 pub fn undo_last_edit() -> String {
     let mut stack = match BACKUP_STACK.lock() {

@@ -11,7 +11,6 @@
 
 use std::collections::HashMap;
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
@@ -320,8 +319,8 @@ impl ProjectInitializer {
                     } else if lower.contains("test") || lower.contains("spec") {
                         test_dirs.push(name);
                     }
-                } else if path.is_file() {
-                    if matches!(
+                } else if path.is_file()
+                    && matches!(
                         path.extension().and_then(|s| s.to_str()),
                         Some("json")
                             | Some("yaml")
@@ -331,9 +330,9 @@ impl ProjectInitializer {
                             | Some("cfg")
                             | Some("conf")
                             | Some("env")
-                    ) {
-                        config_files.push(name);
-                    }
+                    )
+                {
+                    config_files.push(name);
                 }
             }
         }

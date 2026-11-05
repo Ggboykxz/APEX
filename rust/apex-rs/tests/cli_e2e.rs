@@ -7,6 +7,8 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use futures::StreamExt;
+
 struct Sandbox {
     _dir: tempfile::TempDir,
     home: PathBuf,
@@ -180,6 +182,24 @@ async fn wait_for_health(client: &reqwest::Client, base: &str) -> bool {
         }
     }
     false
+}
+
+async fn get(client: &reqwest::Client, base: &str, path: &str) -> reqwest::Response {
+    client.get(format!("{base}{path}")).send().await.unwrap()
+}
+
+async fn post_json(
+    client: &reqwest::Client,
+    base: &str,
+    path: &str,
+    body: &serde_json::Value,
+) -> reqwest::Response {
+    client
+        .post(format!("{base}{path}"))
+        .json(body)
+        .send()
+        .await
+        .unwrap()
 }
 
 /// `apex-rs key create NAME` → (key id, plaintext key).
@@ -815,6 +835,546 @@ async fn serve_exposes_context_routes() {
         .await
         .unwrap();
     assert!(bad["error"].as_str().is_some(), "got: {bad}");
+}
+
+#[tokio::test]
+async fn serve_exposes_python_parity_routes() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("main.py"), "x = 1\n").unwrap();
+    std::fs::write(sb.cwd.join("README.md"), "# hi\n").unwrap();
+
+    let port = free_port();
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+    assert!(wait_for_health(&client, &base).await, "server not healthy");
+
+    // ── Root + health ──────────────────────────────────────
+    let index = get(&client, &base, "/").await;
+    assert_eq!(index.status(), 200, "GET / must serve the index page");
+    let health: serde_json::Value = get(&client, &base, "/global/health")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(health["healthy"], true, "got: {health}");
+    assert!(health["version"].is_string(), "got: {health}");
+
+    // ── Status endpoints (no LLM) ──────────────────────────
+    let lsp: serde_json::Value = get(&client, &base, "/api/v1/lsp")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(lsp.is_array(), "lsp status must be a list: {lsp}");
+
+    let formatter: serde_json::Value = get(&client, &base, "/api/v1/formatter")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        formatter.is_array(),
+        "formatter status must be a list: {formatter}"
+    );
+
+    let mcp: serde_json::Value = get(&client, &base, "/api/v1/mcp")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(mcp.is_object(), "mcp status must be an object: {mcp}");
+
+    let formatters: serde_json::Value = get(&client, &base, "/api/v1/formatters")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(formatters["formatters"].is_array(), "got: {formatters}");
+
+    let rl: serde_json::Value = get(&client, &base, "/rate-limit/status")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        rl["minute"].is_object() || rl["minute"].is_number(),
+        "got: {rl}"
+    );
+
+    // ── Models / providers ─────────────────────────────────
+    let models: serde_json::Value = get(&client, &base, "/models").await.json().await.unwrap();
+    assert!(
+        models["models"].is_array(),
+        "/models must expose a models list: {models}"
+    );
+
+    let refreshed: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/models/refresh",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(
+        refreshed["models"].is_array() && refreshed["count"].is_number(),
+        "got: {refreshed}"
+    );
+
+    let providers: serde_json::Value = get(&client, &base, "/api/v1/providers")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(providers["providers"].is_array(), "got: {providers}");
+
+    // ── Agents ─────────────────────────────────────────────
+    let agents: serde_json::Value = get(&client, &base, "/api/v1/agents")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        agents["agents"].is_array(),
+        "/api/v1/agents must expose an agents list: {agents}"
+    );
+
+    let missing_agent = get(&client, &base, "/api/v1/agents/does-not-exist").await;
+    assert_eq!(missing_agent.status(), 404, "unknown agent must 404");
+    let missing_body: serde_json::Value = missing_agent.json().await.unwrap();
+    assert!(
+        missing_body["error"]
+            .as_str()
+            .unwrap()
+            .contains("not found"),
+        "got: {missing_body}"
+    );
+
+    // ── Commands (listing only; execution would hit the LLM) ─
+    let commands: serde_json::Value = get(&client, &base, "/api/v1/commands")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(commands["commands"].is_array(), "got: {commands}");
+
+    // A non-slash command is not handled and yields no output.
+    let cmd: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/command",
+        &serde_json::json!({"command": "hello"}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(cmd["handled"], false, "got: {cmd}");
+
+    // ── Config / themes ────────────────────────────────────
+    let config: serde_json::Value = get(&client, &base, "/api/v1/config")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(config["model"].is_string(), "got: {config}");
+
+    let updated: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/config",
+        &serde_json::json!({"theme": "nord"}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(updated["theme"], "nord", "got: {updated}");
+
+    let theme_err = post_json(&client, &base, "/api/v1/themes", &serde_json::json!({})).await;
+    assert_eq!(theme_err.status(), 400, "theme name is required");
+
+    let theme: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/themes",
+        &serde_json::json!({"theme": "nord"}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(theme["theme"], "nord", "got: {theme}");
+
+    // ── Stats ──────────────────────────────────────────────
+    let stats: serde_json::Value = get(&client, &base, "/api/v1/stats")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(stats["usage"].is_object(), "got: {stats}");
+
+    // ── Session lifecycle ──────────────────────────────────
+    let saved: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/session/save",
+        &serde_json::json!({"name": "e2e_sess"}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(
+        saved["saved"].is_string() && !saved["saved"].as_str().unwrap().is_empty(),
+        "got: {saved}"
+    );
+
+    let load_err = post_json(&client, &base, "/session/load", &serde_json::json!({})).await;
+    assert_eq!(load_err.status(), 400, "load name is required");
+
+    let fork: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/session/e2e/fork",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(fork["forked"], true, "got: {fork}");
+
+    let abort: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/session/e2e/abort",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(abort["aborted"], true, "got: {abort}");
+
+    let del_missing = client
+        .delete(format!("{base}/api/v1/sessions/does-not-exist"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        del_missing.status(),
+        404,
+        "deleting an unknown session 404s"
+    );
+
+    let export_missing = get(&client, &base, "/api/v1/export/does-not-exist").await;
+    assert_eq!(
+        export_missing.status(),
+        404,
+        "exporting an unknown session 404s"
+    );
+
+    let import_err = post_json(&client, &base, "/api/v1/import", &serde_json::json!({})).await;
+    assert_eq!(import_err.status(), 400, "import needs file_path or data");
+
+    let unshare_missing = post_json(
+        &client,
+        &base,
+        "/api/v1/unshare/does-not-exist",
+        &serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(
+        unshare_missing.status(),
+        404,
+        "unsharing an unknown share 404s"
+    );
+
+    // ── Find file ──────────────────────────────────────────
+    let no_match: serde_json::Value = get(&client, &base, "/find/file?query=")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        no_match.is_array() && no_match.as_array().unwrap().is_empty(),
+        "got: {no_match}"
+    );
+
+    let found: serde_json::Value = get(&client, &base, "/find/file?query=main")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(found.is_array(), "got: {found}");
+    let hits = found.as_array().unwrap();
+    assert!(
+        hits.iter()
+            .any(|h| h.as_str().unwrap_or_default().contains("main.py")),
+        "expected main.py in: {found}"
+    );
+
+    // ── Diff validation (error paths before any git call) ──
+    let bad_json = client
+        .post(format!("{base}/api/v1/session/e2e/diff/decision"))
+        .header("content-type", "application/json")
+        .body("{not json")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_json.status(), 400, "malformed JSON body 400s");
+
+    let bad_decision = post_json(
+        &client,
+        &base,
+        "/api/v1/session/e2e/diff/decision",
+        &serde_json::json!({"decision": "maybe"}),
+    )
+    .await;
+    assert_eq!(bad_decision.status(), 400, "unknown decision 400s");
+
+    // ── Metrics ────────────────────────────────────────────
+    let metrics: serde_json::Value = get(&client, &base, "/metrics").await.json().await.unwrap();
+    assert!(metrics["total_tokens"].is_number(), "got: {metrics}");
+
+    // ── SSE global event: first frame announces connection ──
+    let sse = client
+        .get(format!("{base}/global/event"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(sse.status(), 200, "SSE endpoint must stream");
+    let mut stream = sse.bytes_stream();
+    let first = tokio::time::timeout(std::time::Duration::from_secs(5), stream.next())
+        .await
+        .expect("SSE stream timed out")
+        .expect("SSE stream closed before first frame")
+        .expect("SSE read error");
+    let first = String::from_utf8_lossy(&first);
+    assert!(first.contains("connected"), "first SSE frame: {first}");
+}
+
+#[tokio::test]
+async fn serve_diff_preview_accepts_and_rejects() {
+    let sb = Sandbox::new();
+    // A committed file whose working-tree copy we will modify.
+    git(&sb.cwd, &["init"]);
+    // Pin line endings so `git restore --worktree` (reject) writes back the
+    // exact committed bytes: Windows' default `core.autocrlf=true` would
+    // restore `line1\n` as `line1\r\n`.
+    git(&sb.cwd, &["config", "core.autocrlf", "false"]);
+    std::fs::write(sb.cwd.join("file.txt"), "line1\n").unwrap();
+    git(&sb.cwd, &["add", "file.txt"]);
+    git(&sb.cwd, &["commit", "-m", "init"]);
+
+    let port = free_port();
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+    assert!(wait_for_health(&client, &base).await, "server not healthy");
+
+    // A clean tree reports `(clean)` with no paths.
+    let clean: serde_json::Value = client
+        .get(format!("{base}/api/v1/session/s1/diff"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(clean["files"], "(clean)", "got: {clean}");
+    assert_eq!(clean["paths"], serde_json::json!([]), "got: {clean}");
+    assert_eq!(clean["session_id"], "s1", "got: {clean}");
+
+    // Modify the tracked file → a non-empty working-tree diff.
+    std::fs::write(sb.cwd.join("file.txt"), "line1\nline2\n").unwrap();
+    let diff: serde_json::Value = client
+        .get(format!("{base}/api/v1/session/s1/diff"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        diff["paths"],
+        serde_json::json!(["file.txt"]),
+        "got: {diff}"
+    );
+    let fingerprint = diff["fingerprint"].as_str().unwrap().to_string();
+    assert_eq!(fingerprint.len(), 64, "fingerprint must be a sha256 hex");
+    assert!(
+        diff["diff"].as_str().unwrap().contains("line2"),
+        "got: {diff}"
+    );
+
+    // Validation chain: invalid JSON, non-object body, bad decision,
+    // non-list files, invalid path, path outside the current diff.
+    let bad_json = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .body("not json")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_json.status(), 400);
+    assert_eq!(
+        bad_json.json::<serde_json::Value>().await.unwrap()["error"],
+        "invalid JSON body"
+    );
+
+    let not_object = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .body("[1, 2]")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(not_object.status(), 400);
+
+    let bad_decision = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "maybe"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_decision.status(), 400);
+    assert_eq!(
+        bad_decision.json::<serde_json::Value>().await.unwrap()["error"],
+        "decision must be 'accept' or 'reject'"
+    );
+
+    let not_list = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "accept", "files": "file.txt"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(not_list.status(), 400);
+    assert_eq!(
+        not_list.json::<serde_json::Value>().await.unwrap()["error"],
+        "files must be a list"
+    );
+
+    let bad_path = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "accept", "files": ["../evil"]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_path.status(), 400);
+    assert_eq!(
+        bad_path.json::<serde_json::Value>().await.unwrap()["error"],
+        "invalid path: '../evil'"
+    );
+
+    let not_in_diff = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "accept", "files": ["other.txt"]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(not_in_diff.status(), 400);
+    assert_eq!(
+        not_in_diff.json::<serde_json::Value>().await.unwrap()["error"],
+        "path not in current diff: other.txt"
+    );
+
+    // Accept with `files: null` → all current paths are accepted.
+    let accepted: serde_json::Value = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "accept"}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(accepted["status"], "accepted", "got: {accepted}");
+    assert_eq!(
+        accepted["files"],
+        serde_json::json!(["file.txt"]),
+        "got: {accepted}"
+    );
+    assert_eq!(accepted["fingerprint"], fingerprint, "got: {accepted}");
+
+    // Modify again → the fingerprint moves.
+    std::fs::write(sb.cwd.join("file.txt"), "line1\nline2\nline3\n").unwrap();
+    let diff2: serde_json::Value = client
+        .get(format!("{base}/api/v1/session/s1/diff"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let fingerprint2 = diff2["fingerprint"].as_str().unwrap().to_string();
+    assert_ne!(
+        fingerprint2, fingerprint,
+        "fingerprint must change with the diff"
+    );
+
+    // Rejecting with a stale fingerprint is a 409 `diff_changed`.
+    let conflict = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({
+            "decision": "reject",
+            "fingerprint": fingerprint,
+            "files": ["file.txt"],
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(conflict.status(), 409);
+    let conflict_body: serde_json::Value = conflict.json().await.unwrap();
+    assert_eq!(
+        conflict_body["error"], "diff_changed",
+        "got: {conflict_body}"
+    );
+    assert_eq!(
+        conflict_body["fingerprint"], fingerprint2,
+        "got: {conflict_body}"
+    );
+
+    // Reject with the current fingerprint reverts the working-tree change.
+    let rejected: serde_json::Value = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({
+            "decision": "reject",
+            "fingerprint": fingerprint2,
+            "files": ["file.txt"],
+        }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(rejected["status"], "rejected", "got: {rejected}");
+    assert_eq!(
+        rejected["reverted"],
+        serde_json::json!(["file.txt"]),
+        "got: {rejected}"
+    );
+    assert_eq!(rejected["failed"], serde_json::json!([]), "got: {rejected}");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("file.txt")).unwrap(),
+        "line1\n",
+        "reject must restore the committed content"
+    );
+
+    // The tree is clean again.
+    let after: serde_json::Value = client
+        .get(format!("{base}/api/v1/session/s1/diff"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(after["files"], "(clean)", "got: {after}");
 }
 
 #[tokio::test]

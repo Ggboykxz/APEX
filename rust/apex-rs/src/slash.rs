@@ -12,23 +12,22 @@
 
 use std::collections::HashMap;
 
+/// Handler signature for a slash command: `(manager, args) -> result string`.
+type CommandHandler = Box<dyn Fn(&SlashCommandManager, &[String]) -> String + Send + Sync>;
+
 /// A single slash command.
 pub struct Command {
     pub name: String,
     pub description: String,
     /// Handler: (manager, args) -> result string
-    pub handler: Box<dyn Fn(&SlashCommandManager, &[String]) -> String + Send + Sync>,
+    pub handler: CommandHandler,
     pub aliases: Vec<String>,
     pub args: Vec<String>,
     pub requires_argument: bool,
 }
 
 impl Command {
-    pub fn new(
-        name: &str,
-        description: &str,
-        handler: Box<dyn Fn(&SlashCommandManager, &[String]) -> String + Send + Sync>,
-    ) -> Self {
+    pub fn new(name: &str, description: &str, handler: CommandHandler) -> Self {
         Self {
             name: name.to_string(),
             description: description.to_string(),
@@ -207,7 +206,7 @@ impl SlashCommandManager {
             "Show git status",
             Box::new(|_, _| {
                 match std::process::Command::new("git")
-                    .args(&["status", "--short"])
+                    .args(["status", "--short"])
                     .output()
                 {
                     Ok(output) => {
