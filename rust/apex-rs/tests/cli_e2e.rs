@@ -260,6 +260,9 @@ fn help_lists_subcommands() {
         "github",
         "skill",
         "key",
+        "message",
+        "watch",
+        "rlm",
     ] {
         assert!(
             text.contains(subcommand),
@@ -287,6 +290,7 @@ fn tools_prints_known_tool_schemas() {
         "read_file",
         "write_file",
         "run_command",
+        "run_code",
         "git_status",
         "lsp_diagnostics",
         "list_skills",
@@ -296,6 +300,105 @@ fn tools_prints_known_tool_schemas() {
             "missing tool `{expected}` in {names:?}"
         );
     }
+}
+
+#[test]
+fn run_code_tool_is_hermetic_and_rejects_unsupported_language() {
+    let sb = Sandbox::new();
+
+    // The tool is wired and listed among the registry schemas.
+    let listed = sb.run(&["tools"]);
+    assert_success(&listed, "tools");
+    let schemas: serde_json::Value =
+        serde_json::from_slice(&listed.stdout).expect("`tools` must print valid JSON");
+    let names: Vec<&str> = schemas
+        .as_array()
+        .expect("tool list must be an array")
+        .iter()
+        .filter_map(|tool| tool.get("function")?.get("name")?.as_str())
+        .collect();
+    assert!(
+        names.contains(&"run_code"),
+        "missing tool `run_code` in {names:?}"
+    );
+
+    // An unsupported language fails deterministically without spawning any
+    // interpreter, so the check is hermetic on any machine.
+    let out = sb.run(&[
+        "call-tool",
+        "run_code",
+        r#"{"code":"print(1)","language":"not-a-real-language"}"#,
+    ]);
+    assert_success(&out, "call-tool run_code (unsupported language)");
+    let text = stdout(&out);
+    assert!(
+        text.contains("ERROR: Unsupported language: not-a-real-language"),
+        "expected unsupported-language error, got: {text}"
+    );
+}
+
+#[test]
+fn cli_message_command_builds_structured_message() {
+    let sb = Sandbox::new();
+
+    let out = sb.run(&["message", "user", "hello world"]);
+    assert_success(&out, "message");
+    let text = stdout(&out);
+    let v: serde_json::Value =
+        serde_json::from_str(&text).expect("`message` must print valid JSON");
+    assert_eq!(v["role"], "user", "got: {text}");
+    assert!(
+        v["id"].as_str().map(|s| !s.is_empty()).unwrap_or(false),
+        "got: {text}"
+    );
+    assert_eq!(v["parts"][0]["type"], "text", "got: {text}");
+    assert_eq!(v["parts"][0]["content"], "hello world", "got: {text}");
+    assert!(v.get("timestamp").is_some(), "got: {text}");
+}
+
+#[test]
+fn cli_watch_lists_non_ignored_files() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("a.txt"), "hello").unwrap();
+    std::fs::create_dir_all(sb.cwd.join("node_modules").join("pkg")).unwrap();
+    std::fs::write(
+        sb.cwd.join("node_modules").join("pkg").join("index.js"),
+        "const x = 1;\n",
+    )
+    .unwrap();
+
+    let out = sb.run(&["watch", sb.cwd.to_str().unwrap()]);
+    assert_success(&out, "watch");
+    let text = stdout(&out);
+    assert!(
+        text.contains("a.txt"),
+        "expected a.txt in watch output, got: {text}"
+    );
+    assert!(
+        !text.contains("node_modules"),
+        "node_modules must be ignored by the watcher, got: {text}"
+    );
+}
+
+#[test]
+fn cli_rlm_reports_rate_limits() {
+    let sb = Sandbox::new();
+
+    let check = sb.run(&["rlm", "e2e-key"]);
+    assert_success(&check, "rlm check");
+    let check_v: serde_json::Value =
+        serde_json::from_str(&stdout(&check)).expect("`rlm` must print valid JSON");
+    assert_eq!(check_v["allowed"], true, "got: {check_v}");
+    assert_eq!(check_v["remaining_minute"], 60, "got: {check_v}");
+    assert_eq!(check_v["remaining_hour"], 1000, "got: {check_v}");
+    assert_eq!(check_v["remaining_day"], 10000, "got: {check_v}");
+
+    // Incrementing consumes one minute-window slot.
+    let inc = sb.run(&["rlm", "e2e-key", "--inc"]);
+    assert_success(&inc, "rlm --inc");
+    let inc_v: serde_json::Value =
+        serde_json::from_str(&stdout(&inc)).expect("`rlm --inc` must print valid JSON");
+    assert_eq!(inc_v["remaining_minute"], 59, "got: {inc_v}");
 }
 
 #[test]
@@ -1845,6 +1948,71 @@ fn crate_root_has_no_global_dead_code_allow() {
         "src/main.rs must not re-introduce the crate-level dead-code allow; \
          use a justified, item-scoped attribute instead"
     );
+}
+
+#[test]
+fn cli_locale_command_works() {
+    let sb = Sandbox::new();
+
+    // Default (no --lang): shows the active locale and available locales.
+    let out = sb.run(&["locale"]);
+    assert_success(&out, "locale");
+    let text = stdout(&out);
+    assert!(text.contains("Current locale:"), "got: {text}");
+    assert!(
+        text.contains("Available locales: en, ja, zh-Hans, pt-BR"),
+        "got: {text}"
+    );
+
+    // Switching to Japanese selects the locale and localizes the welcome.
+    let ja = sb.run(&["locale", "--lang", "ja"]);
+    assert_success(&ja, "locale --lang ja");
+    let ja_text = stdout(&ja);
+    assert!(ja_text.contains("Current locale: ja"), "got: {ja_text}");
+    assert!(
+        ja_text.contains("APEXへようこそ"),
+        "expected the Japanese welcome string, got: {ja_text}"
+    );
+
+    // Switching back to English.
+    let en = sb.run(&["locale", "--lang", "en"]);
+    assert_success(&en, "locale --lang en");
+    let en_text = stdout(&en);
+    assert!(en_text.contains("Current locale: en"), "got: {en_text}");
+    assert!(
+        en_text.contains("Welcome to APEX"),
+        "expected the English welcome string, got: {en_text}"
+    );
+}
+
+#[tokio::test]
+async fn serve_exposes_telemetry_route() {
+    let sb = Sandbox::new();
+
+    // Grab a free port, then let the server child bind it.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+
+    let healthy = wait_for_health(&client, &base).await;
+    assert!(healthy, "apex-rs serve did not become healthy");
+
+    let tele: serde_json::Value = get(&client, &base, "/api/v1/telemetry")
+        .await
+        .json()
+        .await
+        .unwrap();
+    // Session start is recorded at service bootstrap.
+    let stats = tele["telemetry"]
+        .as_object()
+        .expect("telemetry must be an object");
+    assert!(stats.contains_key("session_id"), "got: {tele}");
+    assert!(stats.contains_key("total_events"), "got: {tele}");
+    assert!(tele["performance"].is_object(), "got: {tele}");
 }
 
 /// Index of the first occurrence of `needle` in `haystack` (fake upstreams).

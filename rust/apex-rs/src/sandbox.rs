@@ -3,9 +3,6 @@
 //! Provides CodeSandbox for running code in various languages and ShellSession
 //! for persistent interactive shell sessions.
 
-#![allow(dead_code)]
-#![allow(clippy::all)]
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -13,6 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Code sandbox for running untrusted code safely.
 pub struct CodeSandbox {
+    /// Reserved for future config; the tool runner uses the default 30 s.
+    #[allow(dead_code)] // TODO(v2.6): expose timeout via tool args/config
     pub timeout: i64,
     pub max_output: usize,
     pub temp_dir: PathBuf,
@@ -144,10 +143,14 @@ impl CodeSandbox {
         }
     }
 
+    /// Convenience wrapper for running a Python snippet through `run_code`.
+    #[allow(dead_code)] // TODO(v2.6): wire into tool dispatch or remove
     pub fn run_python_snippet(&self, code: &str) -> String {
         self.run_code(code, "python", None)
     }
 
+    /// Convenience wrapper for running a JavaScript snippet through `run_code`.
+    #[allow(dead_code)] // TODO(v2.6): wire into tool dispatch or remove
     pub fn run_javascript_snippet(&self, code: &str) -> String {
         self.run_code(code, "javascript", None)
     }
@@ -160,12 +163,16 @@ impl Default for CodeSandbox {
 }
 
 /// Persistent interactive shell session.
+#[allow(dead_code)] // Headless stub; TODO(v2.6): wire into start_shell/run_shell tools
+#[allow(clippy::all)]
 pub struct ShellSession {
     cwd: PathBuf,
     env: HashMap<String, String>,
 }
 
+#[allow(dead_code)] // Headless stub; see struct-level allow above
 impl ShellSession {
+    #[allow(dead_code)] // See struct-level allow above
     pub fn new(cwd: Option<&Path>, env: Option<&[(&str, &str)]>) -> Self {
         let cwd = cwd
             .map(|p| p.to_path_buf())

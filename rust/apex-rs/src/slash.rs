@@ -5,10 +5,7 @@
 //! `/agents`, `/subagents`, `/models`, `/init`, `/analyze`, `/approve`,
 //! `/reject`, `/shell`, `/commands`, ...
 //!
-//! This module is not yet wired into the agent loop / dispatch gate.
-//! Allow dead code with a named exit criterion — TODO(v2.6): wire into tool
-//! dispatch / command handling and remove this allow.
-#![allow(dead_code)]
+//! Wired through `crate::slash::slash_command_manager()` in the HTTP server.
 
 use std::collections::HashMap;
 
@@ -48,6 +45,7 @@ impl Command {
         self
     }
 
+    #[allow(dead_code)] // Part of slash public API; TODO(v2.6): expose in help/CLI
     pub fn with_aliases(mut self, aliases: &[&str]) -> Self {
         self.aliases = aliases.iter().map(|s| s.to_string()).collect();
         self
@@ -72,6 +70,7 @@ impl SlashCommandManager {
         &self.commands
     }
 
+    #[allow(dead_code)] // Part of slash public API; TODO(v2.6): expose in help/CLI
     pub fn aliases(&self) -> &HashMap<String, String> {
         &self.aliases
     }
@@ -360,6 +359,7 @@ impl SlashCommandManager {
     }
 
     /// List all commands as {name, description} dicts.
+    #[allow(dead_code)] // Part of slash public API; TODO(v2.6): expose in HTTP /commands
     pub fn list_commands(&self) -> Vec<(String, String)> {
         self.commands
             .values()

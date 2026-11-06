@@ -3,11 +3,9 @@
 //! Polling-based, zero-dependency file watcher: background daemon thread,
 //! debounced callbacks, gitignore-aware ignore patterns. Mirrors OpenCode's
 //! watcher UX.
-//
-//! This module is not yet wired into the dispatch gate / agent loop.
-//! Allow dead code with a named exit criterion — TODO(v2.6): wire into tool
-//! dispatch / agent message handling and remove this allow.
-#![allow(dead_code)]
+//!
+//! Wired into the CLI via `apex-rs watch` (one-shot scan) and into the server
+//! via `serve` startup.
 
 use std::collections::HashMap;
 use std::fs;
@@ -310,6 +308,7 @@ impl FileWatcher {
     }
 
     /// Stop the watcher thread.
+    #[allow(dead_code)] // TODO(v2.6): wire into server shutdown / CLI
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Relaxed);
         if let Some(handle) = self.thread.lock().unwrap().take() {
@@ -325,11 +324,13 @@ impl FileWatcher {
     }
 
     /// Return the currently configured ignore patterns.
+    #[allow(dead_code)] // TODO(v2.6): expose via CLI/HTTP
     pub fn get_ignored_patterns(&self) -> Vec<String> {
         self.config.lock().unwrap().ignore_patterns.clone()
     }
 
     /// Check if *file_path* should be ignored (config + gitignore patterns).
+    #[allow(dead_code)] // TODO(v2.6): expose via CLI/HTTP
     pub fn should_ignore(&self, file_path: &str) -> bool {
         let config = self.config.lock().unwrap();
         let project_dir = self.project_dir.lock().unwrap();
@@ -348,6 +349,7 @@ impl FileWatcher {
     }
 
     /// Set the debounce window in milliseconds.
+    #[allow(dead_code)] // TODO(v2.6): expose via config/CLI
     pub fn set_debounce_ms(&self, ms: f64) {
         *self.debounce_ms.lock().unwrap() = ms.max(0.0) as u64;
     }

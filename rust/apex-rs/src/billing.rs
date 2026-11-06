@@ -6,8 +6,8 @@
 //! Tools exposed: billing_cost, billing_quota, billing_usage, billing_plan,
 //! billing_summary.
 
-#![allow(dead_code)]
-#![allow(clippy::all)]
+//! Wired into the tool registry (`billing_cost`, `billing_quota`,
+//! `billing_usage`, `billing_plan`, `billing_summary`).
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -15,14 +15,17 @@ use std::sync::{Mutex, OnceLock};
 use serde_json::Value;
 
 /// `InsufficientBalanceError` — raised when account balance is insufficient.
+#[allow(dead_code)] // Public API type reserved for Result-returning manager methods (TODO v2.6)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InsufficientBalanceError;
 
 /// `TrialExpiredError` — raised when trial period has expired.
+#[allow(dead_code)] // Public API type reserved for Result-returning manager methods (TODO v2.6)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrialExpiredError;
 
 /// `QuotaExceededError` — raised when a quota is exceeded.
+#[allow(dead_code)] // Public API type reserved for Result-returning manager methods (TODO v2.6)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuotaExceededError;
 
@@ -36,6 +39,7 @@ pub enum PlanType {
 }
 
 impl PlanType {
+    #[allow(dead_code)] // Public API helper; TODO(v2.6): use in CLI/HTTP output
     pub fn as_str(&self) -> &'static str {
         match self {
             PlanType::Free => "free",
@@ -625,6 +629,7 @@ impl BillingManager {
         account
     }
 
+    #[allow(dead_code)] // Part of billing public API; TODO(v2.6): expose via CLI/HTTP
     pub fn get_account(&self, user_id: &str) -> Option<&BillingAccount> {
         self.accounts.get(user_id)
     }
@@ -640,7 +645,7 @@ impl BillingManager {
         let input_tokens = input_tokens.max(0);
         let output_tokens = output_tokens.max(0);
         let cache_tokens = cache_tokens.max(0);
-        let model_key = model.to_lowercase().replace('-', "_").replace(' ', "_");
+        let model_key = model.to_lowercase().replace(['-', ' '], "_");
         let cost_config = MODEL_COSTS
             .iter()
             .find(|(name, _)| *name == model_key)
@@ -688,33 +693,33 @@ impl BillingManager {
         }
         if account.plan.monthly_limit > 0.0 {
             let projected_cost = self.calculate_cost(model, input_tokens, output_tokens, false, 0);
-            if account.used_this_month + projected_cost > account.plan.monthly_limit {
-                if !account.plan.overage_allowed {
-                    return (
-                        false,
-                        format!("Monthly limit of ${} exceeded", account.plan.monthly_limit),
-                    );
-                }
-            }
-        }
-        if account.plan.input_limit > 0 {
-            if account.input_tokens_used + input_tokens > account.plan.input_limit {
+            if account.used_this_month + projected_cost > account.plan.monthly_limit
+                && !account.plan.overage_allowed
+            {
                 return (
                     false,
-                    format!("Input token limit exceeded ({})", account.plan.input_limit),
+                    format!("Monthly limit of ${} exceeded", account.plan.monthly_limit),
                 );
             }
         }
-        if account.plan.output_limit > 0 {
-            if account.output_tokens_used + output_tokens > account.plan.output_limit {
-                return (
-                    false,
-                    format!(
-                        "Output token limit exceeded ({})",
-                        account.plan.output_limit
-                    ),
-                );
-            }
+        if account.plan.input_limit > 0
+            && account.input_tokens_used + input_tokens > account.plan.input_limit
+        {
+            return (
+                false,
+                format!("Input token limit exceeded ({})", account.plan.input_limit),
+            );
+        }
+        if account.plan.output_limit > 0
+            && account.output_tokens_used + output_tokens > account.plan.output_limit
+        {
+            return (
+                false,
+                format!(
+                    "Output token limit exceeded ({})",
+                    account.plan.output_limit
+                ),
+            );
         }
         (true, "OK".to_string())
     }
@@ -753,6 +758,7 @@ impl BillingManager {
         record
     }
 
+    #[allow(dead_code)] // Part of billing public API; TODO(v2.6): expose via CLI/HTTP
     pub fn get_usage_history(&self, user_id: &str, limit: usize) -> Vec<UsageRecord> {
         let mut history = self.usage_history.get(user_id).cloned().unwrap_or_default();
         history.sort_by(|a, b| b.timestamp.partial_cmp(&a.timestamp).unwrap());
@@ -793,6 +799,7 @@ impl BillingManager {
         account.clone()
     }
 
+    #[allow(dead_code)] // Part of billing public API; TODO(v2.6): expose via CLI/HTTP
     pub fn reset_monthly_usage(&mut self, user_id: &str) {
         if let Some(account) = self.accounts.get_mut(user_id) {
             account.used_this_month = 0.0;

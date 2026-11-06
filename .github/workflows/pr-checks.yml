@@ -88,6 +88,7 @@ jobs:
       tui: ${{ steps.filter.outputs.tui }}
       website: ${{ steps.filter.outputs.website }}
       docs: ${{ steps.filter.outputs.docs }}
+      rust: ${{ steps.filter.outputs.rust }}
     steps:
       - uses: actions/checkout@v6
 
@@ -110,6 +111,9 @@ jobs:
             docs:
               - 'docs/**'
               - 'mkdocs.yml'
+            rust:
+              - 'rust/**'
+              - 'Cargo.toml'
 
       - name: Log changes
         env:
@@ -117,8 +121,10 @@ jobs:
           TUI_CHANGED: ${{ steps.filter.outputs.tui }}
           WEBSITE_CHANGED: ${{ steps.filter.outputs.website }}
           DOCS_CHANGED: ${{ steps.filter.outputs.docs }}
+          RUST_CHANGED: ${{ steps.filter.outputs.rust }}
         run: |
           echo "Python changed: $PYTHON_CHANGED"
           echo "TUI changed: $TUI_CHANGED"
           echo "Website changed: $WEBSITE_CHANGED"
           echo "Docs changed: $DOCS_CHANGED"
+          echo "Rust changed: $RUST_CHANGED"

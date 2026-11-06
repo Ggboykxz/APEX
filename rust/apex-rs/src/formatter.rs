@@ -4,10 +4,8 @@
 //! rustfmt, gofmt, clang-format, etc., with availability discovery, config-driven
 //! enable/disable, and per-file formatter selection.
 //
-//! This module is not yet wired into the dispatch gate / agent loop.
-//! Allow dead code with a named exit criterion — TODO(v2.6): wire into tool
-//! dispatch / agent message handling and remove this allow.
-#![allow(dead_code)]
+//! Wired into the tool registry (`format_file`) and HTTP routes
+//! (`/api/v1/formatter`, `/api/v1/formatters`, `/api/v1/format`).
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -252,6 +250,7 @@ pub fn builtin_formatters() -> Vec<FormatterConfig> {
 pub struct FormatterManager {
     formatters: Vec<FormatterConfig>,
     available: HashMap<String, bool>,
+    #[allow(dead_code)] // Load state; TODO(v2.6): load from config at server startup
     loaded: bool,
 }
 
@@ -272,6 +271,7 @@ impl FormatterManager {
     }
 
     /// Returns a clone of the configured formatters.
+    #[allow(dead_code)] // Part of formatter public API; TODO(v2.6): expose via CLI/HTTP
     pub fn formatters(&self) -> Vec<FormatterConfig> {
         self.formatters.clone()
     }
@@ -282,6 +282,7 @@ impl FormatterManager {
     /// - `false` / `{"disabled": true}` → disable all
     /// - `true` → enable all, run availability discovery
     /// - `{"name": {...}}` → per-formatter overrides + custom additions
+    #[allow(dead_code)] // TODO(v2.6): load from config at server startup
     pub fn load_from_config(&mut self, cfg: Option<&serde_json::Value>) {
         self.formatters = builtin_formatters();
 
@@ -412,6 +413,7 @@ impl FormatterManager {
     /// - `"package.json:prettier"` → file exists AND contains dep name
     /// - `"biome.json"` → file exists
     /// - `"ruff"` → binary on PATH
+    #[allow(dead_code)] // Part of formatter public API; TODO(v2.6): used by availability discovery
     pub fn check_requirement(&self, req: &str) -> bool {
         if let Some((file_part, dep)) = req.split_once(':') {
             let p = Path::new(file_part);
@@ -432,6 +434,7 @@ impl FormatterManager {
     }
 
     /// Run availability discovery for all formatters.
+    #[allow(dead_code)] // TODO(v2.6): run at server startup via load_from_config
     pub fn discover_available(&mut self) {
         self.available.clear();
         for fmt in &self.formatters {
@@ -482,6 +485,7 @@ impl FormatterManager {
     }
 
     /// Return true if a file can be formatted by an available enabled formatter.
+    #[allow(dead_code)] // Part of formatter public API; TODO(v2.6): expose via tool/HTTP
     pub fn is_formattable<P: AsRef<Path>>(&self, file_path: P) -> bool {
         self.get_formatter_for(file_path).is_some()
     }
@@ -497,6 +501,7 @@ impl FormatterManager {
     }
 
     /// Format multiple files, returning a map of path → success.
+    #[allow(dead_code)] // Part of formatter public API; TODO(v2.6): expose via batch tool/HTTP
     pub fn format_files(&self, file_paths: &[String]) -> HashMap<String, bool> {
         file_paths
             .iter()
