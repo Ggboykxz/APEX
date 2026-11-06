@@ -36,21 +36,22 @@ key {create,list,revoke,delete},
 gateway {start,key,status}
 ```
 
-HTTP server (`serve`): 79 route registrations covering all 52 routes of
-Python's `apex/http_api.py` (route parity table below) plus 26 Rust-only
+HTTP server (`serve`): 81 route registrations covering all 52 routes of
+Python's `apex/http_api.py` (route parity table below) plus 28 Rust-only
 extras. Includes `/health`, `/api/v1/tools`, `/api/v1/security/analyze`,
 `/api/v1/auth/{login,logout,status}`, sessions, shares/export, files, models,
 config, themes, cost, chat, chat streaming, context (`repo-map`, `git`,
-`stats`, `ctags`, `tree`, `glob`), `/api/v1/rate-limit`, and WebSockets.
+`stats`, `ctags`, `tree`, `glob`, `tracking`), `/api/v1/rate-limit`,
+`/api/v1/telemetry`, and WebSockets.
 API-key auth is opt-in with
 `APEX_REQUIRE_AUTH` (`/health` and the WebSocket routes exempt).
 
 ## Route parity (`http_api.py`)
 
 Python's `http_api.py` registers 52 routes; all 52 are reachable on the Rust
-`serve` router. The 79 registrations split as 53 covering the 52 Python
+`serve` router. The 81 registrations split as 53 covering the 52 Python
 routes (`POST /chat/stream` is registered under both `/chat/stream` and
-`/api/v1/chat/stream`) plus 26 Rust-only extras. The E2E tests
+`/api/v1/chat/stream`) plus 28 Rust-only extras. The E2E tests
 (`serve_exposes_python_parity_routes`, `serve_diff_preview_accepts_and_rejects`)
 hit every route that does not require an LLM call; the three LLM-touching
 routes (`POST /chat`, `GET /stream`, `POST /api/v1/commands/execute`) reuse
@@ -119,8 +120,8 @@ Rust-only extras (no Python counterpart): `GET /api/v1/tools`,
 `POST /api/v1/sessions/:id/fork`, `GET /api/v1/sessions/:id/branches`,
 `DELETE /api/v1/share/:id`, `POST /api/v1/export`, `POST /api/v1/chat`,
 `GET /api/v1/cost`, `GET /api/v1/cost/history`, `POST /api/v1/cost/reset`,
-`GET /ws`, the six `GET /api/v1/context/*` routes, and
-`GET /api/v1/rate-limit`.
+`GET /ws`, the seven `GET /api/v1/context/*` routes (including
+`tracking`), `GET /api/v1/rate-limit` and `GET /api/v1/telemetry`.
 
 Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
@@ -136,7 +137,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `config.py` (model table) | `models.rs` | Wired | Static `MODELS`/`MODEL_PROVIDERS` port (name, provider, context window, pricing, tags); backs `GET /models`, `POST /api/v1/models/refresh`, and `GET /api/v1/providers` (PR 349). |
 | `config_tools.py` | - | Missing | No config-defined custom tools. |
 | `context.py` | `context.rs` | Wired | CLI `context repo-map\|git\|stats\|ctags\|tree\|glob` and `GET /api/v1/context/*`: repo map, git info, language stats, ctags file list, file tree, glob search. `get_repo_map` and `get_file_tree` are also exposed as tools on top of the same functions. |
-| `context_manager.py`, `context_tracking.py` | `context_tracking.rs` | Ported | Per-session token/message accounting, compaction trigger threshold (default 80% of 128k budget), compaction history (prune/summarize/merge), session add/remove/list. No Python system prompts/top_p; wiring into the agent loop/dispatch gate pending. See PR 334. |
+| `context_manager.py`, `context_tracking.py` | `context_tracking.rs` | Wired | Per-session token/message accounting, compaction trigger threshold (default 80% of 128k budget), compaction history (prune/summarize/merge), session add/remove/list. Wired: `Agent` carries a `ContextTracker` (`default_with_budget`), `record_api_usage` feeds `record_usage`, and the auto-compact gate in `chat`/`chat_stream` now also fires on `should_compact` (token budget) alongside the message-count threshold; `GET /api/v1/context/tracking` exposes budget, threshold and per-session stats. `record_compaction`, `remove` and the compaction history stay item-scoped until `Agent::compact_context` records them. See PR 334. |
 | `cost_local.py` | `cost.rs` | Wired | Pricing table, usage, cost history; CLI `cost` and HTTP cost routes. |
 | `codegen.py` | `codegen.rs` | Partial | Refactor, DB model, Dockerfile/compose, API client, docs, profile, optimize tools. Six helper operations remain test-only. |
 | `formatter.py` | `formatter.rs` | Wired | FormatterManager with 19 built-in formatters (ruff, prettier, biome, rustfmt, gofmt, clang-format, etc.), config-driven enable/disable (`formatter: true|false|{name: {...}}` in apex.json), availability discovery (binary on PATH / npx/cargo / requirement files), per-extension formatter selection, `format_file`/`format_files`/`format_code` (tempfile), `build_command`. HTTP: `GET /api/v1/formatter(s)` and `POST /api/v1/format` (PR 349). Not yet wired into the agent dispatch / format-on-write pipeline. See PR 337. |
@@ -167,7 +168,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
 | `watcher.py` | `watcher.rs` | Wired | Polling-based file watcher with debounced callbacks, gitignore-aware ignore patterns (`.gitignore` + configurable patterns), per-extension pattern matching, start/stop lifecycle. Wired: `apex-rs watch [PATH]` runs a one-shot scan listing non-ignored files, and `serve` starts the global watcher on the project directory (disabled by default via `WatcherConfig.enabled`). Secondary APIs (stop/should_ignore/debounce/pattern listing) remain item-scoped. See PR 338. |
 | `project.py` | `project.rs` | Wired | ProjectInitializer: language/package-manager/test-framework/LSP/formatter/build-system detection, project structure analysis, dependency/script extraction, AGENTS.md generation. Wired to `POST /api/v1/init` (PR 349). See PR 340. |
-| `mentions.py` | `mentions.rs` | Ported | `@file`/`@agent` mention expansion: MentionParser with regex identical to Python (`@boundary` and `in-word-with-dot`), case-insensitive agent dedup (build, plan, planner, reviewer, shell, general, explore, scout, compaction, title, summary), `resolve_file()` relative-to-cwd, `read_mentioned_files()` (capped at 5000 chars, skips unreadable), `FileMentionCompleter` with ignore list. Not yet wired into the agent message dispatch. See PR 335. |
+| `mentions.py` | `mentions.rs` | Wired | `@file`/`@agent` mention expansion: MentionParser with regex identical to Python (`@boundary` and `in-word-with-dot`), case-insensitive agent dedup (build, plan, planner, reviewer, shell, general, explore, scout, compaction, title, summary), `resolve_file()` relative-to-cwd, `read_mentioned_files()` (capped at 5000 chars, skips unreadable), `FileMentionCompleter` with ignore list. Wired: `Agent::expand_mentions` (chat + chat_stream entry points) now parses input with `MentionParser::parse` + `resolve_file` instead of `split_whitespace` — file mentions are inlined as `[File: …]` (images as base64, uncapped, same format as before), agent mentions are recognized but not inlined (subagent routing is a TUI concern, Python parity). `read_mentioned_files` and `FileMentionCompleter` stay item-scoped (TUI surface). See PR 335. |
 | `slash.py` | `slash.rs` | Wired | Slash command manager: 20+ built-in commands (agent, model, cwd, clear, save, load, share, undo, redo, git, map, help, cost, agents, subagents, models, init, analyze, approve, reject, shell, commands), alias support, argument validation, `/name arg1 arg2` parsing. Wired to `POST /api/v1/command` (PR 349: `handled` = whether the command parsed, `output` = the handler result); not yet wired into the agent message dispatch. See PR 339. |
 | `structured_message.py` | `structured_message.rs` | Wired | Structured message parts (text/file/tool_call/tool_result/image/snapshot) with MessagePart/Message/TokenUsage, to_dict/from_dict round-trip, factory `create_message`, serialize/deserialize helpers. Wired: `apex-rs message <role> <content>` builds a structured message and prints it as JSON. Part builders beyond text (file/tool/image/snapshot) and the round-trip helpers remain item-scoped for the agent loop. See PR 336. |
 | `task`/plan tooling in `tools.py` | `task_queue.rs`, `tools.rs` | Partial | `task` (delegates against the 11 built-in agent names; custom agents from `.apex/agents/*.md` are not scanned), `submit_task`/`list_tasks`/`get_task` (in-memory queue, one background thread per task - Python's `asyncio.run` actually cancels the spawned coroutine on loop teardown, so a task stays `pending` there), `plan_approve`/`plan_reject` (always `No pending plan` - Python's `_plan_approval` is never set on the executor either). `TaskQueue.cancel()` and the durable `task_queue.py` remain unported. |
@@ -216,7 +217,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current item-level allow inventory (114 attributes)
+### Current item-level allow inventory (111 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
@@ -248,14 +249,14 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `skills.rs` | `get_skill_manager` | Tools construct managers directly | Share a cached manager |
 
 The 27 tabulated items above are the primary item-level inventory. Three
-later modules add 30 more item-level `#[allow(dead_code)]` attributes, each
+later modules add 26 more item-level `#[allow(dead_code)]` attributes, each
 carrying an inline `TODO(v2.6)` justification per policy §2:
 
 | Scope | Location | Item count | Exit criterion |
 | --- | --- | ---: | --- |
 | Item | `agents.rs` | 19 | Wire into dispatch gate / CLI or remove |
-| Item | `context_tracking.rs` | 5 | Wire into tool dispatch / agent loop |
-| Item | `mentions.rs` | 6 | Wire into agent message parsing |
+| Item | `context_tracking.rs` | 4 | Record compactions from `Agent::compact_context`; expose session `remove` |
+| Item | `mentions.rs` | 3 | Expose `read_mentioned_files` via HTTP/TUI; wire `FileMentionCompleter` to the TUI |
 
 When the PR-#348 modules were wired (this migration phase), their remaining
 secondary APIs were scoped to item-level allows:
@@ -267,7 +268,7 @@ secondary APIs were scoped to item-level allows:
 | Item | `slash.rs` | 3 | Expose alias/command listing in help or `/commands` |
 | Item | `i18n.rs` | 2 | Use translated strings in agent/system prompts |
 | Item | `telemetry.rs` | 11 | Instrument agent tool loop / flush on shutdown |
-| Item | `sandbox.rs` | 5 | Keep CodeSandbox helpers / wire persistent shells |
+| Item | `sandbox.rs` | 6 | Keep CodeSandbox helpers / wire persistent shells |
 | Item | `watcher.rs` | 4 | Wire stop/should_ignore/debounce via CLI/HTTP |
 | Item | `structured_message.rs` | 11 | Use part builders + round-trip in agent loop |
 | Item | `rlm.rs` | 7 | Wire RLMQuery LLM stubs / persist rate-limit state |

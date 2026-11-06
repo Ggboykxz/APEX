@@ -10,8 +10,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// A mention of a file in the text.
-#[allow(dead_code)]
-// wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileMention {
     pub path: String,
@@ -20,8 +18,6 @@ pub struct FileMention {
 }
 
 /// A mention of an agent in the text.
-#[allow(dead_code)]
-// wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentMention {
     pub name: String,
@@ -34,13 +30,11 @@ pub struct AgentMention {
 /// Matches `@mention` only when preceded by start-of-string or whitespace,
 /// and also matches `@` inside a word when followed by something with a dot
 /// (file extension), e.g. `see @src/main.py`.
-#[allow(dead_code)] // wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
 pub struct MentionParser {
     agent_names: HashSet<String>,
     cwd: PathBuf,
 }
 
-#[allow(dead_code)] // wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
 impl MentionParser {
     /// Agent names recognized as agent mentions (lower-cased).
     const AGENT_NAMES: [&str; 11] = [
@@ -155,6 +149,7 @@ impl MentionParser {
 
     /// Read mentioned files from text, returning `path -> content` (capped at
     /// 5000 chars, files that don't exist or aren't readable are skipped).
+    #[allow(dead_code)] // TODO(v2.6): expose a mention-resolution HTTP/TUI endpoint
     pub fn read_mentioned_files(&self, text: &str) -> Vec<(String, String)> {
         let (file_mentions, _) = self.parse(text);
         let mut result = Vec::new();
@@ -173,12 +168,12 @@ impl MentionParser {
 }
 
 /// Completer for file mentions — suggests files matching a prefix.
-#[allow(dead_code)] // wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
+#[allow(dead_code)] // TUI-only surface (autocomplete) — TODO(v2.6): wire to the TUI
 pub struct FileMentionCompleter {
     cwd: PathBuf,
 }
 
-#[allow(dead_code)] // wiring into the message dispatch / tool chain pending — TODO(v2.6): wire into agent message parsing
+#[allow(dead_code)] // TUI-only surface (autocomplete) — see struct-level allow
 impl FileMentionCompleter {
     pub fn new(cwd: impl AsRef<Path>) -> Self {
         Self {

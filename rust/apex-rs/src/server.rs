@@ -1380,6 +1380,29 @@ pub async fn serve(config: Config, port: u16) {
                 }
             },
         ))
+        .route("/api/v1/context/tracking", get(|State(st): State<AppState>| async move {
+            let agent = st.agent.lock().await;
+            let tracker = &agent.context;
+            let sessions: Vec<serde_json::Value> = tracker
+                .sessions()
+                .iter()
+                .filter_map(|id| {
+                    let id: &str = id;
+                    tracker.get(id).map(|ctx| {
+                        let mut v = serde_json::to_value(ctx).unwrap();
+                        v["usage_ratio"] = serde_json::json!(tracker.usage_ratio(id));
+                        v
+                    })
+                })
+                .collect();
+            Json(serde_json::json!({
+                "max_tokens": tracker.max_tokens(),
+                "threshold": tracker.threshold(),
+                "sessions": sessions,
+                "session_count": tracker.len(),
+                "empty": tracker.is_empty(),
+            }))
+        }))
         .route("/api/v1/auth/login", post(auth_login))
         .route("/api/v1/auth/logout", post(auth_logout))
         .route("/api/v1/auth/status", get(auth_status))

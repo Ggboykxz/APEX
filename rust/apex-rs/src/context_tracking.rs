@@ -10,7 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A recorded compaction operation.
 #[allow(dead_code)]
-// context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
+// only constructed by record_compaction — see its allow
+// TODO(v2.6): record compactions from Agent::compact_context
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct CompactionRecord {
     pub strategy: String, // "prune" | "summarize" | "merge"
@@ -21,8 +22,6 @@ pub struct CompactionRecord {
 }
 
 /// Per-session context accounting.
-#[allow(dead_code)]
-// context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, Default)]
 pub struct SessionContext {
     pub session_id: String,
@@ -34,8 +33,6 @@ pub struct SessionContext {
 }
 
 /// Tracks context usage across sessions and decides when compaction is needed.
-#[allow(dead_code)]
-// context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
 #[derive(Debug, Clone, Default)]
 pub struct ContextTracker {
     sessions: HashMap<String, SessionContext>,
@@ -43,7 +40,6 @@ pub struct ContextTracker {
     threshold: f64, // fraction of max_tokens that triggers compaction (0.0–1.0)
 }
 
-#[allow(dead_code)] // context accounting will be wired into the dispatch gate — TODO(v2.6): wire into tool dispatch / agent loop
 impl ContextTracker {
     /// Create a tracker with the given token budget and compaction threshold.
     pub fn new(max_tokens: usize, threshold: f64) -> Self {
@@ -57,6 +53,16 @@ impl ContextTracker {
     /// Default tracker: 128k token budget, compaction at 80%.
     pub fn default_with_budget() -> Self {
         Self::new(128_000, 0.8)
+    }
+
+    /// The configured token budget for one session.
+    pub fn max_tokens(&self) -> usize {
+        self.max_tokens
+    }
+
+    /// The configured compaction threshold (fraction of the budget).
+    pub fn threshold(&self) -> f64 {
+        self.threshold
     }
 
     /// Record `tokens` consumed by `messages` new messages in `session_id`.
@@ -95,6 +101,7 @@ impl ContextTracker {
     }
 
     /// Record a compaction operation for `session_id`.
+    #[allow(dead_code)] // TODO(v2.6): record compactions from Agent::compact_context
     pub fn record_compaction(
         &mut self,
         session_id: &str,
@@ -136,6 +143,7 @@ impl ContextTracker {
     }
 
     /// Remove a session from tracking.
+    #[allow(dead_code)] // TODO(v2.6): call from session delete / reset paths
     pub fn remove(&mut self, session_id: &str) -> Option<SessionContext> {
         self.sessions.remove(session_id)
     }
@@ -151,7 +159,7 @@ impl ContextTracker {
 }
 
 /// Current UTC timestamp in ISO-8601 (matches Python's `datetime.utcnow().isoformat()`).
-#[allow(dead_code)] // used only by compaction recording — TODO(v2.6): wire into tool dispatch / agent loop
+#[allow(dead_code)] // used only by record_compaction — see its allow
 fn now_iso() -> String {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)

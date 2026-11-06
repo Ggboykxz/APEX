@@ -1,5 +1,7 @@
 use crate::config::Config;
+use crate::context_tracking::ContextTracker;
 use crate::cost::{CostTracker, Usage};
+use crate::mentions::MentionParser;
 use crate::permission;
 use crate::tools;
 use anyhow::Result;
@@ -15,6 +17,8 @@ pub struct Agent {
     pub last_call_usage: Usage,
     /// Cost accounting, mirrors `cost_tracker` in Python.
     pub cost: CostTracker,
+    /// Per-session context accounting (token budget + compaction gate).
+    pub context: ContextTracker,
 }
 
 /// Incremental output of [`Agent::chat_stream`].
@@ -38,7 +42,14 @@ impl Agent {
             usage: Usage::default(),
             last_call_usage: Usage::default(),
             cost: CostTracker::new(),
+            context: ContextTracker::default_with_budget(),
         }
+    }
+
+    /// Session identifier for context accounting: one headless agent is one
+    /// session, identified by its project directory.
+    fn session_id(&self) -> String {
+        self.config.cwd.to_string_lossy().into_owned()
     }
 
     /// Cumulative usage as JSON (`prompt_tokens`, `completion_tokens`, `total_tokens`).
@@ -73,24 +84,23 @@ impl Agent {
         self.last_call_usage.add(prompt, completion, total);
         self.cost
             .record_usage(&self.config.model, prompt, completion);
+        // Token-budget gate: count the round against the context tracker.
+        self.context
+            .record_usage(&self.session_id(), total as usize, 1);
     }
 
     /// Expand @file mentions in user input by appending file contents.
+    ///
+    /// Uses the mention parser (boundary `@file.py` and in-word `src@file.py`
+    /// forms, faithful to `apex/mentions.py`). Agent mentions (`@reviewer`,
+    /// `@shell`, …) are recognized but not inlined: subagent routing is a TUI
+    /// concern, exactly like Python (the parser is only exposed there).
     pub fn expand_mentions(&self, input: &str) -> String {
+        let parser = MentionParser::new(&self.config.cwd);
+        let (file_mentions, _agent_mentions) = parser.parse(input);
         let mut out = input.to_string();
-        for token in input.split_whitespace() {
-            if !token.starts_with('@') {
-                continue;
-            }
-            let path = token.trim_start_matches('@');
-            if path.is_empty() {
-                continue;
-            }
-            let full = if std::path::Path::new(path).is_absolute() {
-                std::path::PathBuf::from(path)
-            } else {
-                self.config.cwd.join(path)
-            };
+        for mention in &file_mentions {
+            let full = parser.resolve_file(&mention.path);
             let ext = full
                 .extension()
                 .and_then(|e| e.to_str())
@@ -237,8 +247,12 @@ impl Agent {
         let expanded = self.expand_mentions(user_input);
         self.history.push(json!({"role":"user","content":expanded}));
 
-        // Auto-compaction
-        if self.config.auto_compact && self.history.len() > self.config.compact_threshold {
+        // Auto-compaction: triggered by the message-count budget (config) or
+        // the token budget (context tracker).
+        if self.config.auto_compact
+            && (self.history.len() > self.config.compact_threshold
+                || self.context.should_compact(&self.session_id()))
+        {
             let keep = self.config.compact_threshold / 2;
             if self.history.len() > keep {
                 let start = self.history.len().saturating_sub(keep);
@@ -377,7 +391,12 @@ impl Agent {
         let expanded = self.expand_mentions(user_input);
         self.history.push(json!({"role":"user","content":expanded}));
 
-        if self.config.auto_compact && self.history.len() > self.config.compact_threshold {
+        // Auto-compaction: triggered by the message-count budget (config) or
+        // the token budget (context tracker).
+        if self.config.auto_compact
+            && (self.history.len() > self.config.compact_threshold
+                || self.context.should_compact(&self.session_id()))
+        {
             let keep = self.config.compact_threshold / 2;
             if self.history.len() > keep {
                 let start = self.history.len().saturating_sub(keep);
@@ -547,6 +566,90 @@ mod tests {
         let agent = Agent::new(cfg);
         let out = agent.expand_mentions("hello @README.md");
         assert!(out.contains("hello"));
+    }
+
+    #[test]
+    fn expand_mentions_inlines_file_and_ignores_agents() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("notes.txt"), "hello mention").unwrap();
+
+        let mut cfg = Config::from_env();
+        cfg.cwd = dir.path().to_path_buf();
+        let agent = Agent::new(cfg);
+
+        // A boundary file mention is inlined as `[File: …]` with its content.
+        let out = agent.expand_mentions("see @notes.txt please");
+        assert!(out.contains("see @notes.txt please"), "got: {out}");
+        assert!(out.contains("[File: "), "got: {out}");
+        assert!(out.contains("hello mention"), "got: {out}");
+
+        // A missing file is silently skipped.
+        let out = agent.expand_mentions("see @nope.txt");
+        assert_eq!(out, "see @nope.txt", "got: {out}");
+
+        // Agent mentions are recognized but not inlined (no file read).
+        let out = agent.expand_mentions("ask @reviewer about @notes.txt");
+        assert_eq!(
+            out.matches("[File:").count(),
+            1,
+            "only the file mention is inlined: {out}"
+        );
+    }
+
+    #[test]
+    fn expand_mentions_inline_image_as_base64() {
+        let dir = tempfile::tempdir().unwrap();
+        // 1x1 transparent PNG.
+        use base64::Engine;
+        let png = base64::engine::general_purpose::STANDARD
+            .decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
+            .unwrap();
+        std::fs::write(dir.path().join("dot.png"), &png).unwrap();
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&png);
+
+        let mut cfg = Config::from_env();
+        cfg.cwd = dir.path().to_path_buf();
+        let agent = Agent::new(cfg);
+
+        let out = agent.expand_mentions("look at @dot.png");
+        assert!(out.contains("[Image: "), "got: {out}");
+        assert!(out.contains("base64"), "got: {out}");
+        assert!(out.contains(&b64), "got: {out}");
+    }
+
+    #[test]
+    fn record_api_usage_updates_context_tracker() {
+        let cfg = Config::from_env();
+        let mut agent = Agent::new(cfg);
+        assert!(agent.context.is_empty(), "a fresh agent tracks no sessions");
+
+        agent.record_api_usage(&serde_json::json!({
+            "prompt_tokens": 100,
+            "completion_tokens": 50,
+            "total_tokens": 150
+        }));
+        let sid = agent.session_id();
+        let ctx = agent
+            .context
+            .get(&sid)
+            .expect("the session must be tracked");
+        assert_eq!(ctx.token_count, 150);
+        assert_eq!(ctx.message_count, 1);
+        assert!(
+            !agent.context.should_compact(&sid),
+            "150 tokens < 80% of 128k"
+        );
+
+        // Crossing the token budget must trigger the compaction gate.
+        agent.record_api_usage(&serde_json::json!({
+            "prompt_tokens": 90_000,
+            "completion_tokens": 90_000,
+            "total_tokens": 180_000
+        }));
+        assert!(
+            agent.context.should_compact(&sid),
+            "180k+ tokens >= 80% of 128k"
+        );
     }
 
     #[test]

@@ -1175,12 +1175,34 @@ shares, `POST /session/save|load`, config, themes, stats, formatters and
 `POST /api/v1/init`, `GET /find/file`, export/import,
 `GET /api/v1/session/{id}/diff{,/decision}`, `POST /api/v1/session/{id}/{fork,abort}`,
 LSP/formatter/MCP status, `GET /global/event` SSE, `GET /metrics`,
-`GET /rate-limit/status`, `GET /global/health`, auth) plus 26 Rust-only
+`GET /rate-limit/status`, `GET /global/health`, auth) plus 28 Rust-only
 extras. The authoritative per-route table and the divergence list live in
 [`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md) (route parity section);
 update it in the same PR as any surface change.
 New helper modules back the ported routes: `models.rs` (static model
 table) and `commands.rs` (markdown custom-command manager).
+
+### Context tracking & mentions
+
+`context_tracking.rs` (port of `apex/context_manager.py` /
+`context_tracking.py`) and `mentions.rs` (port of `apex/mentions.py`) are
+wired into the agent:
+
+- **Context tracking** — every `Agent` carries a `ContextTracker`
+  (`default_with_budget`: 128k token budget, 80% threshold). `record_api_usage`
+  feeds `record_usage`, and the auto-compact gate in `chat`/`chat_stream`
+  now fires on `should_compact` (token budget) in addition to the
+  message-count threshold. `GET /api/v1/context/tracking` exposes the budget,
+  threshold and per-session stats. `record_compaction`, `remove` and the
+  compaction history stay item-scoped until `Agent::compact_context` records
+  them.
+- **Mentions** — `Agent::expand_mentions` (both `chat` and `chat_stream`)
+  parses input with `MentionParser::parse` + `resolve_file` instead of
+  `split_whitespace`. File mentions are inlined as `[File: …]` (images as
+  base64, uncapped, same format as before); agent mentions are recognized but
+  not inlined (subagent routing is a TUI concern, Python parity).
+  `read_mentioned_files` and `FileMentionCompleter` remain item-scoped
+  (TUI surface).
 
 ### Gateway
 
