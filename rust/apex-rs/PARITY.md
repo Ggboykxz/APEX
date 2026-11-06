@@ -36,22 +36,23 @@ key {create,list,revoke,delete},
 gateway {start,key,status}
 ```
 
-HTTP server (`serve`): 81 route registrations covering all 52 routes of
-Python's `apex/http_api.py` (route parity table below) plus 28 Rust-only
+HTTP server (`serve`): 88 route registrations covering all 52 routes of
+Python's `apex/http_api.py` (route parity table below) plus 35 Rust-only
 extras. Includes `/health`, `/api/v1/tools`, `/api/v1/security/analyze`,
 `/api/v1/auth/{login,logout,status}`, sessions, shares/export, files, models,
 config, themes, cost, chat, chat streaming, context (`repo-map`, `git`,
-`stats`, `ctags`, `tree`, `glob`, `tracking`), `/api/v1/rate-limit`,
-`/api/v1/telemetry`, and WebSockets.
+`stats`, `ctags`, `tree`, `glob`, `tracking`), `/api/v1/snapshot/*`
+(`track`, `track-file`, `undo`, `redo`, `history`, `status`, `restore`),
+`/api/v1/rate-limit`, `/api/v1/telemetry`, and WebSockets.
 API-key auth is opt-in with
 `APEX_REQUIRE_AUTH` (`/health` and the WebSocket routes exempt).
 
 ## Route parity (`http_api.py`)
 
 Python's `http_api.py` registers 52 routes; all 52 are reachable on the Rust
-`serve` router. The 81 registrations split as 53 covering the 52 Python
+`serve` router. The 88 registrations split as 53 covering the 52 Python
 routes (`POST /chat/stream` is registered under both `/chat/stream` and
-`/api/v1/chat/stream`) plus 28 Rust-only extras. The E2E tests
+`/api/v1/chat/stream`) plus 35 Rust-only extras. The E2E tests
 (`serve_exposes_python_parity_routes`, `serve_diff_preview_accepts_and_rejects`)
 hit every route that does not require an LLM call; the three LLM-touching
 routes (`POST /chat`, `GET /stream`, `POST /api/v1/commands/execute`) reuse
@@ -121,7 +122,9 @@ Rust-only extras (no Python counterpart): `GET /api/v1/tools`,
 `DELETE /api/v1/share/:id`, `POST /api/v1/export`, `POST /api/v1/chat`,
 `GET /api/v1/cost`, `GET /api/v1/cost/history`, `POST /api/v1/cost/reset`,
 `GET /ws`, the seven `GET /api/v1/context/*` routes (including
-`tracking`), `GET /api/v1/rate-limit` and `GET /api/v1/telemetry`.
+`tracking`), the seven `/api/v1/snapshot/*` routes (`POST track`, `POST
+track-file`, `POST undo`, `POST redo`, `POST restore`, `GET history`,
+`GET status`), `GET /api/v1/rate-limit` and `GET /api/v1/telemetry`.
 
 Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
@@ -165,7 +168,8 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `billing.py` | `billing.rs` | Wired | BillingManager with plan types (Free/Pro/Enterprise/Custom), model cost table, usage tracking, quota checking, and summary reporting. Tools: billing_cost, billing_quota, billing_usage, billing_plan, billing_summary. |
 | `sandbox.py` | `sandbox.rs` | Wired | CodeSandbox::run_code exposed as the `run_code` tool (python/javascript/bash/ruby/go/rust/php) with per-language runner, output truncation and exit-code reporting. ShellSession (persistent interactive shells) remains unwired (item-scoped). |
 | `task_queue.py` | - | Missing | No durable background tasks. |
-| `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
+| `snapshot.py` | `snapshot.rs` | Wired | Git-based undo/redo: `ActionType` (6 variants with Python's values), `FileChange`, `Snapshot` + `to_dict`, `SnapshotManager` (`track`, `add_file_change`, `track_file`, naive line diff, `get_snapshot`, `restore`, `undo`, `redo`, `can_undo`/`can_redo`, `get_history` with Python's `[-limit:]` semantics, `clear`), side git repo under `.apex/snapshots/` (best-effort `git init`, like Python's captured subprocesses). Python exports `SnapshotManager` but never calls it (its `/undo`/`/redo` routes use `session.UndoManager`), so the Rust server is the production surface, like `workspace.rs`: `serve` holds one manager in `AppState` and exposes `POST /api/v1/snapshot/{track,track-file,undo,redo,restore}` plus `GET /api/v1/snapshot/{history,status}` — all answer 200 with an `ok` flag, mirroring `/api/v1/undo`/`/api/v1/redo`. Divergences: **bug fix** — Python's `undo()` pops the snapshot and then calls `restore(id)`, which looks it up in the undo stack where it no longer exists, so Python's undo never restored any file; the port applies the popped snapshot's changes directly (`restore(id)` stays the lookup API). `track_file` captures only `before` (`after` stays null), so a redo after `track_file` rewrites nothing (Python parity). `file_hash`, `save_snapshot_to_git` and `clear` stay item-scoped (dead in
+Python too). |
 | `watcher.py` | `watcher.rs` | Wired | Polling-based file watcher with debounced callbacks, gitignore-aware ignore patterns (`.gitignore` + configurable patterns), per-extension pattern matching, start/stop lifecycle. Wired: `apex-rs watch [PATH]` runs a one-shot scan listing non-ignored files, and `serve` starts the global watcher on the project directory (disabled by default via `WatcherConfig.enabled`). Secondary APIs (stop/should_ignore/debounce/pattern listing) remain item-scoped. See PR 338. |
 | `project.py` | `project.rs` | Wired | ProjectInitializer: language/package-manager/test-framework/LSP/formatter/build-system detection, project structure analysis, dependency/script extraction, AGENTS.md generation. Wired to `POST /api/v1/init` (PR 349). See PR 340. |
 | `mentions.py` | `mentions.rs` | Wired | `@file`/`@agent` mention expansion: MentionParser with regex identical to Python (`@boundary` and `in-word-with-dot`), case-insensitive agent dedup (build, plan, planner, reviewer, shell, general, explore, scout, compaction, title, summary), `resolve_file()` relative-to-cwd, `read_mentioned_files()` (capped at 5000 chars, skips unreadable), `FileMentionCompleter` with ignore list. Wired: `Agent::expand_mentions` (chat + chat_stream entry points) now parses input with `MentionParser::parse` + `resolve_file` instead of `split_whitespace` — file mentions are inlined as `[File: …]` (images as base64, uncapped, same format as before), agent mentions are recognized but not inlined (subagent routing is a TUI concern, Python parity). `read_mentioned_files` and `FileMentionCompleter` stay item-scoped (TUI surface). See PR 335. |
@@ -217,7 +221,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current item-level allow inventory (111 attributes)
+### Current item-level allow inventory (114 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
@@ -258,7 +262,7 @@ carrying an inline `TODO(v2.6)` justification per policy §2:
 | Item | `context_tracking.rs` | 4 | Record compactions from `Agent::compact_context`; expose session `remove` |
 | Item | `mentions.rs` | 3 | Expose `read_mentioned_files` via HTTP/TUI; wire `FileMentionCompleter` to the TUI |
 
-When the PR-#348 modules were wired (this migration phase), their remaining
+When the PR-#348 and Phase 2 modules were wired, their remaining
 secondary APIs were scoped to item-level allows:
 
 | Scope | Location | Item count | Exit criterion |
@@ -272,6 +276,7 @@ secondary APIs were scoped to item-level allows:
 | Item | `watcher.rs` | 4 | Wire stop/should_ignore/debounce via CLI/HTTP |
 | Item | `structured_message.rs` | 11 | Use part builders + round-trip in agent loop |
 | Item | `rlm.rs` | 7 | Wire RLMQuery LLM stubs / persist rate-limit state |
+| Item | `snapshot.rs` | 3 | Expose `file_hash` / `save_snapshot_to_git` / `clear` via snapshot routes |
 
 Per policy §4, module-level allows require their own entries. All ten
 PR-#348 modules that carried one are now wired; none remain.

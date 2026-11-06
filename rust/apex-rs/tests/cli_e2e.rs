@@ -2049,6 +2049,128 @@ async fn serve_exposes_context_tracking_route() {
     );
 }
 
+#[tokio::test]
+async fn serve_snapshot_undo_redo_lifecycle() {
+    let sb = Sandbox::new();
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve did not become healthy"
+    );
+
+    // Track the file before modification (the manager roots at the server cwd).
+    std::fs::write(sb.cwd.join("notes.txt"), "v1").unwrap();
+    let tracked: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/track-file",
+        &serde_json::json!({ "path": "notes.txt" }),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(tracked["ok"].as_bool().unwrap(), "got: {tracked}");
+    let snap = &tracked["snapshot"];
+    assert_eq!(snap["files"][0]["path"], "notes.txt", "got: {tracked}");
+    assert_eq!(snap["files"][0]["before"], "v1", "got: {tracked}");
+    assert!(snap["files"][0]["after"].is_null(), "got: {tracked}");
+
+    // Modify, then undo: the tracked pre-change content comes back.
+    std::fs::write(sb.cwd.join("notes.txt"), "v2").unwrap();
+    let undone: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/undo",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(undone["ok"].as_bool().unwrap(), "got: {undone}");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("notes.txt")).unwrap(),
+        "v1",
+        "undo must restore the tracked content"
+    );
+
+    // status reflects the moved snapshot.
+    let status: serde_json::Value = get(&client, &base, "/api/v1/snapshot/status")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(status["can_undo"], false, "got: {status}");
+    assert_eq!(status["can_redo"], true, "got: {status}");
+    assert_eq!(status["undo_count"], 0, "got: {status}");
+    assert_eq!(status["redo_count"], 1, "got: {status}");
+
+    // Redo: track_file captured no `after`, so the file is left as-is
+    // (Python parity), but the snapshot returns to the undo stack.
+    let redone: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/redo",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(redone["ok"].as_bool().unwrap(), "got: {redone}");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("notes.txt")).unwrap(),
+        "v1",
+        "redo of a track_file snapshot rewrites nothing"
+    );
+
+    // The history keeps the single snapshot with its action type.
+    let history: serde_json::Value = get(&client, &base, "/api/v1/snapshot/history?limit=10")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(history["ok"].as_bool().unwrap(), "got: {history}");
+    let snaps = history["snapshots"].as_array().unwrap();
+    assert_eq!(snaps.len(), 1, "got: {history}");
+    assert_eq!(snaps[0]["action_type"], "file_edit", "got: {history}");
+
+    // Undo again, then the stack is empty.
+    let undone2: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/undo",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(undone2["ok"].as_bool().unwrap(), "got: {undone2}");
+
+    // A third undo still answers 200, with the `ok` flag false.
+    let empty: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/undo",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(empty["ok"], false, "got: {empty}");
+    assert_eq!(empty["error"], "nothing to undo", "got: {empty}");
+}
+
 /// Index of the first occurrence of `needle` in `haystack` (fake upstreams).
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.len() > haystack.len() {

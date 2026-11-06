@@ -36,6 +36,7 @@ mod shell_security;
 mod shell_tools;
 mod skills;
 mod slash;
+mod snapshot;
 mod structured_message;
 mod task_queue;
 mod telemetry;
