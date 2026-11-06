@@ -207,13 +207,15 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
    `plugins::plugin_count`, `McpServerConfig::name`, `McpManager::all_tools`,
    and `Memory::path`.
 4. Module-level allows are reserved for whole modules with no caller. Adding
-   one requires an entry in this document. There is currently none: the
-   `permission` module went live with the dispatch gate in this increment.
+   one requires an entry in this document. Ten PR-#348 modules carry a
+   module-level `#![allow(dead_code)]` (several also `#![allow(clippy::all)]`);
+   the module-level table below records each with its exit criterion. Removing
+   an allow requires wiring the module and updating that table.
 5. When an allow is removed: wire the code, add CLI/HTTP/tool or unit coverage,
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current allow inventory (27 attributes)
+### Current item-level allow inventory (57 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
@@ -244,8 +246,33 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Item | `skills.rs` | `three_way_diff` | No diff3 tool | Add `diff3_files` |
 | Item | `skills.rs` | `get_skill_manager` | Tools construct managers directly | Share a cached manager |
 
-There are currently no module-level allows; the 27 item-level attributes
-are the complete inventory.
+The 27 tabulated items above are the primary item-level inventory. Three
+later modules add 30 more item-level `#[allow(dead_code)]` attributes, each
+carrying an inline `TODO(v2.6)` justification per policy §2:
+
+| Scope | Location | Item count | Exit criterion |
+| --- | --- | ---: | --- |
+| Item | `agents.rs` | 19 | Wire into dispatch gate / CLI or remove |
+| Item | `context_tracking.rs` | 5 | Wire into tool dispatch / agent loop |
+| Item | `mentions.rs` | 6 | Wire into agent message parsing |
+
+Per policy §4, module-level allows require their own entries; the ten
+PR-#348 modules that carry one are listed below.
+
+### Current module-level allow inventory (10 modules)
+
+| Module | Allow(s) | Why it is unwired | Exit criterion |
+| --- | --- | --- | --- |
+| `watcher.rs` | `dead_code` | File-watcher wiring not yet invoked at runtime | Wire watcher into CLI/daemon or remove |
+| `telemetry.rs` | `dead_code`, `clippy::all` | Telemetry sink not yet plumbed from agent loop | Wire telemetry exporter or remove |
+| `structured_message.rs` | `dead_code` | Structured-message types not yet used in dispatch | Use in agent-message handling or remove |
+| `slash.rs` | `dead_code` | Slash-command parsing not yet wired | Wire slash commands into CLI or remove |
+| `sandbox.rs` | `dead_code`, `clippy::all` | Sandbox executor not yet invoked | Wire sandbox into tool dispatch or remove |
+| `rlm.rs` | `dead_code`, `clippy::all` | RLM scoring not yet wired | Wire RLM into agent loop or remove |
+| `project.rs` | `dead_code` | Project context accretion not yet wired | Wire project context or remove |
+| `billing.rs` | `dead_code`, `clippy::all` | Billing not yet wired to usage | Wire billing into usage path or remove |
+| `formatter.rs` | `dead_code` | Formatter dispatch not yet wired | Wire formatter into edit tools or remove |
+| `i18n.rs` | `dead_code`, `clippy::all` | i18n strings not yet adopted | Wire i18n or remove |
 
 ## Verification
 
