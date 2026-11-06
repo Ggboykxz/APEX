@@ -157,6 +157,26 @@ enum Commands {
         #[arg(long)]
         lang: Option<String>,
     },
+    /// Build and show a structured message (structured_message parity)
+    Message {
+        /// Message role (`user`, `assistant`, `tool`)
+        role: String,
+        /// Initial text content
+        content: String,
+    },
+    /// One-shot file watcher scan: list non-ignored files under PATH
+    Watch {
+        /// Directory to scan (defaults to the current directory)
+        path: Option<String>,
+    },
+    /// OKLM per-key rate-limit check/increment (rlm parity)
+    Rlm {
+        /// Rate-limit key to inspect
+        key: String,
+        /// Increment the counters before reporting (defaults to check-only)
+        #[arg(long)]
+        inc: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -575,6 +595,36 @@ async fn main() {
                 guard.available_locales().join(", ")
             );
             println!("Welcome: {}", guard.get_bracket("welcome"));
+        }
+        Some(Commands::Message { role, content }) => {
+            let msg = crate::structured_message::create_message(role, content);
+            println!("{}", serde_json::to_string_pretty(&msg.to_dict()).unwrap());
+        }
+        Some(Commands::Watch { path }) => {
+            let base = path
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+            let mut patterns = crate::watcher::DEFAULT_IGNORE_PATTERNS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+            patterns.extend(crate::watcher::load_gitignore_patterns(&base));
+            let mut seen: Vec<String> = Vec::new();
+            let _ = walk_watch(&base, &base, &patterns, &mut seen);
+            seen.sort();
+            for path in seen {
+                println!("{path}");
+            }
+        }
+        Some(Commands::Rlm { key, inc }) => {
+            let mut rlm = crate::rlm::RLM::new(None);
+            if inc {
+                let result = rlm.increment(&key);
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+            } else {
+                let result = rlm.check_rate_limit(&key);
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+            }
         }
         Some(Commands::Gateway { action }) => match action {
             Some(GatewayAction::Start) => {
@@ -1326,6 +1376,38 @@ fn open_turn_tracker(path: &str) -> workspace_rollback::TurnTracker {
             std::process::exit(1);
         }
     }
+}
+
+/// Recursively collect non-ignored files under `dir` (relative to `root`),
+/// mirroring the watcher's scan for the `watch` CLI command.
+fn walk_watch(
+    dir: &std::path::Path,
+    root: &std::path::Path,
+    patterns: &[String],
+    out: &mut Vec<String>,
+) -> std::io::Result<()> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(()),
+    };
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .to_string();
+        if path.is_dir() && !crate::watcher::is_ignored(&rel, patterns) {
+            dirs.push(path);
+        } else if path.is_file() && !crate::watcher::is_ignored(&rel, patterns) {
+            out.push(rel);
+        }
+    }
+    for d in dirs {
+        let _ = walk_watch(&d, root, patterns, out);
+    }
+    Ok(())
 }
 
 /// Exit with a clear error when no repository can be detected for automation.

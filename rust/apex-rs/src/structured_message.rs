@@ -3,11 +3,8 @@
 //! Messages are built from typed parts (text, file, tool_call, tool_result,
 //! image, snapshot) instead of plain strings/JSON, matching OpenCode's parts
 //! model.
-//
-//! This module is not yet wired into the dispatch gate / agent loop.
-//! Allow dead code with a named exit criterion — TODO(v2.6): wire into tool
-//! dispatch / agent message handling and remove this allow.
-#![allow(dead_code)]
+//!
+//! Wired into the CLI via `apex-rs message`.
 
 use std::collections::HashMap;
 use std::time::SystemTime;
@@ -57,6 +54,7 @@ impl MessagePart {
         }
     }
 
+    #[allow(dead_code)] // TODO(v2.6): used by richer message builders in agent loop
     pub fn with_metadata(
         part_type: PartType,
         content: serde_json::Value,
@@ -126,6 +124,8 @@ impl Message {
         ));
     }
 
+    /// Add a file part (test-only API surface, not reached from the CLI).
+    #[allow(dead_code)] // TODO(v2.6): use in agent loop message building
     pub fn add_file(&mut self, path: impl Into<String>, content: impl Into<String>) {
         let path = path.into();
         let mut metadata = HashMap::new();
@@ -140,6 +140,7 @@ impl Message {
         ));
     }
 
+    #[allow(dead_code)] // TODO(v2.6): use in agent loop message building
     pub fn add_tool_call(&mut self, tool_name: impl Into<String>, arguments: serde_json::Value) {
         self.parts.push(MessagePart::new(
             PartType::ToolCall,
@@ -147,6 +148,7 @@ impl Message {
         ));
     }
 
+    #[allow(dead_code)] // TODO(v2.6): use in agent loop message building
     pub fn add_tool_result(&mut self, tool_name: impl Into<String>, result: serde_json::Value) {
         self.parts.push(MessagePart::new(
             PartType::ToolResult,
@@ -154,6 +156,7 @@ impl Message {
         ));
     }
 
+    #[allow(dead_code)] // TODO(v2.6): use in agent loop message building
     pub fn add_image(&mut self, path: impl Into<String>, base64_data: impl Into<String>) {
         self.parts.push(MessagePart::new(
             PartType::Image,
@@ -161,6 +164,7 @@ impl Message {
         ));
     }
 
+    #[allow(dead_code)] // TODO(v2.6): use in agent loop message building
     pub fn add_snapshot(&mut self, snapshot_id: impl Into<String>) {
         self.parts.push(MessagePart::new(
             PartType::Snapshot,
@@ -169,6 +173,7 @@ impl Message {
     }
 
     /// Concatenate all TEXT parts into a single string.
+    #[allow(dead_code)] // TODO(v2.6): use in agent loop message parsing
     pub fn get_text(&self) -> String {
         self.parts
             .iter()
@@ -179,6 +184,7 @@ impl Message {
     }
 
     /// Return all FILE part contents.
+    #[allow(dead_code)] // TODO(v2.6): use in agent loop message parsing
     pub fn get_files(&self) -> Vec<serde_json::Value> {
         self.parts
             .iter()
@@ -188,6 +194,7 @@ impl Message {
     }
 
     /// Return all TOOL_CALL part contents.
+    #[allow(dead_code)] // TODO(v2.6): use in agent loop message parsing
     pub fn get_tool_calls(&self) -> Vec<serde_json::Value> {
         self.parts
             .iter()
@@ -283,11 +290,13 @@ pub fn create_message(role: impl Into<String>, content: impl Into<String>) -> Me
 }
 
 /// Serialize messages to a list of dicts.
+#[allow(dead_code)] // TODO(v2.6): use in HTTP session export/import
 pub fn serialize_messages(messages: &[Message]) -> Vec<serde_json::Value> {
     messages.iter().map(|m| m.to_dict()).collect()
 }
 
 /// Deserialize messages from a list of dicts.
+#[allow(dead_code)] // TODO(v2.6): use in HTTP session export/import
 pub fn deserialize_messages(data: &[serde_json::Value]) -> serde_json::Result<Vec<Message>> {
     data.iter().map(Message::from_dict).collect()
 }

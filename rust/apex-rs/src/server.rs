@@ -838,6 +838,17 @@ pub async fn serve(config: Config, port: u16) {
         tl.log_session_start(config.cwd.to_str().unwrap_or(""));
         tl.log_agent_start(&config.model, "build");
     }
+    // File watcher: start the global watcher on the project directory. It
+    // honours `watcher` config (enabled defaults to false, so this is a no-op
+    // unless the operator enables it). The callback is intentionally empty: the
+    // watcher's value here is registering ignore patterns and tracking mtimes;
+    // consumers can replace it with a real handler.
+    {
+        let w = crate::watcher::watcher();
+        let cwd = config.cwd.clone();
+        w.set_poll_interval(1.0);
+        w.start(cwd, |_path| {});
+    }
     let (events, _) = tokio::sync::broadcast::channel::<String>(256);
     let state = AppState {
         agent: Arc::new(Mutex::new(Agent::new(config.clone()))),

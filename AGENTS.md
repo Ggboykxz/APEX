@@ -1097,11 +1097,11 @@ surface change.
 - No crate-level `#![allow(dead_code)]`.
 - Allows are scoped to a module or item and carry a justification plus a
   `TODO(v2.6)` exit criterion.
-- Three modules carry a module-level allow (`watcher`, `structured_message`,
-  `rlm`); the full module-level and item-level inventories are
-  the tables in PARITY.md. `i18n`, `telemetry`, `slash`, `project`,
-  `billing`, `formatter` and `sandbox` previously carried one but are now
-  wired (see PARITY.md).
+- No module-level allows remain: every PR-#348 module
+  (`watcher`, `structured_message`, `sandbox`, `rlm`, `telemetry`, `i18n`,
+  `slash`, `project`, `billing`, `formatter`) is now wired to the CLI or the
+  HTTP server. The full module-level and item-level inventories are the
+  tables in PARITY.md.
 
 ### Shell security
 
@@ -1391,11 +1391,12 @@ inside the agent loop's Tokio runtime.
   a 300 s timeout. Returns `SUCCESS: Installed <package> via <manager>` on
   success, `ERROR: …` on failure.
 
+`run_code` is also wired through the sandboxed code executor
+(`sandbox::CodeSandbox::run_code`, python/javascript/bash/ruby/go/rust/php).
 The following shell tools remain pending (they depend on `sandbox.py` /
 `commands.py`, ported in later waves):
 
 - `run_command_custom` → `commands.py` (command manager)
-- `run_code` → `sandbox.py` (ShellSession)
 - `start_shell` / `run_shell` / `close_shell` → `sandbox.py` (ShellSession)
 
 ### Codegen tools

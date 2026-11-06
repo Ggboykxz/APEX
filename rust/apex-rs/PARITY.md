@@ -165,16 +165,16 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `sandbox.py` | `sandbox.rs` | Wired | CodeSandbox::run_code exposed as the `run_code` tool (python/javascript/bash/ruby/go/rust/php) with per-language runner, output truncation and exit-code reporting. ShellSession (persistent interactive shells) remains unwired (item-scoped). |
 | `task_queue.py` | - | Missing | No durable background tasks. |
 | `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
-| `watcher.py` | `watcher.rs` | Ported | Polling-based file watcher with debounced callbacks, gitignore-aware ignore patterns (`.gitignore` + configurable patterns), per-extension pattern matching, start/stop lifecycle. Not yet wired into the agent loop. See PR 338. |
+| `watcher.py` | `watcher.rs` | Wired | Polling-based file watcher with debounced callbacks, gitignore-aware ignore patterns (`.gitignore` + configurable patterns), per-extension pattern matching, start/stop lifecycle. Wired: `apex-rs watch [PATH]` runs a one-shot scan listing non-ignored files, and `serve` starts the global watcher on the project directory (disabled by default via `WatcherConfig.enabled`). Secondary APIs (stop/should_ignore/debounce/pattern listing) remain item-scoped. See PR 338. |
 | `project.py` | `project.rs` | Wired | ProjectInitializer: language/package-manager/test-framework/LSP/formatter/build-system detection, project structure analysis, dependency/script extraction, AGENTS.md generation. Wired to `POST /api/v1/init` (PR 349). See PR 340. |
 | `mentions.py` | `mentions.rs` | Ported | `@file`/`@agent` mention expansion: MentionParser with regex identical to Python (`@boundary` and `in-word-with-dot`), case-insensitive agent dedup (build, plan, planner, reviewer, shell, general, explore, scout, compaction, title, summary), `resolve_file()` relative-to-cwd, `read_mentioned_files()` (capped at 5000 chars, skips unreadable), `FileMentionCompleter` with ignore list. Not yet wired into the agent message dispatch. See PR 335. |
 | `slash.py` | `slash.rs` | Wired | Slash command manager: 20+ built-in commands (agent, model, cwd, clear, save, load, share, undo, redo, git, map, help, cost, agents, subagents, models, init, analyze, approve, reject, shell, commands), alias support, argument validation, `/name arg1 arg2` parsing. Wired to `POST /api/v1/command` (PR 349: `handled` = whether the command parsed, `output` = the handler result); not yet wired into the agent message dispatch. See PR 339. |
-| `structured_message.py` | `structured_message.rs` | Ported | Structured message parts (text/file/tool_call/tool_result/image/snapshot) with MessagePart/Message/TokenUsage, to_dict/from_dict round-trip, factory `create_message`, serialize/deserialize helpers. Not yet wired into the agent message dispatch. See PR 336. |
+| `structured_message.py` | `structured_message.rs` | Wired | Structured message parts (text/file/tool_call/tool_result/image/snapshot) with MessagePart/Message/TokenUsage, to_dict/from_dict round-trip, factory `create_message`, serialize/deserialize helpers. Wired: `apex-rs message <role> <content>` builds a structured message and prints it as JSON. Part builders beyond text (file/tool/image/snapshot) and the round-trip helpers remain item-scoped for the agent loop. See PR 336. |
 | `task`/plan tooling in `tools.py` | `task_queue.rs`, `tools.rs` | Partial | `task` (delegates against the 11 built-in agent names; custom agents from `.apex/agents/*.md` are not scanned), `submit_task`/`list_tasks`/`get_task` (in-memory queue, one background thread per task - Python's `asyncio.run` actually cancels the spawned coroutine on loop teardown, so a task stays `pending` there), `plan_approve`/`plan_reject` (always `No pending plan` - Python's `_plan_approval` is never set on the executor either). `TaskQueue.cancel()` and the durable `task_queue.py` remain unported. |
 | `ui.py` | - | Missing | No terminal UI; the TUI remains separate (TypeScript frontend). |
 | `i18n.py` | `i18n.rs` | Wired | Locale auto-detection, `LOCALES`, localized string map, `I18n` manager. CLI `apex-rs locale [--lang]` reports the active locale and prints a localized welcome string. |
 | `telemetry.py` | `telemetry.rs` | Wired | Session and agent start are recorded on `serve` startup; `GET /api/v1/telemetry` exposes event statistics and performance metrics. Tool/model/error event helpers remain unwired (item-scoped). |
-| `rlm.py` | - | Missing | No batched remote-model query support. |
+| `rlm.py` | `rlm.rs` | Partial | `RLM` per-key rate-limit manager (minute/hour/day windows) is wired: `apex-rs rlm <key> [--inc]` reports or increments a key's limits as JSON. `RLMQuery` (batched cheap-model queries, classify/summarize/extract/route) remains an error stub — no litellm equivalent in Rust (item-scoped). |
 | `extras.py` | `task_queue.rs` | Partial | `TaskQueue` (submit/list/get, in-memory, one background thread per task). Shell expansion, history search, env manager, and workspace validator are not ported. |
 | `apex/gateway/*` (`config.py`, `auth.py`, `router.py`, `server.py`) | `gateway.rs` | Wired | Full port of the model gateway: `free`/`pro`/`unlimited` tiers (identical limits, model lists, 19/10/`*`), a JSON key/usage store at `~/.apex/gateway.json` (Python uses SQLite `~/.apex/gateway.db`) re-read on every access, `apex_` + 48-hex keys with 16-hex ids, a sliding 60 s per-key rate limiter, and all eight routes: `POST /v1/chat/completions` (Bearer key → tier model gate → rate → daily cap → upstream proxy; usage recorded per key/day and `usage.apex_gateway` injected on 200), `POST /v1/register` (413 above 4096 bytes, `Invalid tier: …` 400), `GET /v1/status`, `GET /v1/health`, `GET /v1/models` (sorted `free-`/`pro-` aliases with provider), and the `X-Admin-Key`-protected `/admin/keys`, `/admin/keys/generate`, `/admin/keys/revoke`. CLI `gateway {start,key,status}` mirrors Python's `_cmd_gateway` exactly, including the env-only start gate (`APEX_GATEWAY_KEY`/`OPENROUTER_API_KEY` unset → error + exit 1). Divergences: JSON store instead of SQLite (same data, no concurrent writers), `APEX_GATEWAY_UPSTREAM_BASE` env override (Python hardcodes `https://openrouter.ai/api/v1`) so tests run hermetic, a malformed chat body is 400 `Invalid JSON` (Python raises → 500), `usage.apex_gateway.tier` carries the tier *name* (Python stores the non-serializable `TierConfig` dataclass there, which breaks its own response), and re-revoking a known key returns 200 (SQLite `UPDATE` row-count parity) — only an unknown key is 404. |
 
@@ -216,7 +216,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current item-level allow inventory (92 attributes)
+### Current item-level allow inventory (114 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
@@ -257,7 +257,7 @@ carrying an inline `TODO(v2.6)` justification per policy §2:
 | Item | `context_tracking.rs` | 5 | Wire into tool dispatch / agent loop |
 | Item | `mentions.rs` | 6 | Wire into agent message parsing |
 
-When seven PR-#348 modules were wired (PR for this phase), their remaining
+When the PR-#348 modules were wired (this migration phase), their remaining
 secondary APIs were scoped to item-level allows:
 
 | Scope | Location | Item count | Exit criterion |
@@ -268,26 +268,28 @@ secondary APIs were scoped to item-level allows:
 | Item | `i18n.rs` | 2 | Use translated strings in agent/system prompts |
 | Item | `telemetry.rs` | 11 | Instrument agent tool loop / flush on shutdown |
 | Item | `sandbox.rs` | 5 | Keep CodeSandbox helpers / wire persistent shells |
+| Item | `watcher.rs` | 4 | Wire stop/should_ignore/debounce via CLI/HTTP |
+| Item | `structured_message.rs` | 11 | Use part builders + round-trip in agent loop |
+| Item | `rlm.rs` | 7 | Wire RLMQuery LLM stubs / persist rate-limit state |
 
-Per policy §4, module-level allows require their own entries; the PR-#348
-modules that still carry one are listed below.
+Per policy §4, module-level allows require their own entries. All ten
+PR-#348 modules that carried one are now wired; none remain.
 
-### Current module-level allow inventory (3 modules)
+### Current module-level allow inventory (0 modules)
 
-| Module | Allow(s) | Why it is unwired | Exit criterion |
-| --- | --- | --- | --- |
-| `watcher.rs` | `dead_code` | File-watcher wiring not yet invoked at runtime | Wire watcher into CLI/daemon or remove |
-| `structured_message.rs` | `dead_code` | Structured-message types not yet used in dispatch | Use in agent-message handling or remove |
-| `rlm.rs` | `dead_code`, `clippy::all` | RLM scoring not yet wired | Wire RLM into agent loop or remove |
+No module-level `#![allow(dead_code)]` attributes remain in `rust/apex-rs`.
+Every PR-#348 module is now reachable from the CLI or the HTTP server.
 
-`i18n`, `telemetry`, `slash`, `project`, `billing`, `formatter` and
-`sandbox` previously carried module-level allows (PR #348) but are now wired:
-`i18n` via the `locale` CLI, `telemetry` via `serve` startup logging and
-`GET /api/v1/telemetry`, `slash` via `POST /api/v1/command`, `project` via
-`POST /api/v1/init`, `billing` via the `billing_*` tools, `formatter` via
-`format_file`/`GET /api/v1/formatter(s)`/`POST /api/v1/format`, and
-`sandbox` via the `run_code` tool. Their remaining secondary APIs are scoped
-at the item level (see below).
+`i18n`, `telemetry`, `slash`, `project`, `billing`, `formatter`, `sandbox`,
+`watcher`, `structured_message` and `rlm` previously carried module-level
+allows (PR #348) but are now wired: `i18n` via the `locale` CLI, `telemetry`
+via `serve` startup logging and `GET /api/v1/telemetry`, `slash` via
+`POST /api/v1/command`, `project` via `POST /api/v1/init`, `billing` via the
+`billing_*` tools, `formatter` via `format_file`/`GET
+/api/v1/formatter(s)`/`POST /api/v1/format`, `sandbox` via the `run_code`
+tool, `watcher` via `apex-rs watch` plus the `serve` startup watcher,
+`structured_message` via `apex-rs message`, and `rlm` via `apex-rs rlm`.
+Their remaining secondary APIs are scoped at the item level (see above).
 
 ## Verification
 

@@ -260,6 +260,9 @@ fn help_lists_subcommands() {
         "github",
         "skill",
         "key",
+        "message",
+        "watch",
+        "rlm",
     ] {
         assert!(
             text.contains(subcommand),
@@ -332,6 +335,70 @@ fn run_code_tool_is_hermetic_and_rejects_unsupported_language() {
         text.contains("ERROR: Unsupported language: not-a-real-language"),
         "expected unsupported-language error, got: {text}"
     );
+}
+
+#[test]
+fn cli_message_command_builds_structured_message() {
+    let sb = Sandbox::new();
+
+    let out = sb.run(&["message", "user", "hello world"]);
+    assert_success(&out, "message");
+    let text = stdout(&out);
+    let v: serde_json::Value =
+        serde_json::from_str(&text).expect("`message` must print valid JSON");
+    assert_eq!(v["role"], "user", "got: {text}");
+    assert!(
+        v["id"].as_str().map(|s| !s.is_empty()).unwrap_or(false),
+        "got: {text}"
+    );
+    assert_eq!(v["parts"][0]["type"], "text", "got: {text}");
+    assert_eq!(v["parts"][0]["content"], "hello world", "got: {text}");
+    assert!(v.get("timestamp").is_some(), "got: {text}");
+}
+
+#[test]
+fn cli_watch_lists_non_ignored_files() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("a.txt"), "hello").unwrap();
+    std::fs::create_dir_all(sb.cwd.join("node_modules").join("pkg")).unwrap();
+    std::fs::write(
+        sb.cwd.join("node_modules").join("pkg").join("index.js"),
+        "const x = 1;\n",
+    )
+    .unwrap();
+
+    let out = sb.run(&["watch", sb.cwd.to_str().unwrap()]);
+    assert_success(&out, "watch");
+    let text = stdout(&out);
+    assert!(
+        text.contains("a.txt"),
+        "expected a.txt in watch output, got: {text}"
+    );
+    assert!(
+        !text.contains("node_modules"),
+        "node_modules must be ignored by the watcher, got: {text}"
+    );
+}
+
+#[test]
+fn cli_rlm_reports_rate_limits() {
+    let sb = Sandbox::new();
+
+    let check = sb.run(&["rlm", "e2e-key"]);
+    assert_success(&check, "rlm check");
+    let check_v: serde_json::Value =
+        serde_json::from_str(&stdout(&check)).expect("`rlm` must print valid JSON");
+    assert_eq!(check_v["allowed"], true, "got: {check_v}");
+    assert_eq!(check_v["remaining_minute"], 60, "got: {check_v}");
+    assert_eq!(check_v["remaining_hour"], 1000, "got: {check_v}");
+    assert_eq!(check_v["remaining_day"], 10000, "got: {check_v}");
+
+    // Incrementing consumes one minute-window slot.
+    let inc = sb.run(&["rlm", "e2e-key", "--inc"]);
+    assert_success(&inc, "rlm --inc");
+    let inc_v: serde_json::Value =
+        serde_json::from_str(&stdout(&inc)).expect("`rlm --inc` must print valid JSON");
+    assert_eq!(inc_v["remaining_minute"], 59, "got: {inc_v}");
 }
 
 #[test]

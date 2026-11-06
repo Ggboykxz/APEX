@@ -6,7 +6,7 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ### Rust migration — Phase 1 (wire the remaining backend modules)
 
-- **Wired 7 of the 10 PR-#348 modules** in `rust/apex-rs`:
+- **Wired 10 of the 10 PR-#348 modules** in `rust/apex-rs`:
   - `i18n` — new CLI `apex-rs locale [--lang]` reports the active locale and
     prints a localized welcome string; fixed a latent bug (the lookup used
     `LOCALES` instead of `STRINGS` and the type declared 13 strings per locale
@@ -18,16 +18,30 @@ All notable changes to APEX are documented in this file. The project follows [Se
   - `sandbox` — `CodeSandbox::run_code` exposed as the new `run_code` tool
     (python/javascript/bash/ruby/go/rust/php) with output truncation and
     exit-code reporting; unsupported languages fail deterministically.
+  - `watcher` — new CLI `apex-rs watch [PATH]` lists the non-ignored files of
+    a tree (config + `.gitignore` patterns); `serve` now starts the global
+    `FileWatcher` on the project directory at bootstrap (disabled by default
+    via `WatcherConfig.enabled`).
+  - `structured_message` — new CLI `apex-rs message <role> <content>` builds a
+    structured message (typed parts) and prints it as JSON.
+  - `rlm` — new CLI `apex-rs rlm <key> [--inc]` reports (or increments) the
+    per-key minute/hour/day rate limits as JSON. `RLMQuery` (batched LLM
+    queries) remains an error stub (no litellm equivalent in Rust).
   - `formatter`, `billing`, `project`, `slash` were already reachable from the
-    tool registry / HTTP server; their stale module-level `#![allow(dead_code)]`
-    attributes were removed and their secondary APIs scoped to item-level
-    allows with `TODO(v2.6)` exit criteria.
-- Removed 7 of the 10 module-level dead-code allows; 3 remain (`watcher`,
-  `structured_message`, `rlm`). Updated the dead-code inventory and
-  module matrix in `rust/apex-rs/PARITY.md` and AGENTS.md.
+    tool registry / HTTP server; their stale module-level
+    `#![allow(dead_code)]` attributes were removed and their secondary APIs
+    scoped to item-level allows with `TODO(v2.6)` exit criteria.
+- Removed all 10 module-level dead-code allows: no module in `rust/apex-rs`
+  carries a module-level `#![allow(dead_code)]` anymore. Updated the dead-code
+  inventory and module matrix in `rust/apex-rs/PARITY.md` and AGENTS.md.
+- Workflows: `pr-checks.yml` now detects `rust/**` (plus root `Cargo.toml`)
+  in its changed-paths filter, alongside python/tui/website/docs.
 - New E2E tests: `cli_locale_command_works`,
-  `serve_exposes_telemetry_route` and
-  `run_code_tool_is_hermetic_and_rejects_unsupported_language`. Clippy fixes
+  `serve_exposes_telemetry_route`,
+  `run_code_tool_is_hermetic_and_rejects_unsupported_language`,
+  `cli_message_command_builds_structured_message`,
+  `cli_watch_lists_non_ignored_files` and
+  `cli_rlm_reports_rate_limits`. Clippy fixes
   exposed by removing module-level
   `clippy::all` allows (billing collapsible-if/str-replace, telemetry
   sort-by-key/iter-kv-map).
