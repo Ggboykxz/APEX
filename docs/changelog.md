@@ -4,6 +4,35 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### Rust migration — Phase 2 (context tracking + mentions)
+
+- **Wired the last two Ported modules** in `rust/apex-rs` (`context_tracking`
+  and `mentions`), leaving no ported-but-unwired module in the parity matrix:
+  - `context_tracking` — every `Agent` now carries a `ContextTracker`
+    (`default_with_budget`: 128k token budget, 80% threshold).
+    `record_api_usage` feeds `record_usage`, and the auto-compact gate in
+    `chat`/`chat_stream` now also fires on `should_compact` (token budget)
+    alongside the existing message-count threshold. New route
+    `GET /api/v1/context/tracking` exposes the budget, threshold and
+    per-session stats. `record_compaction`, `remove` and the compaction
+    history stay item-scoped until `Agent::compact_context` records them.
+  - `mentions` — `Agent::expand_mentions` (both `chat` and `chat_stream`)
+    now parses input with `MentionParser::parse` + `resolve_file` instead of
+    `split_whitespace`, faithful to `apex/mentions.py` (boundary `@file.py`
+    and in-word `src@file.py` forms, case-insensitive agent dedup). File
+    mentions are inlined with the same `[File: …]` format as before (images
+    as base64, uncapped); agent mentions are recognized but not inlined
+    (subagent routing is a TUI concern, Python parity). `read_mentioned_files`
+    and `FileMentionCompleter` remain item-scoped (TUI surface).
+- Dead-code inventory: item-level allows dropped from 115 to 111
+  (`context_tracking.rs` 5 → 4, `mentions.rs` 6 → 3, scoped more precisely);
+  the stale `sandbox.rs` count in the inventory (5) is corrected to 6.
+- New tests: unit coverage for mention expansion (file, missing file, image
+  base64, agent mentions) and context-tracker wiring, plus the E2E
+  `serve_exposes_context_tracking_route`. Route parity counters updated in
+  PARITY.md (81 registrations = 53 Python + 28 Rust-only extras, including
+  the previously uncounted `GET /api/v1/telemetry`).
+
 ### Rust migration — Phase 1 (wire the remaining backend modules)
 
 - **Wired 10 of the 10 PR-#348 modules** in `rust/apex-rs`:

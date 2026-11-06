@@ -2015,6 +2015,40 @@ async fn serve_exposes_telemetry_route() {
     assert!(tele["performance"].is_object(), "got: {tele}");
 }
 
+#[tokio::test]
+async fn serve_exposes_context_tracking_route() {
+    let sb = Sandbox::new();
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve did not become healthy"
+    );
+
+    let tracking: serde_json::Value = get(&client, &base, "/api/v1/context/tracking")
+        .await
+        .json()
+        .await
+        .unwrap();
+    // Fresh server: default token budget and no tracked sessions yet.
+    assert_eq!(tracking["max_tokens"], 128000, "got: {tracking}");
+    assert!(
+        (tracking["threshold"].as_f64().unwrap() - 0.8).abs() < f64::EPSILON,
+        "got: {tracking}"
+    );
+    assert_eq!(tracking["session_count"], 0, "got: {tracking}");
+    assert!(
+        tracking["sessions"].as_array().unwrap().is_empty(),
+        "got: {tracking}"
+    );
+}
+
 /// Index of the first occurrence of `needle` in `haystack` (fake upstreams).
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.len() > haystack.len() {
