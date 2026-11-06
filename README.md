@@ -16,7 +16,7 @@
 [**Docs**](https://apex-ai.dev/docs) ·
 [**CLI**](#-cli-commands) ·
 [**Security**](#-security) ·
-[**Models**](#-supported-models) ·
+[**Models**](#-supported-models-170) ·
 [**Sponsor**](#-sponsors)
 
 </div>
@@ -70,12 +70,12 @@ apex
 > write tests for the payment module
 ```
 
-### Switch models / agents anytime:
+### Switch models / agents anytime
 
 ```bash
 apex --model gpt-4o            # Start with GPT-4o
 apex --model ollama-llama3      # Local, no API key needed
-apex --agent architect          # Start in read-only architect mode
+apex --agent plan               # Start in read-only plan mode
 apex --continue                 # Resume last session
 apex --session mysession        # Load a specific session
 ```
@@ -84,11 +84,15 @@ apex --session mysession        # Load a specific session
 
 ## 🎨 TUI — Terminal User Interface
 
-APEX features a modern terminal UI built with [Ink](https://github.com/vadimdemedes/ink) (React for terminals). The TUI connects to the APEX backend via HTTP SSE for real-time token streaming, live cost tracking, and context percentage monitoring. The backend runs on a random localhost port with a WebSocket EventBus for real-time state synchronization, following the OpenCode architecture pattern.
+APEX's terminal UI is built with [Ink](https://github.com/vadimdemedes/ink)
+(React for terminals). It connects to the APEX backend over HTTP SSE for
+real-time token streaming, live cost tracking, and context percentage
+monitoring. The backend runs on a localhost port with a WebSocket EventBus for
+real-time state synchronization, following the OpenCode architecture pattern.
 
 ```bash
-apex              # Launch TUI (default)
-apex --model gpt-4o            # Start with GPT-4o
+apex                          # Launch TUI (default)
+apex --model gpt-4o          # Start with GPT-4o
 ```
 
 ### Keybindings
@@ -122,50 +126,56 @@ apex --model gpt-4o            # Start with GPT-4o
 | `Ctrl+Q` | Quit |
 
 ### Features
+
 - **11 Agents**: 4 primary (Tab) + 4 subagents (@mention) + 3 system
 - **170+ Models**: OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, xAI, etc.
-- **Live Metrics**: Token streaming, per-message cost, total spent, context %
+- **Live Metrics**: token streaming, per-message cost, total spent, context %
 - **12 Themes**: apex, nord, catppuccin, tokyonight, gruvbox, matrix, etc.
-- **Agent Theming**: Title bar and status bar change color per agent
-- **75+ Tools**: File, Code, Shell, Git, Web, Database, Docker, K8s, Security
-- **Reversible Workspaces**: Git-backed snapshots, turn history, one-command restore
-- **MCP/LSP**: Server status monitoring
-- **Leader Keys**: Ctrl+X + mnemonic for all actions
-- **Command Palette**: Ctrl+P with fuzzy search
-- **@ References**: Fuzzy file search with `@filename`
-- **! Bash**: Run shell commands inline with `!command`
-- **HTTP Backend**: Local SSE server on random port with WebSocket EventBus
+- **Agent Theming**: title bar and status bar change color per agent
+- **100+ Tools**: file, code, shell, git, web, database, docker, k8s, security
+- **Reversible Workspaces**: git-backed snapshots, turn history, one-command restore
+- **MCP/LSP**: server/client status and tool bridging
+- **Leader Keys**: `Ctrl+X` + mnemonic for all actions
+- **Command Palette**: `Ctrl+P` with fuzzy search
+- **@ References**: fuzzy file search with `@filename`
+- **! Bash**: run shell commands inline with `!command`
+- **HTTP Backend**: local SSE server with WebSocket EventBus
 
 ---
 
 ## 🎮 Agents
 
-APEX has **11 specialized agents** organized by type:
+APEX ships with **11 built-in agents** — 4 primary (cycle with `Tab`),
+4 subagents (invoke with `@mention`), and 3 hidden system agents.
 
-### Primary Agents (Tab to cycle)
+### Primary Agents (`Tab` to cycle)
+
 | Agent | Color | Description |
 |-------|-------|-------------|
-| **Coder** | Cyan | Full-access development agent with all tools |
-| **Architect** | Purple | Architecture analysis & design (read-only) |
-| **Planner** | Yellow | Planning & strategy (read-only) |
-| **Shell** | Orange | Infrastructure, DevOps, CI/CD |
+| **build** | Cyan | Default agent with full tool access for development |
+| **plan** | Purple | Read-only planning & analysis (does not modify files) |
+| **planner** | Yellow | Read-only detailed planning (no delegation) |
+| **shell** | Orange | Infrastructure, DevOps, CI/CD (asks before system changes) |
 
-### Subagents (@mention to invoke)
+### Subagents (`@mention` to invoke)
+
 | Agent | Description |
 |-------|-------------|
-| **@reviewer** | Code review & audit specialist |
+| **@reviewer** | Code review & audit specialist (read-only) |
 | **@general** | General-purpose multi-task assistant |
 | **@explore** | Fast read-only codebase exploration |
 | **@scout** | External docs & dependency research |
 
 ### System Agents (automatic, hidden)
+
 | Agent | Role |
 |-------|------|
 | **@compaction** | Context window compression |
 | **@title** | Session title generation |
 | **@summary** | Session summary generation |
 
-Custom agents via Markdown files in `.apex/agents/*.md` or `~/.config/apex/agents/*.md`.
+Custom agents can be defined via Markdown files in `.apex/agents/*.md` or
+`~/.config/apex/agents/*.md`, or as JSON in `apex.json`.
 
 ---
 
@@ -295,10 +305,12 @@ APEX_CONFIG_CONTENT='{"model": "gpt-4o"}'
 
 ## 🦀 Rust Backend (Internal GA)
 
-`rust/apex-rs/` is the progressively ported Rust backend. It is an internal
-GA: the agent loop, HTTP server, and tool registry are usable, but nothing is
+`rust/apex-rs/` is the progressively ported Rust backend. It is an **internal
+GA**: the agent loop, HTTP server, and tool registry are usable, but nothing is
 published (see [ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
-The wired surface includes workspace awareness and workspace rollback:
+The wired surface includes workspace awareness, workspace rollback, shell
+security, HTTP auth, rate limiting, the permission gate, the gateway, and the
+full route-parity surface:
 
 ```bash
 cd rust/apex-rs
@@ -440,7 +452,8 @@ pip install -e ".[dev]"
 
 ## ⚡ APEX Gateway (Zero-Config Free Models)
 
-APEX Gateway is a built-in proxy server that gives you access to free + paid models **without configuring API keys**.
+APEX Gateway is a built-in proxy server that gives you access to free + paid
+models **without configuring API keys**.
 
 ```bash
 # 1. Get your free OpenRouter API key
@@ -586,7 +599,7 @@ apex --model deepseek-v4-pro
 
 ## 💖 Sponsors
 
-APEX is free and open source. If it saves you time, consider sponsoring.
+APEX is free to use. If it saves you time, consider sponsoring.
 
 <div align="center">
 
@@ -612,7 +625,8 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Customize with commands in `.apex/commands/*.md`, agents in `.apex/agents/*.md`, and themes in `.apex/themes/*.json`.
+Customize with commands in `.apex/commands/*.md`, agents in `.apex/agents/*.md`,
+and themes in `.apex/themes/*.json`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -620,7 +634,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
-**Proprietary** — All rights reserved by Ggboykxz.
+**Proprietary** — All rights reserved by Ggboykxz (Copyright © 2026).
 
 See [LICENSE](LICENSE) for full terms.
 

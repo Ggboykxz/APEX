@@ -4,6 +4,10 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### Docs & governance
+
+- **README overhaul** — rewrote `README.md` to realign with the current codebase: corrected the primary-agent table (`build`/`plan`/`planner`/`shell`, matching `apex/agents.py`), fixed the model-section TOC fragment, corrected the sample `--agent plan` flag, updated the tool count to 100+, and expanded the Rust-backend section to cover shell security, HTTP auth, rate limiting, the permission gate, the gateway, and route parity. Update to `CHANGELOG.md` and `docs/changelog.md` alongside.
+
 ### CI & automation
 
 - **opencode AI maintainer** — `.github/workflows/opencode.yml` answers `/oc` / `/opencode` comments from maintainers only (`OWNER` / `MEMBER` / `COLLABORATOR`, bots rejected) on issues, PRs, and review lines. It uses OIDC app tokens, a 30-minute timeout, per-issue concurrency, no session sharing, and fails with a clear message when no provider key is configured. The archived upstream action is pinned to `github-v1.2.28` (`17b79f4e…`). Setup requires the `opencode-agent` GitHub App plus `DEEPSEEK_API_KEY` or `ANTHROPIC_API_KEY`; the `OPENCODE_MODEL` repository variable overrides the default DeepSeek model.
