@@ -35,6 +35,11 @@ struct AppState {
     /// no key, so the default stays off (Python's `apex serve` defaults on;
     /// documented divergence).
     require_auth: bool,
+    /// In-memory snapshot manager backing `/api/v1/snapshot/*`. Python's
+    /// `snapshot.py` is never called (its `/undo`/`/redo` routes use
+    /// `session.UndoManager`), so the Rust server is the production surface
+    /// — like `workspace.rs`, the port is wired further than Python.
+    snapshot_manager: Arc<Mutex<crate::snapshot::SnapshotManager>>,
 }
 
 /// Chat request. The TUI sends `message`, the CLI/API docs use `prompt`.
@@ -345,6 +350,13 @@ struct ContextQuery {
     depth: Option<usize>,
     /// Glob pattern for the glob route.
     pattern: Option<String>,
+}
+
+/// Query parameters for `/api/v1/snapshot/history`.
+#[derive(serde::Deserialize)]
+struct SnapshotHistoryQuery {
+    /// Number of recent snapshots to return (Python's default is 50).
+    limit: Option<usize>,
 }
 
 /// Resolve the `?path=` parameter of the context routes: empty means the
@@ -852,6 +864,10 @@ pub async fn serve(config: Config, port: u16) {
     let (events, _) = tokio::sync::broadcast::channel::<String>(256);
     let state = AppState {
         agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
+        // Before `config` is moved below: the manager roots at the cwd.
+        snapshot_manager: Arc::new(Mutex::new(crate::snapshot::create_snapshot_manager(
+            config.cwd.clone(),
+        ))),
         config,
         events,
         rate_limiter: Arc::new(Mutex::new(RateLimiter::new(
@@ -1402,6 +1418,123 @@ pub async fn serve(config: Config, port: u16) {
                 "session_count": tracker.len(),
                 "empty": tracker.is_empty(),
             }))
+        }))
+        // Snapshot manager routes (port of `apex/snapshot.py`). Python never
+        // calls that module, so these Rust-only routes are its production
+        // surface. All of them answer 200 with an `ok` flag, like
+        // `/api/v1/undo` and `/api/v1/redo`.
+        .route("/api/v1/snapshot/track", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let action = req
+                    .get("action_type")
+                    .and_then(|v| v.as_str())
+                    .and_then(crate::snapshot::ActionType::parse)
+                    .unwrap_or(crate::snapshot::ActionType::FileEdit);
+                let mut sm = state.snapshot_manager.lock().await;
+                let id = sm.track(action);
+                Json(serde_json::json!({
+                    "ok": true,
+                    "snapshot": sm.get_snapshot(&id).map(|s| s.to_dict()),
+                }))
+            }
+        }))
+        .route("/api/v1/snapshot/track-file", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let path = req.get("path").and_then(|v| v.as_str()).unwrap_or("");
+                let action = req
+                    .get("action_type")
+                    .and_then(|v| v.as_str())
+                    .and_then(crate::snapshot::ActionType::parse)
+                    .unwrap_or(crate::snapshot::ActionType::FileEdit);
+                let mut sm = state.snapshot_manager.lock().await;
+                match sm.track_file(path, action) {
+                    Some(snap) => Json(serde_json::json!({
+                        "ok": true,
+                        "snapshot": snap.to_dict(),
+                    })),
+                    None => Json(serde_json::json!({
+                        "ok": false,
+                        "snapshot": serde_json::Value::Null,
+                        "error": "file not found or unreadable",
+                    })),
+                }
+            }
+        }))
+        .route("/api/v1/snapshot/undo", post({
+            let state = state.clone();
+            move || async move {
+                let mut sm = state.snapshot_manager.lock().await;
+                match sm.undo() {
+                    Some(snap) => Json(serde_json::json!({
+                        "ok": true,
+                        "snapshot": snap.to_dict(),
+                    })),
+                    None => Json(serde_json::json!({
+                        "ok": false,
+                        "snapshot": serde_json::Value::Null,
+                        "error": "nothing to undo",
+                    })),
+                }
+            }
+        }))
+        .route("/api/v1/snapshot/redo", post({
+            let state = state.clone();
+            move || async move {
+                let mut sm = state.snapshot_manager.lock().await;
+                match sm.redo() {
+                    Some(snap) => Json(serde_json::json!({
+                        "ok": true,
+                        "snapshot": snap.to_dict(),
+                    })),
+                    None => Json(serde_json::json!({
+                        "ok": false,
+                        "snapshot": serde_json::Value::Null,
+                        "error": "nothing to redo",
+                    })),
+                }
+            }
+        }))
+        .route("/api/v1/snapshot/history", get(
+            |State(st): State<AppState>, Query(q): Query<SnapshotHistoryQuery>| async move {
+                let sm = st.snapshot_manager.lock().await;
+                // Python's `get_history(limit = 50)` default.
+                let limit = q.limit.unwrap_or(50);
+                let snapshots: Vec<serde_json::Value> =
+                    sm.get_history(limit).iter().map(|s| s.to_dict()).collect();
+                Json(serde_json::json!({
+                    "ok": true,
+                    "snapshots": snapshots,
+                }))
+            },
+        ))
+        .route("/api/v1/snapshot/status", get(|State(st): State<AppState>| async move {
+            let sm = st.snapshot_manager.lock().await;
+            let (undo_count, redo_count) = sm.counts();
+            Json(serde_json::json!({
+                "ok": true,
+                "can_undo": sm.can_undo(),
+                "can_redo": sm.can_redo(),
+                "undo_count": undo_count,
+                "redo_count": redo_count,
+            }))
+        }))
+        .route("/api/v1/snapshot/restore", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let id = req.get("snapshot_id").and_then(|v| v.as_str()).unwrap_or("");
+                let sm = state.snapshot_manager.lock().await;
+                let ok = sm.restore(id);
+                Json(serde_json::json!({
+                    "ok": ok,
+                    "error": if ok {
+                        serde_json::Value::Null
+                    } else {
+                        serde_json::Value::String("snapshot not found".to_string())
+                    },
+                }))
+            }
         }))
         .route("/api/v1/auth/login", post(auth_login))
         .route("/api/v1/auth/logout", post(auth_logout))
@@ -2482,6 +2615,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state = AppState {
             agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
+            // Before `config` is moved below: the manager roots at the cwd.
+            snapshot_manager: Arc::new(Mutex::new(crate::snapshot::create_snapshot_manager(
+                config.cwd.clone(),
+            ))),
             config,
             events,
             rate_limiter: Arc::new(Mutex::new(RateLimiter::new(
@@ -2643,6 +2780,10 @@ mod tests {
         let config = Config::from_env();
         let state = AppState {
             agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
+            // Before `config` is moved below: the manager roots at the cwd.
+            snapshot_manager: Arc::new(Mutex::new(crate::snapshot::create_snapshot_manager(
+                config.cwd.clone(),
+            ))),
             config,
             events,
             rate_limiter: Arc::new(Mutex::new(RateLimiter::new(

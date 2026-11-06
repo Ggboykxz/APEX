@@ -4,6 +4,40 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### Rust migration — Phase 2b (snapshot manager)
+
+- **Ported `apex/snapshot.py`** as a new Rust module (`rust/apex-rs/src/snapshot.rs`):
+  `ActionType` (6 variants with Python's values), `FileChange`, `Snapshot`
+  + `to_dict`, and `SnapshotManager` (track, add_file_change, track_file,
+  naive line diff, get_snapshot, restore, undo, redo, can_undo/can_redo,
+  get_history with Python's `[-limit:]` semantics, clear), plus a side git
+  repo under `.apex/snapshots/` (best-effort `git init`, like Python's
+  captured subprocesses). Python exports `SnapshotManager` but never calls
+  it (its `/undo` and `/redo` routes use a separate `session.UndoManager`),
+  so — like `workspace.rs` — the Rust server is now its production surface:
+  - `serve` holds one `SnapshotManager` in `AppState` (rooted at the server
+    cwd).
+  - Seven new routes: `POST /api/v1/snapshot/{track,track-file,undo,redo,restore}`
+    and `GET /api/v1/snapshot/{history,status}`. All answer 200 with an `ok`
+    flag (no 4xx), mirroring `/api/v1/undo`/`/api/v1/redo`. `history` takes
+    `?limit=` (Python's default of 50; `0` returns all, matching Python's
+    `[-0:]` slice).
+- **Fixed a latent Python bug (documented divergence)**: Python's `undo()`
+  pops the snapshot and then calls `restore(id)`, which looks it up in the
+  undo stack where it no longer exists — so Python's undo never restored
+  any file. The port applies the popped snapshot's file changes directly;
+  `restore(id)` stays the lookup API.
+- `track_file` captures only `before` (`after` stays null), so a redo after
+  `track_file` rewrites nothing (Python parity). `file_hash`,
+  `save_snapshot_to_git` and `clear` remain item-scoped (dead in Python too).
+- Tests: 10 unit tests (action types, diff, tracking, undo/redo, restore,
+  history, `to_dict` shape, snapshots dir) and the E2E
+  `serve_snapshot_undo_redo_lifecycle` (track-file → modify → undo → status
+  → no-op redo → history → empty-stack undo, against a running server).
+- PARITY.md: `snapshot.py` Missing → Wired; route parity counters updated
+  (88 production registrations = 53 Python + 35 Rust-only extras);
+  item-level allow inventory 111 → 114 (three in `snapshot.rs`).
+
 ### Rust migration — Phase 2 (context tracking + mentions)
 
 - **Wired the last two Ported modules** in `rust/apex-rs` (`context_tracking`

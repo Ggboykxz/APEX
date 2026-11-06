@@ -1175,12 +1175,36 @@ shares, `POST /session/save|load`, config, themes, stats, formatters and
 `POST /api/v1/init`, `GET /find/file`, export/import,
 `GET /api/v1/session/{id}/diff{,/decision}`, `POST /api/v1/session/{id}/{fork,abort}`,
 LSP/formatter/MCP status, `GET /global/event` SSE, `GET /metrics`,
-`GET /rate-limit/status`, `GET /global/health`, auth) plus 28 Rust-only
+`GET /rate-limit/status`, `GET /global/health`, auth) plus 35 Rust-only
 extras. The authoritative per-route table and the divergence list live in
 [`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md) (route parity section);
 update it in the same PR as any surface change.
 New helper modules back the ported routes: `models.rs` (static model
 table) and `commands.rs` (markdown custom-command manager).
+
+### Snapshot manager
+
+`snapshot.rs` ports `apex/snapshot.py` (Git-based undo/redo). Python
+exports `SnapshotManager` but never calls it — its `/undo` and `/redo`
+routes use a separate `session.UndoManager` — so the Rust server is the
+production surface, wired further than Python, like `workspace.rs`:
+
+- `serve` holds one `SnapshotManager` in `AppState` (rooted at the server
+  cwd, side git repo under `.apex/snapshots/`, best-effort `git init`).
+- Seven routes: `POST /api/v1/snapshot/{track,track-file,undo,redo,restore}`
+  and `GET /api/v1/snapshot/{history,status}`. All answer 200 with an
+  `ok` flag (no 4xx), mirroring `/api/v1/undo` and `/api/v1/redo`.
+  `history` takes `?limit=` (Python's default of 50; `0` returns all,
+  matching Python's `[-0:]` slice).
+- **Bug fix (documented divergence)**: Python's `undo()` pops the snapshot
+  and then calls `restore(id)`, which looks it up in the undo stack where
+  it no longer exists — so Python's undo never restored any file. The port
+  applies the popped snapshot's changes directly; `restore(id)` stays the
+  lookup API.
+- `track_file` captures only `before` (`after` stays null), so a redo after
+  `track_file` rewrites nothing (Python parity).
+- `file_hash`, `save_snapshot_to_git` and `clear` remain item-scoped (dead
+  in Python too).
 
 ### Context tracking & mentions
 
@@ -1574,7 +1598,10 @@ regression, the Python-parity HTTP routes (every route that does not require
 an LLM call, the SSE `connected` frame, and the diff/decision error paths),
 and the diff preview accept/reject lifecycle against a real git repository
 (fingerprint change, `409 diff_changed` on a stale fingerprint, and
-reject/restore of a working-tree change). PR 350 adds the gateway lifecycle:
+reject/restore of a working-tree change), and the snapshot undo/redo
+lifecycle against a running `serve` (track-file, undo restoring the
+pre-change content, status counts, a no-op redo of a `track_file`
+snapshot, history, and the empty-stack `ok:false`). PR 350 adds the gateway lifecycle:
 CLI key generation and status, all eight routes, the tier model gate, usage
 counters, the admin trio, and an out-of-band revoke — against a local fake
 OpenRouter upstream, with no network and no API key. PR 351 adds session
