@@ -6,7 +6,7 @@ gateway increment). The reference is the Python package in `apex/` on `dev`.
 server, or tool registry and has automated coverage - not that the
 implementations are line-for-line equivalent.
 
-Scale at this baseline: ~25,918 lines of Python in `apex/*.py` versus ~29,138
+Scale at this baseline: ~25,918 lines of Python in `apex/*.py` versus ~29,260
 lines of Rust in `rust/apex-rs/src` (48 files). The Rust line count now
 matches Python's, but the tables below still record the behaviour gaps.
 
