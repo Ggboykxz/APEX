@@ -4,6 +4,29 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### Rust migration — Phase 1 (wire the remaining backend modules)
+
+- **Wired 6 of the 10 PR-#348 modules** in `rust/apex-rs`:
+  - `i18n` — new CLI `apex-rs locale [--lang]` reports the active locale and
+    prints a localized welcome string; fixed a latent bug (the lookup used
+    `LOCALES` instead of `STRINGS` and the type declared 13 strings per locale
+    while every locale has 14). The module was never compiled before because
+    `mod i18n` was not declared in `main.rs` — now wired.
+  - `telemetry` — `serve` records session and agent start at bootstrap, and a
+    new `GET /api/v1/telemetry` route exposes event statistics and performance
+    metrics.
+  - `formatter`, `billing`, `project`, `slash` were already reachable from the
+    tool registry / HTTP server; their stale module-level `#![allow(dead_code)]`
+    attributes were removed and their secondary APIs scoped to item-level
+    allows with `TODO(v2.6)` exit criteria.
+- Removed 6 of the 10 module-level dead-code allows; 4 remain (`watcher`,
+  `structured_message`, `sandbox`, `rlm`). Updated the dead-code inventory and
+  module matrix in `rust/apex-rs/PARITY.md` and AGENTS.md.
+- New E2E tests: `cli_locale_command_works` and
+  `serve_exposes_telemetry_route`. Clippy fixes exposed by removing module-level
+  `clippy::all` allows (billing collapsible-if/str-replace, telemetry
+  sort-by-key/iter-kv-map).
+
 ### Docs & governance
 
 - **README overhaul** — rewrote `README.md` to realign with the current codebase: corrected the primary-agent table (`build`/`plan`/`planner`/`shell`, matching `apex/agents.py`), fixed the model-section TOC fragment, corrected the sample `--agent plan` flag, updated the tool count to 100+, and expanded the Rust-backend section to cover shell security, HTTP auth, rate limiting, the permission gate, the gateway, and route parity. Update to `CHANGELOG.md` and `docs/changelog.md` alongside.

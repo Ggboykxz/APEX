@@ -832,6 +832,12 @@ const INDEX_HTML: &str = r#"
         "#;
 
 pub async fn serve(config: Config, port: u16) {
+    // Telemetry: record session + agent start for this server process.
+    {
+        let mut tl = crate::telemetry::logger().lock().unwrap();
+        tl.log_session_start(config.cwd.to_str().unwrap_or(""));
+        tl.log_agent_start(&config.model, "build");
+    }
     let (events, _) = tokio::sync::broadcast::channel::<String>(256);
     let state = AppState {
         agent: Arc::new(Mutex::new(Agent::new(config.clone()))),
@@ -2170,6 +2176,20 @@ pub async fn serve(config: Config, port: u16) {
         // Auth wraps the limiter: Python's `_check_auth` runs before
         // `_check_rate_limit`, so rejected requests never consume budget.
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth))
+        .route(
+            "/api/v1/telemetry",
+            get(|State(_st): State<AppState>| async move {
+                let tl = crate::telemetry::logger().lock().unwrap().get_stats();
+                let perf = crate::telemetry::perf_monitor()
+                    .lock()
+                    .unwrap()
+                    .get_all_stats();
+                Json(serde_json::json!({
+                    "telemetry": tl,
+                    "performance": serde_json::to_value(perf).unwrap_or(serde_json::json!({})),
+                }))
+            }),
+        )
         .with_state(state);
 
     let addr = format!("127.0.0.1:{port}");

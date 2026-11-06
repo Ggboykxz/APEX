@@ -15,6 +15,7 @@ mod gateway;
 mod git_tools;
 mod github;
 mod hooks;
+mod i18n;
 mod jsonrpc;
 mod lsp;
 mod mcp_client;
@@ -149,6 +150,12 @@ enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigAction,
+    },
+    /// Localization: show or set the active locale
+    Locale {
+        /// Locale to switch to (e.g. `ja`, `zh-Hans`, `pt-BR`)
+        #[arg(long)]
+        lang: Option<String>,
     },
 }
 
@@ -555,6 +562,19 @@ async fn main() {
         }
         Some(Commands::Serve { port }) => {
             server::serve(config, port).await;
+        }
+        Some(Commands::Locale { lang }) => {
+            if let Some(l) = &lang {
+                crate::i18n::set_locale(l);
+            }
+            let i18n = crate::i18n::get_i18n(lang.as_deref().unwrap_or("auto"));
+            let guard = i18n.lock().unwrap();
+            println!("Current locale: {}", guard.locale());
+            println!(
+                "Available locales: {}",
+                guard.available_locales().join(", ")
+            );
+            println!("Welcome: {}", guard.get_bracket("welcome"));
         }
         Some(Commands::Gateway { action }) => match action {
             Some(GatewayAction::Start) => {

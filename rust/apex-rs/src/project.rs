@@ -4,10 +4,7 @@
 //! framework, LSP server, formatters, build system, structure, and
 //! dependencies. Used by the `/init` and `/analyze` slash commands.
 //!
-//! This module is not yet wired into the agent loop.
-//! Allow dead code with a named exit criterion — TODO(v2.6): wire into tool
-//! dispatch / agent message handling and remove this allow.
-#![allow(dead_code)]
+//! Wired into the HTTP route `POST /api/v1/init`.
 
 use std::collections::HashMap;
 use std::fs;

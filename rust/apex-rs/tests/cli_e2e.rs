@@ -1847,6 +1847,71 @@ fn crate_root_has_no_global_dead_code_allow() {
     );
 }
 
+#[test]
+fn cli_locale_command_works() {
+    let sb = Sandbox::new();
+
+    // Default (no --lang): shows the active locale and available locales.
+    let out = sb.run(&["locale"]);
+    assert_success(&out, "locale");
+    let text = stdout(&out);
+    assert!(text.contains("Current locale:"), "got: {text}");
+    assert!(
+        text.contains("Available locales: en, ja, zh-Hans, pt-BR"),
+        "got: {text}"
+    );
+
+    // Switching to Japanese selects the locale and localizes the welcome.
+    let ja = sb.run(&["locale", "--lang", "ja"]);
+    assert_success(&ja, "locale --lang ja");
+    let ja_text = stdout(&ja);
+    assert!(ja_text.contains("Current locale: ja"), "got: {ja_text}");
+    assert!(
+        ja_text.contains("APEXへようこそ"),
+        "expected the Japanese welcome string, got: {ja_text}"
+    );
+
+    // Switching back to English.
+    let en = sb.run(&["locale", "--lang", "en"]);
+    assert_success(&en, "locale --lang en");
+    let en_text = stdout(&en);
+    assert!(en_text.contains("Current locale: en"), "got: {en_text}");
+    assert!(
+        en_text.contains("Welcome to APEX"),
+        "expected the English welcome string, got: {en_text}"
+    );
+}
+
+#[tokio::test]
+async fn serve_exposes_telemetry_route() {
+    let sb = Sandbox::new();
+
+    // Grab a free port, then let the server child bind it.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+
+    let healthy = wait_for_health(&client, &base).await;
+    assert!(healthy, "apex-rs serve did not become healthy");
+
+    let tele: serde_json::Value = get(&client, &base, "/api/v1/telemetry")
+        .await
+        .json()
+        .await
+        .unwrap();
+    // Session start is recorded at service bootstrap.
+    let stats = tele["telemetry"]
+        .as_object()
+        .expect("telemetry must be an object");
+    assert!(stats.contains_key("session_id"), "got: {tele}");
+    assert!(stats.contains_key("total_events"), "got: {tele}");
+    assert!(tele["performance"].is_object(), "got: {tele}");
+}
+
 /// Index of the first occurrence of `needle` in `haystack` (fake upstreams).
 fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.len() > haystack.len() {
