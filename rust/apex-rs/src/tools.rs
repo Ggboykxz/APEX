@@ -117,6 +117,7 @@ pub fn tool_schemas() -> Value {
         {"type":"function","function":{"name":"add_git_hook","description":"Install a git hook script under .git/hooks/<hook>","parameters":{"type":"object","properties":{"hook":{"type":"string","description":"Git hook name (e.g. pre-commit)"},"command":{"type":"string","description":"Shell command to run in the hook"}},"required":["hook","command"]}}},
         {"type":"function","function":{"name":"search_in_files","description":"Search a pattern in files","parameters":{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"}},"required":["pattern"]}}},
         {"type":"function","function":{"name":"format_file","description":"Format a file with the appropriate formatter","parameters":{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}}},
+        {"type":"function","function":{"name":"run_code","description":"Run code in a sandbox (python/javascript/bash/ruby/go/rust/php) and return stdout/stderr or an ERROR string.","parameters":{"type":"object","properties":{"code":{"type":"string","description":"Source code to run"},"language":{"type":"string","description":"Language: python, javascript, bash, ruby, go, rust, php"},"args":{"type":"array","items":{"type":"string"},"description":"Optional program arguments"}},"required":["code","language"]}}},
         {"type":"function","function":{"name":"undo_last_edit","description":"Undo the last file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"redo_last_edit","description":"Re-apply the last undone file write","parameters":{"type":"object","properties":{}}}},
         {"type":"function","function":{"name":"git_undo","description":"Revert uncommitted changes (git checkout)","parameters":{"type":"object","properties":{"path":{"type":"string"}}}}},
@@ -985,6 +986,23 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
             } else {
                 format!("ERROR: Failed to format {}", full.display())
             }
+        }
+        "run_code" => {
+            let code = args.get("code").and_then(|v| v.as_str()).unwrap_or("");
+            let language = args
+                .get("language")
+                .and_then(|v| v.as_str())
+                .unwrap_or("python");
+            let code_args: Vec<String> = args
+                .get("args")
+                .and_then(|v| v.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+            crate::sandbox::CodeSandbox::new(None, None).run_code(code, language, Some(&code_args))
         }
         _ => format!("ERROR: Unknown tool '{name}'"),
     };

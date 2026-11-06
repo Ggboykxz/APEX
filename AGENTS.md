@@ -1097,11 +1097,11 @@ surface change.
 - No crate-level `#![allow(dead_code)]`.
 - Allows are scoped to a module or item and carry a justification plus a
   `TODO(v2.6)` exit criterion.
-- Four modules carry a module-level allow (`watcher`, `structured_message`,
-  `sandbox`, `rlm`); the full module-level and item-level inventories are
+- Three modules carry a module-level allow (`watcher`, `structured_message`,
+  `rlm`); the full module-level and item-level inventories are
   the tables in PARITY.md. `i18n`, `telemetry`, `slash`, `project`,
-  `billing` and `formatter` previously carried one but are now wired (see
-  PARITY.md).
+  `billing`, `formatter` and `sandbox` previously carried one but are now
+  wired (see PARITY.md).
 
 ### Shell security
 

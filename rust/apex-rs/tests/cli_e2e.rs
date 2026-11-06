@@ -287,6 +287,7 @@ fn tools_prints_known_tool_schemas() {
         "read_file",
         "write_file",
         "run_command",
+        "run_code",
         "git_status",
         "lsp_diagnostics",
         "list_skills",
@@ -296,6 +297,41 @@ fn tools_prints_known_tool_schemas() {
             "missing tool `{expected}` in {names:?}"
         );
     }
+}
+
+#[test]
+fn run_code_tool_is_hermetic_and_rejects_unsupported_language() {
+    let sb = Sandbox::new();
+
+    // The tool is wired and listed among the registry schemas.
+    let listed = sb.run(&["tools"]);
+    assert_success(&listed, "tools");
+    let schemas: serde_json::Value =
+        serde_json::from_slice(&listed.stdout).expect("`tools` must print valid JSON");
+    let names: Vec<&str> = schemas
+        .as_array()
+        .expect("tool list must be an array")
+        .iter()
+        .filter_map(|tool| tool.get("function")?.get("name")?.as_str())
+        .collect();
+    assert!(
+        names.contains(&"run_code"),
+        "missing tool `run_code` in {names:?}"
+    );
+
+    // An unsupported language fails deterministically without spawning any
+    // interpreter, so the check is hermetic on any machine.
+    let out = sb.run(&[
+        "call-tool",
+        "run_code",
+        r#"{"code":"print(1)","language":"not-a-real-language"}"#,
+    ]);
+    assert_success(&out, "call-tool run_code (unsupported language)");
+    let text = stdout(&out);
+    assert!(
+        text.contains("ERROR: Unsupported language: not-a-real-language"),
+        "expected unsupported-language error, got: {text}"
+    );
 }
 
 #[test]

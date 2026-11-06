@@ -6,7 +6,7 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ### Rust migration — Phase 1 (wire the remaining backend modules)
 
-- **Wired 6 of the 10 PR-#348 modules** in `rust/apex-rs`:
+- **Wired 7 of the 10 PR-#348 modules** in `rust/apex-rs`:
   - `i18n` — new CLI `apex-rs locale [--lang]` reports the active locale and
     prints a localized welcome string; fixed a latent bug (the lookup used
     `LOCALES` instead of `STRINGS` and the type declared 13 strings per locale
@@ -15,15 +15,20 @@ All notable changes to APEX are documented in this file. The project follows [Se
   - `telemetry` — `serve` records session and agent start at bootstrap, and a
     new `GET /api/v1/telemetry` route exposes event statistics and performance
     metrics.
+  - `sandbox` — `CodeSandbox::run_code` exposed as the new `run_code` tool
+    (python/javascript/bash/ruby/go/rust/php) with output truncation and
+    exit-code reporting; unsupported languages fail deterministically.
   - `formatter`, `billing`, `project`, `slash` were already reachable from the
     tool registry / HTTP server; their stale module-level `#![allow(dead_code)]`
     attributes were removed and their secondary APIs scoped to item-level
     allows with `TODO(v2.6)` exit criteria.
-- Removed 6 of the 10 module-level dead-code allows; 4 remain (`watcher`,
-  `structured_message`, `sandbox`, `rlm`). Updated the dead-code inventory and
+- Removed 7 of the 10 module-level dead-code allows; 3 remain (`watcher`,
+  `structured_message`, `rlm`). Updated the dead-code inventory and
   module matrix in `rust/apex-rs/PARITY.md` and AGENTS.md.
-- New E2E tests: `cli_locale_command_works` and
-  `serve_exposes_telemetry_route`. Clippy fixes exposed by removing module-level
+- New E2E tests: `cli_locale_command_works`,
+  `serve_exposes_telemetry_route` and
+  `run_code_tool_is_hermetic_and_rejects_unsupported_language`. Clippy fixes
+  exposed by removing module-level
   `clippy::all` allows (billing collapsible-if/str-replace, telemetry
   sort-by-key/iter-kv-map).
 

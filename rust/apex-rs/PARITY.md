@@ -162,7 +162,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `workspace_rollback.py` | `workspace_rollback.rs` | Wired | Side-git snapshots under `.apex/snapshots/`: metadata, `git diff --name-only` backup of tracked modifications (untracked files stay in `git_status.txt` only, like Python), status capture, restore with parent creation, sorted listing with missing-metadata defaults, delete, and `rollback_turn` clamping. `TurnTracker` persists `.apex/turns.json` and restores a recorded turn (`revert_turn` 0/overflow target the first turn, matching Python's `turns[-0]`/clamp). CLI `rollback {snapshot,list,restore,delete,turn,record,revert,history}`; Python only wires `/restore` and `/revert`, so Rust exposes the full surface. Divergences: UTC timestamps (Python uses local time), labels and snapshot names are validated as bare path components (Python joins them directly, so `../` can escape), `rollback turn 0` is a clear error (Python raises `IndexError`), and copies do not preserve modification times (`shutil.copy2` does). |
 | `api_key.py` | `api_key.rs` | Partial | JSON-file key store (`~/.apex/api_keys.json`, overridable with `APEX_API_KEYS_FILE`; Python uses SQLite) re-read on every operation, so CLI changes reach a running server. `apex_` + 32 random bytes (urlsafe base64), sha256 at rest, expiry/active checks, `last_used`/`request_count`, CLI `key {create,list,revoke,delete}`. Python's per-key rate limits/permissions/metadata are carried in the schema but not enforced (its `validate_key` does not check them either); workspace CRUD is not ported (fixed `default` workspace). Writes are atomic (temp + rename) but not transactionally serialised across processes like SQLite. |
 | `billing.py` | `billing.rs` | Wired | BillingManager with plan types (Free/Pro/Enterprise/Custom), model cost table, usage tracking, quota checking, and summary reporting. Tools: billing_cost, billing_quota, billing_usage, billing_plan, billing_summary. |
-| `sandbox.py` | - | Missing | No isolated code execution. |
+| `sandbox.py` | `sandbox.rs` | Wired | CodeSandbox::run_code exposed as the `run_code` tool (python/javascript/bash/ruby/go/rust/php) with per-language runner, output truncation and exit-code reporting. ShellSession (persistent interactive shells) remains unwired (item-scoped). |
 | `task_queue.py` | - | Missing | No durable background tasks. |
 | `snapshot.py` | - | Missing | No snapshot system beyond the in-memory edit undo stack. |
 | `watcher.py` | `watcher.rs` | Ported | Polling-based file watcher with debounced callbacks, gitignore-aware ignore patterns (`.gitignore` + configurable patterns), per-extension pattern matching, start/stop lifecycle. Not yet wired into the agent loop. See PR 338. |
@@ -183,7 +183,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | Category | Rust tools | Status | Notable Python tools not ported |
 | --- | --- | --- | --- |
 | Files | `read_file`, `write_file`, `edit_file`, `apply_patch`, `apply_edit`, `preview_edit`, `create_directory`, `delete_file`, `batch_read`, `batch_write`, `read_image`, `glob_search`, `list_files`, `search_in_files`, `replace_in_files`, `diff_files`, `get_file_tree` | Wired | - |
-| Shell | `run_command` (guarded), `run_test`, `install_package` | Partial | `run_command_custom`, `run_shell`, `start_shell`, `close_shell`, `run_code` |
+| Shell | `run_command` (guarded), `run_test`, `install_package`, `run_code` (sandboxed) | Partial | `run_command_custom`, `run_shell`, `start_shell`, `close_shell` |
 | Git | 11 `git_*` tools including `git_create_pr` and `git_undo`, plus `add_git_hook`, `git_status_enhanced`, `git_log_enhanced` | Wired | `run_command_custom`, `run_shell`, `start_shell`, `close_shell`, `run_code` |
 | Codegen | `refactor_code`, DB/Docker/API-client/docs generators, `profile_code`, `optimize_code`, `generate_tests`, `inline_edit`, `apply_code_action` | Partial | - |
 | LSP | `lsp_definition`, `lsp_references`, `lsp_hover`, `lsp_diagnostics`, `lsp_completions`, `lsp_code_actions`, `lsp_workspace_symbol` | Partial | - |
@@ -216,7 +216,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current item-level allow inventory (87 attributes)
+### Current item-level allow inventory (92 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
@@ -257,7 +257,7 @@ carrying an inline `TODO(v2.6)` justification per policy §2:
 | Item | `context_tracking.rs` | 5 | Wire into tool dispatch / agent loop |
 | Item | `mentions.rs` | 6 | Wire into agent message parsing |
 
-When six PR-#348 modules were wired (PR for this phase), their remaining
+When seven PR-#348 modules were wired (PR for this phase), their remaining
 secondary APIs were scoped to item-level allows:
 
 | Scope | Location | Item count | Exit criterion |
@@ -267,26 +267,27 @@ secondary APIs were scoped to item-level allows:
 | Item | `slash.rs` | 3 | Expose alias/command listing in help or `/commands` |
 | Item | `i18n.rs` | 2 | Use translated strings in agent/system prompts |
 | Item | `telemetry.rs` | 11 | Instrument agent tool loop / flush on shutdown |
+| Item | `sandbox.rs` | 5 | Keep CodeSandbox helpers / wire persistent shells |
 
-Per policy §4, module-level allows require their own entries; the ten
-PR-#348 modules that carry one are listed below.
+Per policy §4, module-level allows require their own entries; the PR-#348
+modules that still carry one are listed below.
 
-### Current module-level allow inventory (4 modules)
+### Current module-level allow inventory (3 modules)
 
 | Module | Allow(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- |
 | `watcher.rs` | `dead_code` | File-watcher wiring not yet invoked at runtime | Wire watcher into CLI/daemon or remove |
 | `structured_message.rs` | `dead_code` | Structured-message types not yet used in dispatch | Use in agent-message handling or remove |
-| `sandbox.rs` | `dead_code`, `clippy::all` | Sandbox executor not yet invoked | Wire sandbox into tool dispatch or remove |
 | `rlm.rs` | `dead_code`, `clippy::all` | RLM scoring not yet wired | Wire RLM into agent loop or remove |
 
-`i18n`, `telemetry`, `slash`, `project`, `billing` and `formatter` previously
-carried module-level allows (PR #348) but are now wired: `i18n` via the
-`locale` CLI, `telemetry` via `serve` startup logging and
+`i18n`, `telemetry`, `slash`, `project`, `billing`, `formatter` and
+`sandbox` previously carried module-level allows (PR #348) but are now wired:
+`i18n` via the `locale` CLI, `telemetry` via `serve` startup logging and
 `GET /api/v1/telemetry`, `slash` via `POST /api/v1/command`, `project` via
-`POST /api/v1/init`, `billing` via the `billing_*` tools, and `formatter` via
-`format_file`/`GET /api/v1/formatter(s)`/`POST /api/v1/format`. Their
-remaining secondary APIs are scoped at the item level (see below).
+`POST /api/v1/init`, `billing` via the `billing_*` tools, `formatter` via
+`format_file`/`GET /api/v1/formatter(s)`/`POST /api/v1/format`, and
+`sandbox` via the `run_code` tool. Their remaining secondary APIs are scoped
+at the item level (see below).
 
 ## Verification
 
