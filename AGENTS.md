@@ -1,4 +1,4 @@
-# APEX — Agent for Programming EXecution v2.5.0
+# APEX — Agent for Programming EXecution v0.1.0
 
 *Built in Gabon 🇬🇦 for the world.*
 
@@ -51,7 +51,7 @@ APEX is an **autonomous agent** capable of:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                        APEX v2.5.0                       │
+│                        APEX v0.1.0                       │
 │                                                          │
 │   Frontend (TUI / REPL / API / Web)                     │
 │          ↕  HTTP / SSE / stdin                           │
@@ -1686,7 +1686,7 @@ cargo test
 
 ## Project Status
 
-- **Version**: 2.5.0
+- **Version**: 0.1.0
 - **Tests**:
   - Suite pytest (`tests/`) — run `pytest -q` from the repo root
   - Rust (`rust/apex-rs/`) — `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`
@@ -1796,4 +1796,4 @@ apex -p "prompt" -f json   # CI/CD mode
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v2.5.0 — Inspired by OpenCode, built for everyone*
+*APEX v0.1.0 — Inspired by OpenCode, built for everyone*

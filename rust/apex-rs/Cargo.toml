@@ -1,6 +1,6 @@
 [package]
 name = "apex-rs"
-version = "2.5.0"
+version = "0.1.0"
 edition = "2021"
 description = "APEX backend rewritten in Rust"
 

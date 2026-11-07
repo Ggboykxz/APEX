@@ -6,7 +6,7 @@ All notable changes to APEX will be documented in this file.
 
 ### v2.5 — Installation refonte
 
-- **One canonical version** — new `VERSION` file (2.5.0) and `scripts/version.py` (`current` / `check` / `sync`). CI and the release workflow fail when `apex/__init__.py`, `pyproject.toml`, `rust/apex-rs/Cargo.toml`, `Cargo.lock` or `integrations/npm/package.json` drift from `VERSION`, or when the tag does not match it.
+- **One canonical version** — new `VERSION` file (0.1.0) and `scripts/version.py` (`current` / `check` / `sync`). CI and the release workflow fail when `apex/__init__.py`, `pyproject.toml`, `rust/apex-rs/Cargo.toml`, `Cargo.lock` or `integrations/npm/package.json` drift from `VERSION`, or when the tag does not match it.
 - **Unified installers** — `scripts/install.sh` and `scripts/install.ps1` rewritten around shared flags: `--method auto|python|uv|pipx|pip|native|docker`, `--version`, `--prefix`, `--no-path`, `--yes`, `--dry-run`, `--uninstall [--purge]`. Non-interactive by default, checksum-verified native downloads, idempotent PATH markers, no silent `curl | sh` bootstrap.
 - **Native backend distribution** — `release.yml` builds and publishes five verified assets (`x86_64`/`aarch64` Linux, `x86_64`/`aarch64` macOS, `x86_64` Windows) with `.sha256` sidecars. Installed as `apex-rs` in `~/.apex/bin`, never as `apex`; no crates.io publication. ADR-0008 supersedes ADR-0004's "no release binaries" clause.
 - **npm wrapper** — new zero-dependency `lib/native.js` (platform mapping, SHA256 verification, tar/zip extraction) and a new resolution order: `APEX_BINARY` → `apex` on PATH → native (`APEX_INSTALL_METHOD=native` / `APEX_PREFER_NATIVE=1`) → Python provisioning → native fallback (`APEX_NATIVE != 0`).
