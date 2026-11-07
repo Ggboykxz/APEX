@@ -215,9 +215,12 @@ class TestWorkspaceRollbackEdgeCases:
         import subprocess
 
         (git_repo / "tracked.txt").write_text("original")
-        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True, check=False)
         subprocess.run(
-            ["git", "commit", "-m", "add tracked.txt"], cwd=git_repo, capture_output=True
+            ["git", "commit", "-m", "add tracked.txt"],
+            cwd=git_repo,
+            capture_output=True,
+            check=False,
         )
         # Now modify the tracked file
         (git_repo / "tracked.txt").write_text("modified")
@@ -232,8 +235,10 @@ class TestWorkspaceRollbackEdgeCases:
         import subprocess
 
         (git_repo / "tracked_restore.txt").write_text("original")
-        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "add file"], cwd=git_repo, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "add file"], cwd=git_repo, capture_output=True, check=False
+        )
         # Modify the file (don't stage) so git diff picks it up
         (git_repo / "tracked_restore.txt").write_text("modified")
         snap_name = rb.create_snapshot("before_restore")

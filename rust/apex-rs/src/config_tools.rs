@@ -981,7 +981,7 @@ mod tests {
     fn execute_preserves_quoted_args() {
         let mut manager = CustomToolManager::new();
         register_command(&mut manager, "quoted", "echo 'a b' \"c d\"", ".");
-        assert_eq!(manager.execute("quoted", &json!({})), "a b c d");
+        assert_eq!(manager.execute("quoted", &json!({})).trim(), "a b c d");
     }
 
     #[test]
