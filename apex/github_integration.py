@@ -78,7 +78,7 @@ class GitHubClient:
         try:
             response = urllib.request.urlopen(req)
             return json.loads(response.read().decode())
-        except Exception:
+        except Exception:  # noqa: BLE001
             return None
 
     def set_repo(self, owner: str, repo: str):

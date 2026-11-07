@@ -7,7 +7,8 @@ from pathlib import Path
 SRC = Path("/tmp/condensed_models.json")
 OUT_DIR = Path("/home/z/my-project/APEX")
 
-data = json.load(open(SRC))
+with open(SRC) as f:
+    data = json.load(f)
 
 # ═══════════════════════════════════════════════════════════════════
 # 1. Python config_models_new.py — MODELS dict + MODEL_PROVIDERS dict

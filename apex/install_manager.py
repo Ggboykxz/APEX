@@ -28,9 +28,9 @@ import tarfile
 import tempfile
 import urllib.request
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 PACKAGE = "apex-ai"
 REPO = "Ggboykxz/APEX"
@@ -220,7 +220,7 @@ def upgrade_command(
 def http_fetch(url: str) -> bytes:
     """Fetch a URL over HTTPS (the only network call in this module)."""
     request = urllib.request.Request(url, headers={"User-Agent": "apex-installer"})
-    with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
+    with urllib.request.urlopen(request, timeout=60) as response:
         return response.read()
 
 
@@ -241,7 +241,7 @@ def fetch_latest_release(
     release_error: Exception | None = None
     try:
         payload = json.loads(reader(api))
-    except Exception as exc:  # 404 before the first release, network, JSON
+    except Exception as exc:  # 404 before the first release, network, JSON  # noqa: BLE001
         release_error = exc
     else:
         if not isinstance(payload, dict):

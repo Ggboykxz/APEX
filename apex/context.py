@@ -111,7 +111,7 @@ def get_symbol_map(path: Path | None = None, max_tokens: int = 2000) -> str:
 
     try:
         return build_repo_map(path, max_tokens=max_tokens)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return f"ERROR: {type(e).__name__}: {e}"
 
 
@@ -137,7 +137,7 @@ def get_git_info(path: Path) -> str:
         changes = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
 
         return f"[GIT] Branch: {branch}" + (f" ({changes} changes)" if changes else " (clean)")
-    except Exception:
+    except Exception:  # noqa: BLE001
         return ""
 
 
@@ -202,5 +202,5 @@ def generate_ctags(path: Path | None = None) -> str:
             if any(f.endswith(ext) for ext in [".py", ".js", ".ts", ".go", ".rs", ".java"])
         ]
         return "\n".join(code_files[:50]) if code_files else "[no code files found]"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         return f"ERROR: {e}"

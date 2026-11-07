@@ -55,7 +55,7 @@ class CommandManager:
                 command = self._parse_command(content, md_file.stem, category)
                 if command:
                     self._commands[command.trigger] = command
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
 
     def _parse_command(self, content: str, name: str, category: str) -> Command | None:

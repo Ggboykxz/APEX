@@ -24,7 +24,7 @@ def _safe_parse(data: str, default):
             import json
 
             return json.loads(data)
-        except Exception:
+        except Exception:  # noqa: BLE001
             return default
 
 

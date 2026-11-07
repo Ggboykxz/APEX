@@ -107,7 +107,7 @@ def _sanitize_string(value: str) -> str:
     for pattern in SENSITIVE_PATTERNS:
         try:
             value = pattern.sub("***REDACTED***", value)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
     return value
 
@@ -119,7 +119,7 @@ def _check_provider_configured(env_var: str) -> bool:
 def _get_configured_providers() -> list[dict]:
     configured = []
     seen = set()
-    for alias, model_id in MODELS.items():
+    for alias in MODELS:
         env_key = MODEL_PROVIDERS.get(alias)
         if env_key is None:
             continue
@@ -178,7 +178,7 @@ class EventBus:
         self._subscribers: list = []
         self._history: list[dict] = []
 
-    async def publish(self, event_type: str, data: dict = None) -> None:
+    async def publish(self, event_type: str, data: dict | None = None) -> None:
         """Publish an event to all subscribers."""
         payload = {"event": event_type, "data": data or {}, "timestamp": time.time()}
         self._history.append(payload)
@@ -188,7 +188,7 @@ class EventBus:
         for ws in self._subscribers:
             try:
                 await ws.send_json(payload)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 dead.append(ws)
         for ws in dead:
             try:
@@ -361,7 +361,7 @@ class HTTPServer:
                         pass
                 elif msg.type in (WSMsgType.ERROR, WSMsgType.CLOSE):
                     break
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         finally:
             self.event_bus.unsubscribe(ws)
@@ -369,7 +369,7 @@ class HTTPServer:
 
     async def _check_auth(self, request: web.Request) -> tuple[web.Response | None, dict | None]:
         """Check authentication, returns error response if failed."""
-        success, api_key, key_info = await self.auth_middleware.authenticate(request)
+        success, _api_key, key_info = await self.auth_middleware.authenticate(request)
         if self.require_auth and not success:
             return web.json_response(
                 {"error": "Authentication required", "code": "AUTH_REQUIRED"},
@@ -522,7 +522,7 @@ class HTTPServer:
                     else None,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Chat error: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
@@ -592,7 +592,7 @@ class HTTPServer:
                 rate_limit_data = {"rate_limit": {"remaining_minute": result.remaining_minute}}
                 await response.write(f"data: {json.dumps(rate_limit_data)}\n\n".encode())
             return response
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Stream error: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
@@ -614,7 +614,7 @@ class HTTPServer:
             name = data.get("name", "http_session")
             path = self.session_manager.save(self.agent, name)
             return web.json_response({"saved": str(path)})
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     async def session_load(self, request: web.Request) -> web.Response:
@@ -633,7 +633,7 @@ class HTTPServer:
             if success:
                 return web.json_response({"loaded": name})
             return web.json_response({"error": "session not found"}, status=404)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     async def metrics(self, request: web.Request) -> web.Response:
@@ -690,7 +690,7 @@ class HTTPServer:
             raw = apex_config.raw()
             sanitized = _sanitize_config(raw)
             return web.json_response({"config": sanitized})
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Agents ─────────────────────────────────────
@@ -783,12 +783,12 @@ class HTTPServer:
                             fpath.unlink()
                             found = True
                             break
-                    except Exception:
+                    except Exception:  # noqa: BLE001, S112
                         continue
             if found:
                 return web.json_response({"deleted": session_id})
             return web.json_response({"error": "session not found"}, status=404)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Share ──────────────────────────────────────
@@ -808,7 +808,7 @@ class HTTPServer:
             if not url:
                 return web.json_response({"error": "sharing is disabled"}, status=403)
             return web.json_response({"url": url, "share_id": url.rstrip("/").split("/")[-1]})
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     async def api_unshare(self, request: web.Request) -> web.Response:
@@ -868,7 +868,7 @@ class HTTPServer:
                     "resolved": theme_manager.current_theme,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Stats ──────────────────────────────────────
@@ -942,7 +942,7 @@ class HTTPServer:
                 return web.json_response({"formatted": True, "code": formatted})
 
             return web.json_response({"error": "file_path or code required"}, status=400)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Compact ────────────────────────────────────
@@ -976,7 +976,7 @@ class HTTPServer:
                     "history_length": len(self.agent.history),
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Models ─────────────────────────────────────
@@ -1003,7 +1003,7 @@ class HTTPServer:
 
     # ── API v1: Auth ───────────────────────────────────────
 
-    _VALID_PROVIDERS = {
+    _VALID_PROVIDERS = {  # noqa: RUF012
         "ANTHROPIC",
         "OPENAI",
         "GEMINI",
@@ -1060,7 +1060,7 @@ class HTTPServer:
                     "env_var": env_var,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     async def api_auth_logout(self, request: web.Request) -> web.Response:
@@ -1090,7 +1090,7 @@ class HTTPServer:
                 if os.environ.pop(env_var.lower(), None):
                     removed.append(env_var.lower())
             return web.json_response({"removed": True, "env_vars": removed})
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     async def api_auth_status(self, request: web.Request) -> web.Response:
@@ -1137,7 +1137,7 @@ class HTTPServer:
         if auth_error:
             return auth_error
 
-        rate_error, result = await self._check_rate_limit(key_info)
+        rate_error, _result = await self._check_rate_limit(key_info)
         if rate_error:
             return rate_error
 
@@ -1162,7 +1162,7 @@ class HTTPServer:
                     "executed": True,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Undo/Redo ──────────────────────────────────
@@ -1226,7 +1226,7 @@ class HTTPServer:
                     "analysis": analysis,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Export/Import ──────────────────────────────
@@ -1278,7 +1278,7 @@ class HTTPServer:
                 return web.json_response({"imported": True, "session_id": session_id})
 
             return web.json_response({"error": "file_path or data required"}, status=400)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Files ─────────────────────────────────────
@@ -1319,7 +1319,7 @@ class HTTPServer:
                 if entry.is_dir():
                     rel += "/"
                 files.append(rel)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         return web.json_response({"files": sorted(files)})
 
@@ -1388,7 +1388,7 @@ class HTTPServer:
                     results.append(rel)
                     if len(results) >= limit:
                         break
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         return web.json_response(results)
 
@@ -1410,12 +1410,12 @@ class HTTPServer:
             executor = ToolExecutor(cwd=self.agent.cwd)
             result = executor.execute("run_command", {"command": command})
             return web.json_response({"output": result, "command": command})
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: Event bus ─────────────────────────────────
 
-    _sse_clients: list = []
+    _sse_clients: list = []  # noqa: RUF012
 
     async def api_global_event(self, request: web.Request) -> web.Response:
         """SSE event stream (OpenCode /global/event compat)."""
@@ -1555,7 +1555,7 @@ class HTTPServer:
                     "paths": paths,
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     async def api_session_diff_decision(self, request: web.Request) -> web.Response:
@@ -1593,7 +1593,7 @@ class HTTPServer:
 
         try:
             _stat, _diff_text, current_paths, fingerprint = self._collect_diff()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
         selected = list(current_paths) if requested is None else requested
@@ -1740,7 +1740,7 @@ class HTTPServer:
                     "output": result_holder.get("output", ""),
                 }
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return web.json_response({"error": str(e)}, status=500)
 
     # ── API v1: TUI Config ────────────────────────────────
@@ -1840,7 +1840,7 @@ def start_tui_server(port: int = 8080, agent: "Agent | None" = None) -> object:
         try:
             loop.run_until_complete(server.start())
             loop.run_forever()
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         finally:
             try:
@@ -1852,7 +1852,7 @@ def start_tui_server(port: int = 8080, agent: "Agent | None" = None) -> object:
                     loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
                 loop.run_until_complete(loop.shutdown_asyncgens())
                 loop.close()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
 
     thread = threading.Thread(target=_run, daemon=True)

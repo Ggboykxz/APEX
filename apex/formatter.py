@@ -197,7 +197,7 @@ class FormatterManager:
                 return False
             try:
                 return dep in p.read_text(encoding="utf-8", errors="replace")
-            except Exception:
+            except Exception:  # noqa: BLE001
                 return False
         p = Path(req)
         if p.is_file():
@@ -280,11 +280,11 @@ class FormatterManager:
             return False
 
     def _run_formatter_tempfile(self, fmt: FormatterConfig, code: str, extension: str) -> str:
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False)
-        try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False) as tmp:
             tmp.write(code)
-            tmp.close()
-            cmd = self._build_command(fmt, tmp.name)
+            tmp_path = tmp.name
+        try:
+            cmd = self._build_command(fmt, tmp_path)
             env = {**os.environ, **fmt.environment}
             result = subprocess.run(
                 cmd,
@@ -294,12 +294,12 @@ class FormatterManager:
                 check=False,
             )
             if result.returncode == 0:
-                return Path(tmp.name).read_text(encoding="utf-8")
+                return Path(tmp_path).read_text(encoding="utf-8")
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
         finally:
             try:
-                os.unlink(tmp.name)
+                os.unlink(tmp_path)
             except OSError:
                 pass
         return code

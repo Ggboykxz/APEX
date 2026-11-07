@@ -849,7 +849,7 @@ class ThemeManager:
 
             cfg = Config()
             cfg.theme = name
-        except Exception:
+        except Exception:  # noqa: S110, BLE001
             pass
 
     @property

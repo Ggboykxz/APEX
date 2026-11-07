@@ -555,7 +555,7 @@ class AgentManager:
                     if config:
                         self.register(config)
                         logger.info("Loaded markdown agent: %s from %s", config.name, md_file)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     logger.warning("Failed to load agent from %s: %s", md_file, exc)
 
     def _parse_markdown_agent(self, path: Path) -> AgentConfig | None:

@@ -9,6 +9,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class APEXClient:
 
     _rate_limit = 60
     _window = 60
-    _request_times: dict[str, list[float]] = {}
+    _request_times: ClassVar[dict[str, list[float]]] = {}
 
     def __init__(self, client_id: str, name: str = "anonymous", token: str | None = None):
         self.id = client_id
@@ -125,8 +126,8 @@ class APEXServer:
                 if isinstance(msg, str):
                     await self._handle_message(client_id, msg, ws)
 
-        except Exception as e:
-            logger.error(f"WebSocket error for client {client_id}: {e}")
+        except Exception:
+            logger.exception("WebSocket error for client %s", client_id)
         finally:
             self.clients.pop(client_id, None)
             self._websockets.discard(ws)
@@ -167,9 +168,9 @@ class APEXServer:
         except json.JSONDecodeError:
             logger.warning(f"Invalid JSON from client {client_id}: {msg[:100]}")
             await ws.send_json({"type": "error", "message": "Invalid JSON"})
-        except Exception as e:
-            logger.error(f"Error handling message from {client_id}: {e}")
-            await ws.send_json({"type": "error", "message": str(e)})
+        except Exception as exc:
+            logger.exception("Error handling message from client %s", client_id)
+            await ws.send_json({"type": "error", "message": str(exc)})
 
     async def _process_chat(self, client_id: str, data: dict) -> dict:
         """Process chat message."""
@@ -204,8 +205,8 @@ class APEXServer:
         for ws in self._websockets:
             try:
                 await ws.send_json(message)
-            except Exception as e:
-                logger.warning(f"Failed to broadcast to client: {e}")
+            except Exception:
+                logger.exception("Failed to broadcast to client")
                 failed.add(ws)
         self._websockets -= failed
 

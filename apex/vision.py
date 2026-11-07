@@ -101,7 +101,7 @@ def detect_vision_support(model: str) -> bool:
 
     try:
         from litellm import model_cost
-    except Exception:  # pragma: no cover - litellm optional at import time
+    except Exception:  # pragma: no cover - litellm optional at import time  # noqa: BLE001
         model_cost = None
 
     if isinstance(model_cost, dict):

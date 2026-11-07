@@ -3,7 +3,6 @@
 import asyncio
 import hashlib
 import json
-import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -530,7 +529,7 @@ class TestAPEXServerHandleMessage:
         client = APEXClient("c1")
         old_activity = client.last_activity
         server.clients["c1"] = client
-        time.sleep(0.01)
+        await asyncio.sleep(0.01)
         await server._handle_message("c1", json.dumps({"type": "chat", "message": "hi"}), ws)
         assert client.last_activity != old_activity
 
@@ -677,7 +676,7 @@ class TestRunServer:
             patch("aiohttp.web", create=True) as mock_web,
             patch("apex.server.APEXServer") as mock_server_cls,
         ):
-            mock_server, mock_runner, mock_site, _, _, _ = await self._run_with_mocks(
+            _mock_server, mock_runner, mock_site, _, _, _ = await self._run_with_mocks(
                 mock_web, mock_server_cls
             )
 

@@ -82,6 +82,7 @@ class CustomToolManager:
         try:
             return tool.handler(args)
         except Exception as e:
+            logger.exception("Custom tool '%s' execution failed", name)
             return f"ERROR: Tool execution failed: {e}"
 
     def get_schemas(self) -> list[dict]:
@@ -184,7 +185,7 @@ def load_custom_tools(config_path: Path) -> None:
                 )
                 continue
 
-            def make_handler(cmd: str, wd: str):
+            def make_handler(cmd: str, wd: str, tool_name: str):
                 def handler(args: dict) -> str:
                     import subprocess
 
@@ -209,7 +210,7 @@ def load_custom_tools(config_path: Path) -> None:
                         )
                         return result.stdout or result.stderr or "[no output]"
                     except Exception as e:
-                        logger.error(f"Custom tool '{tool_name}' error: {e}")
+                        logger.exception("Custom tool '%s' error", tool_name)
                         return f"ERROR: {e}"
 
                 return handler
@@ -218,7 +219,7 @@ def load_custom_tools(config_path: Path) -> None:
                 name=tool_name,
                 description=description,
                 parameters=parameters,
-                handler=make_handler(command, cwd),
+                handler=make_handler(command, cwd, tool_name),
             )
-    except Exception as e:
-        logger.error(f"Failed to load custom tools: {e}")
+    except Exception:
+        logger.exception("Failed to load custom tools")

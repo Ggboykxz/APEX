@@ -261,7 +261,6 @@ def handle_command(
     use_stream: bool = False,
 ) -> bool:
     config = config or apex_config
-    global memory
     parts = command.split(maxsplit=1)
     cmd = parts[0].lower()
     arg = parts[1] if len(parts) > 1 else ""
@@ -749,9 +748,8 @@ def handle_command(
             import tempfile
 
             editor = os.environ.get("EDITOR", "vim")
-            prompt_file = tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False)
-            prompt_file.write("# Enter your prompt\n\n")
-            prompt_file.close()
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as prompt_file:
+                prompt_file.write("# Enter your prompt\n\n")
             try:
                 subprocess.call([editor, prompt_file.name])
                 content = Path(prompt_file.name).read_text()
@@ -843,10 +841,9 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
     while True:
         try:
             user_input = prompt_session.prompt()
-            if not user_input.strip():
+            if not user_input.strip() or not user_input.startswith("/"):
                 continue
-            if user_input.startswith("/"):
-                if handle_command(user_input, agent, ui, apex_config, prompt_session, use_stream):
+            if handle_command(user_input, agent, ui, apex_config, prompt_session, use_stream):
                     continue
             ui.print_user(user_input)
             with ui.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
@@ -930,7 +927,7 @@ def run_cicd_mode(
                 ui.print_response(response)
             else:
                 print(response)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         if output_format == "json":
             print(json.dumps({"success": False, "error": str(e)}, indent=2))
         else:
@@ -1005,7 +1002,7 @@ def _install_bun(ui: UI) -> str | None:
         if bun_path and Path(bun_path).exists():
             ui.print_success("Bun installed successfully!")
             return str(bun_path)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
     return None
 
@@ -1037,7 +1034,7 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed!")
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
     npm_path = shutil.which("npm")
     if npm_path:
@@ -1053,7 +1050,7 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed with npm!")
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
     ui.print_error("Could not install TUI dependencies. Neither bun nor npm is available.")
     return False
@@ -1091,7 +1088,7 @@ def _try_run_tui_process(
     except FileNotFoundError:
         ui.print_error(f"{runtime_name} executable not found: {runtime_cmd[0]}")
         return False
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"{runtime_name} error: {e}")
         return False
 
@@ -1122,7 +1119,7 @@ def _install_tsx(tui_dir: Path, ui: UI) -> str | None:
         if result.returncode == 0:
             ui.print_success("tsx installed successfully!")
             return _ensure_tsx(tui_dir)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
     return None
 
@@ -1247,7 +1244,7 @@ def _patch_tui_package_json(tui_dir: Path) -> None:
         if patched:
             pkg_path.write_text(json.dumps(data, indent=2) + "\n")
             logger.info("Patched tui-frontend/package.json for React 18 / Ink compatibility")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Failed to patch tui-frontend/package.json: {e}")
 
 
@@ -1286,7 +1283,7 @@ def _install_tui_command(ui: UI) -> None:
                     tarball_path = Path(tmp_dir) / "apex.tar.gz"
                     try:
                         urllib.request.urlretrieve(tarball_url, str(tarball_path))
-                    except Exception:
+                    except Exception:  # noqa: BLE001
                         # Fallback to git clone if tarball fails
                         result = subprocess.run(
                             [
@@ -1334,7 +1331,7 @@ def _install_tui_command(ui: UI) -> None:
                             else:
                                 ui.print_error("tui-frontend directory not found in repository")
                                 return
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 ui.print_error(f"Failed to download TUI frontend: {e}")
                 return
 
@@ -1368,7 +1365,7 @@ def _cmd_serve(args: argparse.Namespace, ui: UI) -> None:
         server = HTTPServer(host=host, port=port)
         ui.print_success(f"Server running at http://{host}:{port}")
         server.run()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"Failed to start server: {e}")
         sys.exit(1)
 
@@ -1386,7 +1383,7 @@ def _cmd_web(args: argparse.Namespace, ui: UI) -> None:
         ui.print_success(f"Opening {url} in browser...")
         webbrowser.open(url)
         server.run()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"Failed to start web server: {e}")
         sys.exit(1)
 
@@ -1584,7 +1581,7 @@ def _cmd_run(args: argparse.Namespace, ui: UI) -> None:
                 "usage": agent.usage,
             }
             print(json.dumps(result, indent=2))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(json.dumps({"success": False, "error": str(e)}, indent=2))
             sys.exit(1)
     else:
@@ -1718,7 +1715,7 @@ def _parse_ts(ts: str) -> float:
 
     try:
         return datetime.fromisoformat(ts).timestamp()
-    except Exception:
+    except Exception:  # noqa: BLE001
         return 0
 
 
@@ -1764,7 +1761,7 @@ def _cmd_import(args: argparse.Namespace, ui: UI) -> None:
             out = sessions_dir / f"imported_{session_id}.json"
             out.write_text(json.dumps(data, indent=2))
             ui.print_success(f"Imported from URL as session: {session_id}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             ui.print_error(f"Failed to import from URL: {e}")
             sys.exit(1)
     else:
@@ -1789,7 +1786,7 @@ def _cmd_upgrade(args: argparse.Namespace, ui: UI) -> None:
                 f"No published release yet — you are running APEX {__version__} (source build)."
             )
             return
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             ui.print_error(f"Could not check for updates: {e}")
             sys.exit(1)
 
@@ -1831,7 +1828,7 @@ def _cmd_upgrade(args: argparse.Namespace, ui: UI) -> None:
 
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"Upgrade error: {e}")
         sys.exit(1)
 
@@ -1891,7 +1888,7 @@ def _cmd_uninstall(args: argparse.Namespace, ui: UI) -> None:
             else:
                 detail = result.stderr or result.stdout or "unknown error"
                 ui.print_warning(f"{' '.join(command)}: {detail[:200]}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             ui.print_warning(f"{' '.join(command)} failed: {e}")
 
     for path in plan.kept:
@@ -2329,7 +2326,7 @@ def _cmd_plugin(args: argparse.Namespace, ui: UI) -> None:
         # Now load all plugins from config (including the newly added one)
         load_plugins_from_config(config_path, app=None)
         ui.print_success(f"Plugin installed and loaded: {module}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"Failed to load plugin: {e}")
 
 
@@ -2366,7 +2363,7 @@ def _cmd_gateway(parsed: argparse.Namespace, ui: UI) -> None:
             finally:
                 loop.run_until_complete(server.stop())
                 loop.close()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             ui.print_error(f"Gateway error: {e}")
             sys.exit(1)
     elif sub == "key":
@@ -2491,7 +2488,7 @@ def main() -> None:
     }
 
     if verb in subcommand_map:
-        attr_name, sub_val = subcommand_map[verb]
+        _attr_name, sub_val = subcommand_map[verb]
         # Build modified args for dispatch
         modified = [verb]
         if verb == "db":

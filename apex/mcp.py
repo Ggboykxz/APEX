@@ -63,7 +63,7 @@ class MCPClient:
 
         try:
             env = {**subprocess.os.environ.copy(), **self.config.env}
-            self.process = subprocess.Popen(
+            self.process = subprocess.Popen(  # noqa: ASYNC220
                 [self.config.command] + self.config.args,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
@@ -93,7 +93,7 @@ class MCPClient:
                 return True
             return False
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"MCP connection error: {e}")
             return False
 
@@ -117,7 +117,7 @@ class MCPClient:
                     buffer = ""
                 else:
                     buffer += char
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     async def _handle_message(self, raw: str) -> None:
@@ -135,7 +135,7 @@ class MCPClient:
                 method = msg["method"]
                 if method in self._notification_handlers:
                     await self._notification_handlers[method](msg.get("params"))
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     async def _send_request(self, method: str, params: dict | None = None) -> Any:
@@ -152,7 +152,7 @@ class MCPClient:
             self.process.stdin.write(json.dumps(request) + "\n")
             self.process.stdin.flush()
             return await asyncio.wait_for(future, timeout=30)
-        except Exception:
+        except Exception:  # noqa: BLE001
             self._pending_requests.pop(request_id, None)
             return None
 
@@ -165,7 +165,7 @@ class MCPClient:
         try:
             self.process.stdin.write(json.dumps(notification) + "\n")
             self.process.stdin.flush()
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     async def list_tools(self) -> list[MCPTool]:
@@ -252,7 +252,7 @@ class MCPClient:
             self.process.terminate()
             try:
                 self.process.wait(timeout=5)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 self.process.kill()
 
 
@@ -287,11 +287,11 @@ class MCPManager:
 
     def get_all_tools(self) -> list[dict]:
         tools = []
-        for name, client in self._servers.items():
+        for client in self._servers.values():
             try:
                 client_tools = client.get_tool_schemas()
                 tools.extend(client_tools)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         return tools
 
@@ -358,5 +358,5 @@ def load_mcp_config(config_path: Path) -> None:
                 env=server_config.get("env", {}),
                 enabled=server_config.get("enabled", True),
             )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Failed to load MCP config: {e}")

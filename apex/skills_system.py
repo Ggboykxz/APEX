@@ -201,7 +201,7 @@ class SkillsManager:
                 parameters={},
                 examples=[],
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             return None
 
     def _parse_skill_file(self, filepath: Path) -> Skill | None:
@@ -233,9 +233,8 @@ class SkillsManager:
                         continue
                 if in_instructions:
                     instructions += line + "\n"
-                elif not line.startswith("#") and line.strip():
-                    if not description:
-                        description = line.strip()
+                elif not line.startswith("#") and line.strip() and not description:
+                    description = line.strip()
             return Skill(
                 name=name,
                 description=description or filepath.stem,
@@ -244,7 +243,7 @@ class SkillsManager:
                 parameters=parameters,
                 examples=examples,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             return None
 
     def get_skill(self, name: str) -> Skill | None:
@@ -311,7 +310,7 @@ class CustomCommand:
         name: str,
         handler: Callable[[list[str]], str],
         description: str = "",
-        aliases: list[str] = None,
+        aliases: list[str] | None = None,
     ):
         self.name = name
         self.handler = handler
@@ -346,7 +345,7 @@ class CommandRegistry:
             return f"Unknown command: {name}"
         try:
             return cmd.handler(args)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"Error: {e}"
 
     def list_commands(self) -> list[dict]:

@@ -86,7 +86,7 @@ class ProjectInitializer:
                         data = tomllib.load(f)
                         if data.get("tool", {}).get("pytest"):
                             result["test_framework"] = "pytest"
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
         elif result["language"] == "javascript":
             pkg = json.loads((self.cwd / "package.json").read_text())
@@ -203,7 +203,7 @@ class ProjectInitializer:
                         .get("optional-dependencies", {})
                         .get("dev", [])
                     ]
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         elif result["language"] == "javascript" and (self.cwd / "package.json").exists():
             try:
@@ -211,7 +211,7 @@ class ProjectInitializer:
                 result["scripts"] = pkg.get("scripts", {})
                 result["dependencies"] = list(pkg.get("dependencies", {}).keys())
                 result["dev_dependencies"] = list(pkg.get("devDependencies", {}).keys())
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
 
     def create_context_file(self) -> str:
@@ -267,7 +267,7 @@ class FileWatcher:
         self._callbacks = []
         self._running = False
 
-    def watch(self, patterns: list[str] = None):
+    def watch(self, patterns: list[str] | None = None):
         patterns = patterns or ["*.py", "*.js", "*.ts", "*.go", "*.rs"]
         try:
             import watchdog

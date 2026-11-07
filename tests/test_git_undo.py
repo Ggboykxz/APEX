@@ -205,7 +205,7 @@ class TestGitUndoManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             mgr = GitUndoManager(cwd=Path(tmpdir))
             # Should handle gracefully
-            code, stdout, stderr = mgr._run_git("status")
+            code, _stdout, _stderr = mgr._run_git("status")
             assert code != 0  # Not a git repo
 
     def test_get_current_files(self, manager, git_repo):
@@ -240,7 +240,7 @@ class TestGitUndoEdgeCases:
 
         with tempfile.TemporaryDirectory() as tmp:
             mgr = GitUndoManager(cwd=Path(tmp))
-            code, stdout, stderr = mgr._run_git("status")
+            code, _stdout, stderr = mgr._run_git("status")
             assert code == -1
             assert "git not found" in stderr
 

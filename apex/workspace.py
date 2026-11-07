@@ -144,7 +144,7 @@ class WorkspaceManager:
             if result.returncode == 0:
                 ctx.tags = result.stdout.strip().split("\n")[:5]
 
-        except Exception:
+        except Exception:  # noqa: S110, BLE001
             pass
 
         return ctx

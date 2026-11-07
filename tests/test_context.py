@@ -309,7 +309,6 @@ class TestContextEdgeCases:
     def test_get_repo_map_permission_error(self, tmp_path, monkeypatch):
         """Hit line 66-67 — PermissionError returns ERROR string."""
         # Patch Path.iterdir to raise PermissionError
-        type(tmp_path).iterdir
 
         def broken_iterdir(self):
             raise PermissionError("Access denied")

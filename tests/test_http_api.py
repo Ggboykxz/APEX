@@ -779,7 +779,7 @@ class TestCheckRateLimitMethod:
         server = HTTPServer(require_auth=False, rate_limit_config=cfg)
         server.rate_limiter.check_rate_limit("anonymous")
         server.rate_limiter.check_rate_limit("anonymous")
-        err, result = await server._check_rate_limit(None)
+        err, _result = await server._check_rate_limit(None)
         assert err is not None
         assert err.status == 429
 
@@ -1707,7 +1707,7 @@ class TestTuiServer:
     """Test start_tui_server and stop_tui_server functions."""
 
     def test_start_and_stop_tui_server(self):
-        with patch.object(sys, "platform", "linux"):
+        with patch.object(sys, "platform", "linux"):  # noqa: SIM117
             with patch("apex.http_api.asyncio.new_event_loop") as mock_new_loop:
                 mock_loop = MagicMock()
                 mock_loop.is_running.return_value = True
@@ -1723,7 +1723,7 @@ class TestTuiServer:
                     mock_loop.call_soon_threadsafe.assert_called_once()
 
     def test_start_and_stop_win32(self):
-        with patch.object(sys, "platform", "win32"):
+        with patch.object(sys, "platform", "win32"):  # noqa: SIM117
             with patch("apex.http_api.asyncio.SelectorEventLoop") as mock_loop_cls:
                 mock_loop = MagicMock()
                 mock_loop.is_running.return_value = True
@@ -1738,7 +1738,7 @@ class TestTuiServer:
 
     def test_stop_with_agent(self):
         agent = MagicMock()
-        with patch("threading.Thread"):
+        with patch("threading.Thread"):  # noqa: SIM117
             with patch("apex.http_api.asyncio.new_event_loop") as mock_new_loop:
                 mock_loop = MagicMock()
                 mock_loop.is_running.return_value = True
@@ -1785,8 +1785,8 @@ class TestTuiServerCleanup:
         with (
             patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
             patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+            patch("threading.Thread") as mock_thread_cls,
         ):
-            with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
                 start_tui_server(port=9999)
@@ -1804,8 +1804,8 @@ class TestTuiServerCleanup:
         with (
             patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
             patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
+            patch("threading.Thread") as mock_thread_cls,
         ):
-            with patch("threading.Thread") as mock_thread_cls:
                 mock_thread_instance = MagicMock()
                 mock_thread_cls.return_value = mock_thread_instance
                 start_tui_server(port=9999)
@@ -1825,18 +1825,16 @@ class TestTuiServerCleanup:
 
         task = loop.create_task(dummy())
 
-        with patch("asyncio.all_tasks", return_value={task}):
-            with (
-                patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
-                patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
-            ):
-                with patch("threading.Thread") as mock_thread_cls:
-                    mock_thread_instance = MagicMock()
-                    mock_thread_cls.return_value = mock_thread_instance
-                    start_tui_server(port=9999)
-                    target_fn = mock_thread_cls.call_args[1]["target"]
-                    target_fn()
-                    loop.close.assert_called_once()
+        with patch("asyncio.all_tasks", return_value={task}):  # noqa: SIM117
+            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+                with patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
+                    with patch("threading.Thread") as mock_thread_cls:
+                        mock_thread_instance = MagicMock()
+                        mock_thread_cls.return_value = mock_thread_instance
+                        start_tui_server(port=9999)
+                        target_fn = mock_thread_cls.call_args[1]["target"]
+                        target_fn()
+                        loop.close.assert_called_once()
 
     def test_cleanup_inner_exception_caught(self):
         loop = asyncio.SelectorEventLoop()
@@ -1848,19 +1846,17 @@ class TestTuiServerCleanup:
         loop.shutdown_asyncgens = broken_shutdown
         loop.close = MagicMock()
 
-        with patch("asyncio.all_tasks", return_value=set()):
-            with (
-                patch("apex.http_api.asyncio.new_event_loop", return_value=loop),
-                patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
-            ):
-                with patch("threading.Thread") as mock_thread_cls:
-                    mock_thread_instance = MagicMock()
-                    mock_thread_cls.return_value = mock_thread_instance
-                    server = start_tui_server(port=9999)
-                    server.start = AsyncMock()
-                    target_fn = mock_thread_cls.call_args[1]["target"]
-                    target_fn()
-                loop.close.assert_not_called()
+        with patch("asyncio.all_tasks", return_value=set()):  # noqa: SIM117
+            with patch("apex.http_api.asyncio.new_event_loop", return_value=loop):
+                with patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop):
+                    with patch("threading.Thread") as mock_thread_cls:
+                        mock_thread_instance = MagicMock()
+                        mock_thread_cls.return_value = mock_thread_instance
+                        server = start_tui_server(port=9999)
+                        server.start = AsyncMock()
+                        target_fn = mock_thread_cls.call_args[1]["target"]
+                        target_fn()
+                    loop.close.assert_not_called()
 
 
 class TestRunServerKeyboardInterrupt:
@@ -1868,9 +1864,11 @@ class TestRunServerKeyboardInterrupt:
 
     @pytest.mark.asyncio
     async def test_run_server_keyboard_interrupt(self):
-        with patch("apex.http_api.asyncio.Event.wait", side_effect=KeyboardInterrupt()):
-            with patch.object(HTTPServer, "start", new_callable=AsyncMock):
-                with patch.object(HTTPServer, "stop", new_callable=AsyncMock) as mock_stop:
+        with (
+            patch("apex.http_api.asyncio.Event.wait", side_effect=KeyboardInterrupt()),
+            patch.object(HTTPServer, "start", new_callable=AsyncMock),
+            patch.object(HTTPServer, "stop", new_callable=AsyncMock) as mock_stop,
+        ):
                     await run_server(host="127.0.0.1", port=0, require_auth=False)
                     mock_stop.assert_called_once()
 
@@ -1900,8 +1898,8 @@ class TestChatBilling:
                 server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
             ),
             patch.object(server.agent, "chat", return_value="response"),
+            patch("apex.http_api.billing_manager.record_usage") as mock_billing,
         ):
-            with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
                 async with TestClient(TestServer(server.app)) as client:
                     resp = await client.post(
                         "/chat",
@@ -1928,8 +1926,8 @@ class TestChatStreamBilling:
                 server.auth_middleware, "authenticate", return_value=(True, "test-key", key_info)
             ),
             patch.object(server.agent, "chat_streaming", mock_stream),
+            patch("apex.http_api.billing_manager.record_usage") as mock_billing,
         ):
-            with patch("apex.http_api.billing_manager.record_usage") as mock_billing:
                 async with TestClient(TestServer(server.app)) as client:
                     resp = await client.post(
                         "/chat/stream",

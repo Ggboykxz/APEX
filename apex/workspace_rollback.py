@@ -49,7 +49,7 @@ class WorkspaceRollback:
             json.dump(metadata, f)
 
         if self.is_git_repo():
-            code, stdout, stderr = self._run_git("diff", "--name-only")
+            code, stdout, _stderr = self._run_git("diff", "--name-only")
             if code == 0 and stdout.strip():
                 with open(snapshot_path / "changed_files.txt", "w") as f:
                     f.write(stdout)

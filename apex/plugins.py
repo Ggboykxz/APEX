@@ -96,8 +96,8 @@ class PluginManager:
                 try:
                     result = hook.callback(*args, **kwargs)
                     results.append(result)
-                except Exception as e:
-                    print(f"Hook {hook_name} error: {e}")
+                except Exception:
+                    logger.exception("Hook %s error", hook_name)
         return results
 
     async def discover_plugins(self) -> list[str]:
@@ -144,8 +144,8 @@ class PluginManager:
                             self._enabled[name] = True
                             logger.info(f"Loaded plugin: {name}")
                             return True
-            except Exception as e:
-                logger.error(f"Failed to load plugin {name}: {e}")
+            except Exception:
+                logger.exception("Failed to load plugin %s", name)
         return False
 
     def unload_plugin(self, name: str) -> bool:
@@ -155,8 +155,8 @@ class PluginManager:
                 del self._plugins[name]
                 self._enabled.pop(name, None)
                 return True
-            except Exception as e:
-                print(f"Failed to unload plugin {name}: {e}")
+            except Exception:
+                logger.exception("Failed to unload plugin %s", name)
         return False
 
     def enable_plugin(self, name: str) -> bool:
@@ -193,7 +193,7 @@ class PluginManager:
                 try:
                     tools.extend(plugin.get_tools())
                 except Exception:
-                    pass
+                    logger.exception("Failed to get tools from plugin")
         return tools
 
 
@@ -314,5 +314,5 @@ def load_plugins_from_config(config_path: Path, app: Any) -> None:
             if config["plugins"][plugin_name].get("enabled", True):
                 plugin_manager.load_plugin(plugin_name)
 
-    except Exception as e:
-        print(f"Failed to load plugins: {e}")
+    except Exception:
+        logger.exception("Failed to load plugins")

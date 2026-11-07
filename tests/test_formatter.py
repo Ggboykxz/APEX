@@ -336,8 +336,10 @@ class TestFormatCode:
             Path(file_path).write_text("formatted_code")
             return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=b"", stderr=b"")
 
-        with patch("apex.formatter.subprocess.run", side_effect=_mock_run):
-            with patch("apex.formatter.os.unlink", side_effect=OSError("permission denied")):
+        with (
+            patch("apex.formatter.subprocess.run", side_effect=_mock_run),
+            patch("apex.formatter.os.unlink", side_effect=OSError("permission denied")),
+        ):
                 result = manager.format_code("x=1\n", ".py")
 
         assert result == "formatted_code"

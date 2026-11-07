@@ -176,6 +176,7 @@ class StdioMCPServer:
         try:
             config_mcp = apex_config.mcp
         except Exception:
+            logger.exception("Failed to read MCP config from apex_config")
             config_mcp = {}
         explicit = resolve_allow_tools(
             cli_allow, os.environ.get("APEX_MCP_ALLOW_TOOLS"), config_mcp
@@ -260,6 +261,7 @@ class StdioMCPServer:
         except MCPError:
             raise
         except Exception as exc:
+            logger.exception("Tool call failed")
             text = f"ERROR: {type(exc).__name__}: {exc}"
 
         is_error = text.startswith("ERROR:")
@@ -332,6 +334,7 @@ def _process_line(server: StdioMCPServer, line: str, out: TextIO) -> None:
             except MCPError as exc:
                 response = server._error(item.get("id"), exc.code, exc.message, exc.data)
             except Exception as exc:  # pragma: no cover - defensive boundary
+                logger.exception("Internal error handling batch item")
                 response = server._error(item.get("id"), INTERNAL_ERROR, f"internal error: {exc}")
             if response is not None:
                 responses.append(response)
@@ -348,6 +351,7 @@ def _process_line(server: StdioMCPServer, line: str, out: TextIO) -> None:
     except MCPError as exc:
         response = server._error(payload.get("id"), exc.code, exc.message, exc.data)
     except Exception as exc:  # pragma: no cover - defensive boundary
+        logger.exception("Internal error handling MCP request")
         response = server._error(payload.get("id"), INTERNAL_ERROR, f"internal error: {exc}")
     if response is not None:
         _write_message(out, response)
@@ -377,10 +381,11 @@ def serve(
         try:
             _process_line(server, line, out)
         except Exception as exc:  # pragma: no cover - defensive boundary
-            logger.exception("unhandled MCP server error: %s", exc)
+            logger.exception("unhandled MCP server error")
             try:
                 _write_message(out, server._error(None, INTERNAL_ERROR, f"internal error: {exc}"))
             except Exception:
+                logger.exception("Failed to write MCP error response")
                 break
     return 0
 

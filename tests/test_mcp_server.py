@@ -93,25 +93,25 @@ def test_notification_produces_no_response(workspace: Path) -> None:
 
 
 def test_ping(workspace: Path) -> None:
-    rc, responses = run_lines([INIT, req(5, "ping")], cwd=workspace)
+    _rc, responses = run_lines([INIT, req(5, "ping")], cwd=workspace)
     assert responses[-1]["result"] == {}
     assert responses[-1]["id"] == 5
 
 
 def test_unknown_method_returns_32601(workspace: Path) -> None:
-    rc, responses = run_lines([INIT, req(9, "resources/list")], cwd=workspace)
+    _rc, responses = run_lines([INIT, req(9, "resources/list")], cwd=workspace)
     assert responses[-1]["error"]["code"] == -32601
 
 
 def test_malformed_json_returns_32700_and_survives(workspace: Path) -> None:
     lines = [INIT, "{not json", req(10, "ping")]
-    rc, responses = run_lines(lines, cwd=workspace)
+    _rc, responses = run_lines(lines, cwd=workspace)
     assert responses[1]["error"]["code"] == -32700
     assert responses[2]["result"] == {}
 
 
 def test_non_object_request_returns_32600(workspace: Path) -> None:
-    rc, responses = run_lines([INIT, '"just a string"'], cwd=workspace)
+    _rc, responses = run_lines([INIT, '"just a string"'], cwd=workspace)
     assert responses[-1]["error"]["code"] == -32600
 
 
@@ -123,7 +123,7 @@ def test_batch_requests(workspace: Path) -> None:
             {"jsonrpc": "2.0", "id": 13, "method": "no_such_method"},
         ]
     )
-    rc, responses = run_lines([INIT, batch], cwd=workspace)
+    _rc, responses = run_lines([INIT, batch], cwd=workspace)
     assert len(responses) == 2
     last = responses[-1]
     assert isinstance(last, list)
@@ -134,7 +134,7 @@ def test_batch_requests(workspace: Path) -> None:
 
 def test_oversize_request_rejected(workspace: Path) -> None:
     big = "x" * (MAX_REQUEST_BYTES + 10)
-    rc, responses = run_lines([INIT, big, req(20, "ping")], cwd=workspace)
+    _rc, responses = run_lines([INIT, big, req(20, "ping")], cwd=workspace)
     assert responses[1]["error"]["code"] == -32600
     assert "1 MiB" in responses[1]["error"]["message"]
     assert responses[2]["result"] == {}
@@ -144,7 +144,7 @@ def test_oversize_request_rejected(workspace: Path) -> None:
 
 
 def test_default_profile_is_read_only(workspace: Path) -> None:
-    rc, responses = run_lines([INIT, req(2, "tools/list")], cwd=workspace)
+    _rc, responses = run_lines([INIT, req(2, "tools/list")], cwd=workspace)
     tools = responses[-1]["result"]["tools"]
     names = {t["name"] for t in tools}
     assert "read_file" in names
@@ -156,7 +156,7 @@ def test_default_profile_is_read_only(workspace: Path) -> None:
 
 
 def test_tool_schema_shape(workspace: Path) -> None:
-    rc, responses = run_lines([INIT, req(2, "tools/list")], cwd=workspace)
+    _rc, responses = run_lines([INIT, req(2, "tools/list")], cwd=workspace)
     tools = responses[-1]["result"]["tools"]
     read = next(t for t in tools if t["name"] == "read_file")
     assert isinstance(read["description"], str) and read["description"]
@@ -166,7 +166,7 @@ def test_tool_schema_shape(workspace: Path) -> None:
 
 def test_call_read_file(workspace: Path) -> None:
     call = req(3, "tools/call", {"name": "read_file", "arguments": {"path": "hello.txt"}})
-    rc, responses = run_lines([INIT, call], cwd=workspace)
+    _rc, responses = run_lines([INIT, call], cwd=workspace)
     result = responses[-1]["result"]
     assert result["isError"] is False
     assert "hello mcp" in result["content"][0]["text"]
@@ -175,13 +175,13 @@ def test_call_read_file(workspace: Path) -> None:
 def test_call_read_file_absolute_path_error(workspace: Path) -> None:
     outside = str(Path.home() / "unrelated.txt")
     call = req(3, "tools/call", {"name": "read_file", "arguments": {"path": outside}})
-    rc, responses = run_lines([INIT, call], cwd=workspace)
+    _rc, responses = run_lines([INIT, call], cwd=workspace)
     assert responses[-1]["result"]["isError"] is True
 
 
 def test_unknown_tool_returns_32602(workspace: Path) -> None:
     call = req(3, "tools/call", {"name": "does_not_exist", "arguments": {}})
-    rc, responses = run_lines([INIT, call], cwd=workspace)
+    _rc, responses = run_lines([INIT, call], cwd=workspace)
     assert responses[-1]["error"]["code"] == -32602
 
 
@@ -191,7 +191,7 @@ def test_disallowed_tool_returns_32602(workspace: Path) -> None:
         "tools/call",
         {"name": "write_file", "arguments": {"path": "x.txt", "content": "x"}},
     )
-    rc, responses = run_lines([INIT, call], cwd=workspace)
+    _rc, responses = run_lines([INIT, call], cwd=workspace)
     assert responses[-1]["error"]["code"] == -32602
     assert "not allowed" in responses[-1]["error"]["message"]
     assert not (workspace / "x.txt").exists()
@@ -199,7 +199,7 @@ def test_disallowed_tool_returns_32602(workspace: Path) -> None:
 
 def test_invalid_arguments_returns_32602(workspace: Path) -> None:
     call = req(3, "tools/call", {"name": "read_file", "arguments": "not-an-object"})
-    rc, responses = run_lines([INIT, call], cwd=workspace)
+    _rc, responses = run_lines([INIT, call], cwd=workspace)
     assert responses[-1]["error"]["code"] == -32602
 
 
@@ -209,7 +209,7 @@ def test_allow_tool_cli_exposes_destructive_tool(workspace: Path) -> None:
         "tools/call",
         {"name": "write_file", "arguments": {"path": "created.txt", "content": "made by test\n"}},
     )
-    rc, responses = run_lines(
+    _rc, responses = run_lines(
         [INIT, req(2, "tools/list"), call], cwd=workspace, allow_tools=["write_file"]
     )
     names = {t["name"] for t in responses[1]["result"]["tools"]}
@@ -221,7 +221,7 @@ def test_allow_tool_cli_exposes_destructive_tool(workspace: Path) -> None:
 
 
 def test_allow_tool_unknown_name_filtered(workspace: Path) -> None:
-    rc, responses = run_lines(
+    _rc, responses = run_lines(
         [INIT, req(2, "tools/list")], cwd=workspace, allow_tools=["not_a_real_tool"]
     )
     assert responses[-1]["result"]["tools"] == []
@@ -229,7 +229,7 @@ def test_allow_tool_unknown_name_filtered(workspace: Path) -> None:
 
 def test_tool_error_result_is_error_flag(workspace: Path) -> None:
     call = req(3, "tools/call", {"name": "read_file", "arguments": {"path": "missing.txt"}})
-    rc, responses = run_lines([INIT, call], cwd=workspace)
+    _rc, responses = run_lines([INIT, call], cwd=workspace)
     result = responses[-1]["result"]
     assert result["isError"] is True
     assert result["content"][0]["text"].startswith("ERROR:")

@@ -163,14 +163,14 @@ class LSPManager:
             try:
                 client.start()
                 client.initialize(self.cwd)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"Warning: Failed to start LSP server '{name}': {e}")
 
     def stop_all(self):
         for client in self.servers.values():
             try:
                 client.shutdown()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
 
     def get_tools(self) -> dict[str, Any]:
@@ -275,7 +275,7 @@ class LSPManager:
                 }
             else:
                 return {"error": f"Unknown operation: {operation}"}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {"error": str(e)}
 
 

@@ -1,5 +1,7 @@
 """Snapshot system for APEX - Git-based undo/redo."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -102,7 +104,7 @@ class SnapshotManager:
         return snapshot_id
 
     def add_file_change(
-        self, snapshot_id: str, path: str, before: str = None, after: str = None
+        self, snapshot_id: str, path: str, before: str | None = None, after: str | None = None
     ) -> None:
         """Add a file change to a snapshot."""
         for snapshot in self._undo_stack:

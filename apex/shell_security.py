@@ -35,7 +35,7 @@ class CommandAnalysis:
 
 
 class ShellSecurityAnalyzer:
-    DANGEROUS_PATTERNS = [
+    DANGEROUS_PATTERNS = [  # noqa: RUF012
         (
             r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?",
             "Destructive system-wide deletion",
@@ -59,7 +59,7 @@ class ShellSecurityAnalyzer:
         (r"wget.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh", "Download and execute script"),
     ]
 
-    NETWORK_PATTERNS = [
+    NETWORK_PATTERNS = [  # noqa: RUF012
         r"\bcurl\b.*-X\s*(POST|PUT|PATCH|DELETE)",
         r"\bwget\b",
         r"\bnetcat\b",
@@ -72,7 +72,7 @@ class ShellSecurityAnalyzer:
         r"\bsftp\b",
     ]
 
-    SYSTEM_PATTERNS = [
+    SYSTEM_PATTERNS = [  # noqa: RUF012
         r"\bsudo\b",
         r"\bchmod\b",
         r"\bchown\b",
@@ -87,14 +87,14 @@ class ShellSecurityAnalyzer:
         r"\bpasswd\b",
     ]
 
-    FILE_DELETE_PATTERNS = [
+    FILE_DELETE_PATTERNS = [  # noqa: RUF012
         r"\brm\s+",
         r"\brmdir\b",
         r"\bunlink\b",
         r"\bdel\b",
     ]
 
-    FILE_WRITE_PATTERNS = [
+    FILE_WRITE_PATTERNS = [  # noqa: RUF012
         r"\btee\b",
         r">\s*[a-zA-Z]?",
         r"\bcat\b.*>",
@@ -104,7 +104,7 @@ class ShellSecurityAnalyzer:
         r"\bsed\s+-i\b",
     ]
 
-    PROCESS_PATTERNS = [
+    PROCESS_PATTERNS = [  # noqa: RUF012
         r"\bkill\b",
         r"\bps\b",
         r"\btop\b",
@@ -116,7 +116,7 @@ class ShellSecurityAnalyzer:
         r"\bspawn\b",
     ]
 
-    GIT_PATTERNS = [
+    GIT_PATTERNS = [  # noqa: RUF012
         # Note: "push" is intentionally NOT in the safe list so that any
         # `git push` (plain or forced) is classified GIT and triggers the
         # `if "push" in command` confirmation branch below.
@@ -127,7 +127,7 @@ class ShellSecurityAnalyzer:
         r"\bgit\s+push\s+--all\b",
     ]
 
-    BUILD_PATTERNS = [
+    BUILD_PATTERNS = [  # noqa: RUF012
         r"\bnpm\s+(?:run|build|test|start|dev)",
         r"\byarn\s+(?:run|build|start|dev)",
         r"\bpnpm\s+(?:run|build|start|dev)",
@@ -141,7 +141,7 @@ class ShellSecurityAnalyzer:
         r"\bupload.*pypi\b",
     ]
 
-    CONTAINER_PATTERNS = [
+    CONTAINER_PATTERNS = [  # noqa: RUF012
         r"\bdocker\b",
         r"\bpodman\b",
         r"\bkubectl\b",
@@ -150,7 +150,7 @@ class ShellSecurityAnalyzer:
         r"\bkubernetes\b",
     ]
 
-    SAFE_COMMANDS = [
+    SAFE_COMMANDS = [  # noqa: RUF012
         "ls",
         "pwd",
         "cd",

@@ -132,7 +132,7 @@ class TaskQueue:
                     result = handler(task)
                     task.status = TaskStatus.COMPLETED
                     task.result = result
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     task.status = TaskStatus.FAILED
                     task.error = str(e)
 

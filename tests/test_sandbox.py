@@ -150,8 +150,10 @@ class TestCodeSandbox:
 
     def test_cleanup_rust_binary(self, tmp_path):
         known_uuid = uuid.UUID("12345678-1234-5678-1234-567812345678")
-        with patch("apex.sandbox.tempfile.gettempdir", return_value=str(tmp_path)):
-            with patch("apex.sandbox.uuid.uuid4", return_value=known_uuid):
+        with (
+            patch("apex.sandbox.tempfile.gettempdir", return_value=str(tmp_path)),
+            patch("apex.sandbox.uuid.uuid4", return_value=known_uuid),
+        ):
                 sb = CodeSandbox(timeout=10)
                 binary_path = sb._temp_dir / "12345678_binary"
                 binary_path.touch()
@@ -167,8 +169,10 @@ class TestCodeSandbox:
 
     def test_cleanup_file_already_deleted(self, tmp_path):
         known_uuid = uuid.UUID("12345678-1234-5678-1234-567812345678")
-        with patch("apex.sandbox.tempfile.gettempdir", return_value=str(tmp_path)):
-            with patch("apex.sandbox.uuid.uuid4", return_value=known_uuid):
+        with (
+            patch("apex.sandbox.tempfile.gettempdir", return_value=str(tmp_path)),
+            patch("apex.sandbox.uuid.uuid4", return_value=known_uuid),
+        ):
                 sb = CodeSandbox(timeout=10)
                 mock_result = MagicMock(stdout="", stderr="", returncode=0)
 

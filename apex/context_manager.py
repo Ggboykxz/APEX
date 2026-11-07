@@ -152,7 +152,7 @@ class AutoSaveManager:
         try:
             with open(self._current_file) as f:
                 return json.load(f)
-        except Exception:
+        except Exception:  # noqa: BLE001
             return None
 
     def clear(self) -> None:

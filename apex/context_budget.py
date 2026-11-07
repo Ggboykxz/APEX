@@ -241,7 +241,7 @@ def inject_repo_map(system_prompt: str, root: Path | str, max_tokens: int) -> tu
 
     try:
         repo_map = build_repo_map(Path(root), max_tokens=budget)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return prompt, 0
     if not repo_map.strip():
         return prompt, 0
