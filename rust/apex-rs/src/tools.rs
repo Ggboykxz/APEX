@@ -195,6 +195,10 @@ pub fn tool_schemas() -> Value {
     for t in crate::plugins::plugin_tools() {
         arr.push(t);
     }
+    // Python's `get_all_tool_schemas`: config-defined custom tools are
+    // appended after the built-ins (one-shot directory load).
+    crate::config_tools::ensure_tools_loaded();
+    arr.extend(crate::config_tools::custom_tool_manager().get_schemas());
     Value::Array(arr)
 }
 
@@ -1004,7 +1008,18 @@ pub fn execute_tool(name: &str, args: &Value, cwd: &std::path::Path) -> String {
                 .unwrap_or_default();
             crate::sandbox::CodeSandbox::new(None, None).run_code(code, language, Some(&code_args))
         }
-        _ => format!("ERROR: Unknown tool '{name}'"),
+        _ => {
+            // Python's `ToolExecutor.execute`: an unknown tool first tries
+            // the config-defined custom tools (one-shot load), then reports
+            // the built-in unknown-tool error.
+            crate::config_tools::ensure_tools_loaded();
+            let custom = crate::config_tools::custom_tool_manager().execute(name, args);
+            if custom.starts_with("ERROR: Unknown custom tool") {
+                format!("ERROR: Unknown tool '{name}'")
+            } else {
+                custom
+            }
+        }
     };
     crate::hooks::trigger_hooks(name, args);
     result

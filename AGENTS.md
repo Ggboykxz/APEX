@@ -1175,7 +1175,7 @@ shares, `POST /session/save|load`, config, themes, stats, formatters and
 `POST /api/v1/init`, `GET /find/file`, export/import,
 `GET /api/v1/session/{id}/diff{,/decision}`, `POST /api/v1/session/{id}/{fork,abort}`,
 LSP/formatter/MCP status, `GET /global/event` SSE, `GET /metrics`,
-`GET /rate-limit/status`, `GET /global/health`, auth) plus 35 Rust-only
+`GET /rate-limit/status`, `GET /global/health`, auth) plus 41 Rust-only
 extras. The authoritative per-route table and the divergence list live in
 [`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md) (route parity section);
 update it in the same PR as any surface change.
@@ -1515,6 +1515,36 @@ Existing LSP tools (`lsp_definition`, `lsp_references`, `lsp_hover`,
 
 The billing manager supports plan types (Free/Pro/Enterprise/Custom) with different monthly limits, token limits, and rate limits, plus trial periods and overage handling.
 
+### Custom tools
+
+`config_tools.rs` ports `apex/config_tools.py` — tools defined from
+configuration:
+
+- The 34-command `ALLOWED_COMMANDS` allowlist plus a dangerous-pattern
+  blocklist (`$( `, backtick, `rm -rf`, `chmod 777`) gate every command
+  before it registers.
+- `CustomToolManager` (register/get/list/execute/`get_schemas`); schemas are
+  exposed to the model under the `custom_{name}` prefix.
+- `ensure_tools_loaded` scans the same four directories as Python
+  (`~/.config/opencode/tools`, `./.opencode/tools`, `~/.config/apex/tools`,
+  `./.apex/tools`) once per process. `{key}`/`{{ }}` templating fills the
+  arguments (`ERROR: '{key}'` on a missing key) and execution is capped at
+  30 s, returning `stdout or stderr or "[no output]"`.
+- Wired into the registry: `tool_schemas()` (backing the `tools` CLI and the
+  agent's tool list) appends the manager's schemas after the built-ins, and
+  `execute_tool` dispatches unknown names through the manager before
+  answering `ERROR: Unknown tool '…'` (Python's `ToolExecutor.execute`
+  order).
+- **Divergence**: Python's `load_tools_from_dirs` imports `*.py` modules
+  exposing a `TOOL_DEFINITION` with a callable handler; Rust cannot import
+  Python, so the same directories are scanned for `*.json` definitions
+  (`{name?, description?, parameters?, command, cwd?}`) that run through the
+  same allowlist/pattern/timeout pipeline.
+- The dispatch keys by the defined name, so calling the `custom_{name}`
+  schema name is unreachable — Python has the same gap (its manager also
+  keys by the defined name). `load_custom_tools` (the YAML loader, dead in
+  Python too) and `list_tools` stay item-scoped.
+
 ### Task queue & plans
 
 `task_queue.rs` ports the `TaskQueue` from `apex/extras.py` (tool registry
@@ -1540,6 +1570,29 @@ is now 51 schemas):
   in `commands.py` but is never wired to it), so both always return
   `ERROR: No pending plan to …`; the stateless Rust dispatch reproduces
   that exactly.
+
+### Durable task queue
+
+`durable_tasks.rs` ports `apex/task_queue.py` — background tasks that
+survive restarts. Python's only production consumer is the TUI REPL `/tasks`
+command (excluded from the Rust port), so — like the snapshot manager — the
+Rust HTTP routes are the production surface:
+
+- `serve` holds one `TaskQueue` in `AppState`; the queue persists to
+  `~/.apex/tasks/tasks.json`, rewritten on every mutation and rehydrated on
+  start.
+- Six routes, all answering 200 with an `ok` flag (no 4xx): `POST
+  /api/v1/tasks` (enqueue, `task_{YYYYmmddHHMMSS}_{n}` ids), `GET
+  /api/v1/tasks` (`?status=&limit=`, newest first, default limit 100),
+  `GET /api/v1/tasks/:id`, `DELETE /api/v1/tasks/:id`, `POST
+  /api/v1/tasks/:id/cancel` (pending tasks only) and `POST
+  /api/v1/tasks/clear` (removes completed tasks).
+- Divergences: `get` returns a snapshot copy (Python returns a live
+  reference); a corrupt `tasks.json` resets the queue to empty (Python
+  additionally crashes on an invalid status string); `stop_workers` joins
+  each thread instead of `join(timeout=1)`.
+- `start_worker`/`stop_workers` are dead in Python too (production never
+  starts a worker) and stay item-scoped.
 
 ### GitHub CLI
 
@@ -1608,7 +1661,14 @@ OpenRouter upstream, with no network and no API key. PR 351 adds session
 metadata: the CLI `session save` path persists the idle-agent usage shape
 (three zero counters, never an empty object), `Agent::load_session` restores
 model and cwd (Python defaults) with usage left fresh, and a fork carries the
-parent usage over.
+parent usage over. Phase 2c adds the durable task queue lifecycle
+(`serve_durable_tasks_lifecycle`: enqueue, newest-first listing, status
+filter, cancel/delete idempotence, and rehydration from
+`~/.apex/tasks/tasks.json` after a server restart in the same sandbox HOME)
+and custom tools via the CLI (`custom_tools_via_cli`: JSON definitions under
+`.apex/tools/`, `call-tool` execution of the defined command, the `custom_`
+schema in the `tools` listing, a blocked `sudo` command not registering, and
+the built-in `ERROR: Unknown tool '…'` for an unknown name).
 
 ```bash
 cd rust/apex-rs

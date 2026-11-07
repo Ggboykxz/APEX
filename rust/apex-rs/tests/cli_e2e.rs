@@ -207,6 +207,10 @@ async fn post_json(
         .unwrap()
 }
 
+async fn delete(client: &reqwest::Client, base: &str, path: &str) -> reqwest::Response {
+    client.delete(format!("{base}{path}")).send().await.unwrap()
+}
+
 /// `apex-rs key create NAME` → (key id, plaintext key).
 fn create_key(sandbox: &Sandbox, name: &str) -> (String, String) {
     let out = sandbox.run(&["key", "create", name]);
@@ -2562,4 +2566,252 @@ async fn gateway_proxy_lifecycle_is_hermetic() {
 
     drop(_gw);
     let _ = upstream.join();
+}
+
+#[tokio::test]
+async fn serve_durable_tasks_lifecycle() {
+    let sb = Sandbox::new();
+    let client = reqwest::Client::new();
+
+    // First server: enqueue, list, filter, fetch, cancel, delete.
+    let port = free_port();
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve did not become healthy"
+    );
+
+    let first: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/tasks",
+        &serde_json::json!({
+            "name": "first",
+            "description": "first task",
+            "payload": { "key": "val" },
+        }),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(first["ok"].as_bool().unwrap(), "got: {first}");
+    let first_id = first["task_id"].as_str().unwrap().to_string();
+    assert!(first_id.starts_with("task_"), "got: {first}");
+    assert_eq!(first["task"]["status"], "pending", "got: {first}");
+    assert_eq!(first["task"]["payload"]["key"], "val", "got: {first}");
+
+    // Sleep so the two `created_at` values differ (microsecond clock).
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    let second: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/tasks",
+        &serde_json::json!({ "name": "second" }),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    let second_id = second["task_id"].as_str().unwrap().to_string();
+
+    // List: newest first.
+    let all: serde_json::Value = get(&client, &base, "/api/v1/tasks")
+        .await
+        .json()
+        .await
+        .unwrap();
+    let tasks = all["tasks"].as_array().unwrap();
+    assert_eq!(tasks.len(), 2, "got: {all}");
+    assert_eq!(tasks[0]["name"], "second", "newest first: {all}");
+
+    // Filter by status.
+    let pending: serde_json::Value = get(&client, &base, "/api/v1/tasks?status=pending")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        pending["tasks"].as_array().unwrap().len(),
+        2,
+        "got: {pending}"
+    );
+
+    // Fetch by id; an unknown id answers ok:false (no 4xx, like the snapshot routes).
+    let by_id: serde_json::Value = get(&client, &base, &format!("/api/v1/tasks/{second_id}"))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(by_id["ok"].as_bool().unwrap(), "got: {by_id}");
+    assert_eq!(by_id["task"]["name"], "second", "got: {by_id}");
+    let missing: serde_json::Value = get(&client, &base, "/api/v1/tasks/task_nope")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(missing["ok"], false, "got: {missing}");
+    assert_eq!(missing["error"], "task not found", "got: {missing}");
+
+    // Cancel: succeeds once, then fails (the task is no longer pending).
+    let cancelled: serde_json::Value = post_json(
+        &client,
+        &base,
+        &format!("/api/v1/tasks/{first_id}/cancel"),
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(cancelled["ok"].as_bool().unwrap(), "got: {cancelled}");
+    let again: serde_json::Value = post_json(
+        &client,
+        &base,
+        &format!("/api/v1/tasks/{first_id}/cancel"),
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(again["ok"], false, "no longer pending: {again}");
+    let cancelled_only: serde_json::Value = get(&client, &base, "/api/v1/tasks?status=cancelled")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        cancelled_only["tasks"].as_array().unwrap().len(),
+        1,
+        "got: {cancelled_only}"
+    );
+
+    // Delete removes any task; deleting it again fails.
+    let deleted: serde_json::Value = delete(&client, &base, &format!("/api/v1/tasks/{first_id}"))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(deleted["ok"].as_bool().unwrap(), "got: {deleted}");
+    let deleted_again: serde_json::Value =
+        delete(&client, &base, &format!("/api/v1/tasks/{first_id}"))
+            .await
+            .json()
+            .await
+            .unwrap();
+    assert_eq!(deleted_again["ok"], false, "got: {deleted_again}");
+
+    drop(_server);
+
+    // The queue persisted under the sandbox HOME (`~/.apex/tasks/tasks.json`).
+    let tasks_file = sb.home.join(".apex").join("tasks").join("tasks.json");
+    assert!(tasks_file.exists(), "tasks.json must be persisted");
+    let disk: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&tasks_file).unwrap()).unwrap();
+    assert_eq!(
+        disk.as_object().unwrap().len(),
+        1,
+        "only the second task survives: {disk}"
+    );
+    assert_eq!(disk[&second_id]["status"], "pending", "got: {disk}");
+
+    // Simulate a worker finishing the task, then restart the server in the
+    // same sandbox: the queue rehydrates with the completed state.
+    let mut on_disk = disk.clone();
+    on_disk[&second_id]["status"] = serde_json::json!("completed");
+    on_disk[&second_id]["completed_at"] = serde_json::json!("2026-01-01T00:00:00.000000");
+    on_disk[&second_id]["result"] = serde_json::json!({ "done": true });
+    std::fs::write(&tasks_file, serde_json::to_string_pretty(&on_disk).unwrap()).unwrap();
+
+    let port2 = free_port();
+    let _server2 = ServerGuard::spawn(&sb, &["serve", "--port", &port2.to_string()]);
+    let base2 = format!("http://127.0.0.1:{port2}");
+    assert!(
+        wait_for_health(&client, &base2).await,
+        "restart did not become healthy"
+    );
+
+    let resumed: serde_json::Value = get(&client, &base2, "/api/v1/tasks")
+        .await
+        .json()
+        .await
+        .unwrap();
+    let resumed_tasks = resumed["tasks"].as_array().unwrap();
+    assert_eq!(resumed_tasks.len(), 1, "got: {resumed}");
+    assert_eq!(
+        resumed_tasks[0]["status"], "completed",
+        "persistence: {resumed}"
+    );
+    assert_eq!(resumed_tasks[0]["result"]["done"], true, "got: {resumed}");
+
+    // Clear removes the completed task.
+    let cleared: serde_json::Value = post_json(
+        &client,
+        &base2,
+        "/api/v1/tasks/clear",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(cleared["removed"], 1, "got: {cleared}");
+    let empty: serde_json::Value = get(&client, &base2, "/api/v1/tasks")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        empty["tasks"].as_array().unwrap().is_empty(),
+        "got: {empty}"
+    );
+}
+
+#[test]
+fn custom_tools_via_cli() {
+    let sb = Sandbox::new();
+
+    // JSON tool definitions under `./.apex/tools` (the Rust divergence from
+    // Python's `*.py` imports, documented in PARITY.md).
+    let tools_dir = sb.cwd.join(".apex").join("tools");
+    std::fs::create_dir_all(&tools_dir).unwrap();
+    std::fs::write(
+        tools_dir.join("version.json"),
+        r#"{"name": "version", "description": "Show git version", "command": "git --version"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        tools_dir.join("blocked.json"),
+        r#"{"name": "blocked", "command": "sudo ls"}"#,
+    )
+    .unwrap();
+
+    // The tool is exposed to the model under the `custom_` schema name;
+    // the blocked command must not register at all.
+    let listing = sb.run(&["tools"]);
+    assert_success(&listing, "tools listing");
+    let listed = stdout(&listing);
+    assert!(listed.contains("custom_version"), "got:\n{listed}");
+    assert!(
+        !listed.contains("custom_blocked"),
+        "blocked commands must not register:\n{listed}"
+    );
+
+    // Dispatch reaches the handler by its defined name (Python parity: the
+    // manager keys by the defined name, the `custom_` prefix is schema-only).
+    let call = sb.run(&["call-tool", "version", "{}"]);
+    assert_success(&call, "call-tool version");
+    let out = stdout(&call);
+    assert!(out.contains("git version"), "got:\n{out}");
+
+    // An unknown tool reports the built-in error string.
+    let unknown = sb.run(&["call-tool", "nope", "{}"]);
+    assert_success(&unknown, "call-tool nope");
+    let unknown_out = stdout(&unknown);
+    assert!(
+        unknown_out.contains("ERROR: Unknown tool 'nope'"),
+        "got:\n{unknown_out}"
+    );
 }
