@@ -10,7 +10,7 @@ use axum::middleware::{self, Next};
 use axum::response::sse::{Event, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::{
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use futures::stream::StreamExt;
@@ -40,6 +40,10 @@ struct AppState {
     /// `session.UndoManager`), so the Rust server is the production surface
     /// — like `workspace.rs`, the port is wired further than Python.
     snapshot_manager: Arc<Mutex<crate::snapshot::SnapshotManager>>,
+    /// Durable task queue backing `/api/v1/tasks/*`. Python wires it only to
+    /// the TUI REPL `/tasks` command (excluded here), so — like the snapshot
+    /// manager — the Rust HTTP routes are the production surface.
+    task_queue: Arc<crate::durable_tasks::TaskQueue>,
 }
 
 /// Chat request. The TUI sends `message`, the CLI/API docs use `prompt`.
@@ -356,6 +360,16 @@ struct ContextQuery {
 #[derive(serde::Deserialize)]
 struct SnapshotHistoryQuery {
     /// Number of recent snapshots to return (Python's default is 50).
+    limit: Option<usize>,
+}
+
+/// Query parameters for `/api/v1/tasks` (Python's `list_tasks` filters).
+#[derive(serde::Deserialize)]
+struct TasksQuery {
+    /// Filter by status (`pending`, `running`, `completed`, `failed`,
+    /// `cancelled`); anything else is ignored.
+    status: Option<String>,
+    /// Maximum tasks to return (Python's default is 100).
     limit: Option<usize>,
 }
 
@@ -868,6 +882,8 @@ pub async fn serve(config: Config, port: u16) {
         snapshot_manager: Arc::new(Mutex::new(crate::snapshot::create_snapshot_manager(
             config.cwd.clone(),
         ))),
+        // Python's `TaskQueue()` default: `~/.apex/tasks` (honours `HOME`).
+        task_queue: Arc::new(crate::durable_tasks::TaskQueue::new(None)),
         config,
         events,
         rate_limiter: Arc::new(Mutex::new(RateLimiter::new(
@@ -1536,6 +1552,79 @@ pub async fn serve(config: Config, port: u16) {
                 }))
             }
         }))
+        // Durable task queue routes (port of `apex/task_queue.py`). Python's
+        // only consumer is the TUI REPL `/tasks` command, which the Rust port
+        // excludes, so — like the snapshot routes — these Rust-only routes
+        // are the production surface and all answer 200 with an `ok` flag.
+        .route("/api/v1/tasks", post({
+            let state = state.clone();
+            move |Json(req): Json<serde_json::Value>| async move {
+                let name = req.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let description = req
+                    .get("description")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let payload = req
+                    .get("payload")
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::new()));
+                let priority = req.get("priority").and_then(|v| v.as_i64()).unwrap_or(0);
+                let task_queue = &state.task_queue;
+                let task_id = task_queue.enqueue(name, description, payload, priority);
+                let task = task_queue
+                    .get(&task_id)
+                    .map(|t| serde_json::to_value(&t).unwrap());
+                Json(serde_json::json!({
+                    "ok": true,
+                    "task_id": task_id,
+                    "task": task,
+                }))
+            }
+        }))
+        .route("/api/v1/tasks", get(
+            |State(st): State<AppState>, Query(q): Query<TasksQuery>| async move {
+                let status = q
+                    .status
+                    .as_deref()
+                    .and_then(crate::durable_tasks::TaskStatus::parse);
+                let tasks = st.task_queue.list_tasks(status, q.limit.unwrap_or(100));
+                Json(serde_json::json!({
+                    "ok": true,
+                    "tasks": serde_json::to_value(&tasks).unwrap(),
+                }))
+            },
+        ))
+        .route("/api/v1/tasks/clear", post(|State(st): State<AppState>| async move {
+            let removed = st.task_queue.clear_completed();
+            Json(serde_json::json!({ "ok": true, "removed": removed }))
+        }))
+        .route("/api/v1/tasks/:id", get(
+            |State(st): State<AppState>, Path(id): Path<String>| async move {
+                match st.task_queue.get(&id) {
+                    Some(task) => Json(serde_json::json!({
+                        "ok": true,
+                        "task": serde_json::to_value(&task).unwrap(),
+                    })),
+                    None => Json(serde_json::json!({
+                        "ok": false,
+                        "task": serde_json::Value::Null,
+                        "error": "task not found",
+                    })),
+                }
+            },
+        ))
+        .route("/api/v1/tasks/:id", delete(
+            |State(st): State<AppState>, Path(id): Path<String>| async move {
+                let ok = st.task_queue.delete_task(&id);
+                Json(serde_json::json!({ "ok": ok }))
+            },
+        ))
+        .route("/api/v1/tasks/:id/cancel", post(
+            |State(st): State<AppState>, Path(id): Path<String>| async move {
+                let ok = st.task_queue.cancel(&id);
+                Json(serde_json::json!({ "ok": ok }))
+            },
+        ))
         .route("/api/v1/auth/login", post(auth_login))
         .route("/api/v1/auth/logout", post(auth_logout))
         .route("/api/v1/auth/status", get(auth_status))
@@ -2619,6 +2708,9 @@ mod tests {
             snapshot_manager: Arc::new(Mutex::new(crate::snapshot::create_snapshot_manager(
                 config.cwd.clone(),
             ))),
+            task_queue: Arc::new(crate::durable_tasks::TaskQueue::new(Some(
+                dir.path().join("tasks"),
+            ))),
             config,
             events,
             rate_limiter: Arc::new(Mutex::new(RateLimiter::new(
@@ -2783,6 +2875,9 @@ mod tests {
             // Before `config` is moved below: the manager roots at the cwd.
             snapshot_manager: Arc::new(Mutex::new(crate::snapshot::create_snapshot_manager(
                 config.cwd.clone(),
+            ))),
+            task_queue: Arc::new(crate::durable_tasks::TaskQueue::new(Some(
+                dir.path().join("tasks"),
             ))),
             config,
             events,

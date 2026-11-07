@@ -1,14 +1,15 @@
 # Rust / Python Parity
 
 Internal GA baseline for `rust/apex-rs` (last updated for the v2.6
-gateway increment). The reference is the Python package in `apex/` on `dev`.
-"Parity" here means that a behaviour is reachable from the Rust binary, HTTP
-server, or tool registry and has automated coverage - not that the
-implementations are line-for-line equivalent.
+custom-tools and durable-tasks increment). The reference is the Python
+package in `apex/` on `dev`. "Parity" here means that a behaviour is
+reachable from the Rust binary, HTTP server, or tool registry and has
+automated coverage - not that the implementations are line-for-line
+equivalent.
 
-Scale at this baseline: ~25,918 lines of Python in `apex/*.py` versus ~29,260
-lines of Rust in `rust/apex-rs/src` (48 files). The Rust line count now
-matches Python's, but the tables below still record the behaviour gaps.
+Scale at this baseline: ~25,918 lines of Python in `apex/*.py` versus
+~29,820 lines of Rust in `rust/apex-rs/src` (51 files). The Rust line count
+now matches Python's, but the tables below still record the behaviour gaps.
 
 ## Status legend
 
@@ -36,23 +37,25 @@ key {create,list,revoke,delete},
 gateway {start,key,status}
 ```
 
-HTTP server (`serve`): 88 route registrations covering all 52 routes of
-Python's `apex/http_api.py` (route parity table below) plus 35 Rust-only
-extras. Includes `/health`, `/api/v1/tools`, `/api/v1/security/analyze`,
+HTTP server (`serve`): 94 route registrations covering all 52 routes of
+Python's `apex/http_api.py` (route parity table below) plus 41 Rust-only
+extras (one Python route is registered twice, see below). Includes `/health`, `/api/v1/tools`, `/api/v1/security/analyze`,
 `/api/v1/auth/{login,logout,status}`, sessions, shares/export, files, models,
 config, themes, cost, chat, chat streaming, context (`repo-map`, `git`,
 `stats`, `ctags`, `tree`, `glob`, `tracking`), `/api/v1/snapshot/*`
 (`track`, `track-file`, `undo`, `redo`, `history`, `status`, `restore`),
-`/api/v1/rate-limit`, `/api/v1/telemetry`, and WebSockets.
+`/api/v1/tasks/*` (`POST` enqueue, `GET` list/`?status=&limit=`, `POST
+clear`, `GET`/`DELETE :id`, `POST :id/cancel`), `/api/v1/rate-limit`,
+`/api/v1/telemetry`, and WebSockets.
 API-key auth is opt-in with
 `APEX_REQUIRE_AUTH` (`/health` and the WebSocket routes exempt).
 
 ## Route parity (`http_api.py`)
 
 Python's `http_api.py` registers 52 routes; all 52 are reachable on the Rust
-`serve` router. The 88 registrations split as 53 covering the 52 Python
+`serve` router. The 94 registrations split as 53 covering the 52 Python
 routes (`POST /chat/stream` is registered under both `/chat/stream` and
-`/api/v1/chat/stream`) plus 35 Rust-only extras. The E2E tests
+`/api/v1/chat/stream`) plus 41 Rust-only extras. The E2E tests
 (`serve_exposes_python_parity_routes`, `serve_diff_preview_accepts_and_rejects`)
 hit every route that does not require an LLM call; the three LLM-touching
 routes (`POST /chat`, `GET /stream`, `POST /api/v1/commands/execute`) reuse
@@ -124,7 +127,9 @@ Rust-only extras (no Python counterpart): `GET /api/v1/tools`,
 `GET /ws`, the seven `GET /api/v1/context/*` routes (including
 `tracking`), the seven `/api/v1/snapshot/*` routes (`POST track`, `POST
 track-file`, `POST undo`, `POST redo`, `POST restore`, `GET history`,
-`GET status`), `GET /api/v1/rate-limit` and `GET /api/v1/telemetry`.
+`GET status`), the six `/api/v1/tasks/*` routes (`POST` enqueue, `GET`
+list with `?status=&limit=`, `POST clear`, `GET :id`, `DELETE :id`,
+`POST :id/cancel`), `GET /api/v1/rate-limit` and `GET /api/v1/telemetry`.
 
 Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 
@@ -136,9 +141,9 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `apply_patch.py` | `patch.rs` | Wired | Multi-file patch engine reachable through the `apply_patch` tool (and `dry_run` preview): Codex-style and unified-diff dialects, pre-write validation (traversal, absolute, duplicate, size, binary), hunk matching with fuzz and signed offset warnings, no-newline markers, atomic temp-file + rename writes with best-effort rollback. |
 | `agent.py` | `agent.rs` | Partial | One-shot run, streaming REPL, tool-call loop, cost reporting. HTTP: `POST /chat` (non-streaming, `rate_limit` always present), `GET /stream` (reuses `chat_stream`, adds `usage`/`done` frames), `GET /metrics` and `GET /api/v1/stats` (PR 349). Session forking/rewind and some prompt features are absent. |
 | `agents.py` | `agents.rs` | Partial | Agent registry with 11 built-ins, markdown agent loading (`.apex/agents/*.md` and `~/.config/apex/agents/*.md`), per-agent permissions with glob patterns, merge rules for agent/env permissions, and `agent` CLI (`list`/`show`/`create`/`delete`). HTTP: `GET /api/v1/agents` and `GET /api/v1/agents/:id` (PR 349). Divergences: no Python system prompts/top_p, JSON config agents, or bash-specific permission helper; `Agent` does not store prompt body; env merge is agent-level rather than global permission manager. |
-| `config.py`, `config_v2.py` | `config.rs` | Wired | Hierarchical config (4 levels: global ~/.config/apex/apex.json(c), $APEX_CONFIG, project ./apex.json(c), $APEX_CONFIG_CONTENT) with deep-merge, JSONC parsing (comments + trailing commas, strings preserved), `{env:VAR}` and `{file:PATH}` interpolation, schema validation with explicit errors, and CLI `config {show,validate,migrate}`. Divergences: no config watcher (auto-reload), no v1→v2 migration (absent in Python), tool-defined custom tools remain Missing. HTTP: `GET`/`POST /api/v1/config` (PR 349). |
+| `config.py`, `config_v2.py` | `config.rs` | Wired | Hierarchical config (4 levels: global ~/.config/apex/apex.json(c), $APEX_CONFIG, project ./apex.json(c), $APEX_CONFIG_CONTENT) with deep-merge, JSONC parsing (comments + trailing commas, strings preserved), `{env:VAR}` and `{file:PATH}` interpolation, schema validation with explicit errors, and CLI `config {show,validate,migrate}`. Divergences: no config watcher (auto-reload), no v1→v2 migration (absent in Python). Config-defined custom tools now live in `config_tools.rs` (see its row). HTTP: `GET`/`POST /api/v1/config` (PR 349). |
 | `config.py` (model table) | `models.rs` | Wired | Static `MODELS`/`MODEL_PROVIDERS` port (name, provider, context window, pricing, tags); backs `GET /models`, `POST /api/v1/models/refresh`, and `GET /api/v1/providers` (PR 349). |
-| `config_tools.py` | - | Missing | No config-defined custom tools. |
+| `config_tools.py` | `config_tools.rs` | Wired | Custom tools from configuration: 34-command `ALLOWED_COMMANDS` allowlist, dangerous-pattern blocklist (`$( `, backtick, `rm -rf`, `chmod 777`), `CustomToolManager` (register/get/list/execute/get_schemas, schemas exposed as `custom_{name}`), one-shot `ensure_tools_loaded` directory scan, YAML `custom_tools:` loader, `{key}`/`{{ }}` command templating with `ERROR: '{key}'` on a missing key, and a 30 s capped execution returning `stdout or stderr or "[no output]"`. Wired: `tool_schemas()` appends the manager's schemas after the built-ins (one-shot load, Python's `get_all_tool_schemas`), and the `execute_tool` fallback dispatches unknown names through the manager before `ERROR: Unknown tool '…'` (Python's `ToolExecutor.execute` order). **Divergence**: Python's `load_tools_from_dirs` imports `*.py` modules exposing a `TOOL_DEFINITION` with a callable handler; Rust cannot import Python, so the same four directories (`~/.config/opencode/tools`, `./.opencode/tools`, `~/.config/apex/tools`, `./.apex/tools`) are scanned for `*.json` definitions (`{name?, description?, parameters?, command, cwd?}`) that run through the same allowlist/pattern/timeout pipeline. The dispatch keys by the defined name, so a `custom_{name}` schema call is unreachable — Python has the same gap (its manager also keys by the defined name). `load_custom_tools` (YAML, dead in Python too) and `list_tools` stay item-scoped. E2E: `custom_tools_via_cli` (`.apex/tools/*.json` registration, `call-tool` execution, blocked `sudo` not registered). |
 | `context.py` | `context.rs` | Wired | CLI `context repo-map\|git\|stats\|ctags\|tree\|glob` and `GET /api/v1/context/*`: repo map, git info, language stats, ctags file list, file tree, glob search. `get_repo_map` and `get_file_tree` are also exposed as tools on top of the same functions. |
 | `context_manager.py`, `context_tracking.py` | `context_tracking.rs` | Wired | Per-session token/message accounting, compaction trigger threshold (default 80% of 128k budget), compaction history (prune/summarize/merge), session add/remove/list. Wired: `Agent` carries a `ContextTracker` (`default_with_budget`), `record_api_usage` feeds `record_usage`, and the auto-compact gate in `chat`/`chat_stream` now also fires on `should_compact` (token budget) alongside the message-count threshold; `GET /api/v1/context/tracking` exposes budget, threshold and per-session stats. `record_compaction`, `remove` and the compaction history stay item-scoped until `Agent::compact_context` records them. See PR 334. |
 | `cost_local.py` | `cost.rs` | Wired | Pricing table, usage, cost history; CLI `cost` and HTTP cost routes. |
@@ -146,7 +151,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `formatter.py` | `formatter.rs` | Wired | FormatterManager with 19 built-in formatters (ruff, prettier, biome, rustfmt, gofmt, clang-format, etc.), config-driven enable/disable (`formatter: true|false|{name: {...}}` in apex.json), availability discovery (binary on PATH / npx/cargo / requirement files), per-extension formatter selection, `format_file`/`format_files`/`format_code` (tempfile), `build_command`. HTTP: `GET /api/v1/formatter(s)` and `POST /api/v1/format` (PR 349). Not yet wired into the agent dispatch / format-on-write pipeline. See PR 337. |
 | `github_integration.py` | `github.rs` | Wired | `git_*` tools and `git_create_pr` work through `gh`/REST. The `github` CLI group exposes `install`/`run` (Python parity), `issue`/`issue-close`/`pr`/`pr-merge` through `GitHubClient`, and the six `GitHubAutomation` flows under `github automate`. API base overridable with `APEX_GITHUB_API` (tests). |
 | hooks inside `plugins.py`/`tools.py` | `hooks.rs` | Wired | `trigger_hooks` runs on tool dispatch. Registration from config is not wired. |
-| `http_api.py`, `server.py` | `server.rs` | Wired | All 52 `http_api.py` routes are reachable (route parity table above), plus 26 Rust-only extras. SSE/WebSocket streaming, shell guard, per-key rate limiting, opt-in API-key auth. Auth is enabled with `APEX_REQUIRE_AUTH` (`1`/`true`/`yes`/`on`); `/health`, `/ws` and `/ws/events` stay exempt. Carriers follow Python: `Authorization: Bearer …` → `?api_key=` → `X-API-Key`; `POST /api/v1/auth/{login,logout}` and `GET /api/v1/auth/status` are wired and auth-protected. Python's `apex serve` enables auth by default, the Rust port does not (the TUI backend sends no key) — documented divergence. The rate-limit middleware releases its lock before running the handler so routes that read limiter status in-request do not deadlock. |
+| `http_api.py`, `server.py` | `server.rs` | Wired | All 52 `http_api.py` routes are reachable (route parity table above), plus 41 Rust-only extras. SSE/WebSocket streaming, shell guard, per-key rate limiting, opt-in API-key auth. Auth is enabled with `APEX_REQUIRE_AUTH` (`1`/`true`/`yes`/`on`); `/health`, `/ws` and `/ws/events` stay exempt. Carriers follow Python: `Authorization: Bearer …` → `?api_key=` → `X-API-Key`; `POST /api/v1/auth/{login,logout}` and `GET /api/v1/auth/status` are wired and auth-protected. Python's `apex serve` enables auth by default, the Rust port does not (the TUI backend sends no key) — documented divergence. The rate-limit middleware releases its lock before running the handler so routes that read limiter status in-request do not deadlock. |
 | `lsp.py`, `lsp_diagnostics.py` | `lsp.rs` | Partial | Definition, references, hover, diagnostics tools. HTTP status stub `GET /api/v1/lsp` returns `[]` (PR 349). No persistent per-workspace manager or completion/code-action tools. |
 | `mcp.py` | `mcp_client.rs`, `jsonrpc.rs` | Wired | Stdio JSON-RPC, server discovery, tool bridge, global registry; CLI and server use it. HTTP status route `GET /api/v1/mcp` (`{}` when unconfigured) — PR 349. |
 | `memory.py` | `memory.rs` | Wired | CLI list/add/search/context/remove/clear, REPL `/memory`, session context injection. No automatic fact extraction. |
@@ -167,7 +172,7 @@ Tool registry: 80 schemas. Python exposes 102 schema names in `apex/tools.py`.
 | `api_key.py` | `api_key.rs` | Partial | JSON-file key store (`~/.apex/api_keys.json`, overridable with `APEX_API_KEYS_FILE`; Python uses SQLite) re-read on every operation, so CLI changes reach a running server. `apex_` + 32 random bytes (urlsafe base64), sha256 at rest, expiry/active checks, `last_used`/`request_count`, CLI `key {create,list,revoke,delete}`. Python's per-key rate limits/permissions/metadata are carried in the schema but not enforced (its `validate_key` does not check them either); workspace CRUD is not ported (fixed `default` workspace). Writes are atomic (temp + rename) but not transactionally serialised across processes like SQLite. |
 | `billing.py` | `billing.rs` | Wired | BillingManager with plan types (Free/Pro/Enterprise/Custom), model cost table, usage tracking, quota checking, and summary reporting. Tools: billing_cost, billing_quota, billing_usage, billing_plan, billing_summary. |
 | `sandbox.py` | `sandbox.rs` | Wired | CodeSandbox::run_code exposed as the `run_code` tool (python/javascript/bash/ruby/go/rust/php) with per-language runner, output truncation and exit-code reporting. ShellSession (persistent interactive shells) remains unwired (item-scoped). |
-| `task_queue.py` | - | Missing | No durable background tasks. |
+| `task_queue.py` | `durable_tasks.rs` | Wired | Durable background tasks that survive restarts: `TaskStatus` (5 lowercase values), `Task` (10 fields, same JSON shape on disk), `TaskQueue` (enqueue with `task_{YYYYmmddHHMMSS}_{n}` ids, get, list newest-first with status filter and limit, cancel PENDING only, clear_completed, delete, persistence to `~/.apex/tasks/tasks.json` rewritten on every mutation). Python's only production consumer is the TUI REPL `/tasks` command (excluded from the Rust port), so — like the snapshot manager — the Rust HTTP routes are the production surface: `serve` holds one queue in `AppState` and exposes `POST /api/v1/tasks` (enqueue), `GET /api/v1/tasks` (`?status=&limit=`, default 100), `GET /api/v1/tasks/:id`, `DELETE /api/v1/tasks/:id`, `POST /api/v1/tasks/:id/cancel` and `POST /api/v1/tasks/clear` — all answer 200 with an `ok` flag (no 4xx). Divergences: `get` returns a snapshot copy (Python returns a live reference); a corrupt file resets the queue to empty (Python additionally crashes on an invalid status string); `stop_workers` joins each thread instead of `join(timeout=1)`. `start_worker`/`stop_workers` are dead in Python too (production never starts a worker) and stay item-scoped. E2E: `serve_durable_tasks_lifecycle` (enqueue/list/filter/cancel idempotence/delete/clear plus rehydration after a server restart in the same HOME). |
 | `snapshot.py` | `snapshot.rs` | Wired | Git-based undo/redo: `ActionType` (6 variants with Python's values), `FileChange`, `Snapshot` + `to_dict`, `SnapshotManager` (`track`, `add_file_change`, `track_file`, naive line diff, `get_snapshot`, `restore`, `undo`, `redo`, `can_undo`/`can_redo`, `get_history` with Python's `[-limit:]` semantics, `clear`), side git repo under `.apex/snapshots/` (best-effort `git init`, like Python's captured subprocesses). Python exports `SnapshotManager` but never calls it (its `/undo`/`/redo` routes use `session.UndoManager`), so the Rust server is the production surface, like `workspace.rs`: `serve` holds one manager in `AppState` and exposes `POST /api/v1/snapshot/{track,track-file,undo,redo,restore}` plus `GET /api/v1/snapshot/{history,status}` — all answer 200 with an `ok` flag, mirroring `/api/v1/undo`/`/api/v1/redo`. Divergences: **bug fix** — Python's `undo()` pops the snapshot and then calls `restore(id)`, which looks it up in the undo stack where it no longer exists, so Python's undo never restored any file; the port applies the popped snapshot's changes directly (`restore(id)` stays the lookup API). `track_file` captures only `before` (`after` stays null), so a redo after `track_file` rewrites nothing (Python parity). `file_hash`, `save_snapshot_to_git` and `clear` stay item-scoped (dead in
 Python too). |
 | `watcher.py` | `watcher.rs` | Wired | Polling-based file watcher with debounced callbacks, gitignore-aware ignore patterns (`.gitignore` + configurable patterns), per-extension pattern matching, start/stop lifecycle. Wired: `apex-rs watch [PATH]` runs a one-shot scan listing non-ignored files, and `serve` starts the global watcher on the project directory (disabled by default via `WatcherConfig.enabled`). Secondary APIs (stop/should_ignore/debounce/pattern listing) remain item-scoped. See PR 338. |
@@ -175,7 +180,7 @@ Python too). |
 | `mentions.py` | `mentions.rs` | Wired | `@file`/`@agent` mention expansion: MentionParser with regex identical to Python (`@boundary` and `in-word-with-dot`), case-insensitive agent dedup (build, plan, planner, reviewer, shell, general, explore, scout, compaction, title, summary), `resolve_file()` relative-to-cwd, `read_mentioned_files()` (capped at 5000 chars, skips unreadable), `FileMentionCompleter` with ignore list. Wired: `Agent::expand_mentions` (chat + chat_stream entry points) now parses input with `MentionParser::parse` + `resolve_file` instead of `split_whitespace` — file mentions are inlined as `[File: …]` (images as base64, uncapped, same format as before), agent mentions are recognized but not inlined (subagent routing is a TUI concern, Python parity). `read_mentioned_files` and `FileMentionCompleter` stay item-scoped (TUI surface). See PR 335. |
 | `slash.py` | `slash.rs` | Wired | Slash command manager: 20+ built-in commands (agent, model, cwd, clear, save, load, share, undo, redo, git, map, help, cost, agents, subagents, models, init, analyze, approve, reject, shell, commands), alias support, argument validation, `/name arg1 arg2` parsing. Wired to `POST /api/v1/command` (PR 349: `handled` = whether the command parsed, `output` = the handler result); not yet wired into the agent message dispatch. See PR 339. |
 | `structured_message.py` | `structured_message.rs` | Wired | Structured message parts (text/file/tool_call/tool_result/image/snapshot) with MessagePart/Message/TokenUsage, to_dict/from_dict round-trip, factory `create_message`, serialize/deserialize helpers. Wired: `apex-rs message <role> <content>` builds a structured message and prints it as JSON. Part builders beyond text (file/tool/image/snapshot) and the round-trip helpers remain item-scoped for the agent loop. See PR 336. |
-| `task`/plan tooling in `tools.py` | `task_queue.rs`, `tools.rs` | Partial | `task` (delegates against the 11 built-in agent names; custom agents from `.apex/agents/*.md` are not scanned), `submit_task`/`list_tasks`/`get_task` (in-memory queue, one background thread per task - Python's `asyncio.run` actually cancels the spawned coroutine on loop teardown, so a task stays `pending` there), `plan_approve`/`plan_reject` (always `No pending plan` - Python's `_plan_approval` is never set on the executor either). `TaskQueue.cancel()` and the durable `task_queue.py` remain unported. |
+| `task`/plan tooling in `tools.py` | `task_queue.rs`, `tools.rs` | Partial | `task` (delegates against the 11 built-in agent names; custom agents from `.apex/agents/*.md` are not scanned), `submit_task`/`list_tasks`/`get_task` (in-memory queue, one background thread per task - Python's `asyncio.run` actually cancels the spawned coroutine on loop teardown, so a task stays `pending` there), `plan_approve`/`plan_reject` (always `No pending plan` - Python's `_plan_approval` is never set on the executor either). `TaskQueue.cancel()` (the in-memory variant) remains unported; the durable `task_queue.py` is now ported in `durable_tasks.rs` (see its row). |
 | `ui.py` | - | Missing | No terminal UI; the TUI remains separate (TypeScript frontend). |
 | `i18n.py` | `i18n.rs` | Wired | Locale auto-detection, `LOCALES`, localized string map, `I18n` manager. CLI `apex-rs locale [--lang]` reports the active locale and prints a localized welcome string. |
 | `telemetry.py` | `telemetry.rs` | Wired | Session and agent start are recorded on `serve` startup; `GET /api/v1/telemetry` exposes event statistics and performance metrics. Tool/model/error event helpers remain unwired (item-scoped). |
@@ -195,7 +200,7 @@ Python too). |
 | Skills | `list_skills`, `use_skill` | Partial | skill authoring/removal now lives in the `skill` CLI (not a tool) |
 | Context | `get_repo_map`, `get_file_tree` | Partial | `get_context_info` (needs the agent message state; the Rust dispatch is stateless) |
 | Web | `web_search` (Brave/Tavily/Exa/DuckDuckGo provider chain with DuckDuckGo fallback), `fetch_url` (cleaned text, 3000-char cap) | Wired | - |
-| Tasks/plans | `task`, `submit_task`, `get_task`, `list_tasks`, `plan_approve`, `plan_reject` | Partial | `TaskQueue.cancel()` (no Python tool exposes it either), durable `task_queue.py` |
+| Tasks/plans | `task`, `submit_task`, `get_task`, `list_tasks`, `plan_approve`, `plan_reject` | Partial | `TaskQueue.cancel()` (no Python tool exposes it either); the durable queue is ported in `durable_tasks.rs` and reachable via the `/api/v1/tasks/*` HTTP routes (not as a tool) |
 | Session/shares | HTTP routes only | Partial | `share_session`, `bookmark_session`, `restore_bookmark` |
 | Env/config | - | Missing | `get_env`, `set_env`, `list_env`, `set_theme`, `get_keybindings`, tool timeouts |
 | Billing | `billing_cost`, `billing_quota`, `billing_usage`, `billing_plan`, `billing_summary` | Wired | cost-history limits, trial logic |
@@ -221,7 +226,7 @@ Python too). |
    update the matrix above, and run all gates.
 6. Do not add dependencies just to remove an allow.
 
-### Current item-level allow inventory (114 attributes)
+### Current item-level allow inventory (119 attributes)
 
 | Scope | Location | Item(s) | Why it is unwired | Exit criterion |
 | --- | --- | --- | --- | --- |
@@ -277,6 +282,8 @@ secondary APIs were scoped to item-level allows:
 | Item | `structured_message.rs` | 11 | Use part builders + round-trip in agent loop |
 | Item | `rlm.rs` | 7 | Wire RLMQuery LLM stubs / persist rate-limit state |
 | Item | `snapshot.rs` | 3 | Expose `file_hash` / `save_snapshot_to_git` / `clear` via snapshot routes |
+| Item | `config_tools.rs` | 2 | Expose `load_custom_tools` (YAML) through a CLI/config surface; expose `list_tools` via the `tools` CLI |
+| Item | `durable_tasks.rs` | 3 | Wire `start_worker` / `stop_workers` behind a config flag or route; expose `TaskStatus::as_str` in a CLI view |
 
 Per policy §4, module-level allows require their own entries. All ten
 PR-#348 modules that carried one are now wired; none remain.
@@ -307,7 +314,7 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Current baseline: 332 unit tests + 19 binary E2E tests. The E2E suite runs
+Current baseline: 383 unit tests + 29 binary E2E tests. The E2E suite runs
 `tests/cli_e2e.rs` against `CARGO_BIN_EXE_apex-rs`, overrides `HOME` and
 `USERPROFILE` with a temporary directory, and requires no network or API key.
 It covers `--help`, tool schemas, cost, memory lifecycle, session lifecycle
@@ -334,7 +341,14 @@ modified tree, fingerprint change, `409 diff_changed` on a stale
 fingerprint, and reject/restore of a working-tree change). PR 351 extends
 the hermetic session lifecycle: after a CLI `session save`, `session show`
 must report the idle-agent `usage` shape (three zero counters) instead of an
-empty object.
+empty object. Phase 2c adds two more:
+`serve_durable_tasks_lifecycle` (enqueue, newest-first listing, status
+filter, cancel idempotence, delete, clear, and persistence across a server
+restart in the same sandbox HOME — `~/.apex/tasks/tasks.json` rehydrates)
+and `custom_tools_via_cli` (JSON tool definitions under `.apex/tools/`,
+`call-tool` execution of the defined command, `tools` listing showing the
+`custom_` schema, a blocked `sudo` command not registering, and the
+built-in `ERROR: Unknown tool '…'` for an unknown name).
 
 ## Next increments
 

@@ -4,6 +4,63 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### Rust migration — Phase 2c (custom tools + durable tasks)
+
+- **Ported `apex/config_tools.py`** as a new Rust module
+  (`rust/apex-rs/src/config_tools.rs`): the 34-command `ALLOWED_COMMANDS`
+  allowlist, the dangerous-pattern blocklist (`$( `, backtick, `rm -rf`,
+  `chmod 777`), `CustomToolManager` (register/get/list/execute/get_schemas),
+  the one-shot `ensure_tools_loaded` directory scan, the YAML `custom_tools:`
+  loader, `{key}`/`{{ }}` command templating (`ERROR: '{key}'` on a missing
+  key), and the 30 s capped execution returning `stdout or stderr or
+  "[no output]"`. Wired into the registry: `tool_schemas()` (the `tools` CLI
+  and the agent's tool list) appends the manager's schemas after the
+  built-ins, and `execute_tool` dispatches unknown names through the manager
+  before `ERROR: Unknown tool '…'` (Python's `ToolExecutor.execute` order).
+- **Divergence (documented)**: Python's `load_tools_from_dirs` imports
+  `*.py` modules exposing a `TOOL_DEFINITION` with a callable handler; Rust
+  cannot import Python, so the same four directories
+  (`~/.config/opencode/tools`, `./.opencode/tools`, `~/.config/apex/tools`,
+  `./.apex/tools`) are scanned for `*.json` definitions
+  (`{name?, description?, parameters?, command, cwd?}`) that run through the
+  same allowlist/pattern/timeout pipeline. The dispatch keys by the defined
+  name, so a `custom_{name}` schema call is unreachable — Python has the same
+  gap (its manager also keys by the defined name).
+- **Ported `apex/task_queue.py`** as a new Rust module
+  (`rust/apex-rs/src/durable_tasks.rs`): `TaskStatus` (5 lowercase values),
+  `Task` (10 fields, same JSON shape on disk), and `TaskQueue` (enqueue with
+  `task_{YYYYmmddHHMMSS}_{n}` ids, get, list newest-first with status filter
+  and limit, cancel PENDING only, clear_completed, delete, persistence to
+  `~/.apex/tasks/tasks.json` rewritten on every mutation). Python's only
+  production consumer is the TUI REPL `/tasks` command (excluded from the
+  Rust port), so — like the snapshot manager — the Rust server is the
+  production surface:
+  - `serve` holds one `TaskQueue` in `AppState`.
+  - Six new routes: `POST /api/v1/tasks` (enqueue), `GET /api/v1/tasks`
+    (`?status=&limit=`, default 100, newest first), `GET
+    /api/v1/tasks/:id`, `DELETE /api/v1/tasks/:id`, `POST
+    /api/v1/tasks/:id/cancel` and `POST /api/v1/tasks/clear`. All answer 200
+    with an `ok` flag (no 4xx).
+  - Divergences: `get` returns a snapshot copy (Python returns a live
+    reference); a corrupt `tasks.json` resets the queue to empty (Python
+    additionally crashes on an invalid status string); `stop_workers` joins
+    each thread instead of `join(timeout=1)`. `start_worker`/`stop_workers`
+    are dead in Python too (production never starts a worker) and stay
+    item-scoped.
+- Tests: 38 new unit tests (allowlist/blocklist, shlex quoting, templating,
+  timeouts, tool-dir scanning, task lifecycle, persistence/rehydration) and
+  two E2E tests: `custom_tools_via_cli` (`.apex/tools/*.json` registration,
+  `call-tool` execution of the defined command, the `custom_` schema in the
+  `tools` listing, a blocked `sudo` command not registering) and
+  `serve_durable_tasks_lifecycle` (enqueue/list/filter, cancel and delete
+  idempotence, clear, and persistence across a server restart in the same
+  sandbox HOME).
+- PARITY.md: `config_tools.py` and `task_queue.py` Missing → Wired; route
+  parity counters updated (94 production registrations = 53 Python + 41
+  Rust-only extras); item-level allow inventory 114 → 119 (two in
+  `config_tools.rs`, three in `durable_tasks.rs`); baseline 383 unit + 29
+  E2E tests.
+
 ### Rust migration — Phase 2b (snapshot manager)
 
 - **Ported `apex/snapshot.py`** as a new Rust module (`rust/apex-rs/src/snapshot.rs`):
