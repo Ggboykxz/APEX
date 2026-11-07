@@ -173,12 +173,38 @@ class TestRelease:
 
         assert im.fetch_latest_release(fetch) == "2.5.0"
 
-    def test_fetch_latest_release_fails_when_nothing_is_published(self):
+    def test_fetch_latest_release_reports_when_nothing_is_published(self):
         def fetch(url: str) -> bytes:
             raise RuntimeError("HTTP 404")
 
+        assert issubclass(im.ReleaseUnavailable, im.InstallError)
+        with pytest.raises(im.ReleaseUnavailable, match="no published release"):
+            im.fetch_latest_release(fetch)
+
+    def test_fetch_latest_release_keeps_tags_errors_distinct(self):
+        def fetch(url: str) -> bytes:
+            if "releases/latest" in url:
+                raise RuntimeError("HTTP 404")
+            raise RuntimeError("network unreachable")
+
+        with pytest.raises(im.InstallError, match="could not resolve") as info:
+            im.fetch_latest_release(fetch)
+        assert not isinstance(info.value, im.ReleaseUnavailable)
+
+    def test_fetch_latest_release_ignores_non_list_tags(self):
+        def fetch(url: str) -> bytes:
+            if "releases/latest" in url:
+                raise RuntimeError("HTTP 404")
+            return json.dumps({"unexpected": True}).encode()
+
         with pytest.raises(im.InstallError, match="could not resolve"):
             im.fetch_latest_release(fetch)
+
+    def test_version_key_compares_semantics(self):
+        assert im.version_key("v2.5.0") == (2, 5, 0)
+        assert im.version_key("2.10.1") > im.version_key("2.9.9")
+        assert im.version_key("nightly") is None
+        assert im.version_key("") is None
 
     def test_parse_sha256(self):
         digest = "a" * 64

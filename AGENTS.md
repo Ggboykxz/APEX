@@ -1022,6 +1022,7 @@ Current policy and floors (kept green):
 | Python | `filelock>=4.2.4,<5` | CVE-2026-112907/112913/112940 (litellm chain) |
 | npm (root) | `next>=16.4.3`, `zod>=4.6.7` | Next.js / zod advisories |
 | npm (root) | override `@prisma/config → deepmerge-ts ^8.0.2` | GHSA-ggr8-5vv4-36mx (Prisma 6 kept) |
+| npm (root) | override `@typescript-eslint/typescript-estree → minimatch ^11.0.1` | GHSA-g3hv-75wg-m249 / CVE-2026-118764 (no 10.x patch) |
 | npm (TUI) | `ws>=8.21`, `tsx>=4.23`, override `esbuild ^0.28.1` | ws / esbuild advisories |
 
 Do not bump Prisma to 7.x without an ADR: it is a breaking major

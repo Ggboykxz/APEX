@@ -1779,14 +1779,29 @@ def _cmd_upgrade(args: argparse.Namespace, ui: UI) -> None:
     if getattr(args, "check", False):
         try:
             latest = install.fetch_latest_release()
+        except install.ReleaseUnavailable:
+            ui.print_info(
+                f"No published release yet — you are running APEX {__version__} (source build)."
+            )
+            return
         except Exception as e:
             ui.print_error(f"Could not check for updates: {e}")
             sys.exit(1)
-        if latest == __version__:
+
+        current = install.version_key(__version__)
+        candidate = install.version_key(latest)
+        if current is not None and candidate is not None:
+            if candidate > current:
+                ui.print_info(f"Update available: {__version__} -> {latest}")
+                ui.print_info("Run: apex upgrade")
+            elif candidate == current:
+                ui.print_success(f"APEX {__version__} is up to date")
+            else:
+                ui.print_info(f"APEX {__version__} is ahead of the latest release ({latest}).")
+        elif latest == __version__:
             ui.print_success(f"APEX {__version__} is up to date")
         else:
-            ui.print_info(f"Update available: {__version__} -> {latest}")
-            ui.print_info("Run: apex upgrade")
+            ui.print_info(f"Latest release: {latest}")
         return
 
     detection = install.detect()

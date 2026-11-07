@@ -13,6 +13,7 @@ All notable changes to APEX will be documented in this file.
 - **Upgrade/uninstall** — new `apex/install_manager.py`: channel detection (pipx/uv/pip/npm/native), per-channel upgrade commands, verified native upgrade and a dry-runnable uninstall plan. `apex upgrade [--check] [--method …]` and `apex uninstall [--purge] [--dry-run]` use it. Credentials (`api_keys.json`, `gateway.json`) survive a default uninstall and are only removed by `--purge`.
 - **Homebrew** — stale v1.2.0/MIT formula replaced by `Formula/apex-ai.rb.tmpl`; `scripts/render_homebrew.py` injects the sdist SHA256 at release time and the rendered `apex-ai.rb` is attached to the release.
 - **CI** — new `.github/workflows/install.yml` (version manifests, installer syntax + dry runs on Linux/Windows, npm wrapper tests on Node 18/20/22 and Windows); `release.yml` gains `verify-version`, the `build-native` matrix and the Homebrew render job.
+- **Fixes** — `apex upgrade --check` treats "nothing published yet" as informational (`ReleaseUnavailable`, exit 0) instead of an HTTP 404 error and compares versions semantically; the root npm tree pins `minimatch >= 11.0.1` through an override (GHSA-g3hv-75wg-m249 / CVE-2026-118764, no 10.x patch), keeping `npm audit` at zero.
 
 ### v2.5 — Wave 1 (Repository Map, TUI streaming, governance)
 

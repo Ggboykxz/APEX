@@ -46,6 +46,24 @@ class InstallError(RuntimeError):
     """An installation action cannot be planned or carried out."""
 
 
+class ReleaseUnavailable(InstallError):
+    """The repository has not published any release or tag yet."""
+
+
+def version_key(value: str) -> tuple[int, int, int] | None:
+    """Return a comparable tuple for a semantic version, or ``None``."""
+    cleaned = str(value or "").strip().lstrip("v")
+    if not SEMVER.match(cleaned):
+        return None
+    major, minor, patch = (int(part) for part in cleaned.split("."))
+    return major, minor, patch
+
+
+def _is_not_found(exc: Exception) -> bool:
+    """True when a fetch failed because the endpoint returned 404."""
+    return getattr(exc, "code", None) == 404 or "404" in str(exc)
+
+
 # ── Platform mapping ────────────────────────────────────────────────────────
 
 
@@ -214,35 +232,43 @@ def fetch_latest_release(
     ``releases/latest`` is authoritative. Repositories that only push tags
     (no GitHub Release yet) get a fallback on the tags API, taking the
     highest semantic version.
+
+    Raises :class:`ReleaseUnavailable` when the repository has published
+    nothing yet, so callers can tell "no release" apart from a network or
+    API failure.
     """
     reader = fetch or http_fetch
-    payload: dict[str, object] | None = None
     release_error: Exception | None = None
     try:
         payload = json.loads(reader(api))
     except Exception as exc:  # 404 before the first release, network, JSON
         release_error = exc
     else:
+        if not isinstance(payload, dict):
+            raise InstallError("unexpected release payload (expected a JSON object)")
         tag = str(payload.get("tag_name", "")).strip().lstrip("v")
         if SEMVER.match(tag):
             return tag
+        raise InstallError(f"unexpected release tag: {payload.get('tag_name')!r}")
 
     try:
         tags = json.loads(reader(tags_api))
-    except Exception:
+    except Exception as exc:
+        if not _is_not_found(exc):
+            raise InstallError(
+                f"could not resolve the latest release: {release_error or exc}"
+            ) from exc
         tags = []
     if not isinstance(tags, list):
-        tags = []
+        raise InstallError(f"could not resolve the latest release: {tags!r}")
+
     versions = [
         str(entry.get("name", "")).strip().lstrip("v") for entry in tags if isinstance(entry, dict)
     ]
     versions = [version for version in versions if SEMVER.match(version)]
     if versions:
         return max(versions, key=lambda value: tuple(int(part) for part in value.split(".")))
-
-    if payload is not None:
-        raise InstallError(f"unexpected release tag: {payload.get('tag_name')!r}")
-    raise InstallError(f"could not resolve the latest release: {release_error}")
+    raise ReleaseUnavailable("no published release or tag yet")
 
 
 def parse_sha256(text: str) -> str | None:
