@@ -198,7 +198,9 @@ class SessionManager:
             agent.history = session_data.get("history", [])
             return True
         except Exception:
-            logger.exception("Failed to load session %s", name)
+            logger.exception(
+                "Failed to load session %s", name.replace("\n", "\\n").replace("\r", "\\r")
+            )
             return False
 
     def list_sessions(self) -> list[dict[str, Any]]:

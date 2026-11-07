@@ -293,7 +293,7 @@ def _extract(archive: Path, destination: Path) -> None:
             target = (root / member.name).resolve()
             if target != root and root not in target.parents:
                 raise InstallError(f"unsafe archive member: {member.name}")
-        bundle.extractall(root)
+            bundle.extract(member, root)
 
 
 def native_upgrade(

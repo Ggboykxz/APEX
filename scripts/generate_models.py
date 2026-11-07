@@ -8,7 +8,7 @@ SRC = Path("/tmp/condensed_models.json")
 OUT_DIR = Path("/home/z/my-project/APEX")
 
 with open(SRC) as f:
-    data = json.load(f)
+    _ = json.load(f)  # loaded to validate the source file exists and is valid JSON
 
 # ═══════════════════════════════════════════════════════════════════
 # 1. Python config_models_new.py — MODELS dict + MODEL_PROVIDERS dict

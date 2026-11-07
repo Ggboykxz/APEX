@@ -251,6 +251,9 @@ class FormatterManager:
     def format_code(self, code: str, extension: str) -> str:
         if not self._loaded:
             self.load_from_config()
+        # Reject extensions that could escape the temp directory (path injection).
+        if not extension or "/" in extension or "\\" in extension or ".." in extension:
+            return code
         ext = extension if extension.startswith(".") else f".{extension}"
         for fmt in self._formatters:
             if fmt.disabled:
@@ -268,6 +271,9 @@ class FormatterManager:
         cmd = self._build_command(fmt, file_path)
         env = {**os.environ, **fmt.environment}
         try:
+            # cmd is a list (not shell=True), so shell injection is impossible.
+            # file_path comes from formatter config / user input but is passed
+            # as a discrete argument, not interpolated into a shell string.
             result = subprocess.run(
                 cmd,
                 env=env,
