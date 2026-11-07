@@ -1585,7 +1585,13 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                command, shell=True, cwd=self.cwd, capture_output=True, text=True, timeout=300
+                command,
+                shell=True,
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
             )
             output = []
             if result.stdout:
@@ -1750,7 +1756,11 @@ class ToolExecutor:
             return "ERROR: Not a git repository"
         try:
             result = subprocess.run(
-                ["git", "status", "--porcelain"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "status", "--porcelain"],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if not result.stdout.strip():
                 return "[working tree clean]"
@@ -1768,6 +1778,7 @@ class ToolExecutor:
                 cwd=self.cwd,
                 capture_output=True,
                 text=True,
+                check=False,
             )
             return result.stdout or "[no commits]"
         except Exception as e:
@@ -1781,7 +1792,7 @@ class ToolExecutor:
             cmd = ["git", "diff"]
             if ref:
                 cmd.append(ref)
-            result = subprocess.run(cmd, cwd=self.cwd, capture_output=True, text=True)
+            result = subprocess.run(cmd, cwd=self.cwd, capture_output=True, text=True, check=False)
             return result.stdout or "[no changes]"
         except Exception as e:
             return f"ERROR: Git diff failed: {e}"
@@ -1814,7 +1825,7 @@ class ToolExecutor:
 
         url = f"https://duckduckgo.com/html/?q={urllib.parse.quote(query)}"
         result = subprocess.run(
-            ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30
+            ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30, check=False
         )
         html = result.stdout
         titles = re.findall(r'<a class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)', html)
@@ -1837,6 +1848,7 @@ class ToolExecutor:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         data = json.loads(result.stdout or "{}")
         items = (data.get("web") or {}).get("results") or []
@@ -1865,6 +1877,7 @@ class ToolExecutor:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         data = json.loads(result.stdout or "{}")
         items = data.get("results") or []
@@ -1895,6 +1908,7 @@ class ToolExecutor:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         data = json.loads(result.stdout or "{}")
         items = data.get("results") or []
@@ -1909,7 +1923,7 @@ class ToolExecutor:
         url = args["url"]
         try:
             result = subprocess.run(
-                ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30
+                ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30, check=False
             )
             html = result.stdout
 
@@ -1956,7 +1970,12 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                commands[framework], cwd=self.cwd, capture_output=True, text=True, timeout=300
+                commands[framework],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
             )
             output = []
             if result.stdout:
@@ -1999,7 +2018,12 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                commands[manager], cwd=self.cwd, capture_output=True, text=True, timeout=300
+                commands[manager],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
             )
             if result.returncode == 0:
                 return f"SUCCESS: Installed {package} via {manager}"
@@ -2091,7 +2115,10 @@ class ToolExecutor:
         except ImportError:
             try:
                 result = subprocess.run(
-                    ["xclip", "-selection", "clipboard", "-o"], capture_output=True, text=True
+                    ["xclip", "-selection", "clipboard", "-o"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 if result.returncode == 0:
                     return result.stdout
@@ -2111,7 +2138,11 @@ class ToolExecutor:
         except ImportError:
             try:
                 subprocess.run(
-                    ["xclip", "-selection", "clipboard"], input=text, text=True, capture_output=True
+                    ["xclip", "-selection", "clipboard"],
+                    input=text,
+                    text=True,
+                    capture_output=True,
+                    check=False,
                 )
                 return f"SUCCESS: Copied {len(text)} chars to clipboard"
             except Exception:
@@ -2432,9 +2463,11 @@ class ToolExecutor:
         checkout = args.get("checkout", False)
         try:
             cmd = ["git", "branch", name]
-            subprocess.run(cmd, cwd=self.cwd, capture_output=True)
+            subprocess.run(cmd, cwd=self.cwd, capture_output=True, check=False)
             if checkout:
-                subprocess.run(["git", "checkout", name], cwd=self.cwd, capture_output=True)
+                subprocess.run(
+                    ["git", "checkout", name], cwd=self.cwd, capture_output=True, check=False
+                )
             return f"SUCCESS: Created branch '{name}'" + (" and checked out" if checkout else "")
         except Exception as e:
             return f"ERROR: {e}"
@@ -2442,7 +2475,9 @@ class ToolExecutor:
     def _execute_git_switch_branch(self, args: dict[str, Any]) -> str:
         name = args["name"]
         try:
-            subprocess.run(["git", "checkout", name], cwd=self.cwd, capture_output=True)
+            subprocess.run(
+                ["git", "checkout", name], cwd=self.cwd, capture_output=True, check=False
+            )
             return f"SUCCESS: Switched to branch '{name}'"
         except Exception as e:
             return f"ERROR: {e}"
@@ -2452,7 +2487,7 @@ class ToolExecutor:
         force = args.get("force", False)
         try:
             cmd = ["git", "branch", "-D" if force else "-d", name]
-            subprocess.run(cmd, cwd=self.cwd, capture_output=True)
+            subprocess.run(cmd, cwd=self.cwd, capture_output=True, check=False)
             return f"SUCCESS: Deleted branch '{name}'"
         except Exception as e:
             return f"ERROR: {e}"
@@ -2460,7 +2495,7 @@ class ToolExecutor:
     def _execute_git_list_branches(self, args: dict[str, Any]) -> str:
         try:
             result = subprocess.run(
-                ["git", "branch", "-a"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "branch", "-a"], cwd=self.cwd, capture_output=True, text=True, check=False
             )
             return f"Branches:\n{result.stdout}"
         except Exception as e:
@@ -2482,7 +2517,7 @@ class ToolExecutor:
                 if head:
                     cmd += ["--head", head]
                 result = subprocess.run(
-                    cmd, cwd=self.cwd, capture_output=True, text=True, timeout=60
+                    cmd, cwd=self.cwd, capture_output=True, text=True, timeout=60, check=False
                 )
                 if result.returncode == 0:
                     return result.stdout.strip() or "PR created."
@@ -2497,7 +2532,11 @@ class ToolExecutor:
                 return "ERROR: gh CLI not found and no GITHUB_TOKEN/GH_TOKEN set."
             # Resolve owner/repo from git remote.
             remote = subprocess.run(
-                ["git", "remote", "get-url", "origin"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "remote", "get-url", "origin"],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             ).stdout.strip()
             import re
 
@@ -2512,6 +2551,7 @@ class ToolExecutor:
                     cwd=self.cwd,
                     capture_output=True,
                     text=True,
+                    check=False,
                 ).stdout.strip()
             payload = _json.dumps(
                 {"title": title, "body": body, "base": base, "head": head}
@@ -2602,7 +2642,7 @@ class ToolExecutor:
             return "ERROR: No files specified"
 
         try:
-            subprocess.run(["git", "add"] + files, cwd=self.cwd, capture_output=True)
+            subprocess.run(["git", "add"] + files, cwd=self.cwd, capture_output=True, check=False)
             return f"SUCCESS: Staged {len(files)} file(s)"
         except Exception as e:
             return f"ERROR: {e}"
@@ -2611,9 +2651,13 @@ class ToolExecutor:
         files = args.get("files", [])
         try:
             if files:
-                subprocess.run(["git", "reset"] + files, cwd=self.cwd, capture_output=True)
+                subprocess.run(
+                    ["git", "reset"] + files, cwd=self.cwd, capture_output=True, check=False
+                )
             else:
-                subprocess.run(["git", "reset", "HEAD"], cwd=self.cwd, capture_output=True)
+                subprocess.run(
+                    ["git", "reset", "HEAD"], cwd=self.cwd, capture_output=True, check=False
+                )
             return "SUCCESS: Unstaged files"
         except Exception as e:
             return f"ERROR: {e}"
@@ -2625,7 +2669,11 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                ["git", "commit", "-m", message], cwd=self.cwd, capture_output=True, text=True
+                ["git", "commit", "-m", message],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if result.returncode == 0:
                 return f"SUCCESS: Committed\n{result.stdout}"
@@ -2758,13 +2806,21 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                ["git", "status", "--short"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "status", "--short"],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if not result.stdout.strip():
                 return "Nothing to commit (working tree clean)"
 
             staged = subprocess.run(
-                ["git", "diff", "--cached", "--stat"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "diff", "--cached", "--stat"],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             return (
                 f"Pre-commit checks:\nStaged: {staged.stdout or 'none'}\nUnstaged: {result.stdout}"

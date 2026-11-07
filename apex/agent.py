@@ -885,7 +885,9 @@ class Agent:
     ) -> list[tuple[str, str]]:
         tool_calls_list = [(name, args) for _, name, args in tool_calls_data]
         results = await self._async_executor.execute_all_parallel(tool_calls_list)
-        return [(tc_id, result) for (tc_id, _, _), result in zip(tool_calls_data, results)]
+        return [
+            (tc_id, result) for (tc_id, _, _), result in zip(tool_calls_data, results, strict=False)
+        ]
 
     def _update_usage(self, usage: Any) -> None:
         if usage:

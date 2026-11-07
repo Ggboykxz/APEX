@@ -205,6 +205,7 @@ def load_custom_tools(config_path: Path) -> None:
                             capture_output=True,
                             text=True,
                             timeout=30,
+                            check=False,
                         )
                         return result.stdout or result.stderr or "[no output]"
                     except Exception as e:

@@ -19,7 +19,9 @@ FALLBACK = "chore: auto commit after apex task"
 
 
 def _git(cwd, *args: str) -> str:
-    result = subprocess.run(["git", *args], cwd=str(cwd), capture_output=True, text=True)
+    result = subprocess.run(
+        ["git", *args], cwd=str(cwd), capture_output=True, text=True, check=False
+    )
     assert result.returncode == 0, result.stderr
     return result.stdout.strip()
 

@@ -10,14 +10,20 @@ from apex.git_undo import GitUndoManager, UndoSnapshot
 
 
 def _git_init(path):
-    subprocess.run(["git", "init"], cwd=path, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=path, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=path, capture_output=True)
+    subprocess.run(["git", "init"], cwd=path, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=path, capture_output=True, check=False
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=path, capture_output=True, check=False
+    )
 
 
 def _git_commit(path, msg="init"):
-    subprocess.run(["git", "add", "."], cwd=path, capture_output=True)
-    subprocess.run(["git", "commit", "-m", msg, "--allow-empty"], cwd=path, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=path, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "commit", "-m", msg, "--allow-empty"], cwd=path, capture_output=True, check=False
+    )
 
 
 class TestUndoSnapshot:

@@ -277,7 +277,11 @@ class SlashCommandManager:
             import subprocess
 
             result = subprocess.run(
-                ["git", "status", "--short"], cwd=agent.cwd, capture_output=True, text=True
+                ["git", "status", "--short"],
+                cwd=agent.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if result.stdout.strip():
                 return f"Git status:\n{result.stdout}"

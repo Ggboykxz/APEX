@@ -20,7 +20,7 @@ class WorkspaceRollback:
         """Run git command."""
         try:
             result = subprocess.run(
-                ["git"] + list(args), cwd=self.cwd, capture_output=True, text=True
+                ["git"] + list(args), cwd=self.cwd, capture_output=True, text=True, check=False
             )
             return result.returncode, result.stdout, result.stderr
         except FileNotFoundError:

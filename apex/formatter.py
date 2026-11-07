@@ -273,6 +273,7 @@ class FormatterManager:
                 env=env,
                 capture_output=True,
                 timeout=60,
+                check=False,
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
@@ -290,6 +291,7 @@ class FormatterManager:
                 env=env,
                 capture_output=True,
                 timeout=60,
+                check=False,
             )
             if result.returncode == 0:
                 return Path(tmp.name).read_text(encoding="utf-8")

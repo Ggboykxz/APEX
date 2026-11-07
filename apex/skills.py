@@ -103,7 +103,7 @@ class DiffTool:
 
         try:
             result = subprocess.run(
-                ["diff", "-u", str(p1), str(p2)], capture_output=True, text=True
+                ["diff", "-u", str(p1), str(p2)], capture_output=True, text=True, check=False
             )
             return result.stdout if result.stdout else "Files are identical"
         except Exception as e:
@@ -124,6 +124,7 @@ class DiffTool:
                 ["diff3", "-m", "-E", str(b), str(local_path), str(r)],
                 capture_output=True,
                 text=True,
+                check=False,
             )
             return result.stdout if result.stdout else "No conflicts"
         except Exception as e:

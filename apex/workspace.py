@@ -56,6 +56,7 @@ class WorkspaceManager:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             if result.returncode == 0:
                 ctx.branch = result.stdout.strip()
@@ -66,6 +67,7 @@ class WorkspaceManager:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             if result.returncode == 0:
                 ctx.commit = result.stdout.strip()[:8]
@@ -76,6 +78,7 @@ class WorkspaceManager:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             ctx.is_dirty = bool(result.stdout.strip())
 
@@ -85,6 +88,7 @@ class WorkspaceManager:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             if result.returncode == 0:
                 ctx.remote_url = result.stdout.strip()
@@ -99,6 +103,7 @@ class WorkspaceManager:
                         capture_output=True,
                         text=True,
                         timeout=5,
+                        check=False,
                     )
 
             result = subprocess.run(
@@ -107,6 +112,7 @@ class WorkspaceManager:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             ctx.commits_ahead = (
                 len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
@@ -118,6 +124,7 @@ class WorkspaceManager:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             ctx.commits_behind = (
                 len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
@@ -132,6 +139,7 @@ class WorkspaceManager:
                 capture_output=True,
                 text=True,
                 timeout=5,
+                check=False,
             )
             if result.returncode == 0:
                 ctx.tags = result.stdout.strip().split("\n")[:5]

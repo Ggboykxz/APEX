@@ -127,7 +127,12 @@ def get_git_info(path: Path) -> str:
             branch = branch[5:].split("/")[-1]
 
         result = subprocess.run(
-            ["git", "status", "--porcelain"], cwd=path, capture_output=True, text=True, timeout=5
+            ["git", "status", "--porcelain"],
+            cwd=path,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
         )
         changes = len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
 
@@ -182,7 +187,12 @@ def generate_ctags(path: Path | None = None) -> str:
 
     try:
         result = subprocess.run(
-            ["git", "ls-files", "-z"], cwd=path, capture_output=True, text=True, timeout=10
+            ["git", "ls-files", "-z"],
+            cwd=path,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
         files = result.stdout.split("\0")[:-1]
 

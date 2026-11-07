@@ -30,11 +30,11 @@ from typing import Any
 __all__ = [
     "MAX_IMAGE_BYTES",
     "VisionNotSupportedError",
+    "build_vision_content",
+    "check_vision_support",
     "detect_vision_support",
     "load_image",
-    "build_vision_content",
     "prepare_vision_input",
-    "check_vision_support",
 ]
 
 logger = logging.getLogger(__name__)

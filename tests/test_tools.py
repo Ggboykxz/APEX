@@ -1,8 +1,7 @@
 """Tests for APEX tools - core file operations and ToolExecutor basics."""
 
-from pathlib import Path
-
 import sys
+from pathlib import Path
 
 import pytest
 

@@ -218,7 +218,11 @@ CMD ["java", "-jar", "target/app.jar"]
 
         try:
             result = subprocess.run(
-                ["docker", "build", "-t", tag, "."], cwd=self.cwd, capture_output=True, text=True
+                ["docker", "build", "-t", tag, "."],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             return {"success": result.returncode == 0, "output": result.stdout}
         except Exception as e:

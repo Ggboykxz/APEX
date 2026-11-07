@@ -996,6 +996,7 @@ def _install_bun(ui: UI) -> str | None:
             text=True,
             timeout=120,
             env={**os.environ, "npm_config_prefix": str(Path.home() / ".npm-global")},
+            check=False,
         )
         if result.returncode != 0:
             ui.print_error("Failed to install bun via npx")
@@ -1031,6 +1032,7 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
                 capture_output=True,
                 text=True,
                 timeout=120,
+                check=False,
             )
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed!")
@@ -1046,6 +1048,7 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
                 capture_output=True,
                 text=True,
                 timeout=180,
+                check=False,
             )
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed with npm!")
@@ -1114,6 +1117,7 @@ def _install_tsx(tui_dir: Path, ui: UI) -> str | None:
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
         if result.returncode == 0:
             ui.print_success("tsx installed successfully!")
@@ -1296,6 +1300,7 @@ def _install_tui_command(ui: UI) -> None:
                             capture_output=True,
                             text=True,
                             timeout=60,
+                            check=False,
                         )
                         if result.returncode != 0:
                             ui.print_error(f"Failed to download: {result.stderr[:200]}")
@@ -1825,7 +1830,7 @@ def _cmd_upgrade(args: argparse.Namespace, ui: UI) -> None:
         sys.exit(1)
 
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
     except Exception as e:
         ui.print_error(f"Upgrade error: {e}")
         sys.exit(1)
@@ -1878,7 +1883,9 @@ def _cmd_uninstall(args: argparse.Namespace, ui: UI) -> None:
 
     for command in plan.commands:
         try:
-            result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+            result = subprocess.run(
+                command, capture_output=True, text=True, timeout=120, check=False
+            )
             if result.returncode == 0:
                 ui.print_success(f"Ran: {' '.join(command)}")
             else:
@@ -2014,6 +2021,7 @@ def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         if result.returncode != 0:
             ui.print_error(f"Failed to fetch PR #{args.pr_number}: {result.stderr[:200]}")
@@ -2026,6 +2034,7 @@ def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         if checkout.returncode == 0:
             ui.print_success(f"Checked out PR #{args.pr_number} ({branch})")
@@ -2293,6 +2302,7 @@ def _cmd_plugin(args: argparse.Namespace, ui: UI) -> None:
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
         if result.returncode != 0:
             ui.print_warning(f"pip install {module} returned non-zero: {result.stderr[:200]}")
@@ -2637,7 +2647,7 @@ def _dispatch(parsed: argparse.Namespace) -> None:
         config.set("default_agent", parsed.agent_name)
 
     # Conditional model list
-    if parsed.list_models or hasattr(parsed, "list_models") and parsed.list_models:
+    if parsed.list_models or (hasattr(parsed, "list_models") and parsed.list_models):
         list_models(ui, verbose=parsed.verbose, refresh=parsed.refresh)
         sys.exit(0)
 

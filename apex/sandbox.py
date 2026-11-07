@@ -42,7 +42,9 @@ class CodeSandbox:
             if language == "rust":
                 binary_path = self._temp_dir / f"{file_id}_binary"
                 compile_cmd = ["rustc", str(file_path), "-o", str(binary_path)]
-                result = subprocess.run(compile_cmd, capture_output=True, text=True, timeout=60)
+                result = subprocess.run(
+                    compile_cmd, capture_output=True, text=True, timeout=60, check=False
+                )
                 if result.returncode != 0:
                     return f"ERROR: Compilation failed:\n{result.stderr}"
                 run_cmd = [str(binary_path)]
@@ -53,7 +55,12 @@ class CodeSandbox:
                 run_cmd.extend(args)
 
             result = subprocess.run(
-                run_cmd, capture_output=True, text=True, timeout=self.timeout, cwd=self._temp_dir
+                run_cmd,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                cwd=self._temp_dir,
+                check=False,
             )
 
             output = []

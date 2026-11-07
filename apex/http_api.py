@@ -1459,6 +1459,7 @@ class HTTPServer:
             capture_output=True,
             text=True,
             timeout=self._DIFF_GIT_TIMEOUT,
+            check=False,
         )
         diff = subprocess.run(
             ["git", "diff"],
@@ -1466,6 +1467,7 @@ class HTTPServer:
             capture_output=True,
             text=True,
             timeout=self._DIFF_GIT_TIMEOUT,
+            check=False,
         )
         names = subprocess.run(
             ["git", "diff", "--name-only"],
@@ -1473,6 +1475,7 @@ class HTTPServer:
             capture_output=True,
             text=True,
             timeout=self._DIFF_GIT_TIMEOUT,
+            check=False,
         )
         diff_text = diff.stdout or ""
         paths = [line.strip() for line in (names.stdout or "").splitlines() if line.strip()]
@@ -1523,6 +1526,7 @@ class HTTPServer:
                     capture_output=True,
                     text=True,
                     timeout=self._DIFF_GIT_TIMEOUT,
+                    check=False,
                 )
             except (OSError, subprocess.TimeoutExpired) as exc:
                 last_error = str(exc)

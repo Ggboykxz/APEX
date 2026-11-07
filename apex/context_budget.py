@@ -118,7 +118,7 @@ def _replace_content(message: Any, content: str) -> Any | None:
         return updated
     try:
         updated = copy.copy(message)
-        setattr(updated, "content", content)
+        updated.content = content
     except (AttributeError, TypeError):
         return None
     return updated

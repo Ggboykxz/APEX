@@ -215,7 +215,7 @@ class ShellSecurityAnalyzer:
                 description = "DANGEROUS: " + warning
 
         if safe:
-            for pattern, re_obj in zip(self.NETWORK_PATTERNS, self._network_re):
+            for pattern, re_obj in zip(self.NETWORK_PATTERNS, self._network_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.NETWORK
                     requires_confirmation = True
@@ -223,7 +223,7 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe and category == CommandCategory.WORKING_DIR:
-            for pattern, re_obj in zip(self.SYSTEM_PATTERNS, self._system_re):
+            for pattern, re_obj in zip(self.SYSTEM_PATTERNS, self._system_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.SYSTEM
                     requires_confirmation = True
@@ -231,7 +231,9 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.FILE_DELETE_PATTERNS, self._file_delete_re):
+            for pattern, re_obj in zip(
+                self.FILE_DELETE_PATTERNS, self._file_delete_re, strict=False
+            ):
                 if re_obj.search(command):
                     if "node_modules" in command or ".git" in command:
                         warnings.append("Recursive deletion may affect dependencies")
@@ -242,13 +244,13 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.FILE_WRITE_PATTERNS, self._file_write_re):
+            for pattern, re_obj in zip(self.FILE_WRITE_PATTERNS, self._file_write_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.FILE_WRITE
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.PROCESS_PATTERNS, self._process_re):
+            for pattern, re_obj in zip(self.PROCESS_PATTERNS, self._process_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.PROCESS
                     requires_confirmation = True
@@ -256,7 +258,7 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.GIT_PATTERNS, self._git_re):
+            for pattern, re_obj in zip(self.GIT_PATTERNS, self._git_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.GIT
                     warnings.append("Git operation")
@@ -265,13 +267,13 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.BUILD_PATTERNS, self._build_re):
+            for pattern, re_obj in zip(self.BUILD_PATTERNS, self._build_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.BUILD
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.CONTAINER_PATTERNS, self._container_re):
+            for pattern, re_obj in zip(self.CONTAINER_PATTERNS, self._container_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.CONTAINER
                     requires_confirmation = True

@@ -65,16 +65,20 @@ class SnapshotManager:
         """Initialize or use existing git repo for snapshots."""
         git_dir = self._snapshots_dir / ".git"
         if not git_dir.exists():
-            subprocess.run(["git", "init"], cwd=self._snapshots_dir, capture_output=True)
+            subprocess.run(
+                ["git", "init"], cwd=self._snapshots_dir, capture_output=True, check=False
+            )
             subprocess.run(
                 ["git", "config", "user.email", "apex@snapshot.local"],
                 cwd=self._snapshots_dir,
                 capture_output=True,
+                check=False,
             )
             subprocess.run(
                 ["git", "config", "user.name", "APEX Snapshot"],
                 cwd=self._snapshots_dir,
                 capture_output=True,
+                check=False,
             )
 
     def _get_file_hash(self, path: Path) -> str:
@@ -213,6 +217,7 @@ class SnapshotManager:
             ["git", "add", str(meta_path.relative_to(self._snapshots_dir))],
             cwd=self._snapshots_dir,
             capture_output=True,
+            check=False,
         )
 
     def get_history(self, limit: int = 50) -> list[Snapshot]:

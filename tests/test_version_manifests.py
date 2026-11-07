@@ -16,6 +16,7 @@ def test_version_manifests_are_in_sync():
         capture_output=True,
         text=True,
         cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
 
@@ -26,6 +27,7 @@ def test_current_command_prints_semver():
         capture_output=True,
         text=True,
         cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0
     parts = result.stdout.strip().split(".")
@@ -50,6 +52,7 @@ def test_homebrew_formula_renders_from_the_template(tmp_path):
         capture_output=True,
         text=True,
         cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
     body = output.read_text(encoding="utf-8")
@@ -75,6 +78,7 @@ def test_homebrew_render_rejects_a_bad_digest(tmp_path):
         capture_output=True,
         text=True,
         cwd=ROOT,
+        check=False,
     )
     assert result.returncode == 2
     assert "invalid SHA256" in result.stderr
