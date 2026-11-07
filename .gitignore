@@ -47,6 +47,7 @@ next-env.d.ts
 # Rust
 rust/target/
 rust/apex-rs/target/
+/rust/apex-rs/.apex/
 
 # Python
 __pycache__/

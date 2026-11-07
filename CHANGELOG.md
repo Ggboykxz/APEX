@@ -4,13 +4,23 @@ All notable changes to APEX will be documented in this file.
 
 ## [Unreleased]
 
+### v2.5 — Installation refonte
+
+- **One canonical version** — new `VERSION` file (2.5.0) and `scripts/version.py` (`current` / `check` / `sync`). CI and the release workflow fail when `apex/__init__.py`, `pyproject.toml`, `rust/apex-rs/Cargo.toml`, `Cargo.lock` or `integrations/npm/package.json` drift from `VERSION`, or when the tag does not match it.
+- **Unified installers** — `scripts/install.sh` and `scripts/install.ps1` rewritten around shared flags: `--method auto|python|uv|pipx|pip|native|docker`, `--version`, `--prefix`, `--no-path`, `--yes`, `--dry-run`, `--uninstall [--purge]`. Non-interactive by default, checksum-verified native downloads, idempotent PATH markers, no silent `curl | sh` bootstrap.
+- **Native backend distribution** — `release.yml` builds and publishes five verified assets (`x86_64`/`aarch64` Linux, `x86_64`/`aarch64` macOS, `x86_64` Windows) with `.sha256` sidecars. Installed as `apex-rs` in `~/.apex/bin`, never as `apex`; no crates.io publication. ADR-0008 supersedes ADR-0004's "no release binaries" clause.
+- **npm wrapper** — new zero-dependency `lib/native.js` (platform mapping, SHA256 verification, tar/zip extraction) and a new resolution order: `APEX_BINARY` → `apex` on PATH → native (`APEX_INSTALL_METHOD=native` / `APEX_PREFER_NATIVE=1`) → Python provisioning → native fallback (`APEX_NATIVE != 0`).
+- **Upgrade/uninstall** — new `apex/install_manager.py`: channel detection (pipx/uv/pip/npm/native), per-channel upgrade commands, verified native upgrade and a dry-runnable uninstall plan. `apex upgrade [--check] [--method …]` and `apex uninstall [--purge] [--dry-run]` use it. Credentials (`api_keys.json`, `gateway.json`) survive a default uninstall and are only removed by `--purge`.
+- **Homebrew** — stale v1.2.0/MIT formula replaced by `Formula/apex-ai.rb.tmpl`; `scripts/render_homebrew.py` injects the sdist SHA256 at release time and the rendered `apex-ai.rb` is attached to the release.
+- **CI** — new `.github/workflows/install.yml` (version manifests, installer syntax + dry runs on Linux/Windows, npm wrapper tests on Node 18/20/22 and Windows); `release.yml` gains `verify-version`, the `build-native` matrix and the Homebrew render job.
+
 ### v2.5 — Wave 1 (Repository Map, TUI streaming, governance)
 
 - **Repository map** — new `apex/repomap.py` engine: symbol-level extraction (Python AST + JS/TS/Rust/Go heuristics), reference-based ranking, token budget, per-root cache, and a `repo_map` tool. 29 new tests.
 - **TUI streaming & diff** — typed normalization of EventBus payloads, pure streaming reducer (assistant deltas, tool lifecycle, session isolation), unified-diff parser, `DiffPreview` overlay with local accept/reject, and `/diff`. 28 new tests.
 - **Governance** — issue forms, PR template, CODEOWNERS, ADR-0004 (Rust distribution deferred), ADR-0005 (repo map design), v2.5 milestones/board, and a Delivery & Governance section in `AGENTS.md`.
 - **Lint scope** — all first-party Python (`apex/`, `tests/`, `scripts/`) is linted; vendored `skills/` is explicitly excluded and audited separately.
-- **Rust internal GA** — crate-level `#![allow(dead_code)]` removed in favor of 23 scoped allows with exit criteria; shell security wired into the CLI (`security check|allowed`), `POST /api/v1/security/analyze`, the `run_command` tool, and `/api/v1/bash`; hermetic `config::home_dir()`; `tests/cli_e2e.rs` (7 binary tests); new `rust/apex-rs/PARITY.md` matrix. No publishing (ADR-0004).
+- **Rust internal GA** — crate-level `#![allow(dead_code)]` removed in favor of 23 scoped allows with exit criteria; shell security wired into the CLI (`security check|allowed`), `POST /api/v1/security/analyze`, the `run_command` tool, and `/api/v1/bash`; hermetic `config::home_dir()`; `tests/cli_e2e.rs` (7 binary tests); new `rust/apex-rs/PARITY.md` matrix. Release assets only, no crates.io (ADR-0008).
 
 ### Rust Port (`rust/apex-rs`)
 

@@ -1,4 +1,4 @@
-# APEX — Agent for Programming EXecution v2.0.0
+# APEX — Agent for Programming EXecution v2.5.0
 
 *Built in Gabon 🇬🇦 for the world.*
 
@@ -51,7 +51,7 @@ APEX is an **autonomous agent** capable of:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                        APEX v2.0.0                       │
+│                        APEX v2.5.0                       │
 │                                                          │
 │   Frontend (TUI / REPL / API / Web)                     │
 │          ↕  HTTP / SSE / stdin                           │
@@ -100,6 +100,7 @@ APEX is an **autonomous agent** capable of:
 | `mcp_server.py` | MCP stdio server exposing native tools |
 | `vision.py` | Image attachment validation and vision content blocks |
 | `auto_commit.py` | AI-generated conventional-commit autocommit for one-shot runs |
+| `install_manager.py` | Install-channel detection, upgrade commands, verified native downloads, uninstall plans |
 
 ### TUI Architecture (Ink + React)
 
@@ -1043,7 +1044,7 @@ advisory on Prisma 6.
 | Milestone | Scope | Status |
 |-----------|-------|--------|
 | M1 — Repository Map & Context | symbol-level repository map, context-window optimization | Done (v2.5) |
-| M2 — Rust GA (internal) | remove crate-level `#![allow(dead_code)]`, parity matrix, binary E2E; no publishing (ADR-0004) | Done (v2.5) |
+| M2 — Rust GA (internal) | remove crate-level `#![allow(dead_code)]`, parity matrix, binary E2E; release assets only, no crates.io (ADR-0008) | Done (v2.5) |
 | M3 — TUI Streaming & Diff | SSE/WS streaming, tool-call lifecycle, diff preview | Done (v2.5) |
 | M4 — MCP, Vision, VS Code | MCP server mode, vision input, auto-commit, VS Code extension | Done (v2.5) |
 
@@ -1056,6 +1057,7 @@ advisory on Prisma 6.
 - TUI: `npm run typecheck`, `bun test` green.
 - Website: `eslint .`, `next build` green when `src/**` changes.
 - Docs: `AGENTS.md` and mkdocs updated; ADR added for architectural decisions.
+- Release: `VERSION` is canonical; `python scripts/version.py check` passes and the tag matches it.
 - Every required workflow green before merge.
 
 ### ECC workflow
@@ -1083,9 +1085,11 @@ advisory on Prisma 6.
 ## 24. Rust Port (Internal GA)
 
 `rust/apex-rs/` is the Rust rewrite of the backend. It is an **internal GA**:
-the binary, HTTP server, and tool registry are usable, but nothing is
-published (no crates.io, no GitHub Release binaries — see
-[ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
+the binary, HTTP server, and tool registry are usable. Release binaries are
+published as GitHub Release assets for five targets
+([ADR-0008](docs/adr/ADR-0008-installation-refonte.md)); the crate is **not**
+published on crates.io, and the Python CLI/TUI remains the default install.
+The native backend is headless and opt-in.
 
 The authoritative Python ↔ Rust matrix is
 [`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md). It records what is wired,
@@ -1681,7 +1685,7 @@ cargo test
 
 ## Project Status
 
-- **Version**: 2.0.0
+- **Version**: 2.5.0
 - **Tests**:
   - Suite pytest (`tests/`) — run `pytest -q` from the repo root
   - Rust (`rust/apex-rs/`) — `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`
@@ -1692,19 +1696,65 @@ cargo test
 
 ## Installation
 
+`VERSION` at the repository root is canonical. `python scripts/version.py
+check` (CI gate) verifies every manifest — `apex/__init__.py`,
+`pyproject.toml`, `rust/apex-rs/Cargo.toml`, `Cargo.lock` and
+`integrations/npm/package.json` — and `sync` rewrites them from it. A `v*`
+release tag must equal `VERSION`, and the npm package version must match the
+tag.
+
 ```bash
-npm install -g apex-ai      # npm wrapper — provisions the Python package on first run
-pip install apex-ai
-pipx install apex-ai
+pipx install apex-ai                       # recommended (isolated)
+uv tool install apex-ai                    # fastest
+pip install apex-ai                        # existing virtualenv
+npm install -g apex-ai                     # zero-dependency wrapper
 git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e .
 ```
 
-The npm package (`integrations/npm/`, published as `apex-ai` on npm) is a
-zero-dependency wrapper: it resolves an existing `apex` on PATH, or installs
-the Python package via `pipx` > `uv` > `pip` on first run, then execs it.
-`APEX_BINARY`, `APEX_VERSION`, `APEX_INSTALL_METHOD` and `APEX_SKIP_INSTALL`
-control the behavior. Published from the `Release` workflow on `v*` tags
-(requires the `NPM_TOKEN` secret; the package version must match the tag).
+### Unified installers
+
+`scripts/install.sh` and `scripts/install.ps1` share
+`--method auto|python|uv|pipx|pip|native|docker`, `--version`, `--prefix`,
+`--no-path`, `--yes`, `--dry-run`, `--uninstall [--purge]`. There is no
+silent `curl | sh` bootstrap. `.github/workflows/install.yml` runs both
+installers in `--dry-run`, checks their syntax, and re-runs the npm wrapper
+tests on Node 18/20/22 plus Windows.
+
+### Native backend (opt-in, headless)
+
+`apex-rs` is downloaded from GitHub Release assets, verified against the
+`.sha256` sidecar published next to it, and installed as `apex-rs`
+(`apex-rs.exe` on Windows) in `~/.apex/bin` (`APEX_INSTALL_DIR` overrides).
+It is **never** installed as `apex`, so it cannot shadow the Python CLI.
+Targets: `x86_64`/`aarch64` Linux, `x86_64`/`aarch64` macOS, `x86_64` Windows.
+The crate is not published on crates.io (ADR-0008).
+
+### npm wrapper
+
+`integrations/npm/` (published as `apex-ai`) is a zero-dependency wrapper.
+Resolution order: `APEX_BINARY` → `apex` on PATH → native
+(`APEX_INSTALL_METHOD=native` or `APEX_PREFER_NATIVE=1`) → Python
+provisioning (`pipx` > `uv` > `pip`) → native fallback when no Python exists
+and `APEX_NATIVE != 0`. `APEX_VERSION` pins the release, `APEX_INSTALL_DIR`
+moves the native binary, `APEX_SKIP_INSTALL=1` fails fast. Published from the
+`Release` workflow on `v*` tags (requires the `NPM_TOKEN` secret; the package
+version must match the tag).
+
+### Upgrade and uninstall
+
+`apex upgrade [--check] [--method …]` detects the install channel
+(`pipx`/`uv`/`pip`/`npm`/`native`) and upgrades through it; `APEX_VERSION`
+pins a version. `apex uninstall [--keep-config] [--keep-data] [--purge]
+[--dry-run]` executes the plan from `apex/install_manager.py`: by default it
+removes `~/.config/apex`, `~/.apex/{sessions,memory,tasks}` and the native
+binary, but **never** `api_keys.json` or `gateway.json` — only `--purge`
+removes the whole `~/.apex` tree.
+
+### Homebrew
+
+`Formula/apex-ai.rb.tmpl` is rendered at release by
+`scripts/render_homebrew.py` with the sdist SHA256; the rendered `apex-ai.rb`
+is attached to the release and is never committed.
 
 ## Launch
 
@@ -1745,4 +1795,4 @@ apex -p "prompt" -f json   # CI/CD mode
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v2.0.0 — Inspired by OpenCode, built for everyone*
+*APEX v2.5.0 — Inspired by OpenCode, built for everyone*

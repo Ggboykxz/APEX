@@ -412,9 +412,9 @@ Bearer token auth on all endpoints, configurable via config.
 
 ## ⚡ Installation
 
-### One-line install
+### Quick install
 
-**npm (no Python required — provisions the Python package on first run):**
+**npm (provisions the Python CLI/TUI on first run):**
 ```bash
 npm install -g apex-ai
 apex
@@ -422,23 +422,33 @@ apex
 
 **macOS / Linux:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh | bash
+curl -fsSLO https://apex-ai.dev/install.sh
+bash install.sh                    # auto: pipx > uv > pip
+bash install.sh --method native    # headless Rust backend (opt-in)
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.ps1 | iex
+Invoke-WebRequest https://apex-ai.dev/install.ps1 -OutFile install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
+
+Both installers accept `--method`, `--version`, `--prefix`, `--no-path`,
+`--yes`, `--dry-run` and `--uninstall [--purge]`. See the
+[installation guide](docs/getting-started/installation.md) for the full
+matrix.
 
 ### Package managers
 
 | Method | Command |
 |--------|---------|
-| **npm** (no Python required) | `npm install -g apex-ai` |
+| **npm** (zero-dependency wrapper) | `npm install -g apex-ai` |
 | **uv** (fastest) | `uv tool install apex-ai` |
 | **pipx** (isolated) | `pipx install apex-ai` |
 | **pip** | `pip install apex-ai` |
+| **Homebrew** (rendered formula) | `brew install --formula ./apex-ai.rb` |
 | **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` |
+| **Native backend** (headless) | `bash install.sh --method native` |
 
 ### From source
 

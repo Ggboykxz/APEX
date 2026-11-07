@@ -102,6 +102,7 @@ nav:
           - ADR-0005: adr/ADR-0005-symbolic-repo-map.md
           - ADR-0006: adr/ADR-0006-mcp-server-stdio.md
           - ADR-0007: adr/ADR-0007-vscode-thin-client.md
+          - ADR-0008: adr/ADR-0008-installation-refonte.md
   - Changelog: changelog.md
 
 extra:

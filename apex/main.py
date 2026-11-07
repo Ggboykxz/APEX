@@ -194,7 +194,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--keep-data", action="store_true", help="Keep data on uninstall")
     parser.add_argument("--dry-run", action="store_true", help="Dry run uninstall")
     parser.add_argument("--force", action="store_true", help="Force uninstall")
-    parser.add_argument("--method", default=None, help="Upgrade method (pip, npm, etc.)")
+    parser.add_argument(
+        "--method", default=None, help="Upgrade method (pip, pipx, uv, npm, native)"
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="Check for a newer release without upgrading"
+    )
+    parser.add_argument(
+        "--purge", action="store_true", help="Remove credentials and config on uninstall"
+    )
 
     return parser
 
@@ -1764,108 +1772,108 @@ def _cmd_import(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_upgrade(args: argparse.Namespace, ui: UI) -> None:
-    method = args.method or "pip"
-    ui.print_info(f"Upgrading APEX via {method}...")
-    try:
-        if method == "pip":
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--upgrade", "apex-ai"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode == 0:
-                ui.print_success("APEX upgraded successfully!")
-            else:
-                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
-                sys.exit(1)
-        elif method == "pipx":
-            result = subprocess.run(
-                ["pipx", "upgrade", "apex-ai"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode == 0:
-                ui.print_success("APEX upgraded successfully!")
-            else:
-                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
-                sys.exit(1)
-        elif method == "npm":
-            result = subprocess.run(
-                ["npm", "install", "-g", "apex-ai"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode == 0:
-                ui.print_success("APEX upgraded successfully!")
-            else:
-                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
-                sys.exit(1)
-        else:
-            ui.print_error(f"Unknown upgrade method: {method}")
+    from . import install_manager as install
+
+    pinned = os.environ.get("APEX_VERSION", "").strip() or None
+
+    if getattr(args, "check", False):
+        try:
+            latest = install.fetch_latest_release()
+        except Exception as e:
+            ui.print_error(f"Could not check for updates: {e}")
             sys.exit(1)
+        if latest == __version__:
+            ui.print_success(f"APEX {__version__} is up to date")
+        else:
+            ui.print_info(f"Update available: {__version__} -> {latest}")
+            ui.print_info("Run: apex upgrade")
+        return
+
+    detection = install.detect()
+    requested = None if args.method in (None, "", "auto") else args.method
+    try:
+        method = install.primary_method(detection, requested)
+    except install.InstallError as e:
+        ui.print_error(str(e))
+        sys.exit(1)
+
+    ui.print_info(f"Upgrading APEX via {method}...")
+
+    try:
+        if method == "native":
+            destination = install.native_upgrade(pinned)
+            ui.print_success(f"Native backend updated: {destination}")
+            return
+        command = install.upgrade_command(method, pinned)
+    except install.InstallError as e:
+        ui.print_error(str(e))
+        sys.exit(1)
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300)
     except Exception as e:
         ui.print_error(f"Upgrade error: {e}")
         sys.exit(1)
 
+    if result.returncode != 0:
+        detail = result.stderr or result.stdout or "unknown error"
+        ui.print_error(f"Upgrade failed: {detail[:300]}")
+        sys.exit(1)
+    ui.print_success("APEX upgraded successfully!")
+
 
 def _cmd_uninstall(args: argparse.Namespace, ui: UI) -> None:
+    from . import install_manager as install
+
     if not args.dry_run and not args.force:
-        confirm = ui.input("Are you sure you want to uninstall APEX? (yes/no): ").strip().lower()
+        confirm = (
+            ui.console.input("Are you sure you want to uninstall APEX? (yes/no): ").strip().lower()
+        )
         if confirm != "yes":
             ui.print_info("Uninstall cancelled")
             return
 
+    detection = install.detect()
+    plan = install.uninstall_plan(
+        detection=detection,
+        keep_config=args.keep_config,
+        keep_data=args.keep_data,
+        purge=getattr(args, "purge", False),
+    )
+
     if args.dry_run:
         ui.print_info("[DRY RUN] Would uninstall APEX")
-
-    apex_dir = Path.home() / ".apex"
-    config_dir = Path.home() / ".config" / "apex"
-
-    if args.dry_run:
-        if apex_dir.exists():
-            ui.print_info(f"  Would remove: {apex_dir}")
-        if config_dir.exists() and not args.keep_config:
-            ui.print_info(f"  Would remove: {config_dir}")
-        ui.print_info("[DRY RUN] Would run: pip uninstall apex-ai")
+        for path in plan.paths:
+            ui.print_info(f"  Would remove: {path}")
+        for command in plan.commands:
+            ui.print_info(f"  Would run: {' '.join(command)}")
+        if plan.kept:
+            ui.print_info(f"  Would keep: {', '.join(plan.kept)}")
         return
 
-    if not args.keep_config:
-        if config_dir.exists():
-            shutil.rmtree(config_dir)
-            ui.print_success("Removed config directory")
-    else:
-        ui.print_info("Keeping config directory")
+    for path in plan.paths:
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+            elif path.exists():
+                path.unlink()
+            ui.print_success(f"Removed {path}")
+        except OSError as e:
+            ui.print_warning(f"Could not remove {path}: {e}")
 
-    if not args.keep_data:
-        sessions_dir = apex_dir / "sessions"
-        if sessions_dir.exists():
-            shutil.rmtree(sessions_dir)
-            ui.print_success("Removed session data")
-        memory_dir = apex_dir / "memory"
-        if memory_dir.exists():
-            shutil.rmtree(memory_dir)
-            ui.print_success("Removed memory data")
-    else:
-        ui.print_info("Keeping data directory")
+    for command in plan.commands:
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                ui.print_success(f"Ran: {' '.join(command)}")
+            else:
+                detail = result.stderr or result.stdout or "unknown error"
+                ui.print_warning(f"{' '.join(command)}: {detail[:200]}")
+        except Exception as e:
+            ui.print_warning(f"{' '.join(command)} failed: {e}")
 
-    # Uninstall pip package
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "uninstall", "-y", "apex-ai"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode == 0:
-            ui.print_success("APEX uninstalled successfully!")
-        else:
-            ui.print_warning(f"pip uninstall: {result.stderr[:200]}")
-    except Exception as e:
-        ui.print_warning(f"pip uninstall error: {e}")
-
+    for path in plan.kept:
+        ui.print_info(f"Kept: {path}")
     ui.print_info("APEX has been removed. We hope to see you again!")
 
 
@@ -2527,6 +2535,8 @@ def main() -> None:
         parsed.dry_run = False
         parsed.force = False
         parsed.method = None
+        parsed.check = False
+        parsed.purge = False
         parsed.share = False
         parsed.input_file = None
         parsed.print_logs = False
@@ -2536,6 +2546,16 @@ def main() -> None:
         parsed.list_models = False
         parsed.auto_commit = False
         parsed.image = None
+        # Upgrade/uninstall accept flags after the verb (e.g. `apex uninstall
+        # --dry-run`); the generic verb path used to drop them.
+        if verb in {"upgrade", "uninstall"}:
+            try:
+                overrides, _ = parser.parse_known_args(raw_args[1:])
+            except SystemExit:
+                sys.exit(1)
+            for key, value in vars(overrides).items():
+                if key != "prompt":
+                    setattr(parsed, key, value)
         # For subcommands, keep the rest of raw_args so handlers can read them
         parsed.raw_args = raw_args[1:]
         _dispatch_verb(verb, parsed)

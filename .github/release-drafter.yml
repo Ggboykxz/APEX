@@ -23,11 +23,22 @@ template: |
   # uv (fastest)
   uv tool install apex-ai==$RESOLVED_VERSION
 
-  # One-line install (macOS/Linux)
-  curl -fsSL https://apex-ai.dev/install.sh | bash
+  # Installer (macOS/Linux)
+  curl -fsSLO https://apex-ai.dev/install.sh
+  bash install.sh
 
-  # PowerShell (Windows)
-  irm https://apex-ai.dev/install.ps1 | iex
+  # Installer (Windows PowerShell)
+  Invoke-WebRequest https://apex-ai.dev/install.ps1 -OutFile install.ps1
+  powershell -ExecutionPolicy Bypass -File .\install.ps1
+  ```
+
+  ### Native backend (headless, opt-in)
+
+  Verified release assets ship for Linux (x86_64/aarch64), macOS
+  (x86_64/aarch64) and Windows (x86_64), each with a `.sha256` sidecar:
+
+  ```bash
+  bash install.sh --method native --version $RESOLVED_VERSION
   ```
 
   ### Docker
