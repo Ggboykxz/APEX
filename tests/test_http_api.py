@@ -1787,12 +1787,12 @@ class TestTuiServerCleanup:
             patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
             patch("threading.Thread") as mock_thread_cls,
         ):
-                mock_thread_instance = MagicMock()
-                mock_thread_cls.return_value = mock_thread_instance
-                start_tui_server(port=9999)
-                target_fn = mock_thread_cls.call_args[1]["target"]
-                target_fn()
-                loop.close.assert_called_once()
+            mock_thread_instance = MagicMock()
+            mock_thread_cls.return_value = mock_thread_instance
+            start_tui_server(port=9999)
+            target_fn = mock_thread_cls.call_args[1]["target"]
+            target_fn()
+            loop.close.assert_called_once()
 
     def test_cleanup_with_exception(self):
         loop = asyncio.SelectorEventLoop()
@@ -1806,12 +1806,12 @@ class TestTuiServerCleanup:
             patch("apex.http_api.asyncio.SelectorEventLoop", return_value=loop),
             patch("threading.Thread") as mock_thread_cls,
         ):
-                mock_thread_instance = MagicMock()
-                mock_thread_cls.return_value = mock_thread_instance
-                start_tui_server(port=9999)
-                target_fn = mock_thread_cls.call_args[1]["target"]
-                target_fn()
-                loop.close.assert_called_once()
+            mock_thread_instance = MagicMock()
+            mock_thread_cls.return_value = mock_thread_instance
+            start_tui_server(port=9999)
+            target_fn = mock_thread_cls.call_args[1]["target"]
+            target_fn()
+            loop.close.assert_called_once()
 
     def test_cleanup_with_pending_tasks(self):
         loop = asyncio.SelectorEventLoop()
@@ -1869,8 +1869,8 @@ class TestRunServerKeyboardInterrupt:
             patch.object(HTTPServer, "start", new_callable=AsyncMock),
             patch.object(HTTPServer, "stop", new_callable=AsyncMock) as mock_stop,
         ):
-                    await run_server(host="127.0.0.1", port=0, require_auth=False)
-                    mock_stop.assert_called_once()
+            await run_server(host="127.0.0.1", port=0, require_auth=False)
+            mock_stop.assert_called_once()
 
 
 class TestSessionSaveSuccess:
@@ -1900,14 +1900,14 @@ class TestChatBilling:
             patch.object(server.agent, "chat", return_value="response"),
             patch("apex.http_api.billing_manager.record_usage") as mock_billing,
         ):
-                async with TestClient(TestServer(server.app)) as client:
-                    resp = await client.post(
-                        "/chat",
-                        json={"message": "hi"},
-                        headers={"Authorization": "Bearer test-key"},
-                    )
-                    assert resp.status == 200
-                    mock_billing.assert_called_once()
+            async with TestClient(TestServer(server.app)) as client:
+                resp = await client.post(
+                    "/chat",
+                    json={"message": "hi"},
+                    headers={"Authorization": "Bearer test-key"},
+                )
+                assert resp.status == 200
+                mock_billing.assert_called_once()
 
 
 class TestChatStreamBilling:
@@ -1928,14 +1928,14 @@ class TestChatStreamBilling:
             patch.object(server.agent, "chat_streaming", mock_stream),
             patch("apex.http_api.billing_manager.record_usage") as mock_billing,
         ):
-                async with TestClient(TestServer(server.app)) as client:
-                    resp = await client.post(
-                        "/chat/stream",
-                        json={"message": "hi"},
-                        headers={"Authorization": "Bearer test-key"},
-                    )
-                    assert resp.status == 200
-                    mock_billing.assert_called_once()
+            async with TestClient(TestServer(server.app)) as client:
+                resp = await client.post(
+                    "/chat/stream",
+                    json={"message": "hi"},
+                    headers={"Authorization": "Bearer test-key"},
+                )
+                assert resp.status == 200
+                mock_billing.assert_called_once()
 
 
 class TestV1SessionsDeleteDetailedFull:

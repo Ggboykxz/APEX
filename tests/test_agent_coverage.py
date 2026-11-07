@@ -393,7 +393,10 @@ class TestChatAsSubagent:
         class CustomError(Exception):
             pass
 
-        with patch.object(agent, "_chat_internal", side_effect=CustomError("boom")), pytest.raises(CustomError):
+        with (
+            patch.object(agent, "_chat_internal", side_effect=CustomError("boom")),
+            pytest.raises(CustomError),
+        ):
             agent._chat_as_subagent("reviewer", "review this")
         assert agent.current_agent == "build"
 

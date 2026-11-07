@@ -265,7 +265,9 @@ class APIClientGenerator:
         except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
-    def generate_curl(self, method: str, url: str, headers: dict | None = None, data: Any | None = None) -> str:
+    def generate_curl(
+        self, method: str, url: str, headers: dict | None = None, data: Any | None = None
+    ) -> str:
         parts = ["curl", f"-X {method.upper()}", f'"{url}"']
 
         if headers:

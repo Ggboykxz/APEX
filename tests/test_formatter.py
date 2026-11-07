@@ -340,7 +340,7 @@ class TestFormatCode:
             patch("apex.formatter.subprocess.run", side_effect=_mock_run),
             patch("apex.formatter.os.unlink", side_effect=OSError("permission denied")),
         ):
-                result = manager.format_code("x=1\n", ".py")
+            result = manager.format_code("x=1\n", ".py")
 
         assert result == "formatted_code"
 

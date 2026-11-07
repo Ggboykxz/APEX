@@ -844,7 +844,7 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
             if not user_input.strip() or not user_input.startswith("/"):
                 continue
             if handle_command(user_input, agent, ui, apex_config, prompt_session, use_stream):
-                    continue
+                continue
             ui.print_user(user_input)
             with ui.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
                 response = agent.chat(user_input)

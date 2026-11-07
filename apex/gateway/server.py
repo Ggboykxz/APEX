@@ -89,9 +89,7 @@ class GatewayServer:
     async def handle_models(self, request: web.Request) -> web.Response:
         from ..config import MODELS
 
-        free_models = {
-            k: v for k, v in MODELS.items() if k.startswith(("free-", "pro-"))
-        }
+        free_models = {k: v for k, v in MODELS.items() if k.startswith(("free-", "pro-"))}
         return web.json_response(
             {
                 "models": [

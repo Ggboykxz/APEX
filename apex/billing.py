@@ -249,9 +249,15 @@ class BillingManager:
                     raise QuotaExceededError(
                         f"Monthly limit of ${account.plan.monthly_limit} exceeded"
                     )
-        if account.plan.input_limit > 0 and account.input_tokens_used + input_tokens > account.plan.input_limit:
+        if (
+            account.plan.input_limit > 0
+            and account.input_tokens_used + input_tokens > account.plan.input_limit
+        ):
             return False, f"Input token limit exceeded ({account.plan.input_limit})"
-        if account.plan.output_limit > 0 and account.output_tokens_used + output_tokens > account.plan.output_limit:
+        if (
+            account.plan.output_limit > 0
+            and account.output_tokens_used + output_tokens > account.plan.output_limit
+        ):
             return False, f"Output token limit exceeded ({account.plan.output_limit})"
         return True, "OK"
 

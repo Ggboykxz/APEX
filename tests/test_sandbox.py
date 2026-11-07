@@ -154,18 +154,18 @@ class TestCodeSandbox:
             patch("apex.sandbox.tempfile.gettempdir", return_value=str(tmp_path)),
             patch("apex.sandbox.uuid.uuid4", return_value=known_uuid),
         ):
-                sb = CodeSandbox(timeout=10)
-                binary_path = sb._temp_dir / "12345678_binary"
-                binary_path.touch()
-                mock_compile = MagicMock(stdout="", stderr="", returncode=0)
-                mock_run = MagicMock(stdout="ok\n", stderr="", returncode=0)
-                with patch(
-                    "apex.sandbox.subprocess.run",
-                    side_effect=[mock_compile, mock_run],
-                ):
-                    sb.run_code("fn main(){}", language="rust")
-                files = list(sb._temp_dir.iterdir())
-                assert len(files) == 0
+            sb = CodeSandbox(timeout=10)
+            binary_path = sb._temp_dir / "12345678_binary"
+            binary_path.touch()
+            mock_compile = MagicMock(stdout="", stderr="", returncode=0)
+            mock_run = MagicMock(stdout="ok\n", stderr="", returncode=0)
+            with patch(
+                "apex.sandbox.subprocess.run",
+                side_effect=[mock_compile, mock_run],
+            ):
+                sb.run_code("fn main(){}", language="rust")
+            files = list(sb._temp_dir.iterdir())
+            assert len(files) == 0
 
     def test_cleanup_file_already_deleted(self, tmp_path):
         known_uuid = uuid.UUID("12345678-1234-5678-1234-567812345678")
@@ -173,18 +173,18 @@ class TestCodeSandbox:
             patch("apex.sandbox.tempfile.gettempdir", return_value=str(tmp_path)),
             patch("apex.sandbox.uuid.uuid4", return_value=known_uuid),
         ):
-                sb = CodeSandbox(timeout=10)
-                mock_result = MagicMock(stdout="", stderr="", returncode=0)
+            sb = CodeSandbox(timeout=10)
+            mock_result = MagicMock(stdout="", stderr="", returncode=0)
 
-                def _side_effect(*args, **kwargs):
-                    file_path = sb._temp_dir / "12345678.py"
-                    if file_path.exists():
-                        file_path.unlink()
-                    return mock_result
+            def _side_effect(*args, **kwargs):
+                file_path = sb._temp_dir / "12345678.py"
+                if file_path.exists():
+                    file_path.unlink()
+                return mock_result
 
-                with patch("apex.sandbox.subprocess.run", side_effect=_side_effect):
-                    result = sb.run_code("print('hi')")
-                    assert "[no output]" in result
+            with patch("apex.sandbox.subprocess.run", side_effect=_side_effect):
+                result = sb.run_code("print('hi')")
+                assert "[no output]" in result
 
     def test_run_python_snippet(self):
         sb = CodeSandbox(timeout=10)
