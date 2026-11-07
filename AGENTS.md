@@ -1064,6 +1064,20 @@ advisory on Prisma 6.
 - Per feature: `orch-add-feature` / `tdd`, then the language triad (`rust-test` → `rust-build` → `rust-review`, `react-test` → `react-build` → `react-review`).
 - Close each wave with `verify`, `security-scan`, `update-docs`, then `learn` → `evolve`.
 
+### AI maintainer (opencode)
+
+- `.github/workflows/opencode.yml` runs opencode on demand when a maintainer
+  (`OWNER`, `MEMBER` or `COLLABORATOR`, never a bot) comments `/oc` or
+  `/opencode` on an issue, a PR, or a review line.
+- The upstream action was archived on 2026-10-25 (`anomalyco/opencode#59032`);
+  the workflow pins the last published wrapper commit
+  (`17b79f4e0c16dcff200b0417567ed22aeb2d7166`, tag `github-v1.2.28`). The
+  wrapper downloads the current opencode binary at runtime.
+- One-time setup: install the `opencode-agent` GitHub App, add
+  `DEEPSEEK_API_KEY` (default `deepseek/deepseek-chat`) or
+  `ANTHROPIC_API_KEY`, and optionally set the `OPENCODE_MODEL` repository
+  variable. Sessions are not shared (`share: false`).
+
 ---
 
 ## 24. Rust Port (Internal GA)
@@ -1083,8 +1097,11 @@ surface change.
 - No crate-level `#![allow(dead_code)]`.
 - Allows are scoped to a module or item and carry a justification plus a
   `TODO(v2.6)` exit criterion.
-- Ported modules without a caller are declared and allowed explicitly
-  (`permission`) instead of silently disappearing.
+- No module-level allows remain: every PR-#348 module
+  (`watcher`, `structured_message`, `sandbox`, `rlm`, `telemetry`, `i18n`,
+  `slash`, `project`, `billing`, `formatter`) is now wired to the CLI or the
+  HTTP server. The full module-level and item-level inventories are the
+  tables in PARITY.md.
 
 ### Shell security
 
@@ -1099,18 +1116,171 @@ apex-rs security allowed            # allow-listed commands
 - `POST /api/v1/security/analyze` — JSON `{ "command": "..." }` → verdict
 - `/api/v1/bash` and the `run_command` tool are both guarded
 
+### HTTP auth
+
+`serve` can require an API key on every request (port of Python's
+`AuthMiddleware`). Auth is **opt-in** because the Rust server is the TUI
+backend and the TUI sends no key:
+
+```bash
+APEX_REQUIRE_AUTH=1 apex-rs serve --port 8765   # truthy: 1, true, yes, on
+apex-rs key create ci                          # prints the plaintext key once
+apex-rs key list                               # id, name, state, request count
+apex-rs key revoke <id>                        # future requests get 401
+```
+
+- The store is `~/.apex/api_keys.json` (`APEX_API_KEYS_FILE` overrides it;
+  Python uses SQLite). Only the sha256 hash is persisted, and the file is
+  re-read on every request: `key revoke` from another process takes effect
+  without restarting the server.
+- Carrier precedence matches Python: `Authorization: Bearer …`, then
+  `?api_key=`, then `X-API-Key`. Rejections use the exact Python body:
+  `401 {"error": "Authentication required", "code": "AUTH_REQUIRED"}`.
+- `/health`, `/ws` and `/ws/events` are exempt; unmatched paths stay 404s.
+  The middleware wraps the rate limiter, so 401s never consume key budget.
+- `POST /api/v1/auth/{login,logout}` and `GET /api/v1/auth/status` are
+  ported and, when auth is on, protected like every other route. Login and
+  logout mutate the server process's environment; status reports the static
+  19-variable table (Python derives it from its model registry).
+- Python's `apex serve` enables auth by default; the Rust port defaults off.
+  This divergence is recorded in `PARITY.md`.
+
 ### Rate limiting
 
 `serve` enforces Python-style per-key rate limits on every route except
-`/health` (which must stay probeable). The key is the `X-API-Key` header, or
-the `Authorization: Bearer …` token, or `anonymous`. Over-limit requests get
-HTTP 429 with a `Retry-After` header and a JSON error body.
+`/health` (which must stay probeable). With auth on, the bucket is the
+validated key id (`key:{key_id}`, Python parity); otherwise the key is the
+`X-API-Key` header, the `Authorization: Bearer …` token, the `?api_key=`
+value, or `anonymous`. Over-limit requests get HTTP 429 with a `Retry-After`
+header and a JSON error body.
 
 - Defaults: 60/min, 1000/hour, 10000/day (in-memory backend, same windows as
   `apex/rate_limiter.py`); `APEX_RATE_LIMIT_PER_MINUTE`,
   `APEX_RATE_LIMIT_PER_HOUR`, `APEX_RATE_LIMIT_PER_DAY`, `APEX_RATE_LIMIT_BURST`
   override them.
-- `GET /api/v1/rate-limit` reports the anonymous key's counters and limits.
+- `GET /api/v1/rate-limit` reports the caller's counters, limits and the
+  minute-window `reset_at` (epoch seconds; Python's
+  `RateLimitResult.reset_at`).
+- The limiter's lock is released before the handler runs, so routes that
+  read limiter status in-request (`GET /api/v1/rate-limit`,
+  `GET /rate-limit/status`, `POST /chat`, `GET /metrics`,
+  `GET /api/v1/stats`) cannot deadlock on the non-reentrant tokio mutex.
+
+### HTTP route parity
+
+The `serve` router covers all 52 routes of Python's `apex/http_api.py`
+(`GET /`, `POST /chat`, `GET /stream`, models/providers, sessions and
+shares, `POST /session/save|load`, config, themes, stats, formatters and
+`POST /api/v1/format`, commands and `POST /api/v1/command`,
+`POST /api/v1/init`, `GET /find/file`, export/import,
+`GET /api/v1/session/{id}/diff{,/decision}`, `POST /api/v1/session/{id}/{fork,abort}`,
+LSP/formatter/MCP status, `GET /global/event` SSE, `GET /metrics`,
+`GET /rate-limit/status`, `GET /global/health`, auth) plus 41 Rust-only
+extras. The authoritative per-route table and the divergence list live in
+[`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md) (route parity section);
+update it in the same PR as any surface change.
+New helper modules back the ported routes: `models.rs` (static model
+table) and `commands.rs` (markdown custom-command manager).
+
+### Snapshot manager
+
+`snapshot.rs` ports `apex/snapshot.py` (Git-based undo/redo). Python
+exports `SnapshotManager` but never calls it — its `/undo` and `/redo`
+routes use a separate `session.UndoManager` — so the Rust server is the
+production surface, wired further than Python, like `workspace.rs`:
+
+- `serve` holds one `SnapshotManager` in `AppState` (rooted at the server
+  cwd, side git repo under `.apex/snapshots/`, best-effort `git init`).
+- Seven routes: `POST /api/v1/snapshot/{track,track-file,undo,redo,restore}`
+  and `GET /api/v1/snapshot/{history,status}`. All answer 200 with an
+  `ok` flag (no 4xx), mirroring `/api/v1/undo` and `/api/v1/redo`.
+  `history` takes `?limit=` (Python's default of 50; `0` returns all,
+  matching Python's `[-0:]` slice).
+- **Bug fix (documented divergence)**: Python's `undo()` pops the snapshot
+  and then calls `restore(id)`, which looks it up in the undo stack where
+  it no longer exists — so Python's undo never restored any file. The port
+  applies the popped snapshot's changes directly; `restore(id)` stays the
+  lookup API.
+- `track_file` captures only `before` (`after` stays null), so a redo after
+  `track_file` rewrites nothing (Python parity).
+- `file_hash`, `save_snapshot_to_git` and `clear` remain item-scoped (dead
+  in Python too).
+
+### Context tracking & mentions
+
+`context_tracking.rs` (port of `apex/context_manager.py` /
+`context_tracking.py`) and `mentions.rs` (port of `apex/mentions.py`) are
+wired into the agent:
+
+- **Context tracking** — every `Agent` carries a `ContextTracker`
+  (`default_with_budget`: 128k token budget, 80% threshold). `record_api_usage`
+  feeds `record_usage`, and the auto-compact gate in `chat`/`chat_stream`
+  now fires on `should_compact` (token budget) in addition to the
+  message-count threshold. `GET /api/v1/context/tracking` exposes the budget,
+  threshold and per-session stats. `record_compaction`, `remove` and the
+  compaction history stay item-scoped until `Agent::compact_context` records
+  them.
+- **Mentions** — `Agent::expand_mentions` (both `chat` and `chat_stream`)
+  parses input with `MentionParser::parse` + `resolve_file` instead of
+  `split_whitespace`. File mentions are inlined as `[File: …]` (images as
+  base64, uncapped, same format as before); agent mentions are recognized but
+  not inlined (subagent routing is a TUI concern, Python parity).
+  `read_mentioned_files` and `FileMentionCompleter` remain item-scoped
+  (TUI surface).
+
+### Gateway
+
+`gateway.rs` ports `apex/gateway/*` — the OpenRouter model proxy with
+per-key tiers, rate limits, and usage tracking:
+
+```bash
+apex-rs gateway start              # run the proxy (needs APEX_GATEWAY_KEY or OPENROUTER_API_KEY)
+apex-rs gateway key [tier] [label]  # generate an apex_ key, print it once
+apex-rs gateway status              # list registered keys (no plaintext)
+```
+
+- Tiers mirror Python's `config.py`: `free` (50 requests/day, 500k tokens,
+  10/min, 1 concurrent, 19 models), `pro` (500/day, 5M tokens, 60/min, 3
+  concurrent, 10 models) and `unlimited` (999999/day, 100M tokens, 300/min,
+  10 concurrent, every model). Unknown tier names fall back to `free`,
+  exactly like Python's `_get_tier`.
+- Eight routes: `POST /v1/chat/completions` (Bearer key → tier model gate →
+  sliding 60 s per-key rate limit → daily request and token caps → upstream
+  proxy; usage is recorded per key/day and `usage.apex_gateway` is injected
+  on 200), `POST /v1/register` (413 above 4096 bytes, `Invalid tier: …`),
+  `GET /v1/status`, `GET /v1/health`, `GET /v1/models` (sorted `free-`/`pro-`
+  aliases with provider), and the `X-Admin-Key`-protected `/admin/keys`,
+  `/admin/keys/generate`, `/admin/keys/revoke`. Rejections use Python's exact
+  error strings (`Missing or invalid Authorization header`, `Invalid or
+  revoked API key`, `Model '…' not available in '…' tier`,
+  `Rate limit exceeded ({n}/minute)`, `Daily request limit reached ({n})`,
+  `Upstream request timed out`, `Upstream error: …`).
+- The key/usage store is `~/.apex/gateway.json` (Python uses SQLite
+  `~/.apex/gateway.db`), re-read on every access: an admin or CLI revoke
+  takes effect without restarting the server. Re-revoking a known key
+  returns 200 (SQLite `UPDATE` row-count parity); only an unknown key is
+  404 `Key not found`.
+- `APEX_GATEWAY_UPSTREAM_BASE` overrides Python's hardcoded
+  `https://openrouter.ai/api/v1` so tests can point the proxy at a local
+  fake upstream; the divergences are recorded in `PARITY.md`.
+
+### Permission gate
+
+Tool dispatch runs through `permission::dispatch_gate` at both agent
+surfaces (one-shot `chat` and streaming `chat_stream`). The manager is the
+**headless** variant of Python's: the `*` → ASK catch-all becomes
+`*` → ALLOW because the backend has no prompt surface — an ASK rule
+refuses with `ERROR: Permission denied: <reason>` instead of prompting.
+
+- Explicit DENY/ASK rules and the `APEX_PERMISSION_DENY` /
+  `APEX_PERMISSION_ASK` env vars (comma-separated glob patterns) win over
+  the catch-all.
+- `Config.denied_tools` keeps its original `ERROR: Permission denied`
+  message; the gate is an extra layer that carries the rule reason.
+- The `call-tool` CLI stays ungated: it is an explicit operator action, not
+  an LLM dispatch.
+- The interactive request/approve flow (request/approve/deny, `remember`)
+  is ported but unwired — there is no prompt surface on a headless backend.
 
 ### Repository context
 
@@ -1130,13 +1300,375 @@ apex-rs context glob <PATTERN> [PATH]
 through), `?depth=` for `tree`, and `?pattern=` for `glob`. Invalid input returns
 `{"error": …}` instead of a panic.
 
+The same functions back two registry tools:
+
+- `get_repo_map` — the repository map from the working directory (Python's
+  executor ignores its `path` argument; the tool does the same).
+- `get_file_tree` — ASCII tree for `path` (canonicalized, like Python's
+  `_resolve`) with `max_depth` (default 3), directories first, dotfiles
+  hidden, `ERROR: Path not found: …` on a missing path.
+
+`get_context_info` has no Rust counterpart: it reads the agent's message
+history, which the stateless Rust dispatch does not keep.
+
+### Workspace awareness
+
+`workspace.rs` ports `apex/workspace.py` and is wired further than the Python
+module (which exports `WorkspaceManager` but never calls it):
+
+```bash
+apex-rs workspace                  # [WORKSPACE CONTEXT] block for the cwd
+apex-rs workspace ../project       # explicit root
+apex-rs workspace --json           # full context as JSON
+```
+
+- Git: branch, 8-character commit, dirty flag, `origin` URL, GitHub
+  `owner/repo`, commits ahead/behind the upstream, `GITHUB_HEAD_REF` +
+  `GITHUB_PR_NUMBER`, and the first five tags. Every git call has the same
+  5-second timeout as Python; failures degrade to defaults.
+- Detection: language (`pyproject.toml`/`requirements.txt`/`setup.py` →
+  Python, `package.json`, `go.mod`, `Cargo.toml`, `pom.xml`,
+  `build.gradle`), package manager (`package-lock.json`, `yarn.lock`,
+  `pnpm-lock.yaml`, `requirements.txt`, `pyproject.toml`, `go.mod`,
+  `Cargo.lock`, `Gemfile`) and test framework (`pytest.ini`,
+  `pyproject.toml`, `jest.config.js`, `vitest.config.ts`, `go.sum`,
+  `Cargo.toml`) in Python's marker order.
+- The block is appended to the system prompt of both agent entry points
+  (`chat` and `chat_stream`), analyzed once per user turn so a ten-round
+  tool loop does not respawn git ten times.
+- Divergences recorded in `PARITY.md`: no `git fetch --dry-run` network
+  call, an empty tag list on tagless repositories (Python yields `[""]`),
+  and no process-global singleton.
+
+### Workspace rollback
+
+`workspace_rollback.rs` ports `apex/workspace_rollback.py`: side-git
+snapshots under `.apex/snapshots/` plus a persisted turn history.
+
+```bash
+apex-rs rollback snapshot [LABEL]      # print the new snapshot name
+apex-rs rollback list [--json]         # text view shows the last 10
+apex-rs rollback restore <NAME>
+apex-rs rollback delete <NAME>
+apex-rs rollback turn [TURNS]          # WorkspaceRollback::rollback_turn
+apex-rs rollback record [--data JSON]  # TurnTracker::record_turn
+apex-rs rollback revert [TURNS]        # TurnTracker::revert_turn
+apex-rs rollback history               # JSON turn records
+```
+
+- A snapshot stores `metadata.json`, `git_status.txt`, and — for tracked
+  modifications — `changed_files.txt` plus byte copies under `files/`.
+  Untracked files appear only in the status file, exactly like Python.
+  Restoring recreates parent directories and copies every backed-up file.
+- `TurnTracker` writes `.apex/turns.json` (`turn_number`, `snapshot`,
+  `timestamp`, `data`) with the same numbering and clamping as Python:
+  `revert 0` and an over-large value target the first turn.
+- Divergences recorded in `PARITY.md`: UTC timestamps (Python uses local
+  time), label/snapshot names validated as bare path components (Python's
+  join allows `../` escapes), `turn 0` is a clear error instead of an
+  `IndexError`, and modification times are not preserved.
+
+### Editing tools
+
+`edit_file` and `apply_patch` close the surgical-editing gap in the Rust
+registry:
+
+- `edit_file` — replaces the first occurrence of `old_string` in a file with
+  `new_string`; the success/error strings mirror Python exactly
+  (`SUCCESS: Edited …`, `ERROR: File not found: …`,
+  `ERROR: String not found in file. Use read_file to see content.`).
+- `apply_patch` — `patch.rs` is a faithful port of `apex/apply_patch.py`:
+  Codex-style (`*** Begin Patch`) and unified-diff dialects, full pre-write
+  validation (path traversal, absolute paths, duplicate targets, 1 MB patch /
+  512 KB file limits, binary content), hunk matching with forward/backward
+  fuzz (offsets reported as signed `warning:` lines),
+  `\ No newline at end of file` markers, and atomic temp-file + rename writes
+  with best-effort rollback. `dry_run` previews without touching the disk.
+
+### File tools
+
+`files.rs` ports the eight missing file operations from `apex/tools.py`
+(`tool registry is now 59 schemas`):
+
+- `apply_edit` — replaces the first occurrence of `old_string` with
+  `new_string`; mirrors Python exactly (`SUCCESS: Edited …`,
+  `ERROR: File not found: …`, `ERROR: String not found in file. …`).
+- `preview_edit` — previews the edit as a unified diff (`PREVIEW:\n…`)
+  without touching the disk.
+- `create_directory` — creates a directory and all parents (`SUCCESS: Created directory …`).
+- `delete_file` — deletes a file or directory (`SUCCESS: Deleted …`,
+  `ERROR: Path not found: …`).
+- `batch_read` — reads up to 50 files at once, prefixing each with `--- <path>`.
+- `batch_write` — writes up to 50 files at once from `{path, content}` operations,
+  reporting success count plus any per-file errors.
+- `read_image` — reads a png/jpg/jpeg/gif/bmp/webp/svg file and returns a
+  `data:image/<ext>;base64,…` data URL.
+- `glob_search` — finds files by glob pattern relative to a directory,
+  returning matching relative paths, one per line.
+
+### Web tools
+
+`web.rs` ports the two web tools from `tools.py` (tool registry is now 45
+schemas):
+
+- `web_search` — provider chain identical to Python: `BRAVE_API_KEY` /
+  `BRAVE_SEARCH_API_KEY` → Brave, `TAVILY_API_KEY` → Tavily, `EXA_API_KEY`
+  → Exa, otherwise DuckDuckGo HTML. A failed provider falls back to
+  DuckDuckGo, and if that also fails the original error is reported as
+  `ERROR: Web search failed: …`.
+- `fetch_url` — GETs the page (redirects followed, 30 s timeout) and returns
+  the visible text after stripping scripts, styles, tags and `&[a-z]+;`
+  entities (whitespace is collapsed *before* entity removal, matching
+  Python's order), capped at 3000 characters with a trailing `...`.
+
+HTTP runs on a dedicated thread with its own runtime (same pattern as
+`github::http_json`), so both tools work from the `call-tool` CLI and from
+inside the agent loop's Tokio runtime.
+
+### Shell tools
+
+`shell_tools.rs` ports two shell tools from `apex/tools.py`
+(`tool registry is now 53 schemas`):
+
+- `run_test` — runs pytest, jest, cargo, or npm test with a 300 s timeout.
+  Returns combined stdout/stderr, `[no output]` when empty, `[exit N]` on
+  non-zero exit, or `ERROR: …` on timeout/missing binary.
+- `install_package` — installs a package via pip, npm, yarn, or cargo with
+  a 300 s timeout. Returns `SUCCESS: Installed <package> via <manager>` on
+  success, `ERROR: …` on failure.
+
+`run_code` is also wired through the sandboxed code executor
+(`sandbox::CodeSandbox::run_code`, python/javascript/bash/ruby/go/rust/php).
+The following shell tools remain pending (they depend on `sandbox.py` /
+`commands.py`, ported in later waves):
+
+- `run_command_custom` → `commands.py` (command manager)
+- `start_shell` / `run_shell` / `close_shell` → `sandbox.py` (ShellSession)
+
+### Codegen tools
+
+`codegen_tools.rs` ports three code generation tools from `apex/tools.py`
+(`tool registry is now 68 schemas`):
+
+- `generate_tests` — analyzes a file with `CodeAnalyzer` and generates pytest
+  or Jest test stubs for up to 5 functions.
+- `inline_edit` — replaces N lines starting at a given line number with new
+  content (`SUCCESS: Edited <path> at line N`, `ERROR: File not found: …`).
+- `apply_code_action` — applies a suggested LSP code action/fix (currently
+  returns a placeholder; full LSP integration is pending).
+
+### Git tools
+
+`git_tools.rs` ports three git tools from `apex/tools.py`
+(`tool registry is now 68 schemas`):
+
+- `add_git_hook` — installs a git hook script under `.git/hooks/<hook>`.
+  Validates the hook name against git's official list, rejects dangerous
+  commands via the shell security analyzer, and makes the hook executable
+  (`SUCCESS: Added <hook> hook`, `ERROR: Not a git repository`,
+  `ERROR: Invalid git hook name: …`).
+- `git_status_enhanced` — shows git status with staged/unstaged/untracked
+  file separation (`Staged:`, `Unstaged:`, `Untracked:` sections, or
+  `[working tree clean]`).
+- `git_log_enhanced` — shows recent commits with hash, subject, author,
+- `git_log_enhanced` — shows recent commits with hash, subject, author,
+  and date (`[no commits]` when the repo has no history).
+
+### LSP tools
+
+`lsp.rs` ports three new LSP tools from `apex/tools.py`
+(`tool registry is now 68 schemas`):
+
+- `lsp_completions` — gets LSP completion items at a position in a file
+  (`textDocument/completion`).
+- `lsp_code_actions` — gets LSP code actions/fixes at a position
+  (`textDocument/codeAction`).
+- `lsp_workspace_symbol` — searches workspace symbols by query string
+  (`workspace/symbol`).
+
+Existing LSP tools (`lsp_definition`, `lsp_references`, `lsp_hover`,
+`lsp_diagnostics`) remain wired as before.
+
+### UX tools
+
+`ux_tools.rs` ports six user-interaction tools from `apex/tools.py`
+(`tool registry is now 74 schemas`):
+
+- `ask_user` — requests user input (headless: returns a waiting message;
+  no prompt surface exists on the Rust backend).
+- `select_files` — finds files by glob patterns relative to cwd.
+- `clipboard_read` — reads clipboard (headless: not available).
+- `clipboard_write` — writes to clipboard (headless: not available).
+- `retry_last` — retries the last tool executed (headless: no state).
+- `retry_tool` — retries a specific tool (headless: `advanced.py` not ported).
+
+### Billing tools
+
+`billing.rs` ports the billing system from `apex/billing.py`
+(`tool registry is now 80 schemas`):
+
+- `billing_cost` — calculates cost for token usage based on the model pricing table.
+- `billing_quota` — checks if a user's quota allows the requested token usage.
+- `billing_usage` — records usage for a user and updates their monthly totals.
+- `billing_plan` — updates a user's billing plan (free/pro/enterprise/custom).
+- `billing_summary` — returns a usage summary for a user including total cost, tokens, and request count.
+
+The billing manager supports plan types (Free/Pro/Enterprise/Custom) with different monthly limits, token limits, and rate limits, plus trial periods and overage handling.
+
+### Custom tools
+
+`config_tools.rs` ports `apex/config_tools.py` — tools defined from
+configuration:
+
+- The 34-command `ALLOWED_COMMANDS` allowlist plus a dangerous-pattern
+  blocklist (`$( `, backtick, `rm -rf`, `chmod 777`) gate every command
+  before it registers.
+- `CustomToolManager` (register/get/list/execute/`get_schemas`); schemas are
+  exposed to the model under the `custom_{name}` prefix.
+- `ensure_tools_loaded` scans the same four directories as Python
+  (`~/.config/opencode/tools`, `./.opencode/tools`, `~/.config/apex/tools`,
+  `./.apex/tools`) once per process. `{key}`/`{{ }}` templating fills the
+  arguments (`ERROR: '{key}'` on a missing key) and execution is capped at
+  30 s, returning `stdout or stderr or "[no output]"`.
+- Wired into the registry: `tool_schemas()` (backing the `tools` CLI and the
+  agent's tool list) appends the manager's schemas after the built-ins, and
+  `execute_tool` dispatches unknown names through the manager before
+  answering `ERROR: Unknown tool '…'` (Python's `ToolExecutor.execute`
+  order).
+- **Divergence**: Python's `load_tools_from_dirs` imports `*.py` modules
+  exposing a `TOOL_DEFINITION` with a callable handler; Rust cannot import
+  Python, so the same directories are scanned for `*.json` definitions
+  (`{name?, description?, parameters?, command, cwd?}`) that run through the
+  same allowlist/pattern/timeout pipeline.
+- The dispatch keys by the defined name, so calling the `custom_{name}`
+  schema name is unreachable — Python has the same gap (its manager also
+  keys by the defined name). `load_custom_tools` (the YAML loader, dead in
+  Python too) and `list_tools` stay item-scoped.
+
+### Task queue & plans
+
+`task_queue.rs` ports the `TaskQueue` from `apex/extras.py` (tool registry
+is now 51 schemas):
+
+- `submit_task` — registers the task (`pending`) and runs its command on a
+  background thread through the platform shell (`sh -c` / `cmd /C`); the
+  result is `stdout or stderr`, the status becomes `completed`, or
+  `failed` when the process cannot be spawned. Python's
+  `asyncio.run(queue.add(...))` actually cancels the spawned coroutine on
+  loop teardown, so a submitted task stays `pending` there — the Rust
+  port implements the intent.
+- `list_tasks` — `Tasks:` header, a 40-`=` separator, then
+  `  {id} - {name} [{status}]` in submission order; `No tasks` when empty.
+- `get_task` — `Task:`/`Status:`/`Result:`/`Error:` lines (`None` when a
+  field is unset); `ERROR: Task {id} not found` for an unknown id.
+- `task` — validates `agent` against the 11 built-in names from
+  `apex/agents.py` and returns `[Delegated to @{agent}]: {task}` (no
+  subagent actually runs, exactly like Python); an unknown agent yields
+  `ERROR: Unknown agent: {agent}`.
+- `plan_approve` / `plan_reject` — Python reads `self._plan_approval`,
+  which nothing ever sets on the executor (the `PlanApproval` class lives
+  in `commands.py` but is never wired to it), so both always return
+  `ERROR: No pending plan to …`; the stateless Rust dispatch reproduces
+  that exactly.
+
+### Durable task queue
+
+`durable_tasks.rs` ports `apex/task_queue.py` — background tasks that
+survive restarts. Python's only production consumer is the TUI REPL `/tasks`
+command (excluded from the Rust port), so — like the snapshot manager — the
+Rust HTTP routes are the production surface:
+
+- `serve` holds one `TaskQueue` in `AppState`; the queue persists to
+  `~/.apex/tasks/tasks.json`, rewritten on every mutation and rehydrated on
+  start.
+- Six routes, all answering 200 with an `ok` flag (no 4xx): `POST
+  /api/v1/tasks` (enqueue, `task_{YYYYmmddHHMMSS}_{n}` ids), `GET
+  /api/v1/tasks` (`?status=&limit=`, newest first, default limit 100),
+  `GET /api/v1/tasks/:id`, `DELETE /api/v1/tasks/:id`, `POST
+  /api/v1/tasks/:id/cancel` (pending tasks only) and `POST
+  /api/v1/tasks/clear` (removes completed tasks).
+- Divergences: `get` returns a snapshot copy (Python returns a live
+  reference); a corrupt `tasks.json` resets the queue to empty (Python
+  additionally crashes on an invalid status string); `stop_workers` joins
+  each thread instead of `join(timeout=1)`.
+- `start_worker`/`stop_workers` are dead in Python too (production never
+  starts a worker) and stay item-scoped.
+
+### GitHub CLI
+
+`github.rs` is wired through a `github` CLI group (Python parity for
+`_cmd_github`, plus the previously test-only client and automation):
+
+```bash
+apex-rs github install                  # parity: three info lines, no side effects
+apex-rs github run                       # detects the repo, then "Found N issues and M PRs"
+apex-rs github issue <N>                 # issue JSON
+apex-rs github issue-close <N>
+apex-rs github pr <N>                    # pull request JSON
+apex-rs github pr-merge <N> [-m method]  # default method: squash
+apex-rs github automate create-pr --title T --body B --branch BR [--base main]
+apex-rs github automate changes FILE...
+apex-rs github automate issue --error MSG --file PATH
+apex-rs github automate list [--label L]
+apex-rs github automate todos
+apex-rs github automate close-completed  # counts merged PRs (Python does not close either)
+```
+
+- `run` mirrors `apex github run`: `GitHubAutomation` detects the repo
+  (`gh repo view`, then the `origin` remote) and counts open issues/PRs
+  through the REST client; a failed API call counts as empty, like Python.
+- The `automate` flows are the `GitHubAutomation` methods; `create-pr`,
+  `changes` and `issue` fail with a clear error when no repository can be
+  detected.
+- Credentials: `GITHUB_TOKEN` / `GH_TOKEN` environment variables; the API
+  root is overridable with `APEX_GITHUB_API` (tests point it at a dead local
+  port or a local fake).
+
+### Skill authoring
+
+`apex-rs skill {list,add,remove}` exposes `SkillManager::add`/`remove`,
+which were test-only (Python's are in-memory and never wired to a command):
+
+- `skill add <name> <description> <prompt>` registers the skill and persists
+  it to `<cwd>/.apex/skills/<name>.md` in the exact format the loader parses
+  (`## Description:` / `## Prompt`), so a fresh process sees it.
+- `skill remove <name>` removes it from the manager and deletes the project
+  file when present; an unknown name is a hard error.
+- Skill names become file names, so path separators and `..` are rejected.
+
 ### Hermetic tests
 
 `config::home_dir()` honours `HOME`/`USERPROFILE` before the platform lookup,
 so `tests/cli_e2e.rs` can point `~/.apex` at a temp directory. The E2E suite
 runs the compiled binary and covers help, tool listing, cost, memory and
-encrypted session lifecycles, security verdicts, the repository-context
-commands, and the no-crate-level-allow regression.
+encrypted session lifecycles (including Python-written Fernet fixtures under
+both the native and legacy key derivations), security verdicts, the
+repository-context commands, the workspace prompt block and JSON output,
+the rollback snapshot and turn lifecycles, HTTP auth (all three carriers,
+exact 401 body, auth routes, a CLI revoke
+observed by a running server, and 429 + `Retry-After`), the no-crate-level-allow
+regression, the Python-parity HTTP routes (every route that does not require
+an LLM call, the SSE `connected` frame, and the diff/decision error paths),
+and the diff preview accept/reject lifecycle against a real git repository
+(fingerprint change, `409 diff_changed` on a stale fingerprint, and
+reject/restore of a working-tree change), and the snapshot undo/redo
+lifecycle against a running `serve` (track-file, undo restoring the
+pre-change content, status counts, a no-op redo of a `track_file`
+snapshot, history, and the empty-stack `ok:false`). PR 350 adds the gateway lifecycle:
+CLI key generation and status, all eight routes, the tier model gate, usage
+counters, the admin trio, and an out-of-band revoke — against a local fake
+OpenRouter upstream, with no network and no API key. PR 351 adds session
+metadata: the CLI `session save` path persists the idle-agent usage shape
+(three zero counters, never an empty object), `Agent::load_session` restores
+model and cwd (Python defaults) with usage left fresh, and a fork carries the
+parent usage over. Phase 2c adds the durable task queue lifecycle
+(`serve_durable_tasks_lifecycle`: enqueue, newest-first listing, status
+filter, cancel/delete idempotence, and rehydration from
+`~/.apex/tasks/tasks.json` after a server restart in the same sandbox HOME)
+and custom tools via the CLI (`custom_tools_via_cli`: JSON definitions under
+`.apex/tools/`, `call-tool` execution of the defined command, the `custom_`
+schema in the `tools` listing, a blocked `sudo` command not registering, and
+the built-in `ERROR: Unknown tool '…'` for an unknown name).
 
 ```bash
 cd rust/apex-rs

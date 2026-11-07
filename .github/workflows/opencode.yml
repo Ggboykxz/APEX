@@ -1,0 +1,68 @@
+name: opencode
+
+# On-demand AI maintainer: a maintainer comments `/oc` or `/opencode` on an
+# issue, PR, or specific code line and opencode works in this runner.
+#
+# Setup (one time):
+#   1. Install the GitHub App: https://github.com/apps/opencode-agent
+#   2. Add `DEEPSEEK_API_KEY` (default model) or `ANTHROPIC_API_KEY`.
+#   3. Optional: set the repository variable `OPENCODE_MODEL` to override
+#      the model (for example `anthropic/claude-sonnet-4-5`).
+#
+# The upstream action was archived on 2026-10-25 (anomalyco/opencode#59032).
+# It is pinned to the last published wrapper commit; the wrapper downloads
+# the current opencode binary at runtime.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: opencode-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  opencode:
+    name: Run opencode
+    if: >-
+      github.event.comment.user.type != 'Bot' &&
+      (github.event.comment.author_association == 'OWNER' ||
+       github.event.comment.author_association == 'MEMBER' ||
+       github.event.comment.author_association == 'COLLABORATOR') &&
+      (contains(github.event.comment.body, '/oc') ||
+       contains(github.event.comment.body, '/opencode'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check provider key
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$DEEPSEEK_API_KEY" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::No provider key configured. Add DEEPSEEK_API_KEY (default) or ANTHROPIC_API_KEY to the repository Actions secrets."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run opencode
+        uses: anomalyco/opencode/github@17b79f4e0c16dcff200b0417567ed22aeb2d7166
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          model: ${{ vars.OPENCODE_MODEL || 'deepseek/deepseek-chat' }}
+          mentions: "/oc,/opencode"
+          share: "false"

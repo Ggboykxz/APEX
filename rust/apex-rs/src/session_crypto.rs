@@ -69,16 +69,19 @@ fn random_bytes(n: usize) -> Vec<u8> {
     buf
 }
 
+fn derive_legacy_key(raw: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw);
+    hasher.update(b":fernet");
+    B64.encode(hasher.finalize())
+}
+
 /// Load (or create) the Fernet key as a base64 string.
 pub fn fernet_key() -> Option<String> {
     let path = key_path();
     if let Ok(raw) = std::fs::read(&path) {
         if raw.len() == 32 {
-            let mut hasher = Sha256::new();
-            hasher.update(&raw);
-            hasher.update(b":fernet");
-            let digest = hasher.finalize();
-            return Some(B64.encode(digest));
+            return Some(derive_legacy_key(&raw));
         }
         if let Ok(s) = String::from_utf8(raw) {
             let trimmed = s.trim().to_string();
@@ -101,8 +104,7 @@ pub fn fernet_key() -> Option<String> {
     Some(key)
 }
 
-fn key_bytes() -> Option<Vec<u8>> {
-    let key = fernet_key()?;
+fn key_material(key: &str) -> Option<Vec<u8>> {
     let raw = b64_decode(key.trim().trim_end_matches('='))?;
     if raw.len() != 32 {
         return None;
@@ -110,9 +112,13 @@ fn key_bytes() -> Option<Vec<u8>> {
     Some(raw)
 }
 
-/// Decrypt a Fernet token into a UTF-8 string.
-pub fn decrypt(token: &str) -> Option<String> {
-    let key = key_bytes()?;
+fn key_bytes() -> Option<Vec<u8>> {
+    key_material(&fernet_key()?)
+}
+
+/// Decrypt a Fernet token with an explicit key (test fixture support).
+fn decrypt_with_key(token: &str, key: &str) -> Option<String> {
+    let key = key_material(key)?;
     let (sign_key, enc_key) = key.split_at(16);
     let data = b64_decode(token.trim())?;
     if data.len() < 1 + 8 + 16 + 32 || data[0] != 0x80 {
@@ -128,6 +134,11 @@ pub fn decrypt(token: &str) -> Option<String> {
         .decrypt_padded_vec_mut::<Pkcs7>(ciphertext)
         .ok()?;
     String::from_utf8(plain).ok()
+}
+
+/// Decrypt a Fernet token into a UTF-8 string.
+pub fn decrypt(token: &str) -> Option<String> {
+    decrypt_with_key(token, &fernet_key()?)
 }
 
 /// Encrypt a UTF-8 string into a Fernet token.
@@ -153,9 +164,100 @@ pub fn encrypt(plain: &str) -> Option<String> {
     Some(B64.encode(body))
 }
 
+// ---------------------------------------------------------------- Session metadata
+
+/// A single entry in the branch history of a session.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct BranchEntry {
+    pub session_id: String,
+    pub branch_name: String,
+    pub timestamp: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<String>,
+}
+
+/// Fork/branch metadata stored alongside the standard session fields.
+///
+/// All fields are optional / default to backward compatibility: a session
+/// persisted before this struct existed deserialises with every field unset.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct SessionMetadata {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fork_parent_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fork_point: Option<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub branch_history: Vec<BranchEntry>,
+}
+
+impl SessionMetadata {
+    /// Build metadata that marks a new session as a fork of `parent_id`.
+    pub fn new_fork(parent_id: String, branch_name: String, fork_point: u32) -> Self {
+        Self {
+            fork_parent_id: Some(parent_id),
+            branch_name: Some(branch_name),
+            fork_point: Some(fork_point),
+            branch_history: Vec::new(),
+        }
+    }
+
+    /// Push a branch-history entry.
+    pub fn add_branch_entry(&mut self, entry: BranchEntry) {
+        self.branch_history.push(entry);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn roundtrip_empty_metadata() {
+        let meta = SessionMetadata::default();
+        let json = serde_json::to_string(&meta).unwrap();
+        // Empty fields should be omitted
+        assert!(!json.contains("fork_parent_id"));
+        assert!(!json.contains("branch_name"));
+        assert!(!json.contains("fork_point"));
+        assert!(!json.contains("branch_history"));
+
+        let parsed: SessionMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, meta);
+    }
+
+    #[test]
+    fn roundtrip_with_fork() {
+        let mut meta =
+            SessionMetadata::new_fork("parent-123".to_string(), "feature-branch".to_string(), 5);
+        meta.add_branch_entry(BranchEntry {
+            session_id: "parent-123".to_string(),
+            branch_name: "main".to_string(),
+            timestamp: "2026-01-01T00:00:00Z".to_string(),
+            parent_id: None,
+        });
+
+        let json = serde_json::to_string(&meta).unwrap();
+        assert!(json.contains("fork_parent_id"));
+        assert!(json.contains("feature-branch"));
+        assert!(json.contains("fork_point"));
+        assert!(json.contains("branch_history"));
+
+        let parsed: SessionMetadata = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, meta);
+    }
+
+    #[test]
+    fn backward_compat_missing_fields() {
+        // JSON without the new fields should deserialize with defaults
+        let json = r#"{"name":"test","timestamp":"2026-01-01T00:00:00Z","model":"gpt-4","cwd":"/tmp","history":[],"usage":{}}"#;
+        let meta: SessionMetadata = serde_json::from_str(json).unwrap();
+        assert_eq!(meta.fork_parent_id, None);
+        assert_eq!(meta.branch_name, None);
+        assert_eq!(meta.fork_point, None);
+        assert!(meta.branch_history.is_empty());
+    }
 
     #[test]
     fn roundtrip() {
@@ -183,5 +285,33 @@ mod tests {
     fn key_is_32_bytes() {
         let key = fernet_key().unwrap();
         assert_eq!(b64_decode(key.trim()).unwrap().len(), 32);
+    }
+
+    #[test]
+    fn decrypts_python_written_fernet_session() {
+        let key = include_str!("../tests/fixtures/session/fernet.key");
+        let token = include_str!("../tests/fixtures/session/python_session.enc");
+        let plain = decrypt_with_key(token, key).expect("Python-written Fernet token must decrypt");
+        let value: serde_json::Value = serde_json::from_str(&plain).unwrap();
+        assert_eq!(value["name"], "python-fixture");
+        assert_eq!(value["timestamp"], "2026-01-02T03:04:05.123456");
+        assert_eq!(value["model"], "anthropic/claude-sonnet-4-5");
+        assert_eq!(value["cwd"], "/home/python/project");
+        assert_eq!(value["history"].as_array().map(Vec::len), Some(2));
+        assert_eq!(value["history"][0]["role"], "user");
+        assert_eq!(value["usage"]["total_tokens"], 59);
+    }
+
+    #[test]
+    fn decrypts_python_written_legacy_key_session() {
+        let raw = include_bytes!("../tests/fixtures/session/legacy.key");
+        assert_eq!(raw.len(), 32);
+        let key = derive_legacy_key(raw);
+        let token = include_str!("../tests/fixtures/session/python_session_legacy.enc");
+        let plain = decrypt_with_key(token, &key).expect("legacy Python Fernet token must decrypt");
+        let value: serde_json::Value = serde_json::from_str(&plain).unwrap();
+        assert_eq!(value["name"], "python-legacy");
+        assert_eq!(value["model"], "openai/gpt-5");
+        assert_eq!(value["history"].as_array().map(Vec::len), Some(2));
     }
 }

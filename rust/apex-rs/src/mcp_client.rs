@@ -128,6 +128,24 @@ pub fn global_tools() -> Vec<Value> {
     out
 }
 
+/// Status of every globally configured MCP server:
+/// `{name: {"enabled": true, "tools_count": N}}`
+/// (port of Python's `api_mcp_status`).
+pub fn global_server_status() -> Value {
+    let mut out = serde_json::Map::new();
+    if let Ok(g) = GLOBAL_MCP.lock() {
+        if let Some(m) = g.as_ref() {
+            for (name, client) in &m.servers {
+                out.insert(
+                    name.clone(),
+                    json!({"enabled": true, "tools_count": client.tools.len()}),
+                );
+            }
+        }
+    }
+    Value::Object(out)
+}
+
 fn parse_mcp_name(name: &str) -> Option<(String, String)> {
     let stripped = name.strip_prefix("mcp_")?;
     let mut parts = stripped.splitn(2, '_');

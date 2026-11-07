@@ -206,6 +206,51 @@ impl LspManager {
         .await
     }
 
+    pub async fn completions(&mut self, path: &str, line: i64, column: i64) -> Result<Value> {
+        let uri = file_uri(path);
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
+        c.request(
+            "textDocument/completion",
+            json!({
+                "textDocument": {"uri": uri},
+                "position": Self::position(line, column),
+                "context": {"triggerKind": 1},
+            }),
+        )
+        .await
+    }
+
+    pub async fn code_actions(&mut self, path: &str, line: i64, column: i64) -> Result<Value> {
+        let uri = file_uri(path);
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
+        c.request(
+            "textDocument/codeAction",
+            json!({
+                "textDocument": {"uri": uri},
+                "range": {
+                    "start": Self::position(line, column),
+                    "end": Self::position(line, column),
+                },
+                "context": {"diagnostics": []},
+            }),
+        )
+        .await
+    }
+
+    pub async fn workspace_symbol(&mut self, query: &str) -> Result<Value> {
+        let c = self
+            .client
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("no lsp server"))?;
+        c.request("workspace/symbol", json!({"query": query})).await
+    }
+
     pub async fn shutdown(&mut self) {
         if let Some(c) = self.client.as_mut() {
             let _ = c.request("shutdown", json!(null)).await;
