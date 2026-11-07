@@ -1,0 +1,18 @@
+* text=auto
+
+# Shell scripts must stay LF: a CRLF checkout breaks bash on Windows.
+*.sh text eol=lf
+
+# Windows scripts run natively with CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Cross-platform sources and manifests.
+*.py text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
