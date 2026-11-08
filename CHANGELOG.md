@@ -4,6 +4,8 @@ All notable changes to APEX will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-11-08
+
 ### v2.5 — Installation refonte
 
 - **One canonical version** — new `VERSION` file (0.1.0) and `scripts/version.py` (`current` / `check` / `sync`). CI and the release workflow fail when `apex/__init__.py`, `pyproject.toml`, `rust/apex-rs/Cargo.toml`, `Cargo.lock` or `integrations/npm/package.json` drift from `VERSION`, or when the tag does not match it.

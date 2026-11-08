@@ -202,6 +202,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Verify package version matches the release tag
         run: |
@@ -211,6 +212,12 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Require NPM_TOKEN
+        if: ${{ env.NPM_TOKEN == '' }}
+        run: |
+          echo "::error::NPM_TOKEN is missing; apex-ai cannot be published to npm. Add the repository secret and re-run."
+          exit 1
 
       - name: Publish to npm
         if: ${{ env.NPM_TOKEN != '' }}
