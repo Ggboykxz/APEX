@@ -2423,6 +2423,11 @@ def main() -> None:
     os.environ["APEX"] = "1"
     os.environ["APEX_PID"] = str(os.getpid())
 
+    # Warn when the Python CLI is invoked from a pip-installed package rather
+    # than from a source checkout. The Python CLI/TUI is a source-only
+    # development surface; APEX is distributed via npm and the native backend.
+    _warn_if_not_source_checkout()
+
     # Initialize state directory and file logging before any dispatch
     _init_state_dir()
     _setup_file_logging()
@@ -2595,6 +2600,31 @@ def main() -> None:
     except SystemExit:
         sys.exit(1)
     _dispatch(parsed)
+
+
+def _warn_if_not_source_checkout() -> None:
+    """Warn if the Python CLI is invoked from a pip-installed package.
+
+    The Python CLI/TUI is a source-only development surface. APEX is
+    distributed via npm and the native backend only. When running from
+    site-packages (pip install), the user should migrate to npm or the
+    native backend instead.
+    """
+    try:
+        import apex
+
+        apex_file = Path(apex.__file__).resolve()
+        parts = {p.lower() for p in apex_file.parts}
+        if "site-packages" in parts or "dist-packages" in parts:
+            sys.stderr.write(
+                "WARNING: The APEX Python CLI/TUI is a source-only development surface.\n"
+                "  It is not distributed via PyPI/pip/pipx/uv.\n"
+                "  Install via npm:  npm install -g apex-ai\n"
+                "  Or native backend: bash install.sh --method native\n"
+                '  For development, use a source checkout: pip install -e ".[dev]"\n'
+            )
+    except Exception:  # noqa: BLE001, S110
+        pass
 
 
 def _init_state_dir() -> Path:
