@@ -6,9 +6,13 @@ from GitHub release assets.
 
 Channels:
 
-* ``pip`` / ``pipx`` / ``uv`` — the Python package ``apex-ai`` (full CLI + TUI).
-* ``npm`` — the ``apex-ai`` npm wrapper (delegates to Python by default).
+* ``npm`` — the ``apex-ai`` npm wrapper (downloads and runs ``apex-rs``).
 * ``native`` — the Rust backend ``apex-rs`` (headless: serve/run/tools).
+* ``source`` — a checkout or editable install of this Python CLI. It is a
+  developer channel, not a distribution channel: ``apex upgrade`` cannot
+  update it through a package manager.
+
+PyPI, pip, pipx and uv are no longer supported distribution channels.
 
 The planning functions are pure or take their filesystem/network access as
 injected callables, so ``tests/test_install_manager.py`` never touches the
@@ -37,7 +41,8 @@ REPO = "Ggboykxz/APEX"
 RELEASE_API = f"https://api.github.com/repos/{REPO}/releases/latest"
 TAGS_API = f"https://api.github.com/repos/{REPO}/tags?per_page=100"
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
-VALID_METHODS = ("pip", "pipx", "uv", "npm", "native")
+VALID_METHODS = ("npm", "native")
+SOURCE_METHOD = "source"
 
 Fetch = Callable[[str], bytes]
 
@@ -139,11 +144,11 @@ class Detection:
 
     @property
     def primary(self) -> str:
-        """The first non-pip channel, or ``pip`` as the fallback."""
+        """The first distribution channel, or ``source`` as the fallback."""
         for method in self.methods:
-            if method != "pip":
+            if method != SOURCE_METHOD:
                 return method
-        return "pip"
+        return SOURCE_METHOD
 
 
 def detect(
@@ -154,23 +159,15 @@ def detect(
 ) -> Detection:
     """Detect the installation channels reachable from this process.
 
-    ``pip`` is always reported: the running package is importable, which means
-    a Python installation exists. The other channels are inferred from the
-    interpreter path, environment markers and the managed native binary.
+    ``source`` is always reported: the running package is importable, which
+    means a Python checkout or editable install exists. The ``native``
+    channel is inferred from the managed binary or ``apex-rs`` on ``PATH``.
     """
     values = dict(os.environ) if env is None else env
     executable = executable or sys.executable
-    normalized = executable.replace("\\", "/").lower()
 
     methods: list[str] = []
     details: dict[str, str] = {}
-
-    if "/pipx/venvs/" in normalized or values.get("PIPX_HOME"):
-        methods.append("pipx")
-        details["pipx"] = f"venv: {executable}"
-    if "/uv/tools/" in normalized or "/uv/tool/" in normalized or values.get("UV_TOOL_DIR"):
-        methods.append("uv")
-        details["uv"] = f"venv: {executable}"
 
     managed = native_binary(values, home)
     if managed.exists():
@@ -182,8 +179,8 @@ def detect(
             methods.append("native")
             details["native"] = found
 
-    methods.append("pip")
-    details["pip"] = f"python: {executable}"
+    methods.append(SOURCE_METHOD)
+    details[SOURCE_METHOD] = f"python: {executable}"
     return Detection(tuple(methods), details)
 
 
@@ -200,21 +197,19 @@ def primary_method(detection: Detection, requested: str | None = None) -> str:
 # ── Upgrade planning ────────────────────────────────────────────────────────
 
 
-def upgrade_command(
-    method: str, version: str | None = None, *, python: str = sys.executable
-) -> list[str]:
-    """Return the command that upgrades the Python package for ``method``."""
+def upgrade_command(method: str, version: str | None = None) -> list[str]:
+    """Return the command that upgrades the installed channel."""
     pinned = (version or "").strip().lstrip("v")
-    spec = f"{PACKAGE}=={pinned}" if pinned else PACKAGE
-    if method == "pip":
-        return [python, "-m", "pip", "install", "--upgrade", spec]
-    if method == "pipx":
-        return ["pipx", "install", spec] if pinned else ["pipx", "upgrade", PACKAGE]
-    if method == "uv":
-        return ["uv", "tool", "install", spec] if pinned else ["uv", "tool", "upgrade", PACKAGE]
     if method == "npm":
         return ["npm", "install", "-g", f"{PACKAGE}@{pinned}" if pinned else PACKAGE]
-    raise InstallError(f"{method} has no command upgrade; use the native downloader")
+    if method == "native":
+        raise InstallError("native upgrades use the verified downloader, not a command")
+    if method == SOURCE_METHOD:
+        raise InstallError(
+            "a source checkout is updated with git, not a package manager "
+            "(use --method native or --method npm to switch channels)"
+        )
+    raise InstallError(f"unknown install method: {method}")
 
 
 def http_fetch(url: str) -> bytes:
@@ -370,7 +365,6 @@ def uninstall_plan(
     methods: tuple[str, ...] | None = None,
     home: Path | None = None,
     env: dict[str, str] | None = None,
-    python: str = sys.executable,
 ) -> UninstallPlan:
     """Build the uninstall plan for the detected channels.
 
@@ -414,13 +408,7 @@ def uninstall_plan(
                 paths.append(candidate)
 
     commands: list[tuple[str, ...]] = []
-    if "uv" in channels:
-        commands.append(("uv", "tool", "uninstall", PACKAGE))
-    elif "pipx" in channels:
-        commands.append(("pipx", "uninstall", PACKAGE))
-    elif "npm" in channels:
+    if "npm" in channels:
         commands.append(("npm", "uninstall", "-g", PACKAGE))
-    else:
-        commands.append((python, "-m", "pip", "uninstall", "-y", PACKAGE))
 
     return UninstallPlan(tuple(dict.fromkeys(paths)), tuple(commands), tuple(kept))

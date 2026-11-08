@@ -1,11 +1,10 @@
 <div align="center">
 
-# ◆ APEX v2.0.0
+# ◆ APEX v0.1.0
 
 **The universal AI coding agent. Every model. One terminal.**
 
-[![PyPI version](https://img.shields.io/pypi/v/apex-ai?color=00e5ff&style=flat-square)](https://pypi.org/project/apex-ai)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-00e5ff?style=flat-square)](https://python.org)
+[![npm](https://img.shields.io/npm/v/apex-ai?color=00e5ff&style=flat-square)](https://www.npmjs.com/package/apex-ai)
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-ff4444?style=flat-square)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-00e5ff?style=flat-square)](https://github.com/Ggboykxz/APEX/pkgs/container/apex)
 [![Stars](https://img.shields.io/github/stars/Ggboykxz/APEX?color=ffaa00&style=flat-square)](https://github.com/Ggboykxz/APEX/stargazers)
@@ -50,7 +49,7 @@
 | Live token cost tracker | ✅ | ❌ | ❌ | ✅ |
 | Shell security analysis | ✅ | ❌ | ❌ | ❌ |
 | File watcher with ignores | ✅ | ✅ | ❌ | ❌ |
-| `pip install` | ✅ | ❌ | ❌ | ✅ |
+| `npm install` | ✅ | ✅ | ✅ | ❌ |
 | Built in Africa 🇬🇦 | ✅ | ❌ | ❌ | ❌ |
 
 ---
@@ -305,12 +304,14 @@ APEX_CONFIG_CONTENT='{"model": "gpt-4o"}'
 
 ## 🦀 Rust Backend (Internal GA)
 
-`rust/apex-rs/` is the progressively ported Rust backend. It is an **internal
-GA**: the agent loop, HTTP server, and tool registry are usable, but nothing is
-published (see [ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
-The wired surface includes workspace awareness, workspace rollback, shell
-security, HTTP auth, rate limiting, the permission gate, the gateway, and the
-full route-parity surface:
+`rust/apex-rs/` is the Rust backend. It is an **internal GA**: the agent loop,
+HTTP server, and tool registry are usable, and the binary is published as a
+verified GitHub Release asset (never on crates.io, see
+[ADR-0008](docs/adr/ADR-0008-installation-refonte.md) and
+[ADR-0009](docs/adr/ADR-0009-npm-native-only.md)). The wired surface includes
+workspace awareness, workspace rollback, shell security, HTTP auth, rate
+limiting, the permission gate, the gateway, and the full route-parity
+surface:
 
 ```bash
 cd rust/apex-rs
@@ -412,45 +413,51 @@ Bearer token auth on all endpoints, configurable via config.
 
 ## ⚡ Installation
 
+APEX ships through **npm** and the **native Rust backend** only. PyPI, pip,
+pipx, uv and Homebrew are not installation channels.
+
 ### Quick install
 
-**npm (provisions the Python CLI/TUI on first run):**
+**npm (recommended) — provides the `apex` command:**
 ```bash
 npm install -g apex-ai
-apex
+apex run "Fix the bug"
 ```
 
-**macOS / Linux:**
+The wrapper downloads the matching `apex-rs` release asset on first run and
+verifies its `.sha256` sidecar before executing it.
+
+**Native backend (headless, no Node required):**
 ```bash
 curl -fsSLO https://apex-ai.dev/install.sh
-bash install.sh                    # auto: pipx > uv > pip
-bash install.sh --method native    # headless Rust backend (opt-in)
+bash install.sh --method native    # apex-rs in ~/.apex/bin
 ```
 
 **Windows (PowerShell):**
 ```powershell
 Invoke-WebRequest https://apex-ai.dev/install.ps1 -OutFile install.ps1
-powershell -ExecutionPolicy Bypass -File .\install.ps1
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -Method native
 ```
 
-Both installers accept `--method`, `--version`, `--prefix`, `--no-path`,
-`--yes`, `--dry-run` and `--uninstall [--purge]`. See the
+Both installers accept `--method auto|npm|native|docker`, `--version`,
+`--prefix`, `--no-path`, `--yes`, `--dry-run` and `--uninstall [--purge]`.
+`auto` (the default) installs the native backend. See the
 [installation guide](docs/getting-started/installation.md) for the full
 matrix.
 
-### Package managers
+### Distribution channels
 
-| Method | Command |
-|--------|---------|
-| **npm** (zero-dependency wrapper) | `npm install -g apex-ai` |
-| **uv** (fastest) | `uv tool install apex-ai` |
-| **pipx** (isolated) | `pipx install apex-ai` |
-| **pip** | `pip install apex-ai` |
-| **Homebrew** (rendered formula) | `brew install --formula ./apex-ai.rb` |
-| **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` |
-| **Native backend** (headless) | `bash install.sh --method native` |
+| Channel | Command | What you get |
+|---------|---------|--------------|
+| **npm** (zero-dependency wrapper) | `npm install -g apex-ai` | `apex` + verified `apex-rs` |
+| **Native backend** (headless) | `bash install.sh --method native` | `apex-rs` in `~/.apex/bin` |
+| **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` | APEX in a container |
+| **Source** (development) | `git clone … && pip install -e ".[dev]"` | Python CLI/TUI |
 
-### From source
+### From source (development)
+
+The Python CLI/TUI is a source-only development surface, not a distributed
+package:
 
 ```bash
 git clone https://github.com/Ggboykxz/APEX

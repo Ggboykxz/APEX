@@ -1089,8 +1089,10 @@ advisory on Prisma 6.
 the binary, HTTP server, and tool registry are usable. Release binaries are
 published as GitHub Release assets for five targets
 ([ADR-0008](docs/adr/ADR-0008-installation-refonte.md)); the crate is **not**
-published on crates.io, and the Python CLI/TUI remains the default install.
-The native backend is headless and opt-in.
+published on crates.io. APEX is distributed through npm and the native
+backend only ([ADR-0009](docs/adr/ADR-0009-npm-native-only.md)); the Python
+CLI/TUI is a source-only development surface and the native backend is
+headless.
 
 The authoritative Python ↔ Rust matrix is
 [`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md). It records what is wired,
@@ -1704,58 +1706,56 @@ check` (CI gate) verifies every manifest — `apex/__init__.py`,
 release tag must equal `VERSION`, and the npm package version must match the
 tag.
 
+APEX ships through **npm** and the **native Rust backend** only. PyPI, pip,
+pipx, uv and Homebrew are not distribution channels; the Python CLI/TUI runs
+from a source checkout for development.
+
 ```bash
-pipx install apex-ai                       # recommended (isolated)
-uv tool install apex-ai                    # fastest
-pip install apex-ai                        # existing virtualenv
-npm install -g apex-ai                     # zero-dependency wrapper
-git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e .
+npm install -g apex-ai                     # `apex` command + verified apex-rs
+bash install.sh --method native            # headless apex-rs in ~/.apex/bin
+git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e ".[dev]"
 ```
 
 ### Unified installers
 
 `scripts/install.sh` and `scripts/install.ps1` share
-`--method auto|python|uv|pipx|pip|native|docker`, `--version`, `--prefix`,
-`--no-path`, `--yes`, `--dry-run`, `--uninstall [--purge]`. There is no
-silent `curl | sh` bootstrap. `.github/workflows/install.yml` runs both
+`--method auto|npm|native|docker` (auto = native), `--version`, `--prefix`,
+`--no-path`, `--yes`, `--dry-run`, `--uninstall [--purge]`. The repository-root
+`install.sh` / `install.ps1` only dispatch to those canonical scripts. There
+is no silent `curl | sh` bootstrap. `.github/workflows/install.yml` runs both
 installers in `--dry-run`, checks their syntax, and re-runs the npm wrapper
 tests on Node 18/20/22 plus Windows.
 
-### Native backend (opt-in, headless)
+### Native backend (headless)
 
 `apex-rs` is downloaded from GitHub Release assets, verified against the
 `.sha256` sidecar published next to it, and installed as `apex-rs`
 (`apex-rs.exe` on Windows) in `~/.apex/bin` (`APEX_INSTALL_DIR` overrides).
-It is **never** installed as `apex`, so it cannot shadow the Python CLI.
+It is **never** installed as `apex`, so it cannot shadow an `apex` launcher.
 Targets: `x86_64`/`aarch64` Linux, `x86_64`/`aarch64` macOS, `x86_64` Windows.
 The crate is not published on crates.io (ADR-0008).
 
 ### npm wrapper
 
 `integrations/npm/` (published as `apex-ai`) is a zero-dependency wrapper.
-Resolution order: `APEX_BINARY` → `apex` on PATH → native
-(`APEX_INSTALL_METHOD=native` or `APEX_PREFER_NATIVE=1`) → Python
-provisioning (`pipx` > `uv` > `pip`) → native fallback when no Python exists
-and `APEX_NATIVE != 0`. `APEX_VERSION` pins the release, `APEX_INSTALL_DIR`
-moves the native binary, `APEX_SKIP_INSTALL=1` fails fast. Published from the
-`Release` workflow on `v*` tags (requires the `NPM_TOKEN` secret; the package
-version must match the tag).
+Resolution order: `APEX_BINARY` → `apex` on PATH → native (`apex-rs` on PATH,
+the managed `~/.apex/bin/apex-rs`, or a verified download).
+`APEX_INSTALL_METHOD` accepts `auto` or `native`; any pip/pipx/uv value is
+rejected. `APEX_VERSION` pins the release, `APEX_INSTALL_DIR` moves the
+native binary, `APEX_NATIVE=0` disables the download, `APEX_SKIP_INSTALL=1`
+fails fast. Published from the `Release` workflow on `v*` tags (requires the
+`NPM_TOKEN` secret; the package version must match the tag).
 
 ### Upgrade and uninstall
 
 `apex upgrade [--check] [--method …]` detects the install channel
-(`pipx`/`uv`/`pip`/`npm`/`native`) and upgrades through it; `APEX_VERSION`
-pins a version. `apex uninstall [--keep-config] [--keep-data] [--purge]
-[--dry-run]` executes the plan from `apex/install_manager.py`: by default it
-removes `~/.config/apex`, `~/.apex/{sessions,memory,tasks}` and the native
-binary, but **never** `api_keys.json` or `gateway.json` — only `--purge`
-removes the whole `~/.apex` tree.
-
-### Homebrew
-
-`Formula/apex-ai.rb.tmpl` is rendered at release by
-`scripts/render_homebrew.py` with the sdist SHA256; the rendered `apex-ai.rb`
-is attached to the release and is never committed.
+(`npm`/`native`, plus `source` for a checkout) and upgrades through it;
+`APEX_VERSION` pins a version. A source checkout is told to `git pull`; pip
+channels are rejected. `apex uninstall [--keep-config] [--keep-data]
+[--purge] [--dry-run]` executes the plan from `apex/install_manager.py`: by
+default it removes `~/.config/apex`, `~/.apex/{sessions,memory,tasks}` and
+the native binary, but **never** `api_keys.json` or `gateway.json` — only
+`--purge` removes the whole `~/.apex` tree.
 
 ## Launch
 

@@ -2,14 +2,14 @@
 # APEX installer for Windows (PowerShell)
 # https://github.com/Ggboykxz/APEX
 #
-# Default: install the Python CLI/TUI (pipx > uv > pip).
-# Opt-in:  the native Rust backend (apex-rs, headless) or Docker.
+# APEX ships through two channels: the npm wrapper (`apex`) and the native
+# Rust backend (`apex-rs`, headless). PyPI/pip/pipx/uv no longer exist.
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 [options]
 #
 # Options:
-#   -Method auto|python|uv|pipx|pip|native|docker   (default: auto)
+#   -Method auto|npm|native|docker   (default: auto)
 #   -Version VER      pin a release (default: latest)
 #   -Prefix DIR       install dir for native/docker (default: ~\.apex\bin)
 #   -NoPath           do not add the install dir to the user PATH
@@ -56,11 +56,11 @@ function Fail([string]$Text) { Write-Host "$RED$Text$NC"; exit 1 }
 
 function Show-Usage {
     if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) {
-        $lines = Get-Content -LiteralPath $PSCommandPath | Select-Object -First 26
+        $lines = Get-Content -LiteralPath $PSCommandPath | Select-Object -First 24
         foreach ($line in $lines) { Write-Host ($line -replace '^# ?', '') }
         return
     }
-    Write-Host "Usage: install.ps1 [-Method auto|python|uv|pipx|pip|native|docker] [-Version VER] [-Prefix DIR] [-NoPath] [-Yes] [-DryRun] [-Uninstall [-Purge]]"
+    Write-Host "Usage: install.ps1 [-Method auto|npm|native|docker] [-Version VER] [-Prefix DIR] [-NoPath] [-Yes] [-DryRun] [-Uninstall [-Purge]]"
 }
 
 if ($Help) { Show-Usage; exit 0 }
@@ -69,8 +69,8 @@ if ($Version.StartsWith("v")) { $Version = $Version.Substring(1) }
 if ([string]::IsNullOrWhiteSpace($Version)) { $Version = "latest" }
 if ($Prefix.StartsWith("~")) { $Prefix = $Prefix -replace '^~', $HOME }
 
-if ($Method -notin @("auto", "python", "uv", "pipx", "pip", "native", "docker")) {
-    Fail "Unknown method '$Method' (auto|python|uv|pipx|pip|native|docker)"
+if ($Method -notin @("auto", "npm", "native", "docker")) {
+    Fail "Unknown method '$Method' (auto|npm|native|docker)"
 }
 
 function Test-Command([string]$Name) {
@@ -164,9 +164,7 @@ function Uninstall-Apex {
         Invoke-Step -Preview "Remove-Item '$Prefix'" -Action { Remove-Item -LiteralPath $Prefix -Force }
     }
 
-    if (Test-Command "pipx") { Invoke-Step -Preview "pipx uninstall $Package" -Action { & pipx uninstall $Package } }
-    if (Test-Command "uv") { Invoke-Step -Preview "uv tool uninstall $Package" -Action { & uv tool uninstall $Package } }
-    if (Test-Command "python") { Invoke-Step -Preview "python -m pip uninstall -y $Package" -Action { & python -m pip uninstall -y $Package } }
+    if (Test-Command "npm") { Invoke-Step -Preview "npm uninstall -g $Package" -Action { & npm uninstall -g $Package } }
 
     Remove-Target (Join-Path $HOME ".config\apex")
     Remove-Target (Join-Path $HOME ".apex\sessions")
@@ -184,46 +182,18 @@ function Uninstall-Apex {
 
 # -- Install methods --------------------------------------------------------
 
-function Get-PythonInstaller([string]$Requested) {
-    if ($Requested -eq "python") { $Requested = "auto" }
-    if ($Requested -eq "auto") {
-        if (Test-Command "pipx") { return "pipx" }
-        if (Test-Command "uv") { return "uv" }
-        if (Test-Command "python") { return "pip" }
-        return ""
-    }
-    switch ($Requested) {
-        "pipx" { if (Test-Command "pipx") { return "pipx" } else { Fail "pipx is not installed (python -m pip install --user pipx)" } }
-        "uv" { if (Test-Command "uv") { return "uv" } else { Fail "uv is not installed (https://docs.astral.sh/uv/)" } }
-        "pip" { if (Test-Command "python") { return "pip" } else { Fail "python is required for -Method pip" } }
-    }
-}
-
-function Assert-PythonVersion {
-    if ($DryRun) { return }
-    if (-not (Test-Command "python")) { return }
-    & python -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)"
-    if ($LASTEXITCODE -ne 0) {
-        $found = (& python -c "import sys; print('%d.%d' % sys.version_info[:2])")
-        Fail "Python 3.11+ is required (found $found)"
-    }
-}
-
-function Install-Python {
-    $installer = Get-PythonInstaller $Method
-    if (-not $installer) {
-        Fail "No pipx, uv or python found. Install Python 3.11+, or use -Method native."
-    }
-    Assert-PythonVersion
+function Install-Npm {
+    if (-not (Test-Command "npm")) { Fail "npm is not installed (https://nodejs.org)" }
     $spec = $Package
-    if ($Version -ne "latest") { $spec = "$Package==$Version" }
+    if ($Version -ne "latest") { $spec = "$Package@$Version" }
 
-    Write-Info "Installing $spec via $installer..."
-    switch ($installer) {
-        "pipx" { Invoke-Step -Preview "pipx install --force $spec" -Action { & pipx install --force $spec } }
-        "uv" { Invoke-Step -Preview "uv tool install --force $spec" -Action { & uv tool install --force $spec } }
-        "pip" { Invoke-Step -Preview "python -m pip install --user --upgrade $spec" -Action { & python -m pip install --user --upgrade $spec } }
+    Write-Info "Installing $spec globally with npm..."
+    Write-Muted "The npm wrapper downloads the verified apex-rs backend on first run."
+    if (-not (Confirm-Action "Install APEX via npm?")) {
+        Write-Warn "Cancelled."
+        exit 0
     }
+    Invoke-Step -Preview "npm install -g $spec" -Action { & npm install -g $spec }
     Write-Ok "APEX installed."
     Write-Muted "Run: apex"
 }
@@ -238,7 +208,7 @@ function Install-Native {
     }
 
     Write-Info "Installing the native backend ($asset)..."
-    Write-Muted "The native backend is headless: serve, run, tools. The Python CLI/TUI stays the default."
+    Write-Muted "The native backend is headless (serve, run, tools). Install via npm for an 'apex' command."
     if (-not (Confirm-Action "Download the native backend from GitHub?")) {
         Write-Warn "Cancelled."
         exit 0
@@ -273,7 +243,11 @@ function Install-Native {
         Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    Write-Ok "Native backend installed at $Prefix\apex-rs.exe"
+    if ($DryRun) {
+        Write-Muted "  would install apex-rs.exe to $Prefix"
+    } else {
+        Write-Ok "Native backend installed at $Prefix\apex-rs.exe"
+    }
     Add-UserPath $Prefix
 }
 
@@ -316,11 +290,12 @@ if ($Uninstall) {
 if ($Purge) { Fail "-Purge is only valid with -Uninstall" }
 
 switch ($Method) {
+    "npm" { Install-Npm }
     "native" { Install-Native }
     "docker" { Install-Docker }
-    default { Install-Python }
+    default { Install-Native }
 }
 
 Write-Host ""
 Write-Ok "Done."
-Write-Muted "apex --version"
+Write-Muted "apex-rs --version  (npm: apex --version)"

@@ -4,6 +4,16 @@ All notable changes to APEX will be documented in this file.
 
 ## [Unreleased]
 
+### v2.5 — npm + natif uniquement
+
+- **PyPI arrêté** — `apex-ai` n'est plus publié sur PyPI (les versions existantes restent en place, aucune suppression ni yank). Le CLI/TUI Python devient une surface de développement source-only (`pip install -e ".[dev]"`), plus un canal d'installation.
+- **Deux canaux** — npm (`apex-ai`, zéro dépendance runtime) et le binaire natif `apex-rs` (assets GitHub Release vérifiés). pip, pipx, uv et Homebrew disparaissent des scripts, docs et workflows. ADR-0009 remplace les clauses correspondantes de l'ADR-0008.
+- **Wrapper npm** — résolution native-only : `APEX_BINARY` → `apex` sur le `PATH` → `apex-rs` (`PATH`, `~/.apex/bin`, téléchargement vérifié). Suppression du provisionnement Python (`findPython`, `chooseInstaller`, `installCommand`, `runCommand`, `manualHint`, `resolveRunner`). `APEX_INSTALL_METHOD` n'accepte plus que `auto`/`native` ; toute valeur pip/pipx/uv échoue avec un message de migration.
+- **Installateurs** — `scripts/install.sh` et `scripts/install.ps1` passent à `--method auto|npm|native|docker` (`auto` = natif), sans installation Python. Les `install.sh`/`install.ps1` racine deviennent des répartiteurs vers ces scripts (checkout, sinon téléchargement de `main`, `APEX_REF` pour surcharger).
+- **Cycle de vie** — `apex upgrade` : npm via `npm install -g`, natif via le téléchargement vérifié, checkout source via `git pull`, canaux pip rejetés. `apex uninstall` n'émet `npm uninstall -g apex-ai` que pour le canal npm, et conserve les garanties sur `api_keys.json`/`gateway.json`.
+- **Release** — suppression des jobs `build-python`, `publish-pypi` et `homebrew-formula` ; le job `github-release` n'attend que `build-native` et ne joint que `dist-native/*`. Suppression de `Formula/`, `scripts/render_homebrew.py` et du test associé.
+- **Docs** — README, `docs/installation.md`, `docs/getting-started/installation.md`, `docs/quickstart.md`, `AGENTS.md` et les sources du site n'annoncent plus pip/pipx/uv ni PyPI.
+
 ## [0.1.0] — 2026-11-08
 
 ### v2.5 — Installation refonte

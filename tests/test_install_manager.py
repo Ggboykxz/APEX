@@ -73,26 +73,6 @@ class TestPlatformMapping:
 
 
 class TestDetection:
-    def test_pipx_venv(self, tmp_path):
-        detection = im.detect(
-            which=lambda _: None,
-            home=tmp_path,
-            env={},
-            executable="/home/u/.local/pipx/venvs/apex-ai/bin/python",
-        )
-        assert detection.methods == ("pipx", "pip")
-        assert detection.primary == "pipx"
-
-    def test_uv_tool_venv(self, tmp_path):
-        detection = im.detect(
-            which=lambda _: None,
-            home=tmp_path,
-            env={},
-            executable="/home/u/.local/share/uv/tools/apex-ai/bin/python",
-        )
-        assert detection.methods == ("uv", "pip")
-        assert detection.primary == "uv"
-
     def test_managed_native_binary(self, tmp_path):
         binary = im.native_binary({}, tmp_path)
         binary.parent.mkdir(parents=True)
@@ -100,7 +80,7 @@ class TestDetection:
         detection = im.detect(
             which=lambda _: None, home=tmp_path, env={}, executable="/usr/bin/python"
         )
-        assert detection.methods == ("native", "pip")
+        assert detection.methods == ("native", "source")
         assert detection.details["native"] == str(binary)
         assert detection.primary == "native"
 
@@ -111,46 +91,49 @@ class TestDetection:
             env={},
             executable="/usr/bin/python",
         )
+        assert detection.methods == ("native", "source")
         assert detection.primary == "native"
 
-    def test_plain_pip(self, tmp_path):
+    def test_source_checkout_is_the_fallback(self, tmp_path):
         detection = im.detect(
             which=lambda _: None, home=tmp_path, env={}, executable="/usr/bin/python"
         )
-        assert detection.methods == ("pip",)
-        assert detection.primary == "pip"
+        assert detection.methods == ("source",)
+        assert detection.primary == "source"
 
     def test_requested_method_wins_and_validates(self, tmp_path):
         detection = im.detect(which=lambda _: None, home=tmp_path, env={})
         assert im.primary_method(detection, "npm") == "npm"
+        assert im.primary_method(detection, "native") == "native"
         with pytest.raises(im.InstallError):
             im.primary_method(detection, "conda")
+        # Removed pip channels are not upgrade targets.
+        for removed in ("pip", "pipx", "uv"):
+            with pytest.raises(im.InstallError):
+                im.primary_method(detection, removed)
+        # ``source`` describes the running copy, it cannot be requested.
+        with pytest.raises(im.InstallError):
+            im.primary_method(detection, "source")
 
 
 class TestUpgradeCommands:
-    def test_pip(self):
-        assert im.upgrade_command("pip", python="/usr/bin/python") == [
-            "/usr/bin/python",
-            "-m",
-            "pip",
-            "install",
-            "--upgrade",
-            "apex-ai",
-        ]
-
-    def test_pipx_and_uv(self):
-        assert im.upgrade_command("pipx") == ["pipx", "upgrade", "apex-ai"]
-        assert im.upgrade_command("pipx", "2.5.0") == ["pipx", "install", "apex-ai==2.5.0"]
-        assert im.upgrade_command("uv") == ["uv", "tool", "upgrade", "apex-ai"]
-        assert im.upgrade_command("uv", "v2.5.0") == ["uv", "tool", "install", "apex-ai==2.5.0"]
-
     def test_npm(self):
         assert im.upgrade_command("npm") == ["npm", "install", "-g", "apex-ai"]
         assert im.upgrade_command("npm", "2.5.0") == ["npm", "install", "-g", "apex-ai@2.5.0"]
+        assert im.upgrade_command("npm", "v2.5.0") == ["npm", "install", "-g", "apex-ai@2.5.0"]
 
     def test_native_has_no_command(self):
-        with pytest.raises(im.InstallError):
+        with pytest.raises(im.InstallError, match="verified downloader"):
             im.upgrade_command("native")
+
+    def test_source_has_no_command(self):
+        with pytest.raises(im.InstallError, match="source checkout"):
+            im.upgrade_command("source")
+
+    def test_removed_channels_are_rejected(self):
+        for removed in ("pip", "pipx", "uv"):
+            with pytest.raises(im.InstallError):
+                im.upgrade_command(removed)
 
 
 class TestRelease:
@@ -291,7 +274,7 @@ class TestNativeUpgrade:
 
 class TestUninstallPlan:
     def _detection(self) -> im.Detection:
-        return im.Detection(("pipx", "native", "pip"), {})
+        return im.Detection(("native", "source"), {})
 
     def test_removes_everything_by_default(self, tmp_path):
         (tmp_path / "bin").mkdir()
@@ -311,7 +294,8 @@ class TestUninstallPlan:
         assert tmp_path / ".apex" / "memory" in plan.paths
         # Credentials are never deleted.
         assert tmp_path / ".apex" / "api_keys.json" not in plan.paths
-        assert plan.commands == (("pipx", "uninstall", "apex-ai"),)
+        # Native files are removed directly: no package-manager command.
+        assert plan.commands == ()
         assert plan.kept == ()
 
     def test_keep_config_and_data(self, tmp_path):
@@ -330,35 +314,28 @@ class TestUninstallPlan:
             str(tmp_path / ".config" / "apex"),
         ]
 
-    def test_pip_fallback_command(self, tmp_path):
+    def test_source_checkout_has_no_package_command(self, tmp_path):
         plan = im.uninstall_plan(
-            detection=im.Detection(("pip",), {}),
+            detection=im.Detection(("source",), {}),
             home=tmp_path,
             env={},
-            python="/usr/bin/python",
         )
-        assert plan.commands == (("/usr/bin/python", "-m", "pip", "uninstall", "-y", "apex-ai"),)
+        assert plan.commands == ()
 
-    def test_npm_and_uv_channels(self, tmp_path):
-        npm = im.uninstall_plan(
-            detection=im.Detection(("npm", "pip"), {}),
+    def test_npm_channel_runs_npm_uninstall(self, tmp_path):
+        plan = im.uninstall_plan(
+            detection=im.Detection(("npm", "source"), {}),
             home=tmp_path,
             env={},
         )
-        assert npm.commands == (("npm", "uninstall", "-g", "apex-ai"),)
-        uv = im.uninstall_plan(
-            detection=im.Detection(("uv", "pip"), {}),
-            home=tmp_path,
-            env={},
-        )
-        assert uv.commands == (("uv", "tool", "uninstall", "apex-ai"),)
+        assert plan.commands == (("npm", "uninstall", "-g", "apex-ai"),)
 
     def test_purge_removes_the_whole_data_tree(self, tmp_path):
         (tmp_path / ".config" / "apex").mkdir(parents=True)
         (tmp_path / ".apex" / "sessions").mkdir(parents=True)
         (tmp_path / ".apex" / "api_keys.json").write_text("{}")
         plan = im.uninstall_plan(
-            detection=im.Detection(("pip",), {}),
+            detection=im.Detection(("source",), {}),
             home=tmp_path,
             env={},
             purge=True,

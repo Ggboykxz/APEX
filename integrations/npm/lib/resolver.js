@@ -3,9 +3,12 @@
 /**
  * Pure resolution logic for the apex npm wrapper.
  *
- * Everything that touches the filesystem or the environment is injected or
- * parameterised so the unit tests can run on any platform without a real
- * Python installation. The entry point (bin/apex.js) only orchestrates.
+ * The wrapper only targets the native backend (`apex-rs`) now that the Python
+ * package is no longer published: it looks for an `apex` executable on PATH,
+ * then provisions the Rust release asset. Everything that touches the
+ * filesystem or the environment is injected or parameterised so the unit
+ * tests can run on any platform. The entry point (bin/apex.js) only
+ * orchestrates.
  */
 
 const fs = require("fs");
@@ -14,7 +17,7 @@ const crypto = require("crypto");
 
 const IS_WINDOWS = process.platform === "win32";
 const PATH_SEP = IS_WINDOWS ? ";" : ":";
-// npm creates .cmd shims on Windows; console scripts get .exe there too.
+// npm and native launchers add .cmd/.exe shims on Windows.
 const BINARY_SUFFIXES = IS_WINDOWS ? [".cmd", ".exe", ".ps1", ""] : [""];
 
 function splitPath(pathEnv) {
@@ -81,77 +84,6 @@ function findBinary(name, pathEnv, excludeRealpaths = [], isSelf = null) {
   return null;
 }
 
-/** Find a usable Python 3 interpreter (python3 first, then python). */
-function findPython(pathEnv) {
-  return findBinary("python3", pathEnv) || findBinary("python", pathEnv);
-}
-
-function commandExists(cmd, pathEnv, excludeRealpaths = []) {
-  return findBinary(cmd, pathEnv, excludeRealpaths) !== null;
-}
-
-/**
- * Pick the provisioning strategy, best-isolated-first.
- * @param {{pipx?: boolean, uv?: boolean, python?: boolean}} flags
- */
-function chooseInstaller(flags) {
-  if (flags.pipx) return "pipx";
-  if (flags.uv) return "uv";
-  if (flags.python) return "pip";
-  return null;
-}
-
-/**
- * Command used to (re)install the Python package.
- * @param {"pipx"|"uv"|"pip"} installer
- * @param {string|null} pythonPath python interpreter (pip path only)
- * @param {string} [version] optional exact version pin (e.g. "2.5.0")
- */
-function installCommand(installer, pythonPath, version = "") {
-  const spec = version ? `apex-ai==${version}` : "apex-ai";
-  switch (installer) {
-    case "pipx":
-      return { bin: "pipx", args: ["install", spec] };
-    case "uv":
-      return { bin: "uv", args: ["tool", "install", spec] };
-    case "pip":
-      return { bin: pythonPath || "python3", args: ["-m", "pip", "install", spec] };
-    default:
-      throw new Error(`unknown installer: ${installer}`);
-  }
-}
-
-/**
- * Command that runs the installed CLI without requiring its bin dir on PATH.
- * @param {"pipx"|"uv"|"pip"} installer
- * @param {string|null} pythonPath python interpreter (pip path only)
- */
-function runCommand(installer, pythonPath) {
-  switch (installer) {
-    case "pipx":
-      return { bin: "pipx", args: ["run", "apex-ai", "--"] };
-    case "uv":
-      return { bin: "uv", args: ["tool", "run", "apex-ai", "--"] };
-    case "pip":
-      return { bin: pythonPath || "python3", args: ["-m", "apex"] };
-    default:
-      throw new Error(`unknown installer: ${installer}`);
-  }
-}
-
-/** Human-readable manual install hint for a given installer. */
-function manualHint(installer, version = "") {
-  const spec = version ? `apex-ai==${version}` : "apex-ai";
-  switch (installer) {
-    case "pipx":
-      return `pipx install ${spec}`;
-    case "uv":
-      return `uv tool install ${spec}`;
-    default:
-      return `python3 -m pip install ${spec}`;
-  }
-}
-
 /**
  * Quote one argument for a batch (.cmd/.bat) command line.
  *
@@ -206,25 +138,6 @@ function writeDelegationBat(target, args, batDir) {
   // (CodeQL "insecure creation of file in os temp dir", CWE-377).
   fs.writeFileSync(batPath, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
   return batPath;
-}
-
-/**
- * Resolve a bare runner name (pipx, uv, python3) to the real file on PATH.
- *
- * Absolute paths are returned unchanged. Resolving lets .cmd variants take
- * the bat-delegation route in childInvocation and avoids PATH surprises in
- * the child. Falls back to the input when nothing is found (the error
- * message will still point at the missing command).
- *
- * @param {string} bin
- * @param {string} pathEnv
- * @returns {string}
- */
-function resolveRunner(bin, pathEnv) {
-  const name = String(bin);
-  if (name.includes("\\") || name.includes("/")) return name;
-  const bare = name.replace(/\.(cmd|bat|ps1|exe)$/i, "");
-  return findBinary(bare, pathEnv) || name;
 }
 
 /**
@@ -309,15 +222,8 @@ module.exports = {
   splitPath,
   realpath,
   findBinary,
-  findPython,
-  commandExists,
-  chooseInstaller,
-  installCommand,
-  runCommand,
-  manualHint,
   batchQuote,
   writeDelegationBat,
-  resolveRunner,
   childInvocation,
   cleanupBat,
   isNpmShim,

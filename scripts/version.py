@@ -9,10 +9,6 @@ Usage::
     python scripts/version.py current   # print the canonical version
     python scripts/version.py check     # exit 1 when a manifest drifted
     python scripts/version.py sync      # rewrite every manifest from VERSION
-
-The Homebrew formula is *not* handled here: its SHA256 values can only be
-computed after the release artifacts exist, so it is rendered by
-``scripts/render_homebrew.py`` during the release.
 """
 
 from __future__ import annotations

@@ -25,11 +25,10 @@ function timeAgo(dateString: string): string {
 
 /* ──── CONSTANTS ──── */
 const INSTALL_COMMANDS: Record<string, { label: string; cmd: string }> = {
-  curl: { label: 'curl', cmd: 'curl -fsSL https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh | bash' },
-  pipx: { label: 'pipx', cmd: 'pipx install apex-ai' },
-  pip: { label: 'pip', cmd: 'pip install apex-ai' },
-  uv: { label: 'uv', cmd: 'uv tool install apex-ai' },
+  npm: { label: 'npm', cmd: 'npm install -g apex-ai' },
+  native: { label: 'native', cmd: 'curl -fsSLO https://apex-ai.dev/install.sh && bash install.sh --method native' },
   docker: { label: 'docker', cmd: 'docker run -it ghcr.io/ggboykxz/apex' },
+  source: { label: 'source', cmd: 'git clone https://github.com/Ggboykxz/APEX.git && cd APEX && pip install -e ".[dev]"' },
 }
 
 const FEATURES = [
@@ -56,7 +55,7 @@ const PAGE_LINKS = [
   { href: '/agents', icon: Bot, title: 'Agents', desc: '11 specialized agents for every workflow', color: 'text-apex-cyan' },
   { href: '/models', icon: Cpu, title: 'Models', desc: '170+ models from 21 providers', color: 'text-apex-green' },
   { href: '/tools', icon: Wrench, title: 'Tools', desc: '75+ built-in tools for every workflow', color: 'text-apex-yellow' },
-  { href: '/install', icon: Box, title: 'Install', desc: '6 installation methods for every platform', color: 'text-apex-cyan' },
+  { href: '/install', icon: Box, title: 'Install', desc: 'npm, native backend, Docker or source', color: 'text-apex-cyan' },
   { href: '/security', icon: Shield, title: 'Security', desc: 'Permissions, rate limiting, and shell security', color: 'text-apex-red' },
   { href: '/activity', icon: Activity, title: 'Activity', desc: 'Live issues, PRs, and releases feed', color: 'text-apex-green' },
   { href: '/roadmap', icon: GitBranch, title: 'Roadmap', desc: 'From Foundation to Enterprise', color: 'text-apex-magenta' },
@@ -155,7 +154,7 @@ function NavBar({ scrolled, mobileMenuOpen, setMobileMenuOpen, apiStatus }: {
 
 /* ──── MAIN ──── */
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<keyof typeof INSTALL_COMMANDS>('curl')
+  const [activeTab, setActiveTab] = useState<keyof typeof INSTALL_COMMANDS>('npm')
   const [copied, setCopied] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)

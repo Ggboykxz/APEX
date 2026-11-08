@@ -13,33 +13,30 @@ template: |
 
   ### Installation
 
+  APEX ships through npm and the native Rust backend only (no PyPI, pip,
+  pipx or uv).
+
   ```bash
-  # pip (recommended)
-  pip install apex-ai==$RESOLVED_VERSION
+  # npm — provides the `apex` command and downloads the verified backend
+  npm install -g apex-ai@$RESOLVED_VERSION
 
-  # pipx (isolated)
-  pipx install apex-ai==$RESOLVED_VERSION
-
-  # uv (fastest)
-  uv tool install apex-ai==$RESOLVED_VERSION
+  # Native backend (headless: serve, run, tools)
+  bash install.sh --method native --version $RESOLVED_VERSION
 
   # Installer (macOS/Linux)
   curl -fsSLO https://apex-ai.dev/install.sh
-  bash install.sh
+  bash install.sh --method auto --version $RESOLVED_VERSION
 
   # Installer (Windows PowerShell)
   Invoke-WebRequest https://apex-ai.dev/install.ps1 -OutFile install.ps1
-  powershell -ExecutionPolicy Bypass -File .\install.ps1
+  powershell -ExecutionPolicy Bypass -File .\install.ps1 -Method auto
   ```
 
-  ### Native backend (headless, opt-in)
+  ### Native backend
 
   Verified release assets ship for Linux (x86_64/aarch64), macOS
-  (x86_64/aarch64) and Windows (x86_64), each with a `.sha256` sidecar:
-
-  ```bash
-  bash install.sh --method native --version $RESOLVED_VERSION
-  ```
+  (x86_64/aarch64) and Windows (x86_64), each with a `.sha256` sidecar. The
+  binary is installed as `apex-rs`, never `apex`.
 
   ### Docker
 

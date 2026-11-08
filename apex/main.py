@@ -194,9 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--keep-data", action="store_true", help="Keep data on uninstall")
     parser.add_argument("--dry-run", action="store_true", help="Dry run uninstall")
     parser.add_argument("--force", action="store_true", help="Force uninstall")
-    parser.add_argument(
-        "--method", default=None, help="Upgrade method (pip, pipx, uv, npm, native)"
-    )
+    parser.add_argument("--method", default=None, help="Upgrade method (npm, native)")
     parser.add_argument(
         "--check", action="store_true", help="Check for a newer release without upgrading"
     )
@@ -1813,6 +1811,14 @@ def _cmd_upgrade(args: argparse.Namespace, ui: UI) -> None:
     except install.InstallError as e:
         ui.print_error(str(e))
         sys.exit(1)
+
+    if method == install.SOURCE_METHOD:
+        ui.print_info(
+            "This copy runs from a source checkout. Update it with 'git pull' "
+            "and reinstall the dev dependencies, or install a released channel "
+            "with 'apex upgrade --method native' (or '--method npm')."
+        )
+        return
 
     ui.print_info(f"Upgrading APEX via {method}...")
 

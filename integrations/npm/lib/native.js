@@ -3,11 +3,12 @@
 /**
  * Native backend (`apex-rs`) provisioning for the npm wrapper.
  *
- * The native backend is headless and opt-in: the Python package stays the
- * default install. This module knows how to map the host to a Rust target
- * triple, download the matching GitHub Release asset with its `.sha256`
- * sidecar, verify the digest and extract the binary into a managed
- * directory (`~/.apex/bin` by default).
+ * The native backend is the only binary the wrapper runs: APEX is distributed
+ * through npm and the verified GitHub Release assets, and the Python package
+ * is no longer published. This module knows how to map the host to a Rust
+ * target triple, download the matching release asset with its `.sha256`
+ * sidecar, verify the digest and extract the binary into a managed directory
+ * (`~/.apex/bin` by default).
  *
  * Everything that touches the network or spawns a process is injected so the
  * unit tests stay hermetic (no network, no real download).

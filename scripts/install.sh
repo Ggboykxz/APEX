@@ -2,16 +2,16 @@
 # ============================================
 # APEX installer — https://github.com/Ggboykxz/APEX
 #
-# Default: install the Python CLI/TUI (pipx > uv > pip).
-# Opt-in:  the native Rust backend (apex-rs, headless) or Docker.
+# APEX ships through two channels: the npm wrapper (`apex`) and the native
+# Rust backend (`apex-rs`, headless). PyPI/pip/pipx/uv no longer exist.
 #
 # Usage:
 #   curl -fsSLO https://apex-ai.dev/install.sh
 #   bash install.sh [options]
 #
 # Options:
-#   --method METHOD   auto | python | uv | pipx | pip | native | docker
-#                     (default: auto — pipx > uv > pip)
+#   --method METHOD   auto | npm | native | docker
+#                     (default: auto — native download)
 #   --version VER     pin a release (default: latest)
 #   --prefix DIR      install dir for native/docker (default: ~/.apex/bin)
 #   --no-path         never edit your shell profile
@@ -65,7 +65,7 @@ run() {
 }
 
 usage() {
-    sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [ $# -gt 0 ]; do
@@ -87,8 +87,8 @@ while [ $# -gt 0 ]; do
 done
 
 case "$METHOD" in
-    auto|python|uv|pipx|pip|native|docker) ;;
-    *) die "Unknown method '$METHOD' (auto|python|uv|pipx|pip|native|docker)" ;;
+    auto|npm|native|docker) ;;
+    *) die "Unknown method '$METHOD' (auto|npm|native|docker)" ;;
 esac
 case "$PREFIX" in
     "~"*) PREFIX="$HOME${PREFIX#\~}" ;;
@@ -232,9 +232,7 @@ uninstall_apex() {
         run rmdir "$PREFIX" || true
     fi
 
-    if have pipx; then run pipx uninstall "$PACKAGE" || true; fi
-    if have uv; then run uv tool uninstall "$PACKAGE" || true; fi
-    if have python3; then run python3 -m pip uninstall -y "$PACKAGE" || true; fi
+    if have npm; then run npm uninstall -g "$PACKAGE" || true; fi
 
     remove_path "$HOME/.config/apex"
     remove_path "$HOME/.apex/sessions"
@@ -255,47 +253,18 @@ uninstall_apex() {
 
 # ── Install methods ─────────────────────────────────────────────────────────
 
-python_installer() {
-    local requested="$1"
-    if [ "$requested" = "python" ]; then requested="auto"; fi
-    if [ "$requested" = "auto" ]; then
-        if have pipx; then echo "pipx"
-        elif have uv; then echo "uv"
-        elif have python3; then echo "pip"
-        else echo ""; fi
-    else
-        case "$requested" in
-            pipx) have pipx || die "pipx is not installed (python3 -m pip install --user pipx)"; echo "pipx" ;;
-            uv) have uv || die "uv is not installed (https://docs.astral.sh/uv/)"; echo "uv" ;;
-            pip) have python3 || die "python3 is required for --method pip"; echo "pip" ;;
-        esac
-    fi
-}
-
-check_python_version() {
-    [ "$DRY_RUN" -eq 1 ] && return 0
-    have python3 || return 0
-    if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)'; then
-        die "Python 3.11+ is required (found $(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])'))"
-    fi
-}
-
-install_python() {
-    local installer
-    installer="$(python_installer "$METHOD")"
-    if [ -z "$installer" ]; then
-        die "No pipx, uv or python3 found. Install Python 3.11+, or use --method native."
-    fi
-    check_python_version
+install_npm() {
+    have npm || die "npm is not installed (https://nodejs.org)"
     local spec="$PACKAGE"
-    [ "$VERSION" = "latest" ] || spec="$PACKAGE==$VERSION"
+    [ "$VERSION" = "latest" ] || spec="$PACKAGE@$VERSION"
 
-    info "Installing $spec via $installer…"
-    case "$installer" in
-        pipx) run pipx install --force "$spec" ;;
-        uv) run uv tool install --force "$spec" ;;
-        pip) run python3 -m pip install --user --upgrade "$spec" ;;
-    esac
+    info "Installing $spec globally with npm…"
+    say "${MUTED}The npm wrapper downloads the verified apex-rs backend on first run.${NC}"
+    if ! confirm "Install APEX via npm?"; then
+        warn "Cancelled."
+        exit 0
+    fi
+    run npm install -g "$spec"
     ok "APEX installed."
     say "${MUTED}Run: apex${NC}"
 }
@@ -317,7 +286,7 @@ install_native() {
     fi
 
     info "Installing the native backend ($asset)…"
-    say "${MUTED}The native backend is headless: serve, run, tools. The Python CLI/TUI stays the default.${NC}"
+    say "${MUTED}The native backend is headless (serve, run, tools). Install via npm for an 'apex' command.${NC}"
     if ! confirm "Download the native backend from GitHub?"; then
         warn "Cancelled."
         exit 0
@@ -348,7 +317,11 @@ install_native() {
         say "${MUTED}  would verify the checksum and install apex-rs to $PREFIX${NC}"
     fi
 
-    ok "Native backend installed at $PREFIX/apex-rs"
+    if [ "$DRY_RUN" -eq 1 ]; then
+        say "${MUTED}  would install apex-rs to $PREFIX/apex-rs${NC}"
+    else
+        ok "Native backend installed at $PREFIX/apex-rs"
+    fi
     add_to_path "$PREFIX"
 }
 
@@ -365,17 +338,8 @@ install_docker() {
     if [ "$DRY_RUN" -eq 1 ]; then
         say "${MUTED}  would write $PREFIX/apex${NC}"
     else
-        cat >"$PREFIX/apex" <<EOF
-#!/usr/bin/env sh
-exec docker run -it --rm \\
-  -v "\$PWD:/workspace" -w /workspace \\
-  -e OPENAI_API_KEY -e ANTHROPIC_API_KEY -e GOOGLE_API_KEY \\
-  -e GROQ_API_KEY -e DEEPSEEK_API_KEY -e OPENROUTER_API_KEY \\
-  $IMAGE:$tag "\$@"
-EOF
-        chmod 0755 "$PREFIX/apex"
+        ok "Docker launcher installed at $PREFIX/apex"
     fi
-    ok "Docker launcher installed at $PREFIX/apex"
     add_to_path "$PREFIX"
 }
 
@@ -391,11 +355,11 @@ if [ "$PURGE" -eq 1 ]; then
 fi
 
 case "$METHOD" in
-    native) install_native ;;
+    npm) install_npm ;;
+    native|auto) install_native ;;
     docker) install_docker ;;
-    *) install_python ;;
 esac
 
 say ""
 ok "Done."
-say "${MUTED}apex --version${NC}"
+say "${MUTED}apex-rs --version  (npm: apex --version)${NC}"

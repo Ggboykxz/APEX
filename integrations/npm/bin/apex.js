@@ -4,30 +4,32 @@
 /**
  * apex — npm wrapper for the APEX CLI.
  *
+ * APEX is distributed through two channels only: this npm package and the
+ * native Rust backend (`apex-rs`) published as GitHub Release assets. The
+ * Python package is no longer published on PyPI, so the wrapper never tries
+ * to provision it.
+ *
  * Resolution order:
  *   1. APEX_BINARY env var (explicit override, always wins)
- *   2. a real `apex` executable already on PATH (pip/pipx/uv install)
- *   3. the native backend when requested: APEX_INSTALL_METHOD=native or
- *      APEX_PREFER_NATIVE=1 (downloads `apex-rs` if it is missing)
- *   4. first run: provision the Python package via pipx > uv > pip, then run
- *      it through the installer's own runner so no PATH change is required
- *   5. the native backend as a fallback when no Python toolchain exists and
- *      APEX_NATIVE is not 0
+ *   2. a real `apex` executable already on PATH (source checkout, custom
+ *      install)
+ *   3. the native backend: `apex-rs` on PATH, the managed
+ *      `~/.apex/bin/apex-rs`, or a checksum-verified download from the
+ *      latest GitHub release
  *
- * The Python CLI/TUI stays the default: the native backend is headless
- * (`serve`, `run`, `tools`, …) and is opt-in.
+ * The native backend is headless (`serve`, `run`, `tools`, …); install the
+ * full TUI from a source checkout when you need it.
  *
  * Environment:
  *   APEX_BINARY        path to a pre-existing apex executable (override)
- *   APEX_VERSION       pin the release version (e.g. 2.5.0)
- *   APEX_INSTALL_METHOD pipx | uv | pip | native | auto (default: auto)
- *   APEX_PREFER_NATIVE set to 1 to prefer the native backend
- *   APEX_NATIVE        set to 0 to disable the native fallback
+ *   APEX_VERSION       pin the release version (e.g. 0.1.0)
+ *   APEX_INSTALL_METHOD `auto` (default) or `native`
+ *   APEX_NATIVE        set to 0 to disable downloading the native backend
  *   APEX_SKIP_INSTALL  set to 1 to fail fast when apex is not found
  *   APEX_INSTALL_DIR   native backend install directory (default ~/.apex/bin)
  */
 
-const { spawn, spawnSync } = require("child_process");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -36,6 +38,7 @@ const native = require("../lib/native");
 
 const SELF_REAL = resolver.realpath(__filename);
 const EXCLUDE = SELF_REAL ? [SELF_REAL] : [];
+const VALID_METHODS = ["auto", "native"];
 
 /** The wrapper itself, including the npm bin shim that execs it. */
 function isSelf(file) {
@@ -64,10 +67,6 @@ function batDir() {
 function fail(message, code = 1) {
   process.stderr.write(`${message}\n`);
   process.exit(code);
-}
-
-function truthy(value) {
-  return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
 }
 
 function note(message) {
@@ -105,40 +104,39 @@ function run(bin, args) {
   });
 }
 
-/** Blocking install step; returns true on success. */
-function install(installer) {
-  const spec = resolver.installCommand(installer, pythonHint(), process.env.APEX_VERSION || "");
-  const inv = resolver.childInvocation(
-    resolver.resolveRunner(spec.bin, pathEnv()),
-    spec.args,
-    batDir(),
-    process.env.comspec
-  );
-  const result = spawnSync(inv.bin, inv.args, { stdio: "inherit", env: process.env });
-  resolver.cleanupBat(inv.cleanup);
-  return (result.status ?? 1) === 0;
-}
-
-function pythonHint() {
-  return process.env.APEX_INSTALL_METHOD === "pip" ? resolver.findPython(pathEnv()) || "python3" : null;
-}
-
 function pathEnv() {
   return process.env.PATH || process.env.Path || "";
 }
 
+function methodRequested() {
+  const requested = String(process.env.APEX_INSTALL_METHOD || "auto")
+    .trim()
+    .toLowerCase();
+  if (!VALID_METHODS.includes(requested)) {
+    fail(
+      `[apex] APEX_INSTALL_METHOD=${requested} is not supported.\n` +
+        "       APEX now ships only through npm and the native backend; " +
+        "pip, pipx and uv channels were removed.\n" +
+        "       Remove APEX_INSTALL_METHOD, or set it to 'native'."
+    );
+  }
+  return requested;
+}
+
 /**
- * Locate or install the native backend; returns its path, or null when it
- * cannot be provisioned.
+ * Locate or install the native backend; returns its path, or null when the
+ * caller disabled provisioning (`APEX_SKIP_INSTALL=1`, `APEX_NATIVE=0`).
  */
-async function resolveNative({ optional }) {
+async function resolveNative() {
   const onPath = resolver.findBinary("apex-rs", pathEnv());
   if (onPath) return onPath;
 
   const managed = native.binaryPath(process.env, os.homedir());
   if (fs.existsSync(managed)) return managed;
 
-  if (optional && process.env.APEX_SKIP_INSTALL === "1") return null;
+  if (process.env.APEX_SKIP_INSTALL === "1" || process.env.APEX_NATIVE === "0") {
+    return null;
+  }
 
   try {
     return await native.installNative({
@@ -147,54 +145,32 @@ async function resolveNative({ optional }) {
       log: note,
     });
   } catch (err) {
-    if (optional) {
-      note(`[apex] native backend unavailable: ${err.message}`);
-      return null;
-    }
     fail(
       `[apex] could not install the native backend: ${err.message}\n` +
-        "       Set APEX_INSTALL_DIR to a writable directory, or install the Python CLI " +
-        "(pipx install apex-ai)."
+        "       Set APEX_INSTALL_DIR to a writable directory, or install it " +
+        "manually with install.sh --method native."
     );
   }
 }
 
-/** Provision the Python package and run it; exits or returns a failure message. */
-function provisionPython(args) {
-  const python = resolver.findPython(pathEnv());
-  const flags = {
-    pipx: resolver.commandExists("pipx", pathEnv()),
-    uv: resolver.commandExists("uv", pathEnv()),
-    python: Boolean(python),
-  };
-  const requested = process.env.APEX_INSTALL_METHOD || "auto";
-  if (requested !== "auto" && !Object.prototype.hasOwnProperty.call(flags, requested)) {
-    fail(`[apex] APEX_INSTALL_METHOD=${requested} is not a Python installer (pipx, uv or pip).`);
-  }
-  if (requested !== "auto" && !flags[requested]) {
-    fail(
-      `[apex] APEX_INSTALL_METHOD=${requested} but '${requested}' is not available ` +
-        `(pipx=${flags.pipx} uv=${flags.uv} python=${flags.python}).`
-    );
-  }
-  const installer = requested === "auto" ? resolver.chooseInstaller(flags) : requested;
-  if (!installer) return null;
-
-  note(`[apex] first run — installing the apex-ai Python package via ${installer}…`);
-  if (!install(installer)) {
-    fail(
-      `[apex] automatic installation via ${installer} failed. ` +
-        `Manual install: ${resolver.manualHint(installer, process.env.APEX_VERSION || "")}`
-    );
-  }
-
-  const runSpec = resolver.runCommand(installer, python);
-  run(resolver.resolveRunner(runSpec.bin, pathEnv()), [...runSpec.args, ...args]);
-  return installer;
+function missingBinaryHint() {
+  const reason =
+    process.env.APEX_SKIP_INSTALL === "1"
+      ? "APEX_SKIP_INSTALL=1"
+      : "APEX_NATIVE=0 disables the download";
+  return (
+    `[apex] no apex executable found on PATH (${reason}).\n` +
+    "       Set APEX_BINARY=/path/to/apex, unset APEX_SKIP_INSTALL/APEX_NATIVE, " +
+    "or install the native backend:\n" +
+    "       bash install.sh --method native"
+  );
 }
 
 async function main() {
   const args = process.argv.slice(2);
+
+  // Validate legacy method values before doing any work.
+  methodRequested();
 
   // 1) Explicit override.
   if (process.env.APEX_BINARY) {
@@ -210,46 +186,13 @@ async function main() {
     return;
   }
 
-  const requested = process.env.APEX_INSTALL_METHOD || "auto";
-
-  // 3) Native backend when explicitly requested.
-  if (requested === "native" || truthy(process.env.APEX_PREFER_NATIVE)) {
-    const binary = await resolveNative({ optional: false });
-    if (binary) {
-      note("[apex] using the native backend (apex-rs, headless).");
-      run(binary, args);
-      return;
-    }
+  // 3) Native backend (the only remaining distribution channel).
+  const binary = await resolveNative();
+  if (!binary) {
+    fail(missingBinaryHint());
   }
-
-  if (process.env.APEX_SKIP_INSTALL === "1") {
-    fail(
-      "[apex] no apex executable found on PATH and APEX_SKIP_INSTALL=1.\n" +
-        "       Install manually (pipx install apex-ai / uv tool install apex-ai / " +
-        "python3 -m pip install apex-ai) or set APEX_BINARY."
-    );
-  }
-
-  // 4) Default: provision the Python CLI/TUI.
-  const installer = provisionPython(args);
-  if (installer) return;
-
-  // 5) No Python toolchain: fall back to the native backend unless disabled.
-  if (process.env.APEX_NATIVE !== "0") {
-    note("[apex] no pipx, uv or Python found — falling back to the native backend.");
-    const binary = await resolveNative({ optional: true });
-    if (binary) {
-      run(binary, args);
-      return;
-    }
-  }
-
-  fail(
-    "[apex] could not provision APEX: no pipx, uv or python interpreter found.\n" +
-      "       Install Python 3.11+ first, then either pipx (python3 -m pip install --user pipx) " +
-      "or uv (curl -LsSf https://astral.sh/uv/install.sh | sh), and re-run.\n" +
-      "       Or install the native backend: npm install -g apex-ai && APEX_INSTALL_METHOD=native apex."
-  );
+  note("[apex] using the native backend (apex-rs, headless).");
+  run(binary, args);
 }
 
 main().catch((err) => {
