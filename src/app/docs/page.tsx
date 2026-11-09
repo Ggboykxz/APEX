@@ -134,7 +134,7 @@ function DocQuickstart() {
       <DocsHeading id="step1">Step 1: Installation</DocsHeading>
       <CodeBlock code="npm install -g apex-ai" />
       <p className="text-muted-foreground text-sm">The <code className="text-apex-cyan">apex</code> wrapper downloads and verifies the native backend on first run.</p>
-      <p className="text-muted-foreground text-sm">Headless servers: <code className="text-apex-cyan">bash install.sh --method native</code></p>
+      <p className="text-muted-foreground text-sm">Headless servers: <code className="text-apex-cyan">curl -fsSL https://apex-ai.dev/install.sh | bash -s -- --method native</code></p>
       <DocsHeading id="step2">Step 2: Configure API Keys</DocsHeading>
       <p className="text-muted-foreground text-sm mb-2">Create <code className="text-apex-cyan">~/.apex/.env</code> with your API keys:</p>
       <CodeBlock code={`# At least one of these:\nANTHROPIC_API_KEY=sk-ant-...    # For Claude models\nOPENAI_API_KEY=sk-...          # For GPT models\nDEEPSEEK_API_KEY=...           # For DeepSeek models\nGEMINI_API_KEY=...             # For Gemini models`} />
@@ -255,7 +255,7 @@ function DocTroubleshooting() {
       <h1 className="text-3xl font-bold font-mono mb-2">Troubleshooting</h1>
       <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Common issues and solutions.</p>
       <DocsHeading id="install-issues">Installation Issues</DocsHeading>
-      <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-red mb-2">&quot;command not found: apex&quot;</h4><CodeBlock code={`# npm channel\nnpm install -g apex-ai\n\n# native channel\nbash install.sh --method native\n\n# check\napex --version`} /></div>
+      <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-red mb-2">&quot;command not found: apex&quot;</h4><CodeBlock code={`# npm channel\nnpm install -g apex-ai\n\n# native channel\ncurl -fsSL https://apex-ai.dev/install.sh | bash\n\n# check\napex --version`} /></div>
       <DocsHeading id="api-issues">API Key Issues</DocsHeading>
       <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-yellow mb-2">&quot;Authentication failed&quot;</h4><CodeBlock code={`echo $ANTHROPIC_API_KEY\nexport ANTHROPIC_API_KEY="sk-ant-..."`} /></div>
       <DocsHeading id="perf-issues">Performance Issues</DocsHeading>

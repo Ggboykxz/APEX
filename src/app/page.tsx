@@ -26,7 +26,7 @@ function timeAgo(dateString: string): string {
 /* ──── CONSTANTS ──── */
 const INSTALL_COMMANDS: Record<string, { label: string; cmd: string }> = {
   npm: { label: 'npm', cmd: 'npm install -g apex-ai' },
-  native: { label: 'native', cmd: 'curl -fsSLO https://apex-ai.dev/install.sh && bash install.sh --method native' },
+  native: { label: 'native', cmd: 'curl -fsSL https://apex-ai.dev/install.sh | bash' },
   docker: { label: 'docker', cmd: 'docker run -it ghcr.io/ggboykxz/apex' },
   source: { label: 'source', cmd: 'git clone https://github.com/Ggboykxz/APEX.git && cd APEX && pip install -e ".[dev]"' },
 }
