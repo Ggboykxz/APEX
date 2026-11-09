@@ -12,6 +12,7 @@ import { apexTheme } from "../theme/apex.js"
 import { APEX_AGENTS } from "../data/apex-data.js"
 import { ChatMessage } from "./ChatMessage.js"
 import { ToolCall } from "./ToolCall.js"
+import { ApexLogo } from "./ApexLogo.js"
 import type { ChatMessage as ChatMessageType } from "../data/apex-data.js"
 import type { StreamToolCall } from "../streaming/reducer.js"
 
@@ -49,13 +50,8 @@ export function ChatPanel({
       {/* Messages */}
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
         {visibleMessages.length === 0 && !isGenerating && (
-          <Box flexDirection="column" paddingY={1}>
-            <Text color={apexTheme.green} bold>▲ APEX v2.0.0</Text>
-            <Text color={apexTheme.gray}>Type a message or use /commands</Text>
-            <Text color={apexTheme.dimGray}>Tab — Switch agents</Text>
-            <Text color={apexTheme.dimGray}>Ctrl+P — Command palette</Text>
-            <Text color={apexTheme.dimGray}>@ — Reference files</Text>
-            <Text color={apexTheme.dimGray}>! — Run bash commands</Text>
+          <Box flexDirection="column" paddingY={1} alignItems="center">
+            <ApexLogo />
           </Box>
         )}
 
