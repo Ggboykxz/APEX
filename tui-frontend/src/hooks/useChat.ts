@@ -1,0 +1,396 @@
+"use strict";
+
+/**
+ * useChat — centralizes chat logic: slash command dispatch, message sending,
+ * bash execution, editor flow and input history. The React state (messages,
+ * totals, history) stays in ApexApp; this hook only owns the side effects and
+ * command parsing.
+ */
+
+import { useCallback, useRef, useState } from "react"
+import { spawnSync } from "node:child_process"
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { api } from "../api/client.js"
+import type { ChatMessage } from "../data/apex-data.js"
+import { APEX_MODELS } from "../data/apex-data.js"
+
+interface UseChatProps {
+  activeAgent: string
+  activeModel: string
+  onConnectionError: (msg: string | null) => void
+  onSetIsGenerating: (v: boolean) => void
+  onSetIsReconnecting: (v: boolean) => void
+  onSetRetryCount: (v: number | ((prev: number) => number)) => void
+}
+
+interface SlashResult {
+  type: "reset" | "help" | "models" | "themes" | "agents" | "sessions" |
+    "editor" | "cost" | "diff" | "copy" | "exit" | "command" | "ignored" |
+    "thinking" | "details" | "export" |
+    boolean
+  command?: string
+}
+
+const COMMANDS = [
+  { id: "/help", desc: "Show help" },
+  { id: "/models", desc: "List models" },
+  { id: "/themes", desc: "List themes" },
+  { id: "/new", desc: "New session" },
+  { id: "/clear", desc: "Clear chat" },
+  { id: "/compact", desc: "Compact" },
+  { id: "/undo", desc: "Undo last" },
+  { id: "/redo", desc: "Redo last" },
+  { id: "/share", desc: "Share session" },
+  { id: "/export", desc: "Export" },
+  { id: "/editor", desc: "Open editor" },
+  { id: "/sessions", desc: "Sessions" },
+  { id: "/cost", desc: "Token usage & cost" },
+  { id: "/diff", desc: "Preview working-tree diff" },
+  { id: "/init", desc: "Initialize" },
+  { id: "/connect", desc: "Connect remote" },
+  { id: "/thinking", desc: "Toggle thinking" },
+  { id: "/details", desc: "Details" },
+  { id: "/agent", desc: "Switch agent" },
+  { id: "/exit", desc: "Exit APEX" },
+]
+
+export function useChat({
+  activeAgent,
+  activeModel,
+  onConnectionError,
+  onSetIsGenerating,
+  onSetIsReconnecting,
+  onSetRetryCount,
+}: UseChatProps) {
+  const [inputHistory, setInputHistory] = useState<string[]>([])
+  const [historyIdx, setHistoryIdx] = useState(-1)
+  const sendMessageRef = useRef<((message: string) => Promise<void>) | null>(null)
+
+  const fuzzyMatch = useCallback((text: string, query: string) => {
+    if (!query) return true
+    const t = text.toLowerCase(), q = query.toLowerCase()
+    let qi = 0
+    for (let i = 0; i < t.length && qi < q.length; i++)
+      if (t[i] === q[qi]) qi++
+    return qi === q.length
+  }, [])
+
+  const filteredCommands = useCallback(
+    (search: string) =>
+      COMMANDS.filter((c) => fuzzyMatch(c.id + " " + c.desc, search)),
+    [fuzzyMatch]
+  )
+
+  const handleSlashCommand = useCallback(
+    (cmd: string, arg: string): SlashResult | boolean => {
+      switch (cmd) {
+        case "/new":
+        case "/clear":
+          return { type: "reset" }
+        case "/help":
+          return { type: "help" }
+        case "/models":
+          return { type: "models" }
+        case "/themes":
+          return { type: "themes" }
+        case "/agent":
+          return arg ? { type: "command", command: `agent ${arg}` } : { type: "agents" }
+        case "/thinking":
+          return { type: "thinking" }
+        case "/details":
+          return { type: "details" }
+        case "/copy":
+          return { type: "copy" }
+        case "/exit":
+        case "/quit":
+        case "/q":
+          return { type: "exit" }
+        case "/sessions":
+          return { type: "sessions" }
+        case "/undo":
+          api.undo().catch(() =>
+            onConnectionError("Undo failed — backend unreachable")
+          )
+          return true
+        case "/redo":
+          api.redo().catch(() =>
+            onConnectionError("Redo failed — backend unreachable")
+          )
+          return true
+        case "/compact":
+          api.compact().catch(() =>
+            onConnectionError("Compact failed — backend unreachable")
+          )
+          return true
+        case "/theme":
+          if (!arg) return { type: "themes" }
+          if (!["default", "light", "dark", "forest", "sunset"].includes(arg)) {
+            onConnectionError(`Unknown theme: ${arg}`)
+            return true
+          }
+          return { type: "command", command: `theme ${arg}` }
+        case "/session":
+          if (!arg) return { type: "sessions" }
+          return { type: "command", command: `session ${arg}` }
+        case "/export":
+          return { type: "export" }
+        case "/share":
+          return { type: "command", command: `share ${arg}` }
+        case "/unshare":
+          if (!arg) {
+            onConnectionError("Usage: /unshare <share_id>")
+            return true
+          }
+          return { type: "command", command: `unshare ${arg}` }
+        case "/editor":
+          return { type: "editor" }
+        case "/cost":
+          return { type: "cost" }
+        case "/diff":
+          return { type: "diff" }
+        case "/init":
+        case "/connect":
+          return false
+        default:
+          return false
+      }
+    },
+    [onConnectionError]
+  )
+
+  const sendEditorPrompt = useCallback(() => {
+    const editor = process.env.EDITOR || process.env.VISUAL || "vi"
+    const dir = mkdtempSync(join(tmpdir(), "apex-editor-"))
+    const file = join(dir, "prompt.md")
+    try {
+      writeFileSync(file, "# Enter your prompt\n\n")
+      process.stdout.write("\x1b[?1049l")
+      try {
+        spawnSync(editor, [file], { stdio: "inherit" })
+      } catch {
+        onConnectionError(`Could not launch editor: ${editor}`)
+      }
+      process.stdout.write("\x1b[?1049h\x1b[2J\x1b[H")
+      const content = readFileSync(file, "utf8")
+      const prompt = content
+        .split("\n")
+        .filter((l) => !l.startsWith("#"))
+        .join("\n")
+        .trim()
+      if (prompt) sendMessageRef.current?.(prompt)
+    } finally {
+      try {
+        rmSync(dir, { recursive: true, force: true })
+      } catch {}
+    }
+  }, [onConnectionError])
+
+  const calcMessageCost = useCallback(
+    (pt: number, ct: number, modelId: string) => {
+      const m = APEX_MODELS.find((x) => x.id === modelId)
+      if (!m?.inputCostPer1K || !m?.outputCostPer1K) return 0
+      return (pt / 1000) * m.inputCostPer1K + (ct / 1000) * m.outputCostPer1K
+    },
+    []
+  )
+
+  const sendMessage = useCallback(
+    async (userMessage: string) => {
+      if (userMessage.startsWith("/")) {
+        const parts = userMessage.split(/\s+/)
+        const cmd = parts[0].toLowerCase()
+        const arg = parts.slice(1).join(" ")
+        const result = handleSlashCommand(cmd, arg)
+        if (result === true) return { type: "handled" }
+        if (result === false) return { type: "ignored" }
+        if (typeof result === "object" && "type" in result) {
+          if (result.type === "command") {
+            sendMessageRef.current?.(result.command ?? "")
+            return { type: "command" }
+          }
+          return result
+        }
+        return { type: "ignored" }
+      }
+
+      onSetIsGenerating(true)
+      onConnectionError(null)
+      onSetIsReconnecting(false)
+
+      const aid = `msg-${Date.now()}-a`
+
+      try {
+        const { full, usage } = await api.chatStream({
+          message: userMessage,
+          model: activeModel,
+          onChunk: () => {},
+        })
+
+        const fp = usage.prompt_tokens ?? 0
+        const fc = usage.completion_tokens ?? 0
+        const mc = calcMessageCost(fp, fc, activeModel)
+
+        return {
+          type: "done",
+          userMsg: {
+            id: `msg-${Date.now()}-u`,
+            role: "user",
+            content: userMessage,
+            timestamp: Date.now(),
+          } as ChatMessage,
+          assistantMsg: {
+            id: aid,
+            role: "assistant",
+            content: full || "(empty)",
+            agent: activeAgent,
+            model: activeModel,
+            timestamp: Date.now(),
+            promptTokens: fp,
+            completionTokens: fc,
+            cost: mc,
+          } as ChatMessage,
+          totalPromptTokens: fp,
+          totalCompletionTokens: fc,
+          totalSpent: mc,
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (
+          msg.includes("fetch") ||
+          msg.includes("ECONNREFUSED") ||
+          msg.includes("NetworkError")
+        ) {
+          onConnectionError("Cannot connect to APEX backend")
+          onSetIsReconnecting(true)
+          onSetRetryCount((c: number) => c + 1)
+        } else {
+          onConnectionError(`Error: ${msg}`)
+        }
+        return {
+          type: "error",
+          assistantMsg: {
+            id: aid,
+            role: "assistant",
+            content: `Error: ${msg}`,
+            agent: activeAgent,
+            model: activeModel,
+            timestamp: Date.now(),
+            promptTokens: 0,
+            completionTokens: 0,
+            cost: 0,
+          } as ChatMessage,
+        }
+      } finally {
+        onSetIsGenerating(false)
+      }
+    },
+    [
+      activeAgent,
+      activeModel,
+      handleSlashCommand,
+      onConnectionError,
+      onSetIsGenerating,
+      onSetIsReconnecting,
+      onSetRetryCount,
+      calcMessageCost,
+    ]
+  )
+
+  const sendBash = useCallback(
+    async (cmd: string) => {
+      onSetIsGenerating(true)
+      onConnectionError(null)
+      const rid = `msg-${Date.now()}-bash`
+      try {
+        const d = await api.bash(cmd)
+        return {
+          type: "done",
+          userMsg: {
+            id: `msg-${Date.now()}-u`,
+            role: "user",
+            content: `! ${cmd}`,
+            timestamp: Date.now(),
+          } as ChatMessage,
+          assistantMsg: {
+            id: rid,
+            role: "assistant",
+            content: "```\n" + (d.stdout ?? d.output ?? d.result ?? JSON.stringify(d)) + "\n```",
+            agent: "shell",
+            timestamp: Date.now(),
+            promptTokens: 0,
+            completionTokens: 0,
+            cost: 0,
+          } as ChatMessage,
+        }
+      } catch (e: any) {
+        onConnectionError(`Bash error: ${e.message}`)
+        return {
+          type: "error",
+          assistantMsg: {
+            id: rid,
+            role: "assistant",
+            content: `Bash error: ${e.message}`,
+            agent: "shell",
+            timestamp: Date.now(),
+            promptTokens: 0,
+            completionTokens: 0,
+            cost: 0,
+          } as ChatMessage,
+        }
+      } finally {
+        onSetIsGenerating(false)
+      }
+    },
+    [onConnectionError, onSetIsGenerating]
+  )
+
+  const sendCost = useCallback(async () => {
+    try {
+      const d = await api.cost()
+      const usage = d.usage ?? {}
+      const content = [
+        "Token usage (session):",
+        `  Input: ${usage.prompt_tokens ?? 0}`,
+        `  Output: ${usage.completion_tokens ?? 0}`,
+        `  Total tokens: ${usage.total_tokens ?? 0}`,
+        `  Cost: $${(d.total_cost ?? 0).toFixed(6)} (${
+          d.currency ?? "USD"
+        }, model ${d.model ?? activeModel})`,
+      ].join("\n")
+      return {
+        type: "done",
+        assistantMsg: {
+          id: `msg-${Date.now()}-c`,
+          role: "assistant",
+          content,
+          agent: "build",
+          model: activeModel,
+          timestamp: Date.now(),
+          promptTokens: 0,
+          completionTokens: 0,
+          cost: 0,
+        } as ChatMessage,
+      }
+    } catch {
+      onConnectionError("Cost request failed — backend unreachable")
+      return { type: "error" }
+    }
+  }, [activeModel, onConnectionError])
+
+  return {
+    inputHistory,
+    setInputHistory,
+    historyIdx,
+    setHistoryIdx,
+    sendMessageRef,
+    sendMessage,
+    sendBash,
+    sendCost,
+    sendEditorPrompt,
+    handleSlashCommand,
+    filteredCommands,
+    COMMANDS,
+  }
+}
