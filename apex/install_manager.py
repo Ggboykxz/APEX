@@ -243,6 +243,21 @@ def _highest_semver(versions: list[str]) -> str | None:
     return max(versions, key=lambda value: tuple(int(part) for part in value.split(".")))
 
 
+def _resolve_latest_from_tags(
+    reader: Fetch, tags_api: str, release_error: Exception | None
+) -> str | None:
+    """Try the tags API as a fallback; return the highest semver or None."""
+    try:
+        versions = _tag_versions(reader, tags_api)
+    except Exception as exc:
+        if not _is_not_found(exc):
+            raise InstallError(
+                f"could not resolve the latest release: {release_error or exc}"
+            ) from exc
+        return None
+    return _highest_semver(versions)
+
+
 def fetch_latest_release(
     fetch: Fetch | None = None, api: str = RELEASE_API, tags_api: str = TAGS_API
 ) -> str:
@@ -261,15 +276,7 @@ def fetch_latest_release(
             return tag
         release_error = InstallError(f"unexpected release tag: {payload.get('tag_name')!r}")
 
-    try:
-        versions = _tag_versions(reader, tags_api)
-    except Exception as exc:
-        if not _is_not_found(exc):
-            raise InstallError(
-                f"could not resolve the latest release: {release_error or exc}"
-            ) from exc
-        versions = []
-    highest = _highest_semver(versions)
+    highest = _resolve_latest_from_tags(reader, tags_api, release_error)
     if highest is not None:
         return highest
     raise ReleaseUnavailable("no published release or tag yet")
@@ -281,23 +288,41 @@ def parse_sha256(text: str) -> str | None:
     return match.group(1).lower() if match else None
 
 
+def _validate_zip_members(bundle: zipfile.ZipFile, root: Path) -> None:
+    for member in bundle.namelist():
+        target = (root / member).resolve()
+        if target != root and root not in target.parents:
+            raise InstallError(f"unsafe archive member: {member}")
+
+
+def _extract_zip(archive: Path, destination: Path) -> None:
+    root = destination.resolve()
+    with zipfile.ZipFile(archive) as bundle:
+        _validate_zip_members(bundle, root)
+        bundle.extractall(root)
+
+
+def _validate_tar_members(bundle: tarfile.TarFile, root: Path) -> None:
+    for member in bundle.getmembers():
+        target = (root / member.name).resolve()
+        if target != root and root not in target.parents:
+            raise InstallError(f"unsafe archive member: {member.name}")
+
+
+def _extract_tar(archive: Path, destination: Path) -> None:
+    root = destination.resolve()
+    with tarfile.open(archive, "r:gz") as bundle:
+        _validate_tar_members(bundle, root)
+        for member in bundle.getmembers():
+            bundle.extract(member, root)
+
+
 def _extract(archive: Path, destination: Path) -> None:
     """Extract a ``.tar.gz`` or ``.zip`` archive after validating member paths."""
-    root = destination.resolve()
     if archive.suffix == ".zip":
-        with zipfile.ZipFile(archive) as bundle:
-            for member in bundle.namelist():
-                target = (root / member).resolve()
-                if target != root and root not in target.parents:
-                    raise InstallError(f"unsafe archive member: {member}")
-            bundle.extractall(root)
+        _extract_zip(archive, destination)
         return
-    with tarfile.open(archive, "r:gz") as bundle:
-        for member in bundle.getmembers():
-            target = (root / member.name).resolve()
-            if target != root and root not in target.parents:
-                raise InstallError(f"unsafe archive member: {member.name}")
-            bundle.extract(member, root)
+    _extract_tar(archive, destination)
 
 
 @dataclass(frozen=True)
@@ -330,12 +355,19 @@ def _download_and_verify(reader: Fetch, base: str, asset: str) -> bytes:
     return payload
 
 
+@dataclass(frozen=True)
+class NativeInstallContext:
+    """Filesystem context for installing a native binary."""
+
+    platform_value: str
+    directory: Path
+
+
 def _install_binary(
     payload: bytes,
     asset: str,
-    platform_value: str,
-    directory: Path,
     name: str,
+    context: NativeInstallContext,
 ) -> Path:
     with tempfile.TemporaryDirectory(prefix="apex-native-") as tmp:
         archive = Path(tmp) / asset
@@ -346,10 +378,10 @@ def _install_binary(
         found = next((path for path in unpacked.rglob(name) if path.is_file()), None)
         if found is None:
             raise InstallError(f"archive does not contain {name}")
-        directory.mkdir(parents=True, exist_ok=True)
-        destination = directory / name
+        context.directory.mkdir(parents=True, exist_ok=True)
+        destination = context.directory / name
         shutil.copy2(found, destination)
-        if not platform_value.startswith("win"):
+        if not context.platform_value.startswith("win"):
             destination.chmod(0o755)
         return destination
 
@@ -373,7 +405,8 @@ def native_upgrade(
     asset = asset_name(triple)
     payload = _download_and_verify(reader, base, asset)
     directory = native_install_dir(opts.env, opts.home)
-    return _install_binary(payload, asset, platform_value, directory, binary_name(platform_value))
+    context = NativeInstallContext(platform_value=platform_value, directory=directory)
+    return _install_binary(payload, asset, binary_name(platform_value), context)
 
 
 @dataclass(frozen=True)
@@ -395,39 +428,74 @@ def _native_uninstall_paths(channels: set[str], values: dict[str, str], root: Pa
     return paths
 
 
+def _purge_config_paths(config_dir: Path) -> tuple[list[Path], list[str]]:
+    paths: list[Path] = []
+    kept: list[str] = []
+    if config_dir.exists():
+        paths.append(config_dir)
+    return paths, kept
+
+
+def _keep_config_paths(config_dir: Path) -> tuple[list[Path], list[str]]:
+    paths: list[Path] = []
+    kept: list[str] = []
+    if config_dir.exists():
+        kept.append(str(config_dir))
+    return paths, kept
+
+
+def _default_config_paths(config_dir: Path) -> tuple[list[Path], list[str]]:
+    paths: list[Path] = []
+    kept: list[str] = []
+    if config_dir.exists():
+        paths.append(config_dir)
+    return paths, kept
+
+
 def _config_uninstall_paths(
     purge: bool, keep_config: bool, config_dir: Path
 ) -> tuple[list[Path], list[str]]:
+    if purge:
+        return _purge_config_paths(config_dir)
+    if keep_config:
+        return _keep_config_paths(config_dir)
+    return _default_config_paths(config_dir)
+
+
+def _purge_data_paths(data_dir: Path) -> tuple[list[Path], list[str]]:
     paths: list[Path] = []
     kept: list[str] = []
-    if purge:
-        if config_dir.exists():
-            paths.append(config_dir)
-    elif keep_config:
-        if config_dir.exists():
-            kept.append(str(config_dir))
-    elif config_dir.exists():
-        paths.append(config_dir)
+    if data_dir.exists():
+        paths.append(data_dir)
+    return paths, kept
+
+
+def _keep_data_paths(data_dir: Path) -> tuple[list[Path], list[str]]:
+    paths: list[Path] = []
+    kept: list[str] = []
+    if data_dir.exists():
+        kept.append(str(data_dir))
+    return paths, kept
+
+
+def _default_data_paths(data_dir: Path) -> tuple[list[Path], list[str]]:
+    paths: list[Path] = []
+    kept: list[str] = []
+    for name in ("sessions", "memory", "tasks"):
+        candidate = data_dir / name
+        if candidate.exists():
+            paths.append(candidate)
     return paths, kept
 
 
 def _data_uninstall_paths(
     purge: bool, keep_data: bool, data_dir: Path
 ) -> tuple[list[Path], list[str]]:
-    paths: list[Path] = []
-    kept: list[str] = []
     if purge:
-        if data_dir.exists():
-            paths.append(data_dir)
-    elif keep_data:
-        if data_dir.exists():
-            kept.append(str(data_dir))
-    else:
-        for name in ("sessions", "memory", "tasks"):
-            candidate = data_dir / name
-            if candidate.exists():
-                paths.append(candidate)
-    return paths, kept
+        return _purge_data_paths(data_dir)
+    if keep_data:
+        return _keep_data_paths(data_dir)
+    return _default_data_paths(data_dir)
 
 
 def _npm_uninstall_commands(channels: set[str]) -> list[tuple[str, ...]]:

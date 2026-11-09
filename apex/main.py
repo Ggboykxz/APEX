@@ -13,6 +13,7 @@ import os
 import sys
 import textwrap
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -108,13 +109,7 @@ _SUBCOMMANDS: dict[str, dict[str, bool]] = {
 # â”€â”€ Argument parser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="apex",
-        description="APEX â€” The last coding agent you'll ever need",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent("""\
-            subcommands:
+_PARSER_EPILOG = textwrap.dedent(r"""\            subcommands:
               serve             Start headless HTTP API server
               web               Start server + open web interface
               gateway start     Start APEX Gateway (proxy + auth + rate limits)
@@ -174,9 +169,10 @@ def build_parser() -> argparse.ArgumentParser:
               /editor           Open external editor
               /help             Show help
               /exit             Exit APEX
-        """),
-    )
+""")
 
+
+def _add_core_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("prompt", nargs="?", default=None, help="One-shot prompt to execute")
     parser.add_argument("--model", "-m", dest="model", default=None, help="Model alias to use")
     parser.add_argument("--cwd", "-C", dest="cwd", default=None, help="Working directory")
@@ -216,6 +212,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode")
     parser.add_argument("--install-tui", action="store_true", help="Install TUI dependencies")
 
+
+def _add_session_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--continue", dest="resume", action="store_true", help="Resume last session"
     )
@@ -226,15 +224,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--log-level", dest="log_level", default=None, help="Log level")
     parser.add_argument("--pure", action="store_true", help="Pure mode (no tools)")
 
+
+def _add_utility_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--share", action="store_true", help="Share session")
     parser.add_argument("--file", dest="input_file", default=None, help="Read prompt from file")
 
-    # serve / web flags
+
+def _add_server_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--port", type=int, default=None, help="Server port")
     parser.add_argument("--hostname", default=None, help="Server hostname")
     parser.add_argument("--cors", default=None, help="CORS origin")
     parser.add_argument("--mdns", action="store_true", help="Enable mDNS advertisement")
 
+
+def _add_stats_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--refresh", action="store_true", help="Refresh model list")
     parser.add_argument("--verbose", action="store_true", help="Verbose output (show costs)")
     parser.add_argument("--days", type=int, default=None, help="Days for stats")
@@ -243,6 +246,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--models-flag", action="store_true", dest="models_flag", help="Model stats"
     )
     parser.add_argument("--project", default=None, help="Project path for stats")
+
+
+def _add_install_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--sanitize", action="store_true", help="Sanitize export")
     parser.add_argument("--keep-config", action="store_true", help="Keep config on uninstall")
     parser.add_argument("--keep-data", action="store_true", help="Keep data on uninstall")
@@ -256,17 +262,51 @@ def build_parser() -> argparse.ArgumentParser:
         "--purge", action="store_true", help="Remove credentials and config on uninstall"
     )
 
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="apex",
+        description="APEX â€” The last coding agent you'll ever need",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=_PARSER_EPILOG,
+    )
+
+    _add_core_args(parser)
+    _add_session_args(parser)
+    _add_utility_args(parser)
+    _add_server_args(parser)
+    _add_stats_args(parser)
+    _add_install_args(parser)
+
     return parser
 
 
 # â”€â”€ Model listing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
+def _matches_provider_filter(alias: str, model_id: str, provider_filter: str | None) -> bool:
+    if not provider_filter:
+        return True
+    needle = provider_filter.lower()
+    return needle in alias.lower() or needle in model_id.lower()
+
+
+def _build_model_row(
+    alias: str, model_id: str, config_model: str, verbose: bool
+) -> tuple[str, str, str, str, str]:
+    from .cost_local import MODEL_PRICING
+
+    provider = alias.split("-")[0] if "-" in alias else "unknown"
+    marker = "âœ“" if alias == config_model else " "
+    pricing = MODEL_PRICING.get(alias)
+    inp = f"${pricing.per_1k_input:.6f}" if pricing and verbose else ""
+    out = f"${pricing.per_1k_output:.6f}" if pricing and verbose else ""
+    return (f"{marker} {alias}", provider, model_id, inp, out)
+
+
 def list_models(
     ui: UI, provider_filter: str | None = None, verbose: bool = False, refresh: bool = False
 ) -> None:
-    from .cost_local import MODEL_PRICING
-
     if refresh:
         ui.print_success("Refreshing model list...")
     table = Table(
@@ -283,21 +323,9 @@ def list_models(
 
     config_model = apex_config.model
     for alias, model_id in sorted(MODELS.items()):
-        if (
-            provider_filter
-            and provider_filter.lower() not in alias.lower()
-            and provider_filter.lower() not in model_id.lower()
-        ):
+        if not _matches_provider_filter(alias, model_id, provider_filter):
             continue
-        provider = alias.split("-")[0] if "-" in alias else "unknown"
-        marker = "âœ“" if alias == config_model else " "
-        pricing = MODEL_PRICING.get(alias)
-        inp = f"${pricing.per_1k_input:.6f}" if pricing and verbose else ""
-        out = f"${pricing.per_1k_output:.6f}" if pricing and verbose else ""
-        if verbose:
-            table.add_row(f"{marker} {alias}", provider, model_id, inp, out)
-        else:
-            table.add_row(f"{marker} {alias}", provider, model_id)
+        table.add_row(*_build_model_row(alias, model_id, config_model, verbose))
     ui.console.print(table)
 
 
@@ -355,24 +383,32 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
             break
 
 
+@dataclass(frozen=True)
+class OneShotOptions:
+    """Options for a one-shot run."""
+
+    use_stream: bool = False
+    images: list[str] | None = None
+    auto_commit_after: bool = False
+
+
 def run_one_shot(
     prompt: str,
     agent: Agent,
     ui: UI,
-    use_stream: bool = False,
-    images: list[str] | None = None,
-    auto_commit_after: bool = False,
+    options: OneShotOptions | None = None,
 ) -> None:
-    if use_stream:
+    opts = options or OneShotOptions()
+    if opts.use_stream:
         ui.console.print("[cyan]Streaming response:[/cyan]")
-        for chunk in agent.chat(prompt, images=images):
+        for chunk in agent.chat(prompt, images=opts.images):
             ui.console.print(chunk, end="")
         ui.console.print()
     else:
         with ui.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
-            response = agent.chat(prompt, images=images)
+            response = agent.chat(prompt, images=opts.images)
         ui.print_response(response)
-    if auto_commit_after:
+    if opts.auto_commit_after:
         _run_auto_commit(agent, prompt, ui)
 
 
@@ -391,43 +427,66 @@ def _run_auto_commit(agent: Agent, task: str, ui: UI, quiet: bool = False) -> di
     return result
 
 
+@dataclass(frozen=True)
+class CicdOptions:
+    """Options for CI/CD mode."""
+
+    output_format: str = "text"
+    quiet: bool = False
+    images: list[str] | None = None
+    auto_commit_after: bool = False
+
+
+def _cicd_status(ui: UI, quiet: bool):
+    return (
+        ui.console.status("[cyan]Processing...[/cyan]", spinner="dots")
+        if not quiet
+        else ui.console.status("")
+    )
+
+
+def _cicd_json_result(
+    prompt: str, response: str, agent: Agent, auto_commit_result: dict | None
+) -> dict:
+    result = {
+        "success": True,
+        "prompt": prompt,
+        "response": response,
+        "model": agent.model,
+        "usage": agent.usage,
+    }
+    if auto_commit_result is not None:
+        result["auto_commit"] = auto_commit_result
+    return result
+
+
+def _print_cicd_output(ui: UI, response: str, quiet: bool) -> None:
+    if not quiet:
+        ui.print_response(response)
+    else:
+        print(response)
+
+
 def run_cicd_mode(
     prompt: str,
     agent: Agent,
     ui: UI,
-    output_format: str = "text",
-    quiet: bool = False,
-    images: list[str] | None = None,
-    auto_commit_after: bool = False,
+    options: CicdOptions | None = None,
 ) -> None:
+    opts = options or CicdOptions()
     try:
-        with (
-            ui.console.status("[cyan]Processing...[/cyan]", spinner="dots")
-            if not quiet
-            else ui.console.status("")
-        ):
-            response = agent.chat(prompt, images=images)
+        with _cicd_status(ui, opts.quiet):
+            response = agent.chat(prompt, images=opts.images)
         auto_commit_result: dict[str, Any] | None = None
-        if auto_commit_after:
-            auto_commit_result = _run_auto_commit(agent, prompt, ui, quiet=quiet)
-        if output_format == "json":
-            result = {
-                "success": True,
-                "prompt": prompt,
-                "response": response,
-                "model": agent.model,
-                "usage": agent.usage,
-            }
-            if auto_commit_result is not None:
-                result["auto_commit"] = auto_commit_result
+        if opts.auto_commit_after:
+            auto_commit_result = _run_auto_commit(agent, prompt, ui, quiet=opts.quiet)
+        if opts.output_format == "json":
+            result = _cicd_json_result(prompt, response, agent, auto_commit_result)
             print(json.dumps(result, indent=2))
         else:
-            if not quiet:
-                ui.print_response(response)
-            else:
-                print(response)
+            _print_cicd_output(ui, response, opts.quiet)
     except Exception as e:  # noqa: BLE001
-        if output_format == "json":
+        if opts.output_format == "json":
             print(json.dumps({"success": False, "error": str(e)}, indent=2))
         else:
             ui.print_error(f"Error: {e}")
@@ -755,19 +814,23 @@ def _route_mode(parsed: argparse.Namespace, agent: Agent, ui: UI) -> None:
             parsed.prompt_direct,
             agent,
             ui,
-            parsed.output_format,
-            parsed.quiet,
-            images=parsed.image,
-            auto_commit_after=parsed.auto_commit,
+            CicdOptions(
+                output_format=parsed.output_format,
+                quiet=parsed.quiet,
+                images=parsed.image,
+                auto_commit_after=parsed.auto_commit,
+            ),
         )
     elif parsed.prompt:
         run_one_shot(
             parsed.prompt,
             agent,
             ui,
-            parsed.stream,
-            images=parsed.image,
-            auto_commit_after=parsed.auto_commit,
+            OneShotOptions(
+                use_stream=parsed.stream,
+                images=parsed.image,
+                auto_commit_after=parsed.auto_commit,
+            ),
         )
     else:
         run_apex_tui(agent, ui)

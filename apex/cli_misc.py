@@ -142,9 +142,9 @@ def _cmd_run(args: argparse.Namespace, ui: UI) -> None:
     if args.output_format == "json":
         _run_json(prompt, agent)
         return
-    from .main import run_one_shot
+    from .main import OneShotOptions, run_one_shot
 
-    run_one_shot(prompt, agent, ui, args.stream)
+    run_one_shot(prompt, agent, ui, OneShotOptions(use_stream=args.stream))
 
 
 def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
