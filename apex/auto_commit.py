@@ -24,17 +24,18 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 __all__ = [
     "ALLOWED_TYPES",
     "MAX_SUBJECT_LENGTH",
-    "sanitize_message",
-    "is_git_repo",
-    "has_changes",
-    "generate_commit_message",
     "auto_commit",
+    "generate_commit_message",
+    "has_changes",
+    "is_git_repo",
+    "sanitize_message",
 ]
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ def _run_git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
         encoding="utf-8",
         errors="replace",
         timeout=60,
+        check=False,
     )
 
 
@@ -167,17 +169,19 @@ def generate_commit_message(
         if llm is None:
             import litellm
 
-            llm = lambda p: (  # noqa: E731 - small local closure
-                litellm.completion(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": p}],
-                    max_tokens=64,
-                    timeout=30,
+            def llm(p: str) -> str:
+                return (
+                    litellm.completion(
+                        model="gpt-4o-mini",
+                        messages=[{"role": "user", "content": p}],
+                        max_tokens=64,
+                        timeout=30,
+                    )
+                    .choices[0]
+                    .message.content
+                    or ""
                 )
-                .choices[0]
-                .message.content
-                or ""
-            )
+
         raw = llm(prompt)
     except Exception as exc:  # noqa: BLE001 - any LLM failure must not lose the task
         logger.info("auto-commit message generation failed, using fallback: %s", exc)

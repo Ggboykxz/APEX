@@ -197,8 +197,10 @@ class SessionManager:
             agent.cwd = Path(session_data.get("cwd", "."))
             agent.history = session_data.get("history", [])
             return True
-        except Exception as e:
-            logger.error(f"Failed to load session {name}: {e}")
+        except Exception:
+            logger.exception(
+                "Failed to load session %s", name.replace("\n", "\\n").replace("\r", "\\r")
+            )
             return False
 
     def list_sessions(self) -> list[dict[str, Any]]:
@@ -218,6 +220,7 @@ class SessionManager:
                         }
                     )
             except Exception:
+                logger.exception("Failed to read session file %s", filepath)
                 continue
         for filepath in self._sessions_dir.glob("*.enc"):
             if filepath.is_symlink():
@@ -234,6 +237,7 @@ class SessionManager:
                     }
                 )
             except Exception:
+                logger.exception("Failed to decrypt session file %s", filepath)
                 continue
         return sorted(sessions, key=lambda s: s["timestamp"], reverse=True)
 
@@ -291,6 +295,6 @@ class SessionManager:
             agent.history = session_data.get("history", [])
             logger.info(f"Loaded shared session: {share_id}")
             return True
-        except Exception as e:
-            logger.error(f"Failed to load shared session {share_id}: {e}")
+        except Exception:
+            logger.exception("Failed to load shared session %s", share_id)
             return False

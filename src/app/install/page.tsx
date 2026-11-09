@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Terminal, Zap, Copy, Check, ArrowRight,
+  Terminal, Copy, Check, ArrowRight,
   Box, Menu, X, ChevronRight, Apple, Monitor, Container,
-  Download, Key, AlertTriangle, RefreshCw, Cpu, Wrench, Bot, Activity, GitBranch, Users
+  Download, Key, AlertTriangle, RefreshCw
 } from 'lucide-react'
 import { Github } from "@/components/github-icon"
 
@@ -63,12 +63,10 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 
 /* ──── INSTALL METHODS ──── */
 const INSTALL_METHODS = [
-  { id: 'curl', label: 'curl', icon: Terminal, platform: 'macOS / Linux', cmd: 'curl -fsSL https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh | bash', desc: 'One-line installer for macOS and Linux. Downloads and runs the official install script.' },
-  { id: 'pipx', label: 'pipx', icon: Box, platform: 'All', cmd: 'pipx install apex-ai', desc: 'Recommended method. pipx creates an isolated environment, preventing dependency conflicts with other Python packages.' },
-  { id: 'pip', label: 'pip', icon: Download, platform: 'All', cmd: 'pip install apex-ai', desc: 'Standard Python package installer. Works on all platforms with Python 3.11+.' },
-  { id: 'uv', label: 'uv', icon: Zap, platform: 'All', cmd: 'uv tool install apex-ai', desc: 'Install via uv tool manager. Fast, reliable Python package management built in Rust.' },
+  { id: 'npm', label: 'npm', icon: Box, platform: 'All', cmd: 'npm install -g apex-ai\napex --version', desc: 'Recommended. Installs the apex command; the wrapper downloads and verifies the native backend on first run. Zero runtime dependencies.' },
+  { id: 'native', label: 'native', icon: Terminal, platform: 'macOS / Linux', cmd: 'curl -fsSLO https://apex-ai.dev/install.sh\nbash install.sh --method native', desc: 'Downloads the verified apex-rs release asset to ~/.apex/bin (checksum checked before writing). Headless: serve, run, tools.' },
   { id: 'docker', label: 'docker', icon: Container, platform: 'All', cmd: 'docker run -it ghcr.io/ggboykxz/apex', desc: 'Run APEX in a Docker container. Great for isolated environments and CI/CD.' },
-  { id: 'source', label: 'source', icon: Github, platform: 'All', cmd: 'git clone https://github.com/Ggboykxz/APEX.git\ncd APEX\npip install -e .', desc: 'Install from source for development. Clone the repo and install in editable mode.' },
+  { id: 'source', label: 'source', icon: Github, platform: 'Development', cmd: 'git clone https://github.com/Ggboykxz/APEX.git\ncd APEX\npip install -e ".[dev]"', desc: 'Development only. The Python CLI/TUI is not distributed through a package index; run it from a checkout.' },
 ]
 
 const API_KEYS = [
@@ -93,7 +91,7 @@ const API_KEYS = [
 
 /* ──── MAIN ──── */
 export default function InstallPage() {
-  const [activeMethod, setActiveMethod] = useState('pipx')
+  const [activeMethod, setActiveMethod] = useState('npm')
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -110,7 +108,7 @@ export default function InstallPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Installation
               </div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">Install <span className="animated-gradient-text">APEX</span></h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">6 installation methods for every platform. Get started in under a minute.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">Two supported channels — npm and the native backend — plus Docker and a source checkout.</p>
             </motion.div>
           </div>
         </section>
@@ -123,7 +121,7 @@ export default function InstallPage() {
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
                 <h3 className="font-bold font-mono text-apex-cyan mb-3">Minimum</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-cyan" /> Python 3.11 or later</li>
+                  <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-cyan" /> Node 16+ for npm, or no runtime for the native backend</li>
                   <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-cyan" /> At least one API key (or Ollama for free local models)</li>
                   <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-cyan" /> Terminal with 256-color support</li>
                   <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-cyan" /> 100 MB disk space</li>
@@ -132,8 +130,8 @@ export default function InstallPage() {
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
                 <h3 className="font-bold font-mono text-apex-green mb-3">Recommended</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-green" /> Python 3.12+</li>
-                  <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-green" /> pipx for isolated install</li>
+                  <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-green" /> npm install for the apex command</li>
+                  <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-green" /> Native backend for headless servers and CI</li>
                   <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-green" /> Git for version control integration</li>
                   <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-apex-green" /> Ollama for free local models</li>
                 </ul>
@@ -164,8 +162,20 @@ export default function InstallPage() {
                     <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{m.desc}</p>
                     <CodeBlock code={m.cmd} />
                     {m.id === 'docker' && <div className="mt-4 p-3 rounded-lg border border-apex-yellow/20 bg-apex-yellow/5 text-sm text-muted-foreground">💡 Mount your project directory: <code className="text-apex-cyan">docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex</code></div>}
-                    {m.id === 'source' && <div className="mt-4 p-3 rounded-lg border border-apex-cyan/20 bg-apex-cyan/5 text-sm text-muted-foreground">💡 For dev dependencies: <code className="text-apex-cyan">pip install -e &quot;.[dev]&quot;</code></div>}
-                    <div className="mt-4"><CodeBlock code="apex --version" language="Verify" /><CodeBlock code="apex tui" language="Launch TUI" /></div>
+                    {m.id === 'source' && <div className="mt-4 p-3 rounded-lg border border-apex-cyan/20 bg-apex-cyan/5 text-sm text-muted-foreground">💡 Development only — the Python CLI/TUI is not published on PyPI, pip, pipx or uv.</div>}
+                    <div className="mt-4">
+                      {m.id === 'native' ? (
+                        <>
+                          <CodeBlock code="~/.apex/bin/apex-rs --version" language="Verify" />
+                          <CodeBlock code='~/.apex/bin/apex-rs run "Hello"' language="One-shot" />
+                        </>
+                      ) : (
+                        <>
+                          <CodeBlock code="apex --version" language="Verify" />
+                          <CodeBlock code='apex run "Hello"' language="One-shot" />
+                        </>
+                      )}
+                    </div>
                   </motion.div>
                 ))}
               </div>
@@ -215,36 +225,35 @@ export default function InstallPage() {
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#00e5ff', borderLeftWidth: 3 }}>
                 <h3 className="font-bold font-mono text-[#00e5ff] mb-3">macOS</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• Best with curl installer: <code className="text-apex-cyan">curl -fsSL ... | bash</code></li>
-                  <li>• Or pipx for isolated install: <code className="text-apex-cyan">pipx install apex-ai</code></li>
-                  <li>• pipx recommended over pip</li>
+                  <li>• npm or the installer: <code className="text-apex-cyan">bash install.sh</code></li>
+                  <li>• Native backend: <code className="text-apex-cyan">bash install.sh --method native</code></li>
                   <li>• Terminal.app, iTerm2, Warp, Kitty all supported</li>
                 </ul>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#00ff88', borderLeftWidth: 3 }}>
                 <h3 className="font-bold font-mono text-[#00ff88] mb-3">Linux</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• curl installer works on all distros</li>
-                  <li>• pipx for isolated install</li>
+                  <li>• npm or the installer works on all distros</li>
+                  <li>• Native backend for headless servers</li>
                   <li>• Docker for isolated environments</li>
                 </ul>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#ffaa00', borderLeftWidth: 3 }}>
                 <h3 className="font-bold font-mono text-[#ffaa00] mb-3">Windows</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• pip: <code className="text-apex-cyan">pip install apex-ai</code></li>
-                  <li>• uv: <code className="text-apex-cyan">uv tool install apex-ai</code></li>
+                  <li>• npm: <code className="text-apex-cyan">npm install -g apex-ai</code></li>
+                  <li>• Native: <code className="text-apex-cyan">.\install.ps1 -Method native</code></li>
                   <li>• Docker: <code className="text-apex-cyan">docker run -it ghcr.io/ggboykxz/apex</code></li>
-                  <li>• WSL2 recommended for best TUI experience</li>
+                  <li>• WSL2 recommended for the best terminal experience</li>
                 </ul>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#d946ef', borderLeftWidth: 3 }}>
-                <h3 className="font-bold font-mono text-[#d946ef] mb-3">FreeBSD</h3>
+                <h3 className="font-bold font-mono text-[#d946ef] mb-3">Headless / CI</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• Install via pip or pipx</li>
-                  <li>• Python 3.11+ from ports or pkg</li>
-                  <li>• CLI mode fully supported</li>
-                  <li>• TUI may require xterm compatibility</li>
+                  <li>• Native backend: <code className="text-apex-cyan">apex-rs serve</code></li>
+                  <li>• Verified release assets with <code className="text-apex-cyan">.sha256</code> sidecars</li>
+                  <li>• Docker image for reproducible pipelines</li>
+                  <li>• No TUI — use npm or a source checkout for that</li>
                 </ul>
               </div>
             </div>
@@ -258,26 +267,26 @@ export default function InstallPage() {
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-bold font-mono text-apex-cyan mb-4">Upgrade</h3>
-                <CodeBlock code={`# pip\npip install --upgrade apex-ai\n\n# pipx\npipx upgrade apex-ai\n\n# uv\nuv tool upgrade apex-ai\n\n# Check version\napex --version`} />
+                <CodeBlock code={`# npm\nnpm install -g apex-ai@latest\n\n# native (verified download)\nbash install.sh --method native\n\n# source checkout\ngit pull\n\n# Check version\napex --version`} />
               </div>
               <div>
                 <h3 className="font-bold font-mono text-apex-yellow mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Common Issues</h3>
                 <div className="space-y-4">
                   <div className="p-3 rounded-lg border border-border/50 bg-card/30">
                     <h4 className="font-bold text-sm font-mono mb-1">&quot;command not found: apex&quot;</h4>
-                    <p className="text-xs text-muted-foreground">Ensure Python bin directory is in your PATH. Try: <code className="text-apex-cyan">python -m apex.main</code></p>
+                    <p className="text-xs text-muted-foreground">Add the npm global bin directory (or <code className="text-apex-cyan">~/.apex/bin</code> for the native backend) to your PATH, or set <code className="text-apex-cyan">APEX_BINARY=/path/to/apex</code>.</p>
                   </div>
                   <div className="p-3 rounded-lg border border-border/50 bg-card/30">
                     <h4 className="font-bold text-sm font-mono mb-1">&quot;Authentication failed&quot;</h4>
                     <p className="text-xs text-muted-foreground">Check your API key in <code className="text-apex-cyan">~/.apex/.env</code>. Run <code className="text-apex-cyan">echo $ANTHROPIC_API_KEY</code></p>
                   </div>
                   <div className="p-3 rounded-lg border border-border/50 bg-card/30">
-                    <h4 className="font-bold text-sm font-mono mb-1">Import errors on startup</h4>
-                    <p className="text-xs text-muted-foreground">Reinstall: <code className="text-apex-cyan">pip install --force-reinstall apex-ai</code></p>
+                    <h4 className="font-bold text-sm font-mono mb-1">APEX_INSTALL_METHOD rejected</h4>
+                    <p className="text-xs text-muted-foreground">pip, pipx and uv channels were removed. Unset the variable or set it to <code className="text-apex-cyan">native</code>.</p>
                   </div>
                   <div className="p-3 rounded-lg border border-border/50 bg-card/30">
-                    <h4 className="font-bold text-sm font-mono mb-1">Python version mismatch</h4>
-                    <p className="text-xs text-muted-foreground">Requires Python 3.11+. Check: <code className="text-apex-cyan">python --version</code></p>
+                    <h4 className="font-bold text-sm font-mono mb-1">Native download fails</h4>
+                    <p className="text-xs text-muted-foreground">Confirm the release has an asset for your target and that <code className="text-apex-cyan">APEX_INSTALL_DIR</code> is writable. Checksum mismatches abort before writing.</p>
                   </div>
                 </div>
               </div>

@@ -10,14 +10,20 @@ from apex.git_undo import GitUndoManager, UndoSnapshot
 
 
 def _git_init(path):
-    subprocess.run(["git", "init"], cwd=path, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=path, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=path, capture_output=True)
+    subprocess.run(["git", "init"], cwd=path, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=path, capture_output=True, check=False
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=path, capture_output=True, check=False
+    )
 
 
 def _git_commit(path, msg="init"):
-    subprocess.run(["git", "add", "."], cwd=path, capture_output=True)
-    subprocess.run(["git", "commit", "-m", msg, "--allow-empty"], cwd=path, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=path, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "commit", "-m", msg, "--allow-empty"], cwd=path, capture_output=True, check=False
+    )
 
 
 class TestUndoSnapshot:
@@ -199,7 +205,7 @@ class TestGitUndoManager:
         with tempfile.TemporaryDirectory() as tmpdir:
             mgr = GitUndoManager(cwd=Path(tmpdir))
             # Should handle gracefully
-            code, stdout, stderr = mgr._run_git("status")
+            code, _stdout, _stderr = mgr._run_git("status")
             assert code != 0  # Not a git repo
 
     def test_get_current_files(self, manager, git_repo):
@@ -234,7 +240,7 @@ class TestGitUndoEdgeCases:
 
         with tempfile.TemporaryDirectory() as tmp:
             mgr = GitUndoManager(cwd=Path(tmp))
-            code, stdout, stderr = mgr._run_git("status")
+            code, _stdout, stderr = mgr._run_git("status")
             assert code == -1
             assert "git not found" in stderr
 

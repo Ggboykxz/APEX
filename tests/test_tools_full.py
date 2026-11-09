@@ -19,9 +19,13 @@ def git_executor(tmp_path):
     """Create ToolExecutor in an initialized git repo."""
     cwd = tmp_path / "git_project"
     cwd.mkdir()
-    subprocess.run(["git", "init"], cwd=cwd, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=cwd, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Test User"], cwd=cwd, capture_output=True)
+    subprocess.run(["git", "init"], cwd=cwd, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=cwd, capture_output=True, check=False
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"], cwd=cwd, capture_output=True, check=False
+    )
     return ToolExecutor(cwd=cwd)
 
 
@@ -203,8 +207,10 @@ def test_get_git_log_empty_repo(git_executor):
 def test_get_git_log_with_commits(git_executor, tmp_path):
     repo_dir = tmp_path / "git_project"
     (repo_dir / "test.txt").write_text("initial")
-    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "commit", "-m", "Initial commit"], cwd=repo_dir, capture_output=True, check=False
+    )
     result = git_executor.execute("get_git_log", {"n": 5})
     assert "Initial commit" in result
 
@@ -225,8 +231,8 @@ def test_git_diff_clean_repo(git_executor):
 def test_git_diff_with_changes(git_executor, tmp_path):
     repo_dir = tmp_path / "git_project"
     (repo_dir / "test.txt").write_text("initial")
-    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "init"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True, check=False)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo_dir, capture_output=True, check=False)
     (repo_dir / "test.txt").write_text("modified")
     result = git_executor.execute("git_diff", {})
     assert isinstance(result, str)
@@ -235,8 +241,8 @@ def test_git_diff_with_changes(git_executor, tmp_path):
 def test_git_diff_with_ref(git_executor, tmp_path):
     repo_dir = tmp_path / "git_project"
     (repo_dir / "test.txt").write_text("initial")
-    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "init"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "add", "test.txt"], cwd=repo_dir, capture_output=True, check=False)
+    subprocess.run(["git", "commit", "-m", "init"], cwd=repo_dir, capture_output=True, check=False)
     result = git_executor.execute("git_diff", {"ref": "HEAD"})
     assert isinstance(result, str)
 
@@ -261,7 +267,7 @@ def test_get_repo_map_returns_string(executor):
 
 
 def test_get_repo_map_with_git(tmp_path):
-    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
     (tmp_path / "app.py").write_text("code")
     e = ToolExecutor(cwd=tmp_path)
     result = e.execute("get_repo_map", {"path": str(tmp_path)})

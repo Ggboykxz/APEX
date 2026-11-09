@@ -1,5 +1,7 @@
 """Snapshot system for APEX - Git-based undo/redo."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -65,16 +67,20 @@ class SnapshotManager:
         """Initialize or use existing git repo for snapshots."""
         git_dir = self._snapshots_dir / ".git"
         if not git_dir.exists():
-            subprocess.run(["git", "init"], cwd=self._snapshots_dir, capture_output=True)
+            subprocess.run(
+                ["git", "init"], cwd=self._snapshots_dir, capture_output=True, check=False
+            )
             subprocess.run(
                 ["git", "config", "user.email", "apex@snapshot.local"],
                 cwd=self._snapshots_dir,
                 capture_output=True,
+                check=False,
             )
             subprocess.run(
                 ["git", "config", "user.name", "APEX Snapshot"],
                 cwd=self._snapshots_dir,
                 capture_output=True,
+                check=False,
             )
 
     def _get_file_hash(self, path: Path) -> str:
@@ -98,7 +104,7 @@ class SnapshotManager:
         return snapshot_id
 
     def add_file_change(
-        self, snapshot_id: str, path: str, before: str = None, after: str = None
+        self, snapshot_id: str, path: str, before: str | None = None, after: str | None = None
     ) -> None:
         """Add a file change to a snapshot."""
         for snapshot in self._undo_stack:
@@ -213,6 +219,7 @@ class SnapshotManager:
             ["git", "add", str(meta_path.relative_to(self._snapshots_dir))],
             cwd=self._snapshots_dir,
             capture_output=True,
+            check=False,
         )
 
     def get_history(self, limit: int = 50) -> list[Snapshot]:

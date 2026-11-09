@@ -1,6 +1,6 @@
 """UI components for APEX - Premium terminal interface - Better than OpenCode."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 from rich.box import ROUNDED
 from rich.columns import Columns
@@ -15,7 +15,7 @@ class APEXTheme:
     """Premium color themes - Better than OpenCode."""
 
     # Dracula-inspired (default)
-    DRACULA = {
+    DRACULA: ClassVar[dict[str, str]] = {
         "bg": "#282A36",
         "fg": "#F8F8F2",
         "red": "#FF5555",
@@ -30,7 +30,7 @@ class APEXTheme:
     }
 
     # Nord-inspired
-    NORD = {
+    NORD: ClassVar[dict[str, str]] = {
         "bg": "#2E3440",
         "fg": "#ECEFF4",
         "red": "#BF616A",
@@ -45,7 +45,7 @@ class APEXTheme:
     }
 
     # One Dark
-    ONE_DARK = {
+    ONE_DARK: ClassVar[dict[str, str]] = {
         "bg": "#282C34",
         "fg": "#ABB2BF",
         "red": "#E06C75",

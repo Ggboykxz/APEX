@@ -5,14 +5,12 @@ from __future__ import annotations
 import logging
 import time
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+
+import aiohttp
+from aiohttp import web
 
 from .auth import AuthManager
 from .config import GatewayConfig, TierConfig
-
-if TYPE_CHECKING:
-    import aiohttp
-    from aiohttp import web
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +85,7 @@ class RequestRouter:
             )
 
         today = datetime.now(UTC).strftime("%Y-%m-%d")
-        day_req, day_tok = self.auth.get_or_create_day_usage(key_info["key_id"], today)
+        day_req, _day_tok = self.auth.get_or_create_day_usage(key_info["key_id"], today)
 
         if day_req >= tier.daily_requests:
             return web.json_response(

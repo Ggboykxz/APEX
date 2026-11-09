@@ -147,7 +147,7 @@ def _render_template(template: str, args: list[str], project_dir: str) -> str:
             return proc.stdout.strip() or proc.stderr.strip()
         except subprocess.TimeoutExpired:
             return ""
-        except Exception:
+        except Exception:  # noqa: BLE001
             return ""
 
     result = re.sub(r"!([^\n]+)", _exec_shell, result)
@@ -220,7 +220,7 @@ class CustomCommandManager:
                     model=frontmatter.get("model"),
                     subtask=bool(frontmatter.get("subtask", False)),
                 )
-            except Exception:
+            except Exception:  # noqa: S112, BLE001
                 continue
 
     def get(self, name: str) -> CommandConfig | None:

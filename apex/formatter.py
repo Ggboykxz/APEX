@@ -197,7 +197,7 @@ class FormatterManager:
                 return False
             try:
                 return dep in p.read_text(encoding="utf-8", errors="replace")
-            except Exception:
+            except Exception:  # noqa: BLE001
                 return False
         p = Path(req)
         if p.is_file():
@@ -251,6 +251,9 @@ class FormatterManager:
     def format_code(self, code: str, extension: str) -> str:
         if not self._loaded:
             self.load_from_config()
+        # Reject extensions that could escape the temp directory (path injection).
+        if not extension or "/" in extension or "\\" in extension or ".." in extension:
+            return code
         ext = extension if extension.startswith(".") else f".{extension}"
         for fmt in self._formatters:
             if fmt.disabled:
@@ -268,36 +271,41 @@ class FormatterManager:
         cmd = self._build_command(fmt, file_path)
         env = {**os.environ, **fmt.environment}
         try:
+            # cmd is a list (not shell=True), so shell injection is impossible.
+            # file_path comes from formatter config / user input but is passed
+            # as a discrete argument, not interpolated into a shell string.
             result = subprocess.run(
                 cmd,
                 env=env,
                 capture_output=True,
                 timeout=60,
+                check=False,
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             return False
 
     def _run_formatter_tempfile(self, fmt: FormatterConfig, code: str, extension: str) -> str:
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False)
-        try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False) as tmp:
             tmp.write(code)
-            tmp.close()
-            cmd = self._build_command(fmt, tmp.name)
+            tmp_path = tmp.name
+        try:
+            cmd = self._build_command(fmt, tmp_path)
             env = {**os.environ, **fmt.environment}
             result = subprocess.run(
                 cmd,
                 env=env,
                 capture_output=True,
                 timeout=60,
+                check=False,
             )
             if result.returncode == 0:
-                return Path(tmp.name).read_text(encoding="utf-8")
+                return Path(tmp_path).read_text(encoding="utf-8")
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
         finally:
             try:
-                os.unlink(tmp.name)
+                os.unlink(tmp_path)
             except OSError:
                 pass
         return code

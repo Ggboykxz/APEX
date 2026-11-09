@@ -62,14 +62,21 @@ class TestWorkspaceManager:
 
     def test_analyze_with_git(self, tmp_path):
         # Create a git repo
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         subprocess.run(
-            ["git", "config", "user.email", "test@test.com"], cwd=tmp_path, capture_output=True
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
         )
-        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test"], cwd=tmp_path, capture_output=True, check=False
+        )
         (tmp_path / "README.md").write_text("# Test")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True, check=False
+        )
 
         wm = WorkspaceManager(root=tmp_path)
         ctx = wm.analyze()
@@ -195,14 +202,21 @@ class TestWorkspaceManager:
         assert "Language:" in ctx
 
     def test_get_system_prompt_context_with_git(self, tmp_path):
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         subprocess.run(
-            ["git", "config", "user.email", "t@t.com"], cwd=tmp_path, capture_output=True
+            ["git", "config", "user.email", "t@t.com"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
         )
-        subprocess.run(["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True, check=False
+        )
         (tmp_path / "f.py").write_text("x=1")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True, check=False
+        )
 
         wm = WorkspaceManager(root=tmp_path)
         ctx = wm.get_system_prompt_context()
@@ -218,19 +232,27 @@ class TestWorkspaceEdgeCases:
 
         monkeypatch.setenv("GITHUB_HEAD_REF", "feature")
         # Create a minimal git repo
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         subprocess.run(
-            ["git", "config", "user.email", "t@t.com"], cwd=tmp_path, capture_output=True
+            ["git", "config", "user.email", "t@t.com"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
         )
-        subprocess.run(["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True, check=False
+        )
         (tmp_path / "f.py").write_text("x=1")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True, check=False
+        )
         # Add a remote with github.com URL
         subprocess.run(
             ["git", "remote", "add", "origin", "https://github.com/owner/repo.git"],
             cwd=tmp_path,
             capture_output=True,
+            check=False,
         )
         wm = WorkspaceManager(root=tmp_path)
         ctx = wm.analyze()
@@ -243,18 +265,26 @@ class TestWorkspaceEdgeCases:
         monkeypatch.setenv("GITHUB_PR_NUMBER", "42")
         import subprocess
 
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         subprocess.run(
-            ["git", "config", "user.email", "t@t.com"], cwd=tmp_path, capture_output=True
+            ["git", "config", "user.email", "t@t.com"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
         )
-        subprocess.run(["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True, check=False
+        )
         (tmp_path / "f.py").write_text("x=1")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True, check=False
+        )
         subprocess.run(
             ["git", "remote", "add", "origin", "https://github.com/owner/repo.git"],
             cwd=tmp_path,
             capture_output=True,
+            check=False,
         )
         wm = WorkspaceManager(root=tmp_path)
         ctx = wm.analyze()
@@ -283,14 +313,21 @@ class TestWorkspaceEdgeCases:
         """Hit line 198 — dirty status."""
         import subprocess
 
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         subprocess.run(
-            ["git", "config", "user.email", "t@t.com"], cwd=tmp_path, capture_output=True
+            ["git", "config", "user.email", "t@t.com"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
         )
-        subprocess.run(["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True, check=False
+        )
         (tmp_path / "f.py").write_text("x=1")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True, check=False
+        )
         # Make it dirty
         (tmp_path / "f.py").write_text("x=2")
         wm = WorkspaceManager(root=tmp_path)
@@ -301,14 +338,21 @@ class TestWorkspaceEdgeCases:
         """Hit lines 200, 202 — commits ahead/behind."""
         import subprocess
 
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         subprocess.run(
-            ["git", "config", "user.email", "t@t.com"], cwd=tmp_path, capture_output=True
+            ["git", "config", "user.email", "t@t.com"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
         )
-        subprocess.run(["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True, check=False
+        )
         (tmp_path / "f.py").write_text("x=1")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True, check=False
+        )
         wm = WorkspaceManager(root=tmp_path)
         ctx = wm.get_system_prompt_context()
         assert "Git branch" in ctx
@@ -317,14 +361,21 @@ class TestWorkspaceEdgeCases:
         """Force commits_ahead and commits_behind > 0 via mocking subprocess."""
         import subprocess
 
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         subprocess.run(
-            ["git", "config", "user.email", "t@t.com"], cwd=tmp_path, capture_output=True
+            ["git", "config", "user.email", "t@t.com"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
         )
-        subprocess.run(["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "T"], cwd=tmp_path, capture_output=True, check=False
+        )
         (tmp_path / "f.py").write_text("x=1")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True, check=False
+        )
 
         # Mock subprocess.run to return values for ahead/behind
         original_run = subprocess.run

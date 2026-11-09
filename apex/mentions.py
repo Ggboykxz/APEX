@@ -3,6 +3,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 
 @dataclass
@@ -24,7 +25,7 @@ class MentionParser:
     # Also match @ in middle of word if followed by something with a dot (file extension)
     _MENTION_AT_BOUNDARY = re.compile(r"(?:^|(?<=\s))@(\S+)")
     _MENTION_IN_WORD_WITH_DOT = re.compile(r"(?<=\S)@(\S+\.\S+)")
-    AGENT_NAMES = {
+    AGENT_NAMES: ClassVar[set[str]] = {
         "build",
         "plan",
         "planner",
@@ -108,7 +109,7 @@ class MentionParser:
                     # Windows, would decode arbitrary bytes instead of rejecting them).
                     content = resolved.read_text(encoding="utf-8")
                     result[fm.path] = content[:5000]
-                except Exception:
+                except Exception:  # noqa: S110, BLE001
                     pass
 
         return result

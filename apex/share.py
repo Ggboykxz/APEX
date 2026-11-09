@@ -47,7 +47,7 @@ class ShareManager:
                 val = cfg.get("share", "manual")
                 if val in ("manual", "auto", "disabled"):
                     return val
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         apex_config_path = Path.home() / ".apex" / "config.json"
         if apex_config_path.exists():
@@ -57,7 +57,7 @@ class ShareManager:
                 val = cfg.get("share", "manual")
                 if val in ("manual", "auto", "disabled"):
                     return val
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         return "manual"
 
@@ -153,7 +153,7 @@ class ShareManager:
                         "messages_count": data.get("messages_count", 0),
                     }
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001, S112
                 continue
         return results
 
@@ -164,7 +164,7 @@ class ShareManager:
                 with open(filepath) as f:
                     data = json.load(f)
                 return data.get("url", f"https://apex-ai.dev/s/{share_id}")
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         return ""
 
@@ -192,7 +192,7 @@ class ShareManager:
         try:
             with open(path) as f:
                 data = json.load(f)
-        except Exception:
+        except Exception:  # noqa: BLE001
             return None
 
         session_data = data.get("data", data)
@@ -223,14 +223,14 @@ class ShareManager:
                             data = json.load(f)
                         if data.get("session_id") == session_id or data.get("name") == session_id:
                             return data
-                    except Exception:
+                    except Exception:  # noqa: BLE001, S112
                         continue
             for fpath in base.glob(f"*{session_id}*"):
                 if fpath.is_file() and fpath.suffix == ".json":
                     try:
                         with open(fpath) as f:
                             return json.load(f)
-                    except Exception:
+                    except Exception:  # noqa: BLE001, S112
                         continue
         return {}
 

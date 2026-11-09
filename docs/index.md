@@ -56,7 +56,7 @@ apex run "fix bugs"   # One-shot mode
 
 ```bash
 # 1. Install
-pip install apex-ai
+npm install -g apex-ai
 
 # 2. Set your API key
 export ANTHROPIC_API_KEY=sk-ant-...

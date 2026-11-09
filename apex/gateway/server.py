@@ -50,7 +50,7 @@ class GatewayServer:
             data = await request.json()
         except json.JSONDecodeError:
             return web.json_response({"error": "Invalid JSON"}, status=400)
-        except Exception:
+        except Exception:  # noqa: BLE001
             data = {}
         tier = data.get("tier", self.config.default_tier)
         label = data.get("label", "")
@@ -89,9 +89,7 @@ class GatewayServer:
     async def handle_models(self, request: web.Request) -> web.Response:
         from ..config import MODELS
 
-        free_models = {
-            k: v for k, v in MODELS.items() if k.startswith("free-") or k.startswith("pro-")
-        }
+        free_models = {k: v for k, v in MODELS.items() if k.startswith(("free-", "pro-"))}
         return web.json_response(
             {
                 "models": [

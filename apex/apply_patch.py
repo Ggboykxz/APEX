@@ -385,12 +385,8 @@ def _codex_path(line: str, directive: str, index: int) -> tuple[str, int]:
 
 def _is_codex_directive(line: str) -> bool:
     stripped = line.strip()
-    return (
-        stripped == _CODEX_END
-        or stripped.startswith(_CODEX_ADD)
-        or stripped.startswith(_CODEX_UPDATE)
-        or stripped.startswith(_CODEX_DELETE)
-        or stripped.startswith("***")
+    return stripped == _CODEX_END or stripped.startswith(
+        (_CODEX_ADD, _CODEX_UPDATE, _CODEX_DELETE, "***")
     )
 
 
@@ -522,11 +518,7 @@ def _parse_unified(lines: list[str], start: int) -> list[_RawFile]:
                 hunk, index = _parse_unified_hunk(lines, index, path)
                 hunks.append(hunk)
                 continue
-            if (
-                current.startswith("--- ")
-                or current.startswith("diff --git ")
-                or current.startswith(_UNIFIED_METADATA)
-            ):
+            if current.startswith(("--- ", "diff --git ")) or current.startswith(_UNIFIED_METADATA):
                 break
             if current.startswith("***"):
                 raise PatchError(
@@ -557,7 +549,7 @@ def _header_path(value: str) -> str:
 def _strip_unified_prefix(path: str) -> str | None:
     if path == "/dev/null":
         return None
-    if path.startswith("a/") or path.startswith("b/"):
+    if path.startswith(("a/", "b/")):
         return path[2:]
     return path
 

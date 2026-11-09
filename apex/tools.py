@@ -1458,7 +1458,7 @@ class ToolExecutor:
                         return loop.run_until_complete(mcp_manager.call_tool(tool_name, args))
                     except RuntimeError:
                         return asyncio.run(mcp_manager.call_tool(tool_name, args))
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     return f"ERROR: {type(e).__name__}: {e}"
             return f"ERROR: Unknown tool '{tool_name}'"
         key = f"{tool_name}:{json.dumps(args, sort_keys=True)}"
@@ -1472,14 +1472,14 @@ class ToolExecutor:
             return f"ERROR: Doom loop detected — '{tool_name}' called 3+ times with identical arguments. Stopping to prevent infinite loop."
         try:
             result = method(args)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {type(e).__name__}: {e}"
         try:
             from .plugins import plugin_manager
 
             plugin_manager.trigger_hook("tool_call", tool_name, args, result)
         except Exception:
-            pass
+            logger.exception("Plugin hook failed for tool %s", tool_name)
         return result
 
     def _execute_read_file(self, args: dict[str, Any]) -> str:
@@ -1538,7 +1538,7 @@ class ToolExecutor:
             for i, line in enumerate(lines, 1):
                 result.append(f"{i:>{max_line_num}}  {line}")
             return "\n".join(result)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot read file: {e}"
 
     def _execute_write_file(self, args: dict[str, Any]) -> str:
@@ -1547,7 +1547,7 @@ class ToolExecutor:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(args["content"])
             return f"SUCCESS: Written {len(args['content'])} bytes to {path}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot write file: {e}"
 
     def _execute_edit_file(self, args: dict[str, Any]) -> str:
@@ -1563,7 +1563,7 @@ class ToolExecutor:
             new_content = content.replace(old_string, new_string, 1)
             path.write_text(new_content)
             return f"SUCCESS: Edited {path}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot edit file: {e}"
 
     def _execute_run_command(self, args: dict[str, Any]) -> str:
@@ -1585,7 +1585,13 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                command, shell=True, cwd=self.cwd, capture_output=True, text=True, timeout=300
+                command,
+                shell=True,
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
             )
             output = []
             if result.stdout:
@@ -1597,7 +1603,7 @@ class ToolExecutor:
             return "\n".join(output) if output else "[no output]"
         except subprocess.TimeoutExpired:
             return "ERROR: Command timed out after 300 seconds"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot run command: {e}"
 
     def _execute_list_files(self, args: dict[str, Any]) -> str:
@@ -1612,11 +1618,11 @@ class ToolExecutor:
                 try:
                     size = entry.stat().st_size
                     size_str = f"{size:>10}" if entry.is_file() else "<DIR>    "
-                except Exception:
+                except Exception:  # noqa: BLE001
                     size_str = "?          "
                 entries.append(f"{size_str}  {entry.name}")
             return "\n".join(entries) if entries else "[empty directory]"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot list directory: {e}"
 
     def _execute_search_in_files(self, args: dict[str, Any]) -> str:
@@ -1635,11 +1641,11 @@ class ToolExecutor:
                             if regex.search(line):
                                 results.append(f"{file_path}:{i}: {line.rstrip()}")
                     except Exception:
-                        pass
+                        logger.exception("Failed to read search file %s", file_path)
             return "\n".join(results) if results else "[no matches found]"
         except re.error as e:
             return f"ERROR: Invalid regex: {e}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Search failed: {e}"
 
     def _execute_delete_file(self, args: dict[str, Any]) -> str:
@@ -1654,7 +1660,7 @@ class ToolExecutor:
                     return f"ERROR: Directory not empty: {path}"
                 path.rmdir()
             return f"SUCCESS: Deleted {path}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot delete: {e}"
 
     def _execute_create_directory(self, args: dict[str, Any]) -> str:
@@ -1662,7 +1668,7 @@ class ToolExecutor:
         try:
             path.mkdir(parents=True, exist_ok=True)
             return f"SUCCESS: Created directory {path}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot create directory: {e}"
 
     def _execute_glob_search(self, args: dict[str, Any]) -> str:
@@ -1686,7 +1692,7 @@ class ToolExecutor:
                     rel = m
                 results.append(str(rel))
             return "\n".join(sorted(results))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Glob search failed: {e}"
 
     def _execute_get_file_tree(self, args: dict[str, Any]) -> str:
@@ -1742,7 +1748,7 @@ class ToolExecutor:
                 )
             )
             return "\n".join(diff) if diff else "[files are identical]"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot diff files: {e}"
 
     def _execute_get_git_status(self, args: dict[str, Any]) -> str:
@@ -1750,12 +1756,16 @@ class ToolExecutor:
             return "ERROR: Not a git repository"
         try:
             result = subprocess.run(
-                ["git", "status", "--porcelain"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "status", "--porcelain"],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if not result.stdout.strip():
                 return "[working tree clean]"
             return result.stdout
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Git status failed: {e}"
 
     def _execute_get_git_log(self, args: dict[str, Any]) -> str:
@@ -1768,9 +1778,10 @@ class ToolExecutor:
                 cwd=self.cwd,
                 capture_output=True,
                 text=True,
+                check=False,
             )
             return result.stdout or "[no commits]"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Git log failed: {e}"
 
     def _execute_git_diff(self, args: dict[str, Any]) -> str:
@@ -1781,9 +1792,9 @@ class ToolExecutor:
             cmd = ["git", "diff"]
             if ref:
                 cmd.append(ref)
-            result = subprocess.run(cmd, cwd=self.cwd, capture_output=True, text=True)
+            result = subprocess.run(cmd, cwd=self.cwd, capture_output=True, text=True, check=False)
             return result.stdout or "[no changes]"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Git diff failed: {e}"
 
     def _execute_web_search(self, args: dict[str, Any]) -> str:
@@ -1802,10 +1813,10 @@ class ToolExecutor:
             if exa_key:
                 return self._web_search_exa(query, exa_key)
             return self._web_search_duckduckgo(query)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             try:
                 return self._web_search_duckduckgo(query)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 return f"ERROR: Web search failed: {e}"
 
     def _web_search_duckduckgo(self, query: str) -> str:
@@ -1814,7 +1825,7 @@ class ToolExecutor:
 
         url = f"https://duckduckgo.com/html/?q={urllib.parse.quote(query)}"
         result = subprocess.run(
-            ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30
+            ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30, check=False
         )
         html = result.stdout
         titles = re.findall(r'<a class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)', html)
@@ -1837,6 +1848,7 @@ class ToolExecutor:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         data = json.loads(result.stdout or "{}")
         items = (data.get("web") or {}).get("results") or []
@@ -1865,6 +1877,7 @@ class ToolExecutor:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         data = json.loads(result.stdout or "{}")
         items = data.get("results") or []
@@ -1895,6 +1908,7 @@ class ToolExecutor:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         data = json.loads(result.stdout or "{}")
         items = data.get("results") or []
@@ -1909,7 +1923,7 @@ class ToolExecutor:
         url = args["url"]
         try:
             result = subprocess.run(
-                ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30
+                ["curl", "-s", "-L", url], capture_output=True, text=True, timeout=30, check=False
             )
             html = result.stdout
 
@@ -1923,7 +1937,7 @@ class ToolExecutor:
             cleaned = cleaned.strip()
 
             return cleaned[:3000] + ("..." if len(cleaned) > 3000 else "")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Fetch failed: {e}"
 
     def _execute_read_image(self, args: dict[str, Any]) -> str:
@@ -1937,7 +1951,7 @@ class ToolExecutor:
             with open(path, "rb") as f:
                 data = base64.b64encode(f.read()).decode("utf-8")
             return f"data:image/{path.suffix[1:]};base64,{data}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot read image: {e}"
 
     def _execute_run_test(self, args: dict[str, Any]) -> str:
@@ -1956,7 +1970,12 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                commands[framework], cwd=self.cwd, capture_output=True, text=True, timeout=300
+                commands[framework],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
             )
             output = []
             if result.stdout:
@@ -1968,7 +1987,7 @@ class ToolExecutor:
             return "ERROR: Tests timed out after 300 seconds"
         except FileNotFoundError:
             return f"ERROR: {framework} not found. Install it first."
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Test execution failed: {e}"
 
     def _execute_format_file(self, args: dict[str, Any]) -> str:
@@ -1999,7 +2018,12 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                commands[manager], cwd=self.cwd, capture_output=True, text=True, timeout=300
+                commands[manager],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
             )
             if result.returncode == 0:
                 return f"SUCCESS: Installed {package} via {manager}"
@@ -2008,7 +2032,7 @@ class ToolExecutor:
             return "ERROR: Installation timed out"
         except FileNotFoundError:
             return f"ERROR: {manager} not found"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Installation failed: {e}"
 
     def _execute_task(self, args: dict[str, Any]) -> str:
@@ -2060,7 +2084,7 @@ class ToolExecutor:
             }
 
             return f"[PREVIEW {preview_id}]\n{diff_text}\n\nUse apply_edit with preview_id={preview_id} to confirm, or the edit will be discarded."
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Preview failed: {e}"
 
     def _execute_apply_edit(self, args: dict[str, Any]) -> str:
@@ -2080,7 +2104,7 @@ class ToolExecutor:
             new_content = content.replace(preview["old_string"], preview["new_string"], 1)
             path.write_text(new_content)
             return f"SUCCESS: Applied edit to {path}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Apply failed: {e}"
 
     def _execute_clipboard_read(self, args: dict[str, Any]) -> str:
@@ -2091,14 +2115,17 @@ class ToolExecutor:
         except ImportError:
             try:
                 result = subprocess.run(
-                    ["xclip", "-selection", "clipboard", "-o"], capture_output=True, text=True
+                    ["xclip", "-selection", "clipboard", "-o"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
                 if result.returncode == 0:
                     return result.stdout
             except Exception:
-                pass
+                logger.exception("Clipboard read via xclip failed")
             return "ERROR: No clipboard tool available. Install pyperclip or xclip."
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot read clipboard: {e}"
 
     def _execute_clipboard_write(self, args: dict[str, Any]) -> str:
@@ -2111,13 +2138,17 @@ class ToolExecutor:
         except ImportError:
             try:
                 subprocess.run(
-                    ["xclip", "-selection", "clipboard"], input=text, text=True, capture_output=True
+                    ["xclip", "-selection", "clipboard"],
+                    input=text,
+                    text=True,
+                    capture_output=True,
+                    check=False,
                 )
                 return f"SUCCESS: Copied {len(text)} chars to clipboard"
             except Exception:
-                pass
+                logger.exception("Clipboard write via xclip failed")
             return "ERROR: No clipboard tool available. Install pyperclip or xclip."
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Cannot write to clipboard: {e}"
 
     def _execute_ask_user(self, args: dict[str, Any]) -> str:
@@ -2222,7 +2253,7 @@ class ToolExecutor:
             if exc.path and exc.path not in exc.message:
                 detail += f" ({exc.path})"
             return f"ERROR: {detail}"
-        except Exception as exc:  # pragma: no cover - defensive boundary
+        except Exception as exc:  # pragma: no cover - defensive boundary  # noqa: BLE001
             return f"ERROR: patch_failed: {exc}"
 
         count = len(result["files"])
@@ -2341,7 +2372,7 @@ class ToolExecutor:
         try:
             output_path = pi.create_context_file()
             return f"SUCCESS: Project initialized\nCreated: {output_path}\n\nRun /map to see project context."
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Failed to initialize project: {e}"
 
     def _execute_analyze_project(self, args: dict[str, Any]) -> str:
@@ -2399,7 +2430,7 @@ class ToolExecutor:
 
         try:
             return self._shell_session.run(command)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_close_shell(self, args: dict[str, Any]) -> str:
@@ -2432,19 +2463,23 @@ class ToolExecutor:
         checkout = args.get("checkout", False)
         try:
             cmd = ["git", "branch", name]
-            subprocess.run(cmd, cwd=self.cwd, capture_output=True)
+            subprocess.run(cmd, cwd=self.cwd, capture_output=True, check=False)
             if checkout:
-                subprocess.run(["git", "checkout", name], cwd=self.cwd, capture_output=True)
+                subprocess.run(
+                    ["git", "checkout", name], cwd=self.cwd, capture_output=True, check=False
+                )
             return f"SUCCESS: Created branch '{name}'" + (" and checked out" if checkout else "")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_git_switch_branch(self, args: dict[str, Any]) -> str:
         name = args["name"]
         try:
-            subprocess.run(["git", "checkout", name], cwd=self.cwd, capture_output=True)
+            subprocess.run(
+                ["git", "checkout", name], cwd=self.cwd, capture_output=True, check=False
+            )
             return f"SUCCESS: Switched to branch '{name}'"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_git_delete_branch(self, args: dict[str, Any]) -> str:
@@ -2452,18 +2487,18 @@ class ToolExecutor:
         force = args.get("force", False)
         try:
             cmd = ["git", "branch", "-D" if force else "-d", name]
-            subprocess.run(cmd, cwd=self.cwd, capture_output=True)
+            subprocess.run(cmd, cwd=self.cwd, capture_output=True, check=False)
             return f"SUCCESS: Deleted branch '{name}'"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_git_list_branches(self, args: dict[str, Any]) -> str:
         try:
             result = subprocess.run(
-                ["git", "branch", "-a"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "branch", "-a"], cwd=self.cwd, capture_output=True, text=True, check=False
             )
             return f"Branches:\n{result.stdout}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_git_create_pr(self, args: dict[str, Any]) -> str:
@@ -2482,7 +2517,7 @@ class ToolExecutor:
                 if head:
                     cmd += ["--head", head]
                 result = subprocess.run(
-                    cmd, cwd=self.cwd, capture_output=True, text=True, timeout=60
+                    cmd, cwd=self.cwd, capture_output=True, text=True, timeout=60, check=False
                 )
                 if result.returncode == 0:
                     return result.stdout.strip() or "PR created."
@@ -2497,7 +2532,11 @@ class ToolExecutor:
                 return "ERROR: gh CLI not found and no GITHUB_TOKEN/GH_TOKEN set."
             # Resolve owner/repo from git remote.
             remote = subprocess.run(
-                ["git", "remote", "get-url", "origin"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "remote", "get-url", "origin"],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             ).stdout.strip()
             import re
 
@@ -2512,6 +2551,7 @@ class ToolExecutor:
                     cwd=self.cwd,
                     capture_output=True,
                     text=True,
+                    check=False,
                 ).stdout.strip()
             payload = _json.dumps(
                 {"title": title, "body": body, "base": base, "head": head}
@@ -2529,7 +2569,7 @@ class ToolExecutor:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 data = _json.loads(resp.read().decode())
             return data.get("html_url", "PR created.")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: PR creation failed: {e}"
 
     def _execute_get_completions(self, args: dict[str, Any]) -> str:
@@ -2565,7 +2605,7 @@ class ToolExecutor:
             with open(path, "rb") as f:
                 data = base64.b64encode(f.read()).decode()
             return f"[IMAGE DATA] {path.name} ({len(data)} bytes base64)"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_inline_edit(self, args: dict[str, Any]) -> str:
@@ -2584,7 +2624,7 @@ class ToolExecutor:
             new_lines = lines[:start] + [content] + lines[end:]
             path.write_text("\n".join(new_lines))
             return f"SUCCESS: Edited {path} at line {line}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_retry_last(self, args: dict[str, Any]) -> str:
@@ -2602,20 +2642,24 @@ class ToolExecutor:
             return "ERROR: No files specified"
 
         try:
-            subprocess.run(["git", "add"] + files, cwd=self.cwd, capture_output=True)
+            subprocess.run(["git", "add"] + files, cwd=self.cwd, capture_output=True, check=False)
             return f"SUCCESS: Staged {len(files)} file(s)"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_git_unstage(self, args: dict[str, Any]) -> str:
         files = args.get("files", [])
         try:
             if files:
-                subprocess.run(["git", "reset"] + files, cwd=self.cwd, capture_output=True)
+                subprocess.run(
+                    ["git", "reset"] + files, cwd=self.cwd, capture_output=True, check=False
+                )
             else:
-                subprocess.run(["git", "reset", "HEAD"], cwd=self.cwd, capture_output=True)
+                subprocess.run(
+                    ["git", "reset", "HEAD"], cwd=self.cwd, capture_output=True, check=False
+                )
             return "SUCCESS: Unstaged files"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_git_commit(self, args: dict[str, Any]) -> str:
@@ -2625,12 +2669,16 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                ["git", "commit", "-m", message], cwd=self.cwd, capture_output=True, text=True
+                ["git", "commit", "-m", message],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if result.returncode == 0:
                 return f"SUCCESS: Committed\n{result.stdout}"
             return f"ERROR: {result.stderr}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_list_skills(self, args: dict[str, Any]) -> str:
@@ -2758,18 +2806,26 @@ class ToolExecutor:
 
         try:
             result = subprocess.run(
-                ["git", "status", "--short"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "status", "--short"],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if not result.stdout.strip():
                 return "Nothing to commit (working tree clean)"
 
             staged = subprocess.run(
-                ["git", "diff", "--cached", "--stat"], cwd=self.cwd, capture_output=True, text=True
+                ["git", "diff", "--cached", "--stat"],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             return (
                 f"Pre-commit checks:\nStaged: {staged.stdout or 'none'}\nUnstaged: {result.stdout}"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _execute_get_keybindings(self, args: dict[str, Any]) -> str:
@@ -2886,7 +2942,7 @@ Ctrl+R     - Search history
         try:
             result = handler.execute(self.execute, tool_name, tool_args)
             return f"SUCCESS after {retries} retries:\n{result}"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR after {retries} retries: {e}"
 
     def _execute_get_tool_timeout(self, args: dict[str, Any]) -> str:
@@ -3193,14 +3249,14 @@ class AsyncToolExecutor(ToolExecutor):
                     from .mcp import mcp_manager
 
                     return await mcp_manager.call_tool(tool_name, args)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     return f"ERROR: {type(e).__name__}: {e}"
             return f"ERROR: Unknown tool '{tool_name}'"
         try:
             if hasattr(method, "__await__"):
                 return await method(args)
             return method(args)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {type(e).__name__}: {e}"
 
     async def execute_all_parallel(self, tool_calls: list[tuple[str, dict[str, Any]]]) -> list[str]:
@@ -3221,7 +3277,7 @@ def get_all_tool_schemas() -> list[dict]:
             if tool not in schemas:
                 schemas.append(tool)
     except Exception:
-        pass
+        logger.exception("Failed to expose MCP tool schemas")
     # Expose plugin-provided tools (if any).
     try:
         from .plugins import plugin_manager
@@ -3230,5 +3286,5 @@ def get_all_tool_schemas() -> list[dict]:
             if tool not in schemas:
                 schemas.append(tool)
     except Exception:
-        pass
+        logger.exception("Failed to expose plugin tool schemas")
     return schemas

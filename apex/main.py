@@ -194,7 +194,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--keep-data", action="store_true", help="Keep data on uninstall")
     parser.add_argument("--dry-run", action="store_true", help="Dry run uninstall")
     parser.add_argument("--force", action="store_true", help="Force uninstall")
-    parser.add_argument("--method", default=None, help="Upgrade method (pip, npm, etc.)")
+    parser.add_argument("--method", default=None, help="Upgrade method (npm, native)")
+    parser.add_argument(
+        "--check", action="store_true", help="Check for a newer release without upgrading"
+    )
+    parser.add_argument(
+        "--purge", action="store_true", help="Remove credentials and config on uninstall"
+    )
 
     return parser
 
@@ -253,7 +259,6 @@ def handle_command(
     use_stream: bool = False,
 ) -> bool:
     config = config or apex_config
-    global memory
     parts = command.split(maxsplit=1)
     cmd = parts[0].lower()
     arg = parts[1] if len(parts) > 1 else ""
@@ -741,9 +746,8 @@ def handle_command(
             import tempfile
 
             editor = os.environ.get("EDITOR", "vim")
-            prompt_file = tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False)
-            prompt_file.write("# Enter your prompt\n\n")
-            prompt_file.close()
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as prompt_file:
+                prompt_file.write("# Enter your prompt\n\n")
             try:
                 subprocess.call([editor, prompt_file.name])
                 content = Path(prompt_file.name).read_text()
@@ -835,11 +839,10 @@ def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
     while True:
         try:
             user_input = prompt_session.prompt()
-            if not user_input.strip():
+            if not user_input.strip() or not user_input.startswith("/"):
                 continue
-            if user_input.startswith("/"):
-                if handle_command(user_input, agent, ui, apex_config, prompt_session, use_stream):
-                    continue
+            if handle_command(user_input, agent, ui, apex_config, prompt_session, use_stream):
+                continue
             ui.print_user(user_input)
             with ui.console.status("[cyan]Thinking...[/cyan]", spinner="dots"):
                 response = agent.chat(user_input)
@@ -922,7 +925,7 @@ def run_cicd_mode(
                 ui.print_response(response)
             else:
                 print(response)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         if output_format == "json":
             print(json.dumps({"success": False, "error": str(e)}, indent=2))
         else:
@@ -988,6 +991,7 @@ def _install_bun(ui: UI) -> str | None:
             text=True,
             timeout=120,
             env={**os.environ, "npm_config_prefix": str(Path.home() / ".npm-global")},
+            check=False,
         )
         if result.returncode != 0:
             ui.print_error("Failed to install bun via npx")
@@ -996,7 +1000,7 @@ def _install_bun(ui: UI) -> str | None:
         if bun_path and Path(bun_path).exists():
             ui.print_success("Bun installed successfully!")
             return str(bun_path)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
     return None
 
@@ -1023,11 +1027,12 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
                 capture_output=True,
                 text=True,
                 timeout=120,
+                check=False,
             )
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed!")
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
     npm_path = shutil.which("npm")
     if npm_path:
@@ -1038,11 +1043,12 @@ def _setup_tui_frontend(tui_dir: Path, ui: UI) -> bool:
                 capture_output=True,
                 text=True,
                 timeout=180,
+                check=False,
             )
             if result.returncode == 0:
                 ui.print_success("TUI dependencies installed with npm!")
                 return True
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
     ui.print_error("Could not install TUI dependencies. Neither bun nor npm is available.")
     return False
@@ -1080,7 +1086,7 @@ def _try_run_tui_process(
     except FileNotFoundError:
         ui.print_error(f"{runtime_name} executable not found: {runtime_cmd[0]}")
         return False
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"{runtime_name} error: {e}")
         return False
 
@@ -1106,11 +1112,12 @@ def _install_tsx(tui_dir: Path, ui: UI) -> str | None:
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
         if result.returncode == 0:
             ui.print_success("tsx installed successfully!")
             return _ensure_tsx(tui_dir)
-    except Exception:
+    except Exception:  # noqa: BLE001, S110
         pass
     return None
 
@@ -1235,7 +1242,7 @@ def _patch_tui_package_json(tui_dir: Path) -> None:
         if patched:
             pkg_path.write_text(json.dumps(data, indent=2) + "\n")
             logger.info("Patched tui-frontend/package.json for React 18 / Ink compatibility")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Failed to patch tui-frontend/package.json: {e}")
 
 
@@ -1274,7 +1281,7 @@ def _install_tui_command(ui: UI) -> None:
                     tarball_path = Path(tmp_dir) / "apex.tar.gz"
                     try:
                         urllib.request.urlretrieve(tarball_url, str(tarball_path))
-                    except Exception:
+                    except Exception:  # noqa: BLE001
                         # Fallback to git clone if tarball fails
                         result = subprocess.run(
                             [
@@ -1288,6 +1295,7 @@ def _install_tui_command(ui: UI) -> None:
                             capture_output=True,
                             text=True,
                             timeout=60,
+                            check=False,
                         )
                         if result.returncode != 0:
                             ui.print_error(f"Failed to download: {result.stderr[:200]}")
@@ -1321,7 +1329,7 @@ def _install_tui_command(ui: UI) -> None:
                             else:
                                 ui.print_error("tui-frontend directory not found in repository")
                                 return
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 ui.print_error(f"Failed to download TUI frontend: {e}")
                 return
 
@@ -1355,7 +1363,7 @@ def _cmd_serve(args: argparse.Namespace, ui: UI) -> None:
         server = HTTPServer(host=host, port=port)
         ui.print_success(f"Server running at http://{host}:{port}")
         server.run()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"Failed to start server: {e}")
         sys.exit(1)
 
@@ -1373,7 +1381,7 @@ def _cmd_web(args: argparse.Namespace, ui: UI) -> None:
         ui.print_success(f"Opening {url} in browser...")
         webbrowser.open(url)
         server.run()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"Failed to start web server: {e}")
         sys.exit(1)
 
@@ -1571,7 +1579,7 @@ def _cmd_run(args: argparse.Namespace, ui: UI) -> None:
                 "usage": agent.usage,
             }
             print(json.dumps(result, indent=2))
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(json.dumps({"success": False, "error": str(e)}, indent=2))
             sys.exit(1)
     else:
@@ -1705,7 +1713,7 @@ def _parse_ts(ts: str) -> float:
 
     try:
         return datetime.fromisoformat(ts).timestamp()
-    except Exception:
+    except Exception:  # noqa: BLE001
         return 0
 
 
@@ -1751,7 +1759,7 @@ def _cmd_import(args: argparse.Namespace, ui: UI) -> None:
             out = sessions_dir / f"imported_{session_id}.json"
             out.write_text(json.dumps(data, indent=2))
             ui.print_success(f"Imported from URL as session: {session_id}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             ui.print_error(f"Failed to import from URL: {e}")
             sys.exit(1)
     else:
@@ -1764,108 +1772,133 @@ def _cmd_import(args: argparse.Namespace, ui: UI) -> None:
 
 
 def _cmd_upgrade(args: argparse.Namespace, ui: UI) -> None:
-    method = args.method or "pip"
-    ui.print_info(f"Upgrading APEX via {method}...")
-    try:
-        if method == "pip":
-            result = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--upgrade", "apex-ai"],
-                capture_output=True,
-                text=True,
-                timeout=120,
+    from . import install_manager as install
+
+    pinned = os.environ.get("APEX_VERSION", "").strip() or None
+
+    if getattr(args, "check", False):
+        try:
+            latest = install.fetch_latest_release()
+        except install.ReleaseUnavailable:
+            ui.print_info(
+                f"No published release yet — you are running APEX {__version__} (source build)."
             )
-            if result.returncode == 0:
-                ui.print_success("APEX upgraded successfully!")
-            else:
-                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
-                sys.exit(1)
-        elif method == "pipx":
-            result = subprocess.run(
-                ["pipx", "upgrade", "apex-ai"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode == 0:
-                ui.print_success("APEX upgraded successfully!")
-            else:
-                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
-                sys.exit(1)
-        elif method == "npm":
-            result = subprocess.run(
-                ["npm", "install", "-g", "apex-ai"],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if result.returncode == 0:
-                ui.print_success("APEX upgraded successfully!")
-            else:
-                ui.print_error(f"Upgrade failed: {result.stderr[:200]}")
-                sys.exit(1)
-        else:
-            ui.print_error(f"Unknown upgrade method: {method}")
+            return
+        except Exception as e:  # noqa: BLE001
+            ui.print_error(f"Could not check for updates: {e}")
             sys.exit(1)
-    except Exception as e:
+
+        current = install.version_key(__version__)
+        candidate = install.version_key(latest)
+        if current is not None and candidate is not None:
+            if candidate > current:
+                ui.print_info(f"Update available: {__version__} -> {latest}")
+                ui.print_info("Run: apex upgrade")
+            elif candidate == current:
+                ui.print_success(f"APEX {__version__} is up to date")
+            else:
+                ui.print_info(f"APEX {__version__} is ahead of the latest release ({latest}).")
+        elif latest == __version__:
+            ui.print_success(f"APEX {__version__} is up to date")
+        else:
+            ui.print_info(f"Latest release: {latest}")
+        return
+
+    detection = install.detect()
+    requested = None if args.method in (None, "", "auto") else args.method
+    try:
+        method = install.primary_method(detection, requested)
+    except install.InstallError as e:
+        ui.print_error(str(e))
+        sys.exit(1)
+
+    if method == install.SOURCE_METHOD:
+        ui.print_info(
+            "This copy runs from a source checkout. Update it with 'git pull' "
+            "and reinstall the dev dependencies, or install a released channel "
+            "with 'apex upgrade --method native' (or '--method npm')."
+        )
+        return
+
+    ui.print_info(f"Upgrading APEX via {method}...")
+
+    try:
+        if method == "native":
+            destination = install.native_upgrade(pinned)
+            ui.print_success(f"Native backend updated: {destination}")
+            return
+        command = install.upgrade_command(method, pinned)
+    except install.InstallError as e:
+        ui.print_error(str(e))
+        sys.exit(1)
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300, check=False)
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"Upgrade error: {e}")
         sys.exit(1)
 
+    if result.returncode != 0:
+        detail = result.stderr or result.stdout or "unknown error"
+        ui.print_error(f"Upgrade failed: {detail[:300]}")
+        sys.exit(1)
+    ui.print_success("APEX upgraded successfully!")
+
 
 def _cmd_uninstall(args: argparse.Namespace, ui: UI) -> None:
+    from . import install_manager as install
+
     if not args.dry_run and not args.force:
-        confirm = ui.input("Are you sure you want to uninstall APEX? (yes/no): ").strip().lower()
+        confirm = (
+            ui.console.input("Are you sure you want to uninstall APEX? (yes/no): ").strip().lower()
+        )
         if confirm != "yes":
             ui.print_info("Uninstall cancelled")
             return
 
+    detection = install.detect()
+    plan = install.uninstall_plan(
+        detection=detection,
+        keep_config=args.keep_config,
+        keep_data=args.keep_data,
+        purge=getattr(args, "purge", False),
+    )
+
     if args.dry_run:
         ui.print_info("[DRY RUN] Would uninstall APEX")
-
-    apex_dir = Path.home() / ".apex"
-    config_dir = Path.home() / ".config" / "apex"
-
-    if args.dry_run:
-        if apex_dir.exists():
-            ui.print_info(f"  Would remove: {apex_dir}")
-        if config_dir.exists() and not args.keep_config:
-            ui.print_info(f"  Would remove: {config_dir}")
-        ui.print_info("[DRY RUN] Would run: pip uninstall apex-ai")
+        for path in plan.paths:
+            ui.print_info(f"  Would remove: {path}")
+        for command in plan.commands:
+            ui.print_info(f"  Would run: {' '.join(command)}")
+        if plan.kept:
+            ui.print_info(f"  Would keep: {', '.join(plan.kept)}")
         return
 
-    if not args.keep_config:
-        if config_dir.exists():
-            shutil.rmtree(config_dir)
-            ui.print_success("Removed config directory")
-    else:
-        ui.print_info("Keeping config directory")
+    for path in plan.paths:
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+            elif path.exists():
+                path.unlink()
+            ui.print_success(f"Removed {path}")
+        except OSError as e:
+            ui.print_warning(f"Could not remove {path}: {e}")
 
-    if not args.keep_data:
-        sessions_dir = apex_dir / "sessions"
-        if sessions_dir.exists():
-            shutil.rmtree(sessions_dir)
-            ui.print_success("Removed session data")
-        memory_dir = apex_dir / "memory"
-        if memory_dir.exists():
-            shutil.rmtree(memory_dir)
-            ui.print_success("Removed memory data")
-    else:
-        ui.print_info("Keeping data directory")
+    for command in plan.commands:
+        try:
+            result = subprocess.run(
+                command, capture_output=True, text=True, timeout=120, check=False
+            )
+            if result.returncode == 0:
+                ui.print_success(f"Ran: {' '.join(command)}")
+            else:
+                detail = result.stderr or result.stdout or "unknown error"
+                ui.print_warning(f"{' '.join(command)}: {detail[:200]}")
+        except Exception as e:  # noqa: BLE001
+            ui.print_warning(f"{' '.join(command)} failed: {e}")
 
-    # Uninstall pip package
-    try:
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "uninstall", "-y", "apex-ai"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if result.returncode == 0:
-            ui.print_success("APEX uninstalled successfully!")
-        else:
-            ui.print_warning(f"pip uninstall: {result.stderr[:200]}")
-    except Exception as e:
-        ui.print_warning(f"pip uninstall error: {e}")
-
+    for path in plan.kept:
+        ui.print_info(f"Kept: {path}")
     ui.print_info("APEX has been removed. We hope to see you again!")
 
 
@@ -1991,6 +2024,7 @@ def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         if result.returncode != 0:
             ui.print_error(f"Failed to fetch PR #{args.pr_number}: {result.stderr[:200]}")
@@ -2003,6 +2037,7 @@ def _cmd_pr(args: argparse.Namespace, ui: UI) -> None:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
         if checkout.returncode == 0:
             ui.print_success(f"Checked out PR #{args.pr_number} ({branch})")
@@ -2270,6 +2305,7 @@ def _cmd_plugin(args: argparse.Namespace, ui: UI) -> None:
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
         if result.returncode != 0:
             ui.print_warning(f"pip install {module} returned non-zero: {result.stderr[:200]}")
@@ -2296,7 +2332,7 @@ def _cmd_plugin(args: argparse.Namespace, ui: UI) -> None:
         # Now load all plugins from config (including the newly added one)
         load_plugins_from_config(config_path, app=None)
         ui.print_success(f"Plugin installed and loaded: {module}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         ui.print_error(f"Failed to load plugin: {e}")
 
 
@@ -2333,7 +2369,7 @@ def _cmd_gateway(parsed: argparse.Namespace, ui: UI) -> None:
             finally:
                 loop.run_until_complete(server.stop())
                 loop.close()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             ui.print_error(f"Gateway error: {e}")
             sys.exit(1)
     elif sub == "key":
@@ -2386,6 +2422,11 @@ def main() -> None:
     # Set environment variables like OpenCode
     os.environ["APEX"] = "1"
     os.environ["APEX_PID"] = str(os.getpid())
+
+    # Warn when the Python CLI is invoked from a pip-installed package rather
+    # than from a source checkout. The Python CLI/TUI is a source-only
+    # development surface; APEX is distributed via npm and the native backend.
+    _warn_if_not_source_checkout()
 
     # Initialize state directory and file logging before any dispatch
     _init_state_dir()
@@ -2458,7 +2499,7 @@ def main() -> None:
     }
 
     if verb in subcommand_map:
-        attr_name, sub_val = subcommand_map[verb]
+        _attr_name, sub_val = subcommand_map[verb]
         # Build modified args for dispatch
         modified = [verb]
         if verb == "db":
@@ -2527,6 +2568,8 @@ def main() -> None:
         parsed.dry_run = False
         parsed.force = False
         parsed.method = None
+        parsed.check = False
+        parsed.purge = False
         parsed.share = False
         parsed.input_file = None
         parsed.print_logs = False
@@ -2536,6 +2579,16 @@ def main() -> None:
         parsed.list_models = False
         parsed.auto_commit = False
         parsed.image = None
+        # Upgrade/uninstall accept flags after the verb (e.g. `apex uninstall
+        # --dry-run`); the generic verb path used to drop them.
+        if verb in {"upgrade", "uninstall"}:
+            try:
+                overrides, _ = parser.parse_known_args(raw_args[1:])
+            except SystemExit:
+                sys.exit(1)
+            for key, value in vars(overrides).items():
+                if key != "prompt":
+                    setattr(parsed, key, value)
         # For subcommands, keep the rest of raw_args so handlers can read them
         parsed.raw_args = raw_args[1:]
         _dispatch_verb(verb, parsed)
@@ -2547,6 +2600,31 @@ def main() -> None:
     except SystemExit:
         sys.exit(1)
     _dispatch(parsed)
+
+
+def _warn_if_not_source_checkout() -> None:
+    """Warn if the Python CLI is invoked from a pip-installed package.
+
+    The Python CLI/TUI is a source-only development surface. APEX is
+    distributed via npm and the native backend only. When running from
+    site-packages (pip install), the user should migrate to npm or the
+    native backend instead.
+    """
+    try:
+        import apex
+
+        apex_file = Path(apex.__file__).resolve()
+        parts = {p.lower() for p in apex_file.parts}
+        if "site-packages" in parts or "dist-packages" in parts:
+            sys.stderr.write(
+                "WARNING: The APEX Python CLI/TUI is a source-only development surface.\n"
+                "  It is not distributed via PyPI/pip/pipx/uv.\n"
+                "  Install via npm:  npm install -g apex-ai\n"
+                "  Or native backend: bash install.sh --method native\n"
+                '  For development, use a source checkout: pip install -e ".[dev]"\n'
+            )
+    except Exception:  # noqa: BLE001, S110
+        pass
 
 
 def _init_state_dir() -> Path:
@@ -2602,7 +2680,7 @@ def _dispatch(parsed: argparse.Namespace) -> None:
         config.set("default_agent", parsed.agent_name)
 
     # Conditional model list
-    if parsed.list_models or hasattr(parsed, "list_models") and parsed.list_models:
+    if parsed.list_models or (hasattr(parsed, "list_models") and parsed.list_models):
         list_models(ui, verbose=parsed.verbose, refresh=parsed.refresh)
         sys.exit(0)
 

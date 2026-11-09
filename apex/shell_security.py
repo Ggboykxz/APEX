@@ -35,7 +35,7 @@ class CommandAnalysis:
 
 
 class ShellSecurityAnalyzer:
-    DANGEROUS_PATTERNS = [
+    DANGEROUS_PATTERNS = [  # noqa: RUF012
         (
             r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?",
             "Destructive system-wide deletion",
@@ -59,7 +59,7 @@ class ShellSecurityAnalyzer:
         (r"wget.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh", "Download and execute script"),
     ]
 
-    NETWORK_PATTERNS = [
+    NETWORK_PATTERNS = [  # noqa: RUF012
         r"\bcurl\b.*-X\s*(POST|PUT|PATCH|DELETE)",
         r"\bwget\b",
         r"\bnetcat\b",
@@ -72,7 +72,7 @@ class ShellSecurityAnalyzer:
         r"\bsftp\b",
     ]
 
-    SYSTEM_PATTERNS = [
+    SYSTEM_PATTERNS = [  # noqa: RUF012
         r"\bsudo\b",
         r"\bchmod\b",
         r"\bchown\b",
@@ -87,14 +87,14 @@ class ShellSecurityAnalyzer:
         r"\bpasswd\b",
     ]
 
-    FILE_DELETE_PATTERNS = [
+    FILE_DELETE_PATTERNS = [  # noqa: RUF012
         r"\brm\s+",
         r"\brmdir\b",
         r"\bunlink\b",
         r"\bdel\b",
     ]
 
-    FILE_WRITE_PATTERNS = [
+    FILE_WRITE_PATTERNS = [  # noqa: RUF012
         r"\btee\b",
         r">\s*[a-zA-Z]?",
         r"\bcat\b.*>",
@@ -104,7 +104,7 @@ class ShellSecurityAnalyzer:
         r"\bsed\s+-i\b",
     ]
 
-    PROCESS_PATTERNS = [
+    PROCESS_PATTERNS = [  # noqa: RUF012
         r"\bkill\b",
         r"\bps\b",
         r"\btop\b",
@@ -116,7 +116,7 @@ class ShellSecurityAnalyzer:
         r"\bspawn\b",
     ]
 
-    GIT_PATTERNS = [
+    GIT_PATTERNS = [  # noqa: RUF012
         # Note: "push" is intentionally NOT in the safe list so that any
         # `git push` (plain or forced) is classified GIT and triggers the
         # `if "push" in command` confirmation branch below.
@@ -127,7 +127,7 @@ class ShellSecurityAnalyzer:
         r"\bgit\s+push\s+--all\b",
     ]
 
-    BUILD_PATTERNS = [
+    BUILD_PATTERNS = [  # noqa: RUF012
         r"\bnpm\s+(?:run|build|test|start|dev)",
         r"\byarn\s+(?:run|build|start|dev)",
         r"\bpnpm\s+(?:run|build|start|dev)",
@@ -141,7 +141,7 @@ class ShellSecurityAnalyzer:
         r"\bupload.*pypi\b",
     ]
 
-    CONTAINER_PATTERNS = [
+    CONTAINER_PATTERNS = [  # noqa: RUF012
         r"\bdocker\b",
         r"\bpodman\b",
         r"\bkubectl\b",
@@ -150,7 +150,7 @@ class ShellSecurityAnalyzer:
         r"\bkubernetes\b",
     ]
 
-    SAFE_COMMANDS = [
+    SAFE_COMMANDS = [  # noqa: RUF012
         "ls",
         "pwd",
         "cd",
@@ -215,7 +215,7 @@ class ShellSecurityAnalyzer:
                 description = "DANGEROUS: " + warning
 
         if safe:
-            for pattern, re_obj in zip(self.NETWORK_PATTERNS, self._network_re):
+            for pattern, re_obj in zip(self.NETWORK_PATTERNS, self._network_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.NETWORK
                     requires_confirmation = True
@@ -223,7 +223,7 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe and category == CommandCategory.WORKING_DIR:
-            for pattern, re_obj in zip(self.SYSTEM_PATTERNS, self._system_re):
+            for pattern, re_obj in zip(self.SYSTEM_PATTERNS, self._system_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.SYSTEM
                     requires_confirmation = True
@@ -231,7 +231,9 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.FILE_DELETE_PATTERNS, self._file_delete_re):
+            for pattern, re_obj in zip(
+                self.FILE_DELETE_PATTERNS, self._file_delete_re, strict=False
+            ):
                 if re_obj.search(command):
                     if "node_modules" in command or ".git" in command:
                         warnings.append("Recursive deletion may affect dependencies")
@@ -242,13 +244,13 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.FILE_WRITE_PATTERNS, self._file_write_re):
+            for pattern, re_obj in zip(self.FILE_WRITE_PATTERNS, self._file_write_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.FILE_WRITE
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.PROCESS_PATTERNS, self._process_re):
+            for pattern, re_obj in zip(self.PROCESS_PATTERNS, self._process_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.PROCESS
                     requires_confirmation = True
@@ -256,7 +258,7 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.GIT_PATTERNS, self._git_re):
+            for pattern, re_obj in zip(self.GIT_PATTERNS, self._git_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.GIT
                     warnings.append("Git operation")
@@ -265,13 +267,13 @@ class ShellSecurityAnalyzer:
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.BUILD_PATTERNS, self._build_re):
+            for pattern, re_obj in zip(self.BUILD_PATTERNS, self._build_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.BUILD
                     break
 
         if safe:
-            for pattern, re_obj in zip(self.CONTAINER_PATTERNS, self._container_re):
+            for pattern, re_obj in zip(self.CONTAINER_PATTERNS, self._container_re, strict=False):
                 if re_obj.search(command):
                     category = CommandCategory.CONTAINER
                     requires_confirmation = True

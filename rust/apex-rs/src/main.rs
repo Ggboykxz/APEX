@@ -1,27 +1,53 @@
 mod agent;
+mod agents;
+mod api_key;
+mod billing;
 mod codegen;
+mod codegen_tools;
+mod commands;
 mod config;
+mod config_tools;
 mod context;
+mod context_tracking;
 mod cost;
+mod durable_tasks;
+mod files;
 mod formatter;
+mod gateway;
+mod git_tools;
 mod github;
 mod hooks;
+mod i18n;
 mod jsonrpc;
 mod lsp;
 mod mcp_client;
 mod memory;
-// Ported but not consulted by the agent loop yet (no permission gate).
-// TODO(v2.6): route tool dispatch through this manager and persist decisions.
-#[allow(dead_code)]
+mod mentions;
+mod models;
+mod patch;
 mod permission;
 mod plugins;
+mod project;
 mod rate_limiter;
+mod rlm;
+mod sandbox;
 mod server;
 mod session_crypto;
 mod share;
 mod shell_security;
+mod shell_tools;
 mod skills;
+mod slash;
+mod snapshot;
+mod structured_message;
+mod task_queue;
+mod telemetry;
 mod tools;
+mod ux_tools;
+mod watcher;
+mod web;
+mod workspace;
+mod workspace_rollback;
 
 use clap::{Parser, Subcommand};
 use config::Config;
@@ -52,6 +78,11 @@ enum Commands {
     Serve {
         #[arg(short, long, default_value = "8765")]
         port: u16,
+    },
+    /// APEX Gateway: model proxy with auth, rate limits, and usage tracking
+    Gateway {
+        #[command(subcommand)]
+        action: Option<GatewayAction>,
     },
     /// List tools
     Tools,
@@ -85,6 +116,83 @@ enum Commands {
         #[command(subcommand)]
         action: ContextAction,
     },
+    /// Workspace awareness: git state, language, package manager, test framework
+    Workspace {
+        /// Path to analyze (defaults to the current directory)
+        path: Option<String>,
+        /// Print the full context as JSON instead of the system-prompt block
+        #[arg(long)]
+        json: bool,
+    },
+    /// Workspace rollback: side-git snapshots and turn history
+    Rollback {
+        #[command(subcommand)]
+        action: RollbackAction,
+    },
+    /// GitHub: install/run parity plus issue/PR operations and automation flows
+    Github {
+        #[command(subcommand)]
+        action: Option<GithubAction>,
+    },
+    /// Manage skills (`.apex/skills/*.md`)
+    Skill {
+        #[command(subcommand)]
+        action: SkillAction,
+    },
+    /// Manage agents (`.apex/agents/*.md`)
+    Agent {
+        #[command(subcommand)]
+        action: AgentAction,
+    },
+    /// Manage HTTP API keys (`~/.apex/api_keys.json`)
+    Key {
+        #[command(subcommand)]
+        action: KeyAction,
+    },
+    /// Manage configuration (show, validate, migrate)
+    Config {
+        #[command(subcommand)]
+        action: ConfigAction,
+    },
+    /// Localization: show or set the active locale
+    Locale {
+        /// Locale to switch to (e.g. `ja`, `zh-Hans`, `pt-BR`)
+        #[arg(long)]
+        lang: Option<String>,
+    },
+    /// Build and show a structured message (structured_message parity)
+    Message {
+        /// Message role (`user`, `assistant`, `tool`)
+        role: String,
+        /// Initial text content
+        content: String,
+    },
+    /// One-shot file watcher scan: list non-ignored files under PATH
+    Watch {
+        /// Directory to scan (defaults to the current directory)
+        path: Option<String>,
+    },
+    /// OKLM per-key rate-limit check/increment (rlm parity)
+    Rlm {
+        /// Rate-limit key to inspect
+        key: String,
+        /// Increment the counters before reporting (defaults to check-only)
+        #[arg(long)]
+        inc: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum GatewayAction {
+    /// Start the gateway server (needs APEX_GATEWAY_KEY or OPENROUTER_API_KEY)
+    Start,
+    /// Generate a gateway API key: `apex-rs gateway key [tier] [label]`
+    Key {
+        tier: Option<String>,
+        label: Option<String>,
+    },
+    /// Show registered gateway keys
+    Status,
 }
 
 #[derive(Subcommand, Debug)]
@@ -115,6 +223,28 @@ enum SessionAction {
     Show { id: String },
     /// Save the current (empty) history under this name
     Save { name: String },
+    /// Fork a session, creating a child with fork metadata
+    Fork {
+        /// Parent session id to fork from
+        parent_id: String,
+        /// Branch name for the forked session
+        #[arg(long)]
+        branch_name: Option<String>,
+        /// Turn number at which the fork occurs (defaults to 0)
+        #[arg(long, default_value_t = 0)]
+        from_turn: u32,
+    },
+    /// List branch history entries for a session
+    Branch {
+        /// Session id to inspect
+        id: String,
+        /// New branch name to switch to (optional, just lists history if omitted)
+        #[arg(long)]
+        name: Option<String>,
+        /// Turn number for the new branch (used with --name)
+        #[arg(long, default_value_t = 0)]
+        from_turn: u32,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -159,6 +289,197 @@ enum ContextAction {
         pattern: String,
         #[arg(default_value = ".")]
         path: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RollbackAction {
+    /// Create a snapshot and print its name
+    Snapshot {
+        /// Snapshot label (defaults to `auto`)
+        #[arg(default_value = "")]
+        label: String,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// List snapshots (text view shows the last 10)
+    List {
+        #[arg(long, default_value = ".")]
+        path: String,
+        /// Print the full list as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Restore a snapshot by name
+    Restore {
+        name: String,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Delete a snapshot by name
+    Delete {
+        name: String,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Restore the snapshot N positions from the end (WorkspaceRollback)
+    Turn {
+        #[arg(default_value_t = 1)]
+        turns: usize,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Record a turn (snapshot + `.apex/turns.json` entry)
+    Record {
+        /// Turn payload as JSON
+        #[arg(long, default_value = "{}")]
+        data: String,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Revert to the snapshot of N turns ago (TurnTracker)
+    Revert {
+        #[arg(default_value_t = 1)]
+        turns: usize,
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+    /// Print the turn history as JSON
+    History {
+        #[arg(long, default_value = ".")]
+        path: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum GithubAction {
+    /// Install the GitHub agent in the repository (Python parity: info lines only)
+    Install,
+    /// Run the GitHub agent (typically in CI): count open issues and PRs
+    Run,
+    /// Show an issue as JSON
+    Issue { number: i64 },
+    /// Close an issue
+    IssueClose { number: i64 },
+    /// Show a pull request as JSON
+    Pr { number: i64 },
+    /// Merge a pull request
+    PrMerge {
+        number: i64,
+        #[arg(short, long, default_value = "squash")]
+        method: String,
+    },
+    /// Automated issue/PR flows (see `apex-rs github automate --help`)
+    Automate {
+        #[command(subcommand)]
+        flow: AutomateFlow,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum AutomateFlow {
+    /// Create a branch and a pull request for it
+    CreatePr {
+        #[arg(long)]
+        title: String,
+        #[arg(long, default_value = "")]
+        body: String,
+        #[arg(long)]
+        branch: String,
+        #[arg(long, default_value = "main")]
+        base: String,
+    },
+    /// Create a PR describing the given file changes
+    Changes { files: Vec<String> },
+    /// Create a bug issue from an error message
+    Issue {
+        #[arg(long)]
+        error: String,
+        #[arg(long)]
+        file: String,
+    },
+    /// List open issues by label (all open issues without `--label`)
+    List {
+        #[arg(long, default_value = "")]
+        label: String,
+    },
+    /// List issues labelled `todo`
+    Todos,
+    /// Count merged PRs
+    CloseCompleted,
+}
+
+#[derive(Subcommand, Debug)]
+enum SkillAction {
+    /// List known skills (project and home `.apex/skills/`)
+    List,
+    /// Add a skill: `apex-rs skill add <name> <description> <prompt>`
+    Add {
+        name: String,
+        description: String,
+        prompt: String,
+    },
+    /// Remove a skill by name
+    Remove { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum AgentAction {
+    /// List agents (name, mode, color, description)
+    List,
+    /// Show an agent as JSON
+    Show { name: String },
+    /// Create a custom agent markdown file
+    Create {
+        name: String,
+        #[arg(long)]
+        description: String,
+        #[arg(long)]
+        mode: Option<String>,
+        #[arg(long)]
+        model: Option<String>,
+    },
+    /// Delete a custom agent
+    Delete { name: String },
+}
+
+#[derive(Subcommand, Debug)]
+enum KeyAction {
+    /// Create a key and print it once (the plaintext is never stored)
+    Create {
+        name: String,
+        /// Expiry in seconds from now (0 or omitted: no expiry)
+        #[arg(long, default_value_t = 0)]
+        expires_in: i64,
+    },
+    /// List keys (id, name, state, request count)
+    List,
+    /// Revoke a key by id (keeps the record, rejects future requests)
+    Revoke { key_id: String },
+    /// Delete a key by id
+    Delete { key_id: String },
+}
+
+/// Configuration management actions
+#[derive(Subcommand, Debug)]
+enum ConfigAction {
+    /// Show the merged effective config (JSON)
+    Show {
+        /// Output as JSON (default)
+        #[arg(long, default_value_t = true)]
+        json: bool,
+    },
+    /// Validate the config and report errors
+    Validate {
+        /// Path to a specific config file (defaults to merged config)
+        #[arg(short, long)]
+        path: Option<String>,
+    },
+    /// Migrate old config format to new
+    Migrate {
+        /// Path to a specific config file (defaults to v1 migration)
+        #[arg(short, long)]
+        path: Option<String>,
     },
 }
 
@@ -265,6 +586,106 @@ async fn main() {
         Some(Commands::Serve { port }) => {
             server::serve(config, port).await;
         }
+        Some(Commands::Locale { lang }) => {
+            if let Some(l) = &lang {
+                crate::i18n::set_locale(l);
+            }
+            let i18n = crate::i18n::get_i18n(lang.as_deref().unwrap_or("auto"));
+            let guard = i18n.lock().unwrap();
+            println!("Current locale: {}", guard.locale());
+            println!(
+                "Available locales: {}",
+                guard.available_locales().join(", ")
+            );
+            println!("Welcome: {}", guard.get_bracket("welcome"));
+        }
+        Some(Commands::Message { role, content }) => {
+            let msg = crate::structured_message::create_message(role, content);
+            println!("{}", serde_json::to_string_pretty(&msg.to_dict()).unwrap());
+        }
+        Some(Commands::Watch { path }) => {
+            let base = path
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+            let mut patterns = crate::watcher::DEFAULT_IGNORE_PATTERNS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+            patterns.extend(crate::watcher::load_gitignore_patterns(&base));
+            let mut seen: Vec<String> = Vec::new();
+            let _ = walk_watch(&base, &base, &patterns, &mut seen);
+            seen.sort();
+            for path in seen {
+                println!("{path}");
+            }
+        }
+        Some(Commands::Rlm { key, inc }) => {
+            let mut rlm = crate::rlm::RLM::new(None);
+            if inc {
+                let result = rlm.increment(&key);
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+            } else {
+                let result = rlm.check_rate_limit(&key);
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+            }
+        }
+        Some(Commands::Gateway { action }) => match action {
+            Some(GatewayAction::Start) => {
+                // Python gate: checks the environment only (not the auth.json
+                // fallback) and exits 1 when neither key is set.
+                let env_empty =
+                    |name: &str| std::env::var(name).map(|v| v.is_empty()).unwrap_or(true);
+                if env_empty("APEX_GATEWAY_KEY") && env_empty("OPENROUTER_API_KEY") {
+                    eprintln!("ERROR: APEX_GATEWAY_KEY or OPENROUTER_API_KEY must be set in .env");
+                    eprintln!("Get a free key at https://openrouter.ai/keys");
+                    std::process::exit(1);
+                }
+                gateway::start(gateway::GatewayConfig::from_env()).await;
+            }
+            Some(GatewayAction::Key { tier, label }) => {
+                let cfg = gateway::GatewayConfig::from_env();
+                let auth = gateway::GatewayAuth::new(cfg.db_path);
+                let tier = tier.unwrap_or_else(|| "free".to_string());
+                let label = label.unwrap_or_default();
+                let key = auth.generate_key(&tier, &label);
+                println!("Gateway API key generated ({tier}):");
+                println!("{key}");
+            }
+            Some(GatewayAction::Status) => {
+                let cfg = gateway::GatewayConfig::from_env();
+                let auth = gateway::GatewayAuth::new(cfg.db_path);
+                let keys = auth.list_keys();
+                if keys.is_empty() {
+                    println!("No API keys registered");
+                } else {
+                    println!("Gateway keys ({}):", keys.len());
+                    for k in &keys {
+                        let label = k["label"].as_str().unwrap_or("");
+                        let state = if k["is_active"].as_bool().unwrap_or(false) {
+                            "(active)"
+                        } else {
+                            "(revoked)"
+                        };
+                        println!(
+                            "  [{}] {} — {} {}",
+                            k["tier"].as_str().unwrap_or(""),
+                            k["key_id"].as_str().unwrap_or(""),
+                            if label.is_empty() { "no label" } else { label },
+                            state
+                        );
+                    }
+                }
+            }
+            _ => {
+                println!("Usage:");
+                println!("  apex-rs gateway start              Start the gateway server");
+                println!("  apex-rs gateway key [tier] [label]  Generate an API key");
+                println!("  apex-rs gateway status              Show registered keys");
+                println!();
+                println!("Tiers: free (default), pro, unlimited");
+                println!("Set OPENROUTER_API_KEY or APEX_GATEWAY_KEY in .env");
+            }
+        },
         Some(Commands::Tools) => {
             let v = tools::tool_schemas();
             println!("{}", serde_json::to_string_pretty(&v).unwrap());
@@ -381,11 +802,54 @@ async fn main() {
             },
             SessionAction::Save { name } => {
                 let cwd = config.cwd.to_string_lossy().to_string();
-                match share::save_session(&name, &config.model, &cwd, &[]) {
+                // No agent state here: persist the idle-agent usage shape,
+                // exactly what Python's `agent.usage` is for a fresh agent.
+                match share::save_session(&name, &config.model, &cwd, &[], &share::zero_usage()) {
                     Some(p) => println!("Saved {}", p.display()),
                     None => eprintln!("failed to save session"),
                 }
             }
+            SessionAction::Fork {
+                parent_id,
+                branch_name,
+                from_turn,
+            } => {
+                let branch = branch_name.unwrap_or_else(|| {
+                    let (compact, _) = share::now_stamps();
+                    format!("fork-{compact}")
+                });
+                match share::fork_session(&parent_id, &branch, &branch, from_turn) {
+                    Some((child_id, path)) => {
+                        println!("Forked session '{parent_id}' -> '{child_id}'");
+                        println!("Branch: {branch}");
+                        println!("Saved {}", path.display());
+                    }
+                    None => eprintln!("failed to fork session: parent '{parent_id}' not found"),
+                }
+            }
+            SessionAction::Branch {
+                id,
+                name: _,
+                from_turn: _,
+            } => match share::load_session(&id) {
+                Some(data) => {
+                    let history = share::branch_history_of(&data);
+                    if history.is_empty() {
+                        println!("No branch history for session '{id}'");
+                    } else {
+                        println!("Branch history for '{id}':");
+                        for entry in history {
+                            println!(
+                                "  {} - {} (parent: {})",
+                                entry.branch_name,
+                                entry.session_id,
+                                entry.parent_id.as_deref().unwrap_or("(root)")
+                            );
+                        }
+                    }
+                }
+                None => eprintln!("session not found: {id}"),
+            },
         },
         Some(Commands::Security { action }) => match action {
             SecurityAction::Check { command } => {
@@ -449,8 +913,537 @@ async fn main() {
                 }
             }
         },
+        Some(Commands::Workspace { path, json }) => {
+            // Python's `WorkspaceManager()` defaults to `Path.cwd()`; an
+            // explicit path is kept exactly as given.
+            let root = match path {
+                Some(path) => std::path::PathBuf::from(path),
+                None => std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+            };
+            let mut manager = workspace::WorkspaceManager::new(root);
+            if json {
+                let context = manager.analyze();
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&context).unwrap_or_default()
+                );
+            } else {
+                println!("{}", manager.get_system_prompt_context());
+            }
+        }
+        Some(Commands::Rollback { action }) => match action {
+            RollbackAction::Snapshot { label, path } => {
+                let rb = open_rollback(&path);
+                match rb.create_snapshot(&label) {
+                    Ok(name) => println!("{name}"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::List { path, json } => {
+                let rb = open_rollback(&path);
+                match rb.list_snapshots() {
+                    Ok(snapshots) => {
+                        if json {
+                            println!(
+                                "{}",
+                                serde_json::to_string_pretty(&snapshots).unwrap_or_default()
+                            );
+                        } else if snapshots.is_empty() {
+                            println!("No snapshots available");
+                        } else {
+                            // Python's `/restore` shows the last 10.
+                            println!("Available snapshots:");
+                            let start = snapshots.len().saturating_sub(10);
+                            for snapshot in &snapshots[start..] {
+                                println!("  {} - {}", snapshot.name, snapshot.label);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Restore { name, path } => {
+                let rb = open_rollback(&path);
+                match rb.restore_snapshot(&name) {
+                    Ok(true) => println!("Restored snapshot: {name}"),
+                    Ok(false) => {
+                        eprintln!("Failed to restore: {name}");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Delete { name, path } => {
+                let rb = open_rollback(&path);
+                match rb.delete_snapshot(&name) {
+                    Ok(true) => println!("Deleted snapshot: {name}"),
+                    Ok(false) => {
+                        eprintln!("Failed to delete: {name}");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Turn { turns, path } => {
+                let rb = open_rollback(&path);
+                match rb.rollback_turn(turns) {
+                    Ok(true) => println!("Rolled back {turns} turn(s)"),
+                    Ok(false) => {
+                        eprintln!("Failed to roll back {turns} turn(s)");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Record { data, path } => {
+                let parsed: serde_json::Value = match serde_json::from_str(&data) {
+                    Ok(value) => value,
+                    Err(e) => {
+                        eprintln!("ERROR: Invalid turn data: {e}");
+                        std::process::exit(1);
+                    }
+                };
+                let mut tracker = open_turn_tracker(&path);
+                match tracker.record_turn(parsed) {
+                    Ok(name) => println!("{name}"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::Revert { turns, path } => {
+                let tracker = open_turn_tracker(&path);
+                match tracker.revert_turn(turns) {
+                    Ok(true) => println!("Reverted {turns} turn(s)"),
+                    Ok(false) => {
+                        eprintln!("Failed to revert turn");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            RollbackAction::History { path } => {
+                let tracker = open_turn_tracker(&path);
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(tracker.get_turn_history()).unwrap_or_default()
+                );
+            }
+        },
+        Some(Commands::Github { action }) => match action {
+            None => {
+                // Python's `_cmd_github` prints its own usage for a missing subcommand.
+                println!(
+                    "Usage: apex-rs github install|run|issue|issue-close|pr|pr-merge|automate"
+                );
+                println!("  install        - Install GitHub agent in repository");
+                println!("  run            - Run GitHub agent (typically in CI)");
+                println!("  issue <N>      - Show an issue as JSON");
+                println!("  issue-close <N> - Close an issue");
+                println!("  pr <N>         - Show a pull request as JSON");
+                println!("  pr-merge <N>   - Merge a pull request (-m method, default squash)");
+                println!("  automate       - Automated issue/PR flows (see --help)");
+            }
+            Some(GithubAction::Install) => {
+                // Python parity: three info lines, no side effects.
+                println!("Installing GitHub agent...");
+                println!("This sets up APEX as a GitHub Actions workflow.");
+                println!("See: https://github.com/Ggboykxz/APEX");
+            }
+            Some(GithubAction::Run) => {
+                println!("Running GitHub agent...");
+                let automation = github::GitHubAutomation::new("", &config.cwd);
+                // A failed API call counts as empty, exactly like Python.
+                let issues = automation.client.list_issues("open", "");
+                let prs = automation.client.list_prs("open");
+                println!("Found {} issues and {} PRs", issues.len(), prs.len());
+            }
+            Some(GithubAction::Issue { number }) => {
+                let automation = github::GitHubAutomation::new("", &config.cwd);
+                match automation.client.get_issue(number) {
+                    Some(v) => println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default()),
+                    None => {
+                        eprintln!("ERROR: Issue {number} not found");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            Some(GithubAction::IssueClose { number }) => {
+                let automation = github::GitHubAutomation::new("", &config.cwd);
+                if automation.client.close_issue(number) {
+                    println!("Closed issue {number}");
+                } else {
+                    eprintln!("ERROR: Failed to close issue {number}");
+                    std::process::exit(1);
+                }
+            }
+            Some(GithubAction::Pr { number }) => {
+                let automation = github::GitHubAutomation::new("", &config.cwd);
+                match automation.client.get_pr(number) {
+                    Some(v) => println!("{}", serde_json::to_string_pretty(&v).unwrap_or_default()),
+                    None => {
+                        eprintln!("ERROR: Pull request {number} not found");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            Some(GithubAction::PrMerge { number, method }) => {
+                let automation = github::GitHubAutomation::new("", &config.cwd);
+                if automation.client.merge_pr(number, &method) {
+                    println!("Merged PR {number}");
+                } else {
+                    eprintln!("ERROR: Failed to merge PR {number}");
+                    std::process::exit(1);
+                }
+            }
+            Some(GithubAction::Automate { flow }) => {
+                let automation = github::GitHubAutomation::new("", &config.cwd);
+                match flow {
+                    AutomateFlow::CreatePr {
+                        title,
+                        body,
+                        branch,
+                        base,
+                    } => {
+                        require_repo(&automation);
+                        match automation.auto_create_pr(&config.cwd, &title, &body, &branch, &base)
+                        {
+                            Some(v) => print_created(&v, "PR created."),
+                            None => {
+                                eprintln!("ERROR: PR creation failed");
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                    AutomateFlow::Changes { files } => {
+                        require_repo(&automation);
+                        match automation.create_pr_for_changes(&config.cwd, &files) {
+                            Some(v) => print_created(&v, "PR created."),
+                            None => {
+                                eprintln!("ERROR: PR creation failed");
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                    AutomateFlow::Issue { error, file } => {
+                        require_repo(&automation);
+                        match automation.create_issue_from_error(&error, &file) {
+                            Some(v) => print_created(&v, "Issue created."),
+                            None => {
+                                eprintln!("ERROR: Issue creation failed");
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                    AutomateFlow::List { label } => {
+                        let issues = automation.list_issues_by_label(&label);
+                        if label.is_empty() {
+                            println!("Open issues:");
+                        } else {
+                            println!("Open issues for label '{label}':");
+                        }
+                        print_issue_lines(&issues);
+                    }
+                    AutomateFlow::Todos => {
+                        println!("Todo issues:");
+                        print_issue_lines(&automation.get_issue_todos());
+                    }
+                    AutomateFlow::CloseCompleted => {
+                        // Python's `close_completed_prs` counts merged PRs; it does not close.
+                        println!("{} merged PR(s)", automation.close_completed_prs());
+                    }
+                }
+            }
+        },
+        Some(Commands::Skill { action }) => match action {
+            SkillAction::List => {
+                let sm = skills::SkillManager::new(&config.cwd);
+                let all = sm.list_skills();
+                if all.is_empty() {
+                    println!("No skills found (.apex/skills/, ~/.apex/skills/)");
+                } else {
+                    for (name, description) in all {
+                        println!("{name}: {description}");
+                    }
+                }
+            }
+            SkillAction::Add {
+                name,
+                description,
+                prompt,
+            } => {
+                if !skills::valid_skill_name(&name) {
+                    eprintln!("ERROR: Invalid skill name: {name}");
+                    std::process::exit(1);
+                }
+                let mut sm = skills::SkillManager::new(&config.cwd);
+                sm.add(&name, &description, &prompt);
+                let skill = sm.get(&name).expect("skill was just added");
+                match skills::save_skill_file(&config.cwd, skill) {
+                    Ok(path) => println!("Added skill: {name} ({})", path.display()),
+                    Err(e) => {
+                        eprintln!("ERROR: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            SkillAction::Remove { name } => {
+                let mut sm = skills::SkillManager::new(&config.cwd);
+                if !sm.remove(&name) {
+                    eprintln!("ERROR: Skill not found: {name}");
+                    std::process::exit(1);
+                }
+                skills::remove_skill_file(&config.cwd, &name);
+                println!("Removed skill: {name}");
+            }
+        },
+        Some(Commands::Agent { action }) => match action {
+            AgentAction::List => {
+                let mut reg = agents::AgentRegistry::new();
+                reg.load_markdown_agents_from(&config.cwd);
+                for agent in reg.list() {
+                    println!(
+                        "{}\t{}\t{}\t{}",
+                        agent.name,
+                        agent.mode.as_str(),
+                        agent.color.as_deref().unwrap_or(""),
+                        agent.description
+                    );
+                }
+            }
+            AgentAction::Show { name } => {
+                let mut reg = agents::AgentRegistry::new();
+                reg.load_markdown_agents_from(&config.cwd);
+                match reg.get(&name) {
+                    Some(agent) => {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(agent).unwrap_or_default()
+                        )
+                    }
+                    None => {
+                        eprintln!("ERROR: Agent not found: {name}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            AgentAction::Create {
+                name,
+                description,
+                mode,
+                model,
+            } => {
+                if !agents::valid_agent_name(&name) {
+                    eprintln!("ERROR: Invalid agent name: {name}");
+                    std::process::exit(1);
+                }
+                let mode = agents::AgentMode::parse(mode.as_deref().unwrap_or("subagent"));
+                let agent = agents::Agent {
+                    name: name.clone(),
+                    description,
+                    mode,
+                    model,
+                    temperature: None,
+                    max_steps: None,
+                    permission: std::collections::HashMap::new(),
+                    color: Some("cyan".to_string()),
+                    hidden: false,
+                    disabled: false,
+                    is_builtin: false,
+                };
+                match agents::save_agent_file(&config.cwd, &agent) {
+                    Ok(path) => println!("Created agent: {} ({})", name, path.display()),
+                    Err(e) => {
+                        eprintln!("ERROR: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            AgentAction::Delete { name } => {
+                if !agents::valid_agent_name(&name) {
+                    eprintln!("ERROR: Invalid agent name: {name}");
+                    std::process::exit(1);
+                }
+                if agents::builtin_agents().contains_key(&name) {
+                    eprintln!("ERROR: Cannot delete built-in agent: {name}");
+                    std::process::exit(1);
+                }
+                if agents::remove_agent_file(&config.cwd, &name) {
+                    println!("Deleted agent: {name}");
+                } else {
+                    eprintln!("ERROR: Agent not found: {name}");
+                    std::process::exit(1);
+                }
+            }
+        },
+        Some(Commands::Key { action }) => {
+            let manager = api_key::KeyManager::default_store();
+            match action {
+                KeyAction::Create { name, expires_in } => {
+                    let (key, info) = manager.create_key(&name, Some(expires_in));
+                    println!("Created key {}: {}", info.key_id, info.name);
+                    println!("{key}");
+                }
+                KeyAction::List => {
+                    let keys = manager.list_keys();
+                    if keys.is_empty() {
+                        println!("No API keys");
+                    } else {
+                        for info in keys {
+                            let state = if info.is_active { "active" } else { "revoked" };
+                            println!(
+                                "  {} - {} [{}] requests={}",
+                                info.key_id, info.name, state, info.request_count
+                            );
+                        }
+                    }
+                }
+                KeyAction::Revoke { key_id } => {
+                    if !manager.revoke_key(&key_id) {
+                        eprintln!("ERROR: Key not found: {key_id}");
+                        std::process::exit(1);
+                    }
+                    println!("Revoked key {key_id}");
+                }
+                KeyAction::Delete { key_id } => {
+                    if !manager.delete_key(&key_id) {
+                        eprintln!("ERROR: Key not found: {key_id}");
+                        std::process::exit(1);
+                    }
+                    println!("Deleted key {key_id}");
+                }
+            }
+        }
+        Some(Commands::Config { action }) => match action {
+            ConfigAction::Show { json } => {
+                if let Err(e) = config::cmd_config_show(json) {
+                    eprintln!("ERROR: {e}");
+                    std::process::exit(1);
+                }
+            }
+            ConfigAction::Validate { path } => {
+                if let Err(e) = config::cmd_config_validate(path.as_deref()) {
+                    eprintln!("ERROR: {e}");
+                    std::process::exit(1);
+                }
+            }
+            ConfigAction::Migrate { path } => {
+                if let Err(e) = config::cmd_config_migrate(path.as_deref()) {
+                    eprintln!("ERROR: {e}");
+                    std::process::exit(1);
+                }
+            }
+        },
         None => {
             println!("APEX (Rust) — type 'apex-rs --help'");
         }
+    }
+}
+
+/// Open the rollback store or exit with its error.
+fn open_rollback(path: &str) -> workspace_rollback::WorkspaceRollback {
+    match workspace_rollback::WorkspaceRollback::new(path) {
+        Ok(rb) => rb,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    }
+}
+
+/// Open the turn tracker or exit with its error.
+fn open_turn_tracker(path: &str) -> workspace_rollback::TurnTracker {
+    match workspace_rollback::TurnTracker::new(path) {
+        Ok(tracker) => tracker,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    }
+}
+
+/// Recursively collect non-ignored files under `dir` (relative to `root`),
+/// mirroring the watcher's scan for the `watch` CLI command.
+fn walk_watch(
+    dir: &std::path::Path,
+    root: &std::path::Path,
+    patterns: &[String],
+    out: &mut Vec<String>,
+) -> std::io::Result<()> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(()),
+    };
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .to_string();
+        if path.is_dir() && !crate::watcher::is_ignored(&rel, patterns) {
+            dirs.push(path);
+        } else if path.is_file() && !crate::watcher::is_ignored(&rel, patterns) {
+            out.push(rel);
+        }
+    }
+    for d in dirs {
+        let _ = walk_watch(&d, root, patterns, out);
+    }
+    Ok(())
+}
+
+/// Exit with a clear error when no repository can be detected for automation.
+fn require_repo(automation: &github::GitHubAutomation) {
+    if automation.repo.is_none() {
+        eprintln!("ERROR: No GitHub repository detected (run inside a repo with an origin remote)");
+        std::process::exit(1);
+    }
+}
+
+/// Print the `html_url` of a created issue/PR, or a fallback line.
+fn print_created(v: &serde_json::Value, fallback: &str) {
+    match v.get("html_url").and_then(serde_json::Value::as_str) {
+        Some(url) => println!("{url}"),
+        None => println!("{fallback}"),
+    }
+}
+
+/// `  #<number> - <title>` lines, or `No issues found` for an empty list.
+fn print_issue_lines(issues: &[serde_json::Value]) {
+    if issues.is_empty() {
+        println!("No issues found");
+        return;
+    }
+    for issue in issues {
+        let number = issue
+            .get("number")
+            .and_then(serde_json::Value::as_i64)
+            .unwrap_or(-1);
+        let title = issue
+            .get("title")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
+        println!("  #{number} - {title}");
     }
 }

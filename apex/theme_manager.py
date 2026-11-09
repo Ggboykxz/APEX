@@ -764,7 +764,7 @@ def _load_theme_files(directory: Path) -> dict[str, dict[str, Any]]:
         try:
             data = json.loads(fpath.read_text(encoding="utf-8"))
             name = fpath.stem
-            if "defs" in data and "theme" in data or isinstance(data, dict):
+            if ("defs" in data and "theme" in data) or isinstance(data, dict):
                 themes[name] = data
         except (json.JSONDecodeError, OSError):
             continue
@@ -849,7 +849,7 @@ class ThemeManager:
 
             cfg = Config()
             cfg.theme = name
-        except Exception:
+        except Exception:  # noqa: S110, BLE001
             pass
 
     @property

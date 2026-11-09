@@ -4,31 +4,28 @@ Common issues and solutions for APEX.
 
 ## Installation Issues
 
-### "command not found: apex" after pip install
+### "command not found: apex"
 
 ```bash
-# Check if installed
-pip show apex-ai
+# npm channel: add the global npm bin directory to PATH, then
+npm install -g apex-ai
 
-# Reinstall
-pip uninstall apex-ai
-pip install apex-ai
+# native channel: installs apex-rs, not apex
+bash install.sh --method native
+~/.apex/bin/apex-rs --version
 
-# Or use python module
-python -m apex --version
+# Override the resolved binary explicitly
+export APEX_BINARY=/path/to/apex
 ```
 
 ### Import errors
 
 ```bash
-# Ensure Python 3.11+
-python --version
-
-# Upgrade pip
-pip install --upgrade pip
-
-# Reinstall dependencies
-pip install --force-reinstall apex-ai
+# The Python CLI/TUI is a source-only development surface:
+# pip, pipx and uv are no longer installation channels.
+git clone https://github.com/Ggboykxz/APEX.git
+cd APEX
+pip install -e ".[dev]"
 ```
 
 ## API Key Issues
@@ -154,7 +151,7 @@ Switch to coder agent for full access: `/coder`
 
 ### "TUI frontend not found"
 
-The TUI frontend needs to be installed separately after pip install:
+The TUI frontend ships in the repository and needs its dependencies installed from a source checkout:
 
 ```bash
 # One-time TUI setup (installs Bun + downloads tui-frontend)
@@ -178,19 +175,21 @@ curl -fsSL https://bun.sh/install | bash
 apex tui
 ```
 
-### TUI doesn't start after pip install
+### TUI doesn't start from a source checkout
 
-Follow this sequence:
+The Python CLI/TUI is not distributed through a package index:
 
 ```bash
-# 1. Install apex
-pip install apex-ai
+# 1. Clone the repository
+git clone https://github.com/Ggboykxz/APEX.git
+cd APEX
 
-# 2. Install TUI dependencies (one-time)
-apex install-tui
+# 2. Install the dev dependencies
+pip install -e ".[dev]"
 
-# 3. Launch TUI
+# 3. Launch the TUI
 apex tui
+```
 ```
 
 For dev/git users, the TUI works directly: `apex tui` (auto-installs deps on first run).

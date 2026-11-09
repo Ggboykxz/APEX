@@ -161,7 +161,7 @@ class SlashCommandManager:
         args = parts[1:] if len(parts) > 1 else []
         return (name, args)
 
-    def execute(self, text: str, context: dict[str, Any] = None) -> str:
+    def execute(self, text: str, context: dict[str, Any] | None = None) -> str:
         context = context or {}
         parsed = self.parse(text)
         if not parsed:
@@ -177,7 +177,7 @@ class SlashCommandManager:
 
         try:
             return cmd.handler(args, context)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def _cmd_agent(self, args: list[str], context: dict) -> str:
@@ -205,7 +205,7 @@ class SlashCommandManager:
                 if new_cwd.exists() and new_cwd.is_dir():
                     agent.cwd = new_cwd
                     return f"Changed directory to: {new_cwd}"
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         return f"Cannot change directory to: {path}"
 
@@ -277,7 +277,11 @@ class SlashCommandManager:
             import subprocess
 
             result = subprocess.run(
-                ["git", "status", "--short"], cwd=agent.cwd, capture_output=True, text=True
+                ["git", "status", "--short"],
+                cwd=agent.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             if result.stdout.strip():
                 return f"Git status:\n{result.stdout}"
@@ -357,7 +361,7 @@ class SlashCommandManager:
             try:
                 path = pi.create_context_file()
                 return f"Project initialized: {path}"
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 return f"Initialization failed: {e}"
         return "[INIT] Initializing project..."
 

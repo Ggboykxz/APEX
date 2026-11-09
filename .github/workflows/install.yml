@@ -1,0 +1,119 @@
+name: Install
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "VERSION"
+      - "scripts/version.py"
+      - "scripts/install.sh"
+      - "scripts/install.ps1"
+      - "integrations/npm/**"
+      - ".github/workflows/install.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "VERSION"
+      - "scripts/version.py"
+      - "scripts/install.sh"
+      - "scripts/install.ps1"
+      - "integrations/npm/**"
+      - ".github/workflows/install.yml"
+
+concurrency:
+  group: install-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    name: Version manifest check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Check VERSION against every manifest
+        run: python scripts/version.py check
+
+  shell-syntax:
+    name: Installer syntax (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Bash syntax
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash -n scripts/install.sh
+
+      - name: Bash dry run
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash scripts/install.sh --dry-run --yes --no-path --method native
+
+      - name: PowerShell parse
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path scripts/install.ps1), [ref]$null, [ref]$errors)
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+
+      - name: PowerShell dry run
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/install.ps1 -DryRun -Yes -NoPath
+
+  native-tests:
+    name: Native wrapper (Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        node-version: ["18", "20", "22"]
+    defaults:
+      run:
+        working-directory: integrations/npm
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Validate package metadata
+        run: |
+          node -e "const p = require('./package.json'); if (p.name !== 'apex-ai') throw new Error('name must be apex-ai'); if (p.dependencies) throw new Error('runtime dependencies are forbidden'); console.log('apex-ai v' + p.version + ' (bin:', p.bin.apex + ')');"
+          VERSION="$(tr -d '[:space:]' < ../../VERSION)"
+          node -e "const v=require('./package.json').version; if (v !== process.argv[1]) { console.error('package.json ' + v + ' != VERSION ' + process.argv[1]); process.exit(1) }" "$VERSION"
+
+      - name: Run wrapper tests
+        run: npm test
+
+  native-windows:
+    name: Native wrapper (Windows, Node 22)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: integrations/npm
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Run wrapper tests (zip extraction)
+        run: npm test

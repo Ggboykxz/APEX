@@ -132,12 +132,12 @@ class TestParseYamlFrontmatter:
 
     def test_comment_lines_skipped(self):
         text = "---\n# comment\ndescription: real\n---\nbody"
-        meta, body = _parse_yaml_frontmatter(text)
+        meta, _body = _parse_yaml_frontmatter(text)
         assert meta == {"description": "real"}
 
     def test_no_colon_line_skipped(self):
         text = "---\nno-colon-line\ndescription: ok\n---\nbody"
-        meta, body = _parse_yaml_frontmatter(text)
+        meta, _body = _parse_yaml_frontmatter(text)
         assert meta == {"description": "ok"}
 
     def test_frontmatter_only_no_body(self):
@@ -148,7 +148,7 @@ class TestParseYamlFrontmatter:
 
     def test_multiline_body_trimmed(self):
         text = "---\nkey: val\n---\n  \nbody line 1\nbody line 2\n  "
-        meta, body = _parse_yaml_frontmatter(text)
+        _meta, body = _parse_yaml_frontmatter(text)
         assert body == "body line 1\nbody line 2"
 
 

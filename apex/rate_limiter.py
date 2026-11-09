@@ -134,7 +134,7 @@ class SQLiteStorage(StorageBackend):
             )
             row = cursor.fetchone()
             if row:
-                count, timestamp = row
+                _count, timestamp = row
                 if now - timestamp > duration:
                     conn.execute(
                         "UPDATE rate_limits SET count = 1, timestamp = ? WHERE key = ? AND window = ?",

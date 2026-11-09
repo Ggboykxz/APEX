@@ -337,7 +337,7 @@ class FileWatcher:
             for path in pending:
                 try:
                     cb(path)
-                except Exception:
+                except Exception:  # noqa: S110, BLE001
                     pass
 
 

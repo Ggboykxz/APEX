@@ -355,7 +355,7 @@ class TestParseSubagentInvocation:
         assert task == "@ghost hi"
 
     def test_subagent_not_subagent_mode(self, agent):
-        name, task = agent._parse_subagent_invocation("@coder do something")
+        name, _task = agent._parse_subagent_invocation("@coder do something")
         assert name is None
 
 
@@ -393,9 +393,11 @@ class TestChatAsSubagent:
         class CustomError(Exception):
             pass
 
-        with patch.object(agent, "_chat_internal", side_effect=CustomError("boom")):
-            with pytest.raises(CustomError):
-                agent._chat_as_subagent("reviewer", "review this")
+        with (
+            patch.object(agent, "_chat_internal", side_effect=CustomError("boom")),
+            pytest.raises(CustomError),
+        ):
+            agent._chat_as_subagent("reviewer", "review this")
         assert agent.current_agent == "build"
 
 
@@ -806,7 +808,7 @@ class TestEdgeCases:
         assert task == "@"
 
     def test_parse_subagent_just_name(self, agent):
-        name, task = agent._parse_subagent_invocation("@reviewer")
+        name, _task = agent._parse_subagent_invocation("@reviewer")
         assert name is None
 
 

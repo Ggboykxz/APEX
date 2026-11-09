@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "apex-ai"
-version = "2.0.0"
-description = "Universal AI coding agent — every model, one terminal"
+version = "0.1.0"
+description = "Universal AI coding agent — source-only development surface; distributed via npm (apex-ai) and native backend (apex-rs), not PyPI"
 readme = "README.md"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
@@ -53,7 +53,7 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",
     "pytest-timeout>=2.3.0",
-    "ruff==0.9.10",
+    "ruff==0.17.3",
     "mypy>=1.10.0",
     "mkdocs-material>=8.0.0",
     "mkdocs-git-revision-date-localized-plugin",

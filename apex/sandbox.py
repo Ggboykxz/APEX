@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 class CodeSandbox:
-    LANGUAGES = {
+    LANGUAGES = {  # noqa: RUF012
         "python": {"ext": ".py", "run": ["python3", "{file}"]},
         "javascript": {"ext": ".js", "run": ["node", "{file}"]},
         "bash": {"ext": ".sh", "run": ["bash", "{file}"]},
@@ -42,7 +42,9 @@ class CodeSandbox:
             if language == "rust":
                 binary_path = self._temp_dir / f"{file_id}_binary"
                 compile_cmd = ["rustc", str(file_path), "-o", str(binary_path)]
-                result = subprocess.run(compile_cmd, capture_output=True, text=True, timeout=60)
+                result = subprocess.run(
+                    compile_cmd, capture_output=True, text=True, timeout=60, check=False
+                )
                 if result.returncode != 0:
                     return f"ERROR: Compilation failed:\n{result.stderr}"
                 run_cmd = [str(binary_path)]
@@ -53,7 +55,12 @@ class CodeSandbox:
                 run_cmd.extend(args)
 
             result = subprocess.run(
-                run_cmd, capture_output=True, text=True, timeout=self.timeout, cwd=self._temp_dir
+                run_cmd,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
+                cwd=self._temp_dir,
+                check=False,
             )
 
             output = []
@@ -71,7 +78,7 @@ class CodeSandbox:
             return f"ERROR: Execution timed out after {self.timeout} seconds"
         except FileNotFoundError:
             return f"ERROR: {language} runtime not found. Install it first."
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: Execution failed: {e}"
         finally:
             if file_path.exists():
@@ -116,7 +123,7 @@ class ShellSession:
                 text=True,
                 bufsize=1,
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             return False
 
         self._lines = queue.Queue()
@@ -130,7 +137,7 @@ class ShellSession:
             if self.process and self.process.stdout:
                 for line in self.process.stdout:
                     self._lines.put(line)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         finally:
             self._lines.put(None)
@@ -165,7 +172,7 @@ class ShellSession:
 
             return "\n".join(output) if output else "[no output]"
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def close(self) -> None:
@@ -173,17 +180,17 @@ class ShellSession:
             self.process.terminate()
             try:
                 self.process.wait(timeout=5)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 self.process.kill()
                 try:
                     self.process.wait(timeout=5)
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
             for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
                 try:
                     if stream:
                         stream.close()
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
             self.process = None
         if self._reader and self._reader.is_alive():

@@ -319,7 +319,7 @@ def _python_decorators(
     for decorator in node.decorator_list:
         try:
             decorators.append(_collapse(ast.unparse(decorator)))
-        except Exception:  # pragma: no cover - defensive for exotic AST nodes
+        except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001, S112
             continue
     return tuple(decorators)
 
@@ -328,13 +328,13 @@ def _python_function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
     try:
         arguments = ast.unparse(node.args)
-    except Exception:  # pragma: no cover - defensive for exotic AST nodes
+    except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001
         arguments = ""
     returns = ""
     if node.returns is not None:
         try:
             returns = f" -> {ast.unparse(node.returns)}"
-        except Exception:  # pragma: no cover - defensive for exotic AST nodes
+        except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001
             returns = ""
     return _collapse(f"{prefix} {node.name}({arguments}){returns}")
 
@@ -344,12 +344,12 @@ def _python_class_signature(node: ast.ClassDef) -> str:
     for base in node.bases:
         try:
             parts.append(ast.unparse(base))
-        except Exception:  # pragma: no cover - defensive for exotic AST nodes
+        except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001, S112
             continue
     for keyword in node.keywords:
         try:
             value = ast.unparse(keyword.value)
-        except Exception:  # pragma: no cover - defensive for exotic AST nodes
+        except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001, S112
             continue
         parts.append(f"{keyword.arg}={value}" if keyword.arg else f"**{value}")
     suffix = f"({', '.join(parts)})" if parts else ""
@@ -645,7 +645,7 @@ def _extract_file(rel_path: str, text: str) -> tuple[str, list[Symbol]]:
             return _extract_rust(text)
         if suffix == ".go":
             return _extract_go(text)
-    except Exception:  # pragma: no cover - last-resort guard for odd input
+    except Exception:  # pragma: no cover - last-resort guard for odd input  # noqa: BLE001
         return "", []
     return "", []
 
@@ -789,12 +789,11 @@ def _scan(root: Path, *, use_cache: bool) -> tuple[list[FileSymbols], dict[str, 
         token_counts[rel_path] = Counter(_IDENTIFIER_RE.findall(source.text))
         cached_entry = cached.get(rel_path)
         entry: FileSymbols | None = None
-        if cached_entry is not None:
-            if (
-                cached_entry.get("mtime_ns") == source.mtime_ns
-                and cached_entry.get("size") == source.size
-            ):
-                entry = _entry_from_cache(rel_path, cached_entry)
+        if cached_entry is not None and (
+            cached_entry.get("mtime_ns") == source.mtime_ns
+            and cached_entry.get("size") == source.size
+        ):
+            entry = _entry_from_cache(rel_path, cached_entry)
         if entry is None:
             module_doc, symbols = _extract_file(rel_path, source.text)
             entry = FileSymbols(rel_path, module_doc, tuple(symbols))

@@ -20,12 +20,18 @@ def git_executor(tmp_path):
     """Create ToolExecutor in an initialized git repo with a commit."""
     cwd = tmp_path / "git_project"
     cwd.mkdir()
-    subprocess.run(["git", "init"], cwd=cwd, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=cwd, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Test User"], cwd=cwd, capture_output=True)
+    subprocess.run(["git", "init"], cwd=cwd, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=cwd, capture_output=True, check=False
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"], cwd=cwd, capture_output=True, check=False
+    )
     (cwd / "initial.txt").write_text("initial")
-    subprocess.run(["git", "add", "initial.txt"], cwd=cwd, capture_output=True)
-    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=cwd, capture_output=True)
+    subprocess.run(["git", "add", "initial.txt"], cwd=cwd, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "commit", "-m", "Initial commit"], cwd=cwd, capture_output=True, check=False
+    )
     return ToolExecutor(cwd=cwd)
 
 
@@ -52,7 +58,7 @@ def test_git_create_branch_with_checkout(git_executor, tmp_path):
 def test_git_switch_branch(git_executor, tmp_path):
     repo_dir = tmp_path / "git_project"
     # Create a branch first
-    subprocess.run(["git", "branch", "test-branch"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "branch", "test-branch"], cwd=repo_dir, capture_output=True, check=False)
     result = git_executor.execute("git_switch_branch", {"name": "test-branch"})
     assert "SUCCESS" in result or isinstance(result, str)
 
@@ -62,14 +68,16 @@ def test_git_switch_branch(git_executor, tmp_path):
 
 def test_git_delete_branch(git_executor, tmp_path):
     repo_dir = tmp_path / "git_project"
-    subprocess.run(["git", "branch", "to-delete"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "branch", "to-delete"], cwd=repo_dir, capture_output=True, check=False)
     result = git_executor.execute("git_delete_branch", {"name": "to-delete"})
     assert "SUCCESS" in result or isinstance(result, str)
 
 
 def test_git_delete_branch_force(git_executor, tmp_path):
     repo_dir = tmp_path / "git_project"
-    subprocess.run(["git", "branch", "force-delete"], cwd=repo_dir, capture_output=True)
+    subprocess.run(
+        ["git", "branch", "force-delete"], cwd=repo_dir, capture_output=True, check=False
+    )
     result = git_executor.execute("git_delete_branch", {"name": "force-delete", "force": True})
     assert "SUCCESS" in result or isinstance(result, str)
 
@@ -185,7 +193,7 @@ def test_git_stage_in_repo(git_executor, tmp_path):
 def test_git_unstage_in_repo(git_executor, tmp_path):
     repo_dir = tmp_path / "git_project"
     (repo_dir / "to_unstage.txt").write_text("content")
-    subprocess.run(["git", "add", "to_unstage.txt"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "add", "to_unstage.txt"], cwd=repo_dir, capture_output=True, check=False)
     result = git_executor.execute("git_unstage", {"files": ["to_unstage.txt"]})
     assert "SUCCESS" in result or isinstance(result, str)
 
@@ -206,7 +214,7 @@ def test_git_commit_no_message(executor):
 def test_git_commit_in_repo(git_executor, tmp_path):
     repo_dir = tmp_path / "git_project"
     (repo_dir / "commit_me.txt").write_text("to commit")
-    subprocess.run(["git", "add", "commit_me.txt"], cwd=repo_dir, capture_output=True)
+    subprocess.run(["git", "add", "commit_me.txt"], cwd=repo_dir, capture_output=True, check=False)
     result = git_executor.execute("git_commit", {"message": "Test commit"})
     assert "SUCCESS" in result or isinstance(result, str)
 

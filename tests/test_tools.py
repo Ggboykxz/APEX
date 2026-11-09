@@ -1,8 +1,8 @@
 """Tests for APEX tools - core file operations and ToolExecutor basics."""
 
-from pathlib import Path
-
 import sys
+from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -1082,7 +1082,7 @@ def test_clipboard_read_exception(executor, monkeypatch):
     _original_run = subprocess.run
 
     def fake_run(*a, **kw):
-        raise Exception("xclip fail")
+        raise Exception("xclip fail")  # noqa: TRY002
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     # Make pyperclip import fail
@@ -1110,7 +1110,7 @@ def test_clipboard_write_exception(executor, monkeypatch):
     import subprocess
 
     def fake_run(*a, **kw):
-        raise Exception("xclip fail")
+        raise Exception("xclip fail")  # noqa: TRY002
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     import sys
@@ -1430,7 +1430,7 @@ def test_init_project_exception(executor, monkeypatch):
 
     class FakePI:
         def create_context_file(self):
-            raise Exception("init failed")
+            raise Exception("init failed")  # noqa: TRY002
 
     monkeypatch.setattr("apex.project.get_project_initializer", lambda cwd: FakePI())
     result = executor.execute("init_project", {})
@@ -1522,7 +1522,7 @@ def test_run_shell_exception(executor, monkeypatch):
             return True
 
         def run(self, cmd):
-            raise Exception("shell error")
+            raise Exception("shell error")  # noqa: TRY002
 
         def close(self):
             pass
@@ -1925,7 +1925,7 @@ def test_retry_tool_error(executor, monkeypatch):
             max_retries = 3
 
         def execute(self, fn, name, args):
-            raise Exception("retry exhausted")
+            raise Exception("retry exhausted")  # noqa: TRY002
 
     monkeypatch.setattr("apex.advanced.get_retry_handler", lambda: FakeRH())
     result = executor.execute(
@@ -1996,7 +1996,7 @@ def test_get_context_info_success(executor, monkeypatch):
 
     # Need agent with history
     class FakeAgent:
-        history = ["msg1", "msg2"]
+        history: ClassVar[list[str]] = ["msg1", "msg2"]
 
     executor._agent = FakeAgent()
     result = executor.execute("get_context_info", {})

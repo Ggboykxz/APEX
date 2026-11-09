@@ -288,7 +288,7 @@ class TestInjectRepoMap:
         assert tokens > 0
 
     def test_second_call_is_a_noop(self, repo):
-        prompt, tokens = inject_repo_map("system", repo, max_tokens=500)
+        prompt, _tokens = inject_repo_map("system", repo, max_tokens=500)
         again, second_tokens = inject_repo_map(prompt, repo, max_tokens=500)
 
         assert again == prompt

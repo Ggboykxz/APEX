@@ -4,6 +4,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,7 @@ class BillingAccount:
 
 
 class BillingManager:
-    PLANS = {
+    PLANS: ClassVar[dict[PlanType, BillingPlan]] = {
         PlanType.FREE: BillingPlan(
             plan_type=PlanType.FREE,
             name="Free",
@@ -248,12 +249,16 @@ class BillingManager:
                     raise QuotaExceededError(
                         f"Monthly limit of ${account.plan.monthly_limit} exceeded"
                     )
-        if account.plan.input_limit > 0:
-            if account.input_tokens_used + input_tokens > account.plan.input_limit:
-                return False, f"Input token limit exceeded ({account.plan.input_limit})"
-        if account.plan.output_limit > 0:
-            if account.output_tokens_used + output_tokens > account.plan.output_limit:
-                return False, f"Output token limit exceeded ({account.plan.output_limit})"
+        if (
+            account.plan.input_limit > 0
+            and account.input_tokens_used + input_tokens > account.plan.input_limit
+        ):
+            return False, f"Input token limit exceeded ({account.plan.input_limit})"
+        if (
+            account.plan.output_limit > 0
+            and account.output_tokens_used + output_tokens > account.plan.output_limit
+        ):
+            return False, f"Output token limit exceeded ({account.plan.output_limit})"
         return True, "OK"
 
     def record_usage(

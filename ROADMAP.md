@@ -65,6 +65,7 @@
 - Auto-commit mode
 - VS Code extension
 - MCP server mode
+- Distribution refonte : npm + natif uniquement, retrait de PyPI/pip/pipx/uv/Homebrew (ADR-0009)
 
 ## 🌍 v3.0.0 — Enterprise
 - Full test suite (>80% coverage)

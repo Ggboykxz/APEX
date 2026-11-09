@@ -74,20 +74,20 @@ class TestSubagentParsing:
 
     def test_primary_agent_not_treated_as_subagent(self, agent):
         """Primary agents (coder, architect) are NOT subagents."""
-        sub, task = agent._parse_subagent_invocation("@coder write code")
+        sub, _task = agent._parse_subagent_invocation("@coder write code")
         assert sub is None  # coder is primary, not subagent
 
     def test_at_sign_without_name(self, agent):
-        sub, task = agent._parse_subagent_invocation("@ do stuff")
+        sub, _task = agent._parse_subagent_invocation("@ do stuff")
         assert sub is None
 
     def test_at_sign_without_task(self, agent):
-        sub, task = agent._parse_subagent_invocation("@reviewer")
+        sub, _task = agent._parse_subagent_invocation("@reviewer")
         # No task after @reviewer â€” doesn't match pattern
         assert sub is None
 
     def test_at_sign_at_end(self, agent):
-        sub, task = agent._parse_subagent_invocation("@reviewer ")
+        sub, _task = agent._parse_subagent_invocation("@reviewer ")
         # Trailing space â€” the regex requires ".+" after the name
         assert sub is None
 
@@ -172,11 +172,11 @@ class TestToolPermissionChecking:
     """Test Agent._check_tool_permission()."""
 
     def test_read_file_allowed(self, agent):
-        allowed, msg = agent._check_tool_permission("read_file")
+        allowed, _msg = agent._check_tool_permission("read_file")
         assert allowed is True
 
     def test_glob_allowed(self, agent):
-        allowed, msg = agent._check_tool_permission("glob")
+        allowed, _msg = agent._check_tool_permission("glob")
         assert allowed is True
 
     def test_write_file_requires_permission(self, agent):
@@ -361,7 +361,7 @@ class TestChatErrorHandling:
         try:
             result = agent.chat("any input", max_rounds=1)
             assert isinstance(result, str)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pytest.fail("chat() raised an exception instead of returning an error string")
 
     def test_chat_preserves_agent_state(self, agent):

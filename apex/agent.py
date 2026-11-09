@@ -86,7 +86,7 @@ class Agent:
                     content = resp.read().decode("utf-8", errors="replace").strip()
                     if content:
                         parts.append(f"## Instructions from {instr}\n{content}")
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
                 continue
             # Local glob pattern
@@ -129,7 +129,7 @@ class Agent:
         """Resolve validated ``context`` settings, tolerating older configs."""
         try:
             raw = apex_config.context
-        except Exception:
+        except Exception:  # noqa: BLE001
             raw = None
         return normalize_context_config(raw)
 
@@ -183,7 +183,7 @@ class Agent:
                     max_chars_per_result=settings["tool_output_max_chars"],
                     keep_recent=settings["keep_recent_tool_results"],
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pruned = messages
                 tokens = count_message_tokens(messages)
                 stats = ContextStats(tokens_before=tokens, tokens_after=tokens)
@@ -482,7 +482,7 @@ class Agent:
             if _ccfg.get("auto") and len(self.history) > 20:
                 _strategy = "prune" if _ccfg.get("prune") else "summarize"
                 self.compact_context(strategy=_strategy)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
         # Fail fast, before any LLM call, when images outpace model capability.
@@ -624,7 +624,7 @@ class Agent:
             except BadRequestError as e:
                 logging.getLogger(__name__).error(f"BadRequestError: {e}")
                 return f"ERROR: Bad request. The model may not support tools. Details: {e}"
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logging.getLogger(__name__).error(
                     f"Unexpected error in _chat_internal: {type(e).__name__}: {e}"
                 )
@@ -664,7 +664,7 @@ class Agent:
             if _ccfg.get("auto") and len(self.history) > 20:
                 _strategy = "prune" if _ccfg.get("prune") else "summarize"
                 self.compact_context(strategy=_strategy)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
         messages = self._request_messages(user_input)
         model_str = MODELS.get(self._resolve_model_alias(), self._resolve_model_alias())
@@ -867,7 +867,7 @@ class Agent:
             except BadRequestError as e:
                 yield f"ERROR: Bad request. The model may not support tools. Details: {e}"
                 return
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 yield f"ERROR: {type(e).__name__}: {e}"
                 return
 
@@ -885,7 +885,9 @@ class Agent:
     ) -> list[tuple[str, str]]:
         tool_calls_list = [(name, args) for _, name, args in tool_calls_data]
         results = await self._async_executor.execute_all_parallel(tool_calls_list)
-        return [(tc_id, result) for (tc_id, _, _), result in zip(tool_calls_data, results)]
+        return [
+            (tc_id, result) for (tc_id, _, _), result in zip(tool_calls_data, results, strict=False)
+        ]
 
     def _update_usage(self, usage: Any) -> None:
         if usage:
