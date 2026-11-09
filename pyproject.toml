@@ -54,7 +54,7 @@ dev = [
     "pytest-cov>=5.0.0",
     "pytest-timeout>=2.3.0",
     "ruff==0.17.3",
-    "mypy>=1.10.0",
+    "mypy>=2.4.1",
     "mkdocs-material>=8.0.0",
     "mkdocs-git-revision-date-localized-plugin",
 ]
