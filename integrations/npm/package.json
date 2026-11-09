@@ -1,6 +1,6 @@
 {
   "name": "apex-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "APEX \u2014 the universal AI coding agent. npm installer that downloads and runs the verified native apex-rs backend.",
   "license": "UNLICENSED",
   "publishConfig": {
