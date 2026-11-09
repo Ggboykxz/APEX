@@ -1801,3 +1801,17 @@ apex -p "prompt" -f json   # CI/CD mode
 ## Graphify
 
 This repo is indexed in Graphify. For questions about code structure, callers, dependencies, or the impact of a change, use Graphify's MCP tools before grep or reading files one by one: query_graph for how something works, graphify_find for where a symbol is defined, graphify_callers / graphify_callees for who calls what, graphify_impact for what a change could affect. Use grep for exact strings, such as error messages or config keys. If a Graphify tool fails or the repository isn't indexed, say so, then fall back to grep.
+
+## Code Health (CodeScene)
+
+After changing code, run `code_health_review` on the changed files. If Code Health drops, fix the issues, run the review again, and use `code_health_score` to confirm the result. Before finishing, run `pre_commit_code_health_safeguard` and only stop when it passes.
+
+- Score below 5: problematic range — scope changes narrowly.
+- Score 5–7: warning range — no broad refactors.
+- Score above 7: safer to refactor, still verify after each edit.
+
+Current known scores:
+- `scripts/version.py`: 9.84 (green)
+- `scripts/install.ps1`: 9.68 (green)
+- `apex/install_manager.py`: 7.16 (yellow — no broad refactors)
+- `apex/main.py`: 2.08 (red — minimal diff only, refactor `handle_command` first)
