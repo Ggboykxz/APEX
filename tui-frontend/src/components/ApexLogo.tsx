@@ -4,33 +4,31 @@
  * ApexLogo — ASCII art wordmark for the APEX TUI.
  *
  * Styled with the APEX charter: cyan #00e5ff primary, dark background
- * #0d1117, agent colors for the summit glyph. Inspired by OpenCode's
- * terminal wordmark but with APEX branding (summit = apex).
+ * #0d1117. The wordmark spells out "APEX" in terminal-safe block letters.
  */
 
 import React from "react"
 import { Box, Text } from "ink"
 import { apexTheme } from "../theme/apex.js"
 
-/** APEX wordmark rendered in terminal-safe block characters. */
+/** APEX wordmark rendered in terminal-safe block letters, one line per row. */
 const APEX_ART = [
-  " ▄▄▄▄▄▄▄ ▄▄▄  ▄▄▄  ▄▄▄▄▄▄▄ ",
-  "█       █   █   █   █       █",
-  "█    ▄  █   █   █   █    ▄  █",
-  "█   █▄█ █   █   █   █   █▄█ █",
-  "█    ▄  █   █   █   █    ▄  █",
-  "█   █   █   █   █   █   █   █",
-  "█▄▄▄█   █▄▄▄█   █▄▄▄█   █▄▄▄█",
+  "██████╗ ██╗   ██╗██╗███╗   ██╗███████╗██████╗  ██████╗ ",
+  "██╔══██╗██║   ██║██║████╗  ██║██╔════╝██╔══██╗██╔═══██╗",
+  "██████╔╝██║   ██║██║██╔██╗ ██║█████╗  ██████╔╝██║   ██║",
+  "██╔═══╝ ██║   ██║██║██║╚██╗██║██╔══╝  ██╔══██╗██║   ██║",
+  "██║     ╚██████╔╝██║██║ ╚████║███████╗██████╔╝╚██████╔╝",
+  "╚═╝     ╚═════╝ ╚═╝╚═╝  ╚═══╝╚══════╝╚═════╝  ╚═════╝ ",
 ]
 
 /** Summit glyph — a small peak above the wordmark. */
 const SUMMIT_ART = [
-  "      /\\      ",
-  "     /  \\     ",
-  "    /    \\    ",
-  "   /      \\   ",
-  "  /        \\  ",
-  " /          \\ ",
+  "      /\      ",
+  "     /  \     ",
+  "    /    \    ",
+  "   /      \   ",
+  "  /        \  ",
+  " /          \ ",
   "/____________\\",
 ]
 
