@@ -1813,8 +1813,8 @@ After changing code, run `code_health_review` on the changed files. If Code Heal
 Current known scores:
 - `scripts/version.py`: 9.84 (green)
 - `scripts/install.ps1`: 9.68 (green)
-- `apex/install_manager.py`: 7.16 (yellow — no broad refactors)
-- `apex/main.py`: 7.77 (green — parser, dispatch, runtime, re-exports)
+- `apex/install_manager.py`: 8.18 (green)
+- `apex/main.py`: 10.00 (green — parser, dispatch, runtime, re-exports)
 - `apex/cli_handlers.py`: 10.00 (green — slash commands + `COMMAND_DISPATCH`)
 - `apex/cli_auth.py`: 10.00 (green)
 - `apex/cli_sessions.py`: 10.00 (green)
