@@ -219,19 +219,34 @@ def http_fetch(url: str) -> bytes:
         return response.read()
 
 
+def _release_tag_from_payload(payload: dict) -> str | None:
+    """Extract and validate a semver tag from a ``releases/latest`` payload."""
+    tag = str(payload.get("tag_name", "")).strip().lstrip("v")
+    return tag if SEMVER.match(tag) else None
+
+
+def _tag_versions(reader: Fetch, tags_api: str) -> list[str]:
+    """Return valid semver versions from the tags API (empty on 404)."""
+    tags = json.loads(reader(tags_api))
+    if not isinstance(tags, list):
+        raise InstallError(f"could not resolve the latest release: {tags!r}")
+    versions = [
+        str(entry.get("name", "")).strip().lstrip("v") for entry in tags if isinstance(entry, dict)
+    ]
+    return [v for v in versions if SEMVER.match(v)]
+
+
+def _highest_semver(versions: list[str]) -> str | None:
+    """Return the highest semantic version, or None when the list is empty."""
+    if not versions:
+        return None
+    return max(versions, key=lambda value: tuple(int(part) for part in value.split(".")))
+
+
 def fetch_latest_release(
     fetch: Fetch | None = None, api: str = RELEASE_API, tags_api: str = TAGS_API
 ) -> str:
-    """Return the latest published version (without the ``v``).
-
-    ``releases/latest`` is authoritative. Repositories that only push tags
-    (no GitHub Release yet) get a fallback on the tags API, taking the
-    highest semantic version.
-
-    Raises :class:`ReleaseUnavailable` when the repository has published
-    nothing yet, so callers can tell "no release" apart from a network or
-    API failure.
-    """
+    """Return the latest published version (without the ``v``)."""
     reader = fetch or http_fetch
     release_error: Exception | None = None
     try:
@@ -241,28 +256,22 @@ def fetch_latest_release(
     else:
         if not isinstance(payload, dict):
             raise InstallError("unexpected release payload (expected a JSON object)")
-        tag = str(payload.get("tag_name", "")).strip().lstrip("v")
-        if SEMVER.match(tag):
+        tag = _release_tag_from_payload(payload)
+        if tag is not None:
             return tag
-        raise InstallError(f"unexpected release tag: {payload.get('tag_name')!r}")
+        release_error = InstallError(f"unexpected release tag: {payload.get('tag_name')!r}")
 
     try:
-        tags = json.loads(reader(tags_api))
+        versions = _tag_versions(reader, tags_api)
     except Exception as exc:
         if not _is_not_found(exc):
             raise InstallError(
                 f"could not resolve the latest release: {release_error or exc}"
             ) from exc
-        tags = []
-    if not isinstance(tags, list):
-        raise InstallError(f"could not resolve the latest release: {tags!r}")
-
-    versions = [
-        str(entry.get("name", "")).strip().lstrip("v") for entry in tags if isinstance(entry, dict)
-    ]
-    versions = [version for version in versions if SEMVER.match(version)]
-    if versions:
-        return max(versions, key=lambda value: tuple(int(part) for part in value.split(".")))
+        versions = []
+    highest = _highest_semver(versions)
+    if highest is not None:
+        return highest
     raise ReleaseUnavailable("no published release or tag yet")
 
 
@@ -291,51 +300,52 @@ def _extract(archive: Path, destination: Path) -> None:
             bundle.extract(member, root)
 
 
-def native_upgrade(
-    version: str | None = None,
-    *,
-    fetch: Fetch | None = None,
-    env: dict[str, str] | None = None,
-    home: Path | None = None,
-    sys_platform: str | None = None,
-    machine: str | None = None,
-) -> Path:
-    """Download, verify and install the native backend; return its path.
+@dataclass(frozen=True)
+class NativeUpgradeOptions:
+    """Bundled options for :func:`native_upgrade`."""
 
-    The checksum published next to the asset (``<asset>.sha256``) is the only
-    trust anchor: a mismatch aborts before anything touches the install
-    directory.
-    """
-    platform_value = sys_platform or sys.platform
-    triple = target_triple(platform_value, machine)
+    fetch: Fetch | None = None
+    env: dict[str, str] | None = None
+    home: Path | None = None
+    sys_platform: str | None = None
+    machine: str | None = None
+
+
+def _resolve_triple(platform_value: str, options: NativeUpgradeOptions) -> str:
+    triple = target_triple(platform_value, options.machine)
     if triple is None:
         raise InstallError(
-            f"no native backend build for {platform_value}/{machine or platform_module.machine()}"
+            f"no native backend build for {platform_value}/{options.machine or platform_module.machine()}"
         )
-    base = release_base(version)
-    asset = asset_name(triple)
-    reader = fetch or http_fetch
+    return triple
 
+
+def _download_and_verify(reader: Fetch, base: str, asset: str) -> bytes:
     checksum = parse_sha256(reader(f"{base}/{asset}.sha256").decode("utf-8", "replace"))
     if checksum is None:
         raise InstallError("release checksum file is missing a SHA256 digest")
     payload = reader(f"{base}/{asset}")
     if hashlib.sha256(payload).hexdigest() != checksum:
         raise InstallError("native backend checksum mismatch")
+    return payload
 
+
+def _install_binary(
+    payload: bytes,
+    asset: str,
+    platform_value: str,
+    directory: Path,
+    name: str,
+) -> Path:
     with tempfile.TemporaryDirectory(prefix="apex-native-") as tmp:
         archive = Path(tmp) / asset
         archive.write_bytes(payload)
         unpacked = Path(tmp) / "unpack"
         unpacked.mkdir()
         _extract(archive, unpacked)
-
-        name = binary_name(platform_value)
         found = next((path for path in unpacked.rglob(name) if path.is_file()), None)
         if found is None:
             raise InstallError(f"archive does not contain {name}")
-
-        directory = native_install_dir(env, home)
         directory.mkdir(parents=True, exist_ok=True)
         destination = directory / name
         shutil.copy2(found, destination)
@@ -344,7 +354,87 @@ def native_upgrade(
         return destination
 
 
-# ── Uninstall planning ──────────────────────────────────────────────────────
+def native_upgrade(
+    version: str | None = None,
+    *,
+    options: NativeUpgradeOptions | None = None,
+) -> Path:
+    """Download, verify and install the native backend; return its path.
+
+    The checksum published next to the asset (``<asset>.sha256``) is the only
+    trust anchor: a mismatch aborts before anything touches the install
+    directory.
+    """
+    opts = options or NativeUpgradeOptions()
+    reader = opts.fetch or http_fetch
+    platform_value = opts.sys_platform or sys.platform
+    triple = _resolve_triple(platform_value, opts)
+    base = release_base(version)
+    asset = asset_name(triple)
+    payload = _download_and_verify(reader, base, asset)
+    directory = native_install_dir(opts.env, opts.home)
+    return _install_binary(payload, asset, platform_value, directory, binary_name(platform_value))
+
+
+@dataclass(frozen=True)
+class UninstallOptions:
+    """Bundled options for :func:`uninstall_plan`."""
+
+    keep_config: bool = False
+    keep_data: bool = False
+    purge: bool = False
+    methods: tuple[str, ...] | None = None
+
+
+def _native_uninstall_paths(channels: set[str], values: dict[str, str], root: Path) -> list[Path]:
+    paths: list[Path] = []
+    if "native" in channels:
+        managed = native_install_dir(values, root)
+        if managed.exists():
+            paths.append(managed)
+    return paths
+
+
+def _config_uninstall_paths(
+    purge: bool, keep_config: bool, config_dir: Path
+) -> tuple[list[Path], list[str]]:
+    paths: list[Path] = []
+    kept: list[str] = []
+    if purge:
+        if config_dir.exists():
+            paths.append(config_dir)
+    elif keep_config:
+        if config_dir.exists():
+            kept.append(str(config_dir))
+    elif config_dir.exists():
+        paths.append(config_dir)
+    return paths, kept
+
+
+def _data_uninstall_paths(
+    purge: bool, keep_data: bool, data_dir: Path
+) -> tuple[list[Path], list[str]]:
+    paths: list[Path] = []
+    kept: list[str] = []
+    if purge:
+        if data_dir.exists():
+            paths.append(data_dir)
+    elif keep_data:
+        if data_dir.exists():
+            kept.append(str(data_dir))
+    else:
+        for name in ("sessions", "memory", "tasks"):
+            candidate = data_dir / name
+            if candidate.exists():
+                paths.append(candidate)
+    return paths, kept
+
+
+def _npm_uninstall_commands(channels: set[str]) -> list[tuple[str, ...]]:
+    commands: list[tuple[str, ...]] = []
+    if "npm" in channels:
+        commands.append(("npm", "uninstall", "-g", PACKAGE))
+    return commands
 
 
 @dataclass(frozen=True)
@@ -359,10 +449,7 @@ class UninstallPlan:
 def uninstall_plan(
     *,
     detection: Detection,
-    keep_config: bool = False,
-    keep_data: bool = False,
-    purge: bool = False,
-    methods: tuple[str, ...] | None = None,
+    options: UninstallOptions | None = None,
     home: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> UninstallPlan:
@@ -374,41 +461,24 @@ def uninstall_plan(
     """
     root = Path.home() if home is None else home
     values = dict(os.environ) if env is None else env
-    channels = set(methods or detection.methods)
+    opts = options or UninstallOptions()
+    channels = set(opts.methods or detection.methods)
 
     paths: list[Path] = []
     kept: list[str] = []
 
-    if "native" in channels:
-        managed = native_install_dir(values, root)
-        if managed.exists():
-            paths.append(managed)
+    paths.extend(_native_uninstall_paths(channels, values, root))
 
     config_dir = root / ".config" / "apex"
-    if purge:
-        if config_dir.exists():
-            paths.append(config_dir)
-    elif keep_config:
-        if config_dir.exists():
-            kept.append(str(config_dir))
-    elif config_dir.exists():
-        paths.append(config_dir)
+    p, k = _config_uninstall_paths(opts.purge, opts.keep_config, config_dir)
+    paths.extend(p)
+    kept.extend(k)
 
     data_dir = root / ".apex"
-    if purge:
-        if data_dir.exists():
-            paths.append(data_dir)
-    elif keep_data:
-        if data_dir.exists():
-            kept.append(str(data_dir))
-    else:
-        for name in ("sessions", "memory", "tasks"):
-            candidate = data_dir / name
-            if candidate.exists():
-                paths.append(candidate)
+    p, k = _data_uninstall_paths(opts.purge, opts.keep_data, data_dir)
+    paths.extend(p)
+    kept.extend(k)
 
-    commands: list[tuple[str, ...]] = []
-    if "npm" in channels:
-        commands.append(("npm", "uninstall", "-g", PACKAGE))
+    commands = _npm_uninstall_commands(channels)
 
     return UninstallPlan(tuple(dict.fromkeys(paths)), tuple(commands), tuple(kept))
