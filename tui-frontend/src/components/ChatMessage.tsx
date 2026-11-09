@@ -1,16 +1,19 @@
 "use strict";
 
 /**
- * ChatMessage — renders a single chat message with thinking blocks,
- * tool calls, rich text highlights (@file, !bash, ⚙ tool) and cost/token
- * metadata. Styled with the APEX charter (cyan #00e5ff primary, agent colors
- * from apex-data.ts).
+ * ChatMessage — renders a single chat message with thinking blocks, rich text
+ * highlights (@file, !bash, ⚙ tool) and cost/token metadata.
+ *
+ * Renders `message.parts` (structured memory, §8) when present, falling back
+ * to the flattened `content` otherwise. Styled with the APEX charter
+ * (cyan #00e5ff primary, agent colors from apex-data.ts).
  */
 
-import React from "react"
+import React, { memo } from "react"
 import { Box, Text } from "ink"
 import { apexTheme } from "../theme/apex.js"
-import { APEX_AGENTS, type ChatMessage } from "../data/apex-data.js"
+import { APEX_AGENTS, type ChatMessage as ChatMessageData, type MessagePart } from "../data/apex-data.js"
+import { MessagePart as RenderPart } from "./MessagePart.js"
 
 function getAgentColor(agentId?: string): string {
   const agent = APEX_AGENTS.find((a) => a.id === agentId)
@@ -26,13 +29,8 @@ function formatTokens(t?: number): string {
   return t !== undefined && t !== null ? t.toString() : "-"
 }
 
-interface ContentPart {
-  text: string
-  isThinking: boolean
-}
-
-function splitParts(content: string): ContentPart[] {
-  const parts: ContentPart[] = []
+function splitParts(content: string): { text: string; isThinking: boolean }[] {
+  const parts: { text: string; isThinking: boolean }[] = []
   const re = /<thinking>([\s\S]*?)<\/thinking>/g
   let last = 0
   let m: RegExpExecArray | null
@@ -62,16 +60,106 @@ function RichText({ text }: { text: string }) {
   )
 }
 
-interface ChatMessageProps {
-  message: ChatMessage
-  showThinking?: boolean
-  isLast?: boolean
+/** Flattened-text path: thinking blocks, rich text, cost metadata. */
+function ContentBody({ message }: { message: ChatMessageData }) {
+  const parts = splitParts(message.content)
+  return (
+    <Box flexDirection="column">
+      {parts.map((part, i) => {
+        if (part.isThinking) {
+          return (
+            <Box key={i} marginLeft={1}>
+              <Text color={apexTheme.yellow}>{part.text}</Text>
+            </Box>
+          )
+        }
+        return (
+          <Box key={i}>
+            <RichText text={part.text} />
+          </Box>
+        )
+      })}
+    </Box>
+  )
 }
 
-export function ChatMessage({
+/** Structured-parts path: one renderer per part type. */
+function PartsBody({ message }: { message: ChatMessageData }) {
+  const parts: MessagePart[] = message.parts ?? []
+  return (
+    <Box flexDirection="column">
+      {parts.map((part, i) => (
+        <Box key={i} flexDirection="column" marginBottom={1}>
+          <RenderPart part={part} />
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+interface ChatMessageProps {
+  message: ChatMessageData
+  showThinking?: boolean
+}
+
+function MessageHeader({ message, agentColor }: { message: ChatMessageData; agentColor: string }) {
+  return (
+    <Box>
+      <Text color={agentColor} bold>◆ </Text>
+      <Text color={agentColor} bold>{getAgentName(message.agent)}</Text>
+      {message.model && <Text color={apexTheme.gray}> · {message.model}</Text>}
+      {(
+        message.promptTokens !== undefined ||
+        message.completionTokens !== undefined
+      ) && (
+        <Text color={apexTheme.dimGray}>
+          {" "}· +{formatTokens(message.promptTokens)}/+{formatTokens(message.completionTokens)}
+        </Text>
+      )}
+      {(message.cost ?? 0) > 0 && (
+        <Text color={apexTheme.dimGray}> · ${message.cost!.toFixed(4)}</Text>
+      )}
+    </Box>
+  )
+}
+
+function AssistantBody({ message, showThinking }: { message: ChatMessageData; showThinking: boolean }) {
+  if (message.content.startsWith("Error:") || message.content.startsWith("✗")) {
+    return (
+      <Box>
+        <Text color={apexTheme.red}>✗ {message.content.replace(/^(Error:\s*|✗\s*)/, "")}</Text>
+      </Box>
+    )
+  }
+  if (message.content.startsWith("ℹ")) {
+    return (
+      <Box>
+        <Text color={apexTheme.cyan}>ℹ {message.content.replace(/^ℹ\s*/, "")}</Text>
+      </Box>
+    )
+  }
+  return (
+    <Box flexDirection="column">
+      {message.parts && message.parts.length > 0 ? (
+        <PartsBody message={message} />
+      ) : showThinking ? (
+        <ContentBody message={message} />
+      ) : (
+        <Box>
+          <Text color={apexTheme.yellow}>[thinking block]</Text>
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+/**
+ * Memoized so a finished row is rendered once and never re-rendered when the
+ * live window moves underneath it.
+ */
+export const ChatMessage = memo(function ChatMessage({
   message,
   showThinking = true,
-  isLast = false,
 }: ChatMessageProps) {
   const agentColor = getAgentColor(message.agent)
 
@@ -81,63 +169,19 @@ export function ChatMessage({
         <Box flexDirection="column">
           <Box>
             <Text color={apexTheme.cyan} bold>▌ </Text>
-            <RichText text={message.content} />
+            {message.parts && message.parts.length > 0 ? (
+              <PartsBody message={message} />
+            ) : (
+              <RichText text={message.content} />
+            )}
           </Box>
         </Box>
       ) : (
         <Box flexDirection="column">
-          <Box>
-            <Text color={agentColor} bold>◆ </Text>
-            <Text color={agentColor} bold>{getAgentName(message.agent)}</Text>
-            {message.model && <Text color={apexTheme.gray}> · {message.model}</Text>}
-            {(
-              message.promptTokens !== undefined ||
-              message.completionTokens !== undefined
-            ) && (
-              <Text color={apexTheme.dimGray}>
-                {" "}· +{formatTokens(message.promptTokens)}/+{formatTokens(message.completionTokens)}
-              </Text>
-            )}
-            {(message.cost ?? 0) > 0 && (
-              <Text color={apexTheme.dimGray}> · ${message.cost!.toFixed(4)}</Text>
-            )}
-          </Box>
-
-          {message.content.startsWith("Error:") || message.content.startsWith("✗") ? (
-            <Box>
-              <Text color={apexTheme.red}>✗ {message.content.replace(/^(Error:\s*|✗\s*)/, "")}</Text>
-            </Box>
-          ) : message.content.startsWith("ℹ") ? (
-            <Box>
-              <Text color={apexTheme.cyan}>ℹ {message.content.replace(/^ℹ\s*/, "")}</Text>
-            </Box>
-          ) : (
-            <Box flexDirection="column">
-              {splitParts(message.content).map((part, i) => {
-                if (part.isThinking) {
-                  if (!showThinking) {
-                    return (
-                      <Box key={i}>
-                        <Text color={apexTheme.yellow}>[thinking block]</Text>
-                      </Box>
-                    )
-                  }
-                  return (
-                    <Box key={i} marginLeft={1}>
-                      <Text color={apexTheme.yellow}>{part.text}</Text>
-                    </Box>
-                  )
-                }
-                return (
-                  <Box key={i}>
-                    <RichText text={part.text} />
-                  </Box>
-                )
-              })}
-            </Box>
-          )}
+          <MessageHeader message={message} agentColor={agentColor} />
+          <AssistantBody message={message} showThinking={showThinking} />
         </Box>
       )}
     </Box>
   )
-}
+})
