@@ -349,7 +349,10 @@ def _download_and_verify(reader: Fetch, base: str, asset: str) -> bytes:
     checksum = parse_sha256(reader(f"{base}/{asset}.sha256").decode("utf-8", "replace"))
     if checksum is None:
         raise InstallError("release checksum file is missing a SHA256 digest")
-    payload = reader(f"{base}/{asset}")
+    try:
+        payload = reader(f"{base}/{asset}")
+    except Exception as exc:
+        raise InstallError(f"could not download asset {asset}: {exc}") from exc
     if hashlib.sha256(payload).hexdigest() != checksum:
         raise InstallError("native backend checksum mismatch")
     return payload
