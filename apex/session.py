@@ -113,42 +113,97 @@ class UndoManager:
         self._redo_stack.clear()
 
 
+def _validate_session_name(name: str) -> None:
+    """Raise when the session name is not safe to use as a file name."""
+    if _is_invalid_session_name(name):
+        raise ValueError(f"Invalid session name: {name}")
+
+
+def _is_invalid_session_name(name: str) -> bool:
+    """Whether a session name may not be used as a file name."""
+    if not name:
+        return True
+    if ".." in name:
+        return True
+    if "/" in name:
+        return True
+    return "\\" in name
+
+
+def _validate_session_path(filepath: Path, sessions_dir: Path) -> None:
+    """Raise when the session file would escape the sessions directory."""
+    resolved_dir = sessions_dir.resolve()
+    if resolved_dir not in filepath.parents and filepath.parent != resolved_dir:
+        raise ValueError(f"Invalid session path: {filepath}")
+
+
+def _session_payload(agent: Agent, name: str) -> dict[str, Any]:
+    """The data persisted for a session."""
+    return {
+        "name": name,
+        "timestamp": datetime.now().isoformat(),
+        "model": agent.model,
+        "cwd": str(agent.cwd),
+        "history": agent.history,
+        "usage": agent.usage,
+    }
+
+
+def _fallback_latest_pointer(tmp_link: Path, latest_link: Path, filename: str) -> None:
+    """Write a plain pointer file when symlinking is unavailable."""
+    try:
+        if tmp_link.exists() or tmp_link.is_symlink():
+            tmp_link.unlink()
+    except OSError as exc:
+        logger.debug("failed to remove temporary link %s: %s", tmp_link, exc)
+    latest_link.write_text(filename, encoding="utf-8")
+
+
+def _latest_matching_file(sessions_dir: Path, name: str) -> Path | None:
+    """The most recent session file matching a name."""
+    matching = list(sessions_dir.glob(f"*_{name}.enc"))
+    if not matching:
+        matching = list(sessions_dir.glob(f"*_{name}.json"))
+    if not matching:
+        return None
+    return max(matching, key=lambda p: p.stat().st_mtime)
+
+
+def _read_session_file(filepath: Path) -> dict[str, Any]:
+    """Read and decrypt a session file."""
+    raw = filepath.read_bytes()
+    if filepath.suffix == ".json":
+        return json.loads(raw)
+    return json.loads(_decrypt(raw))
+
+
 class SessionManager:
     def __init__(self):
         self._sessions_dir = Path.home() / ".apex" / "sessions"
         self._sessions_dir.mkdir(parents=True, exist_ok=True)
 
     def save(self, agent: Agent, name: str = "default") -> Path:
-        if not name or ".." in name or "/" in name or "\\" in name:
-            raise ValueError(f"Invalid session name: {name}")
+        _validate_session_name(name)
+        filepath = self._session_filepath(name)
+        session_data = _session_payload(agent, name)
+        payload = json.dumps(session_data, separators=(",", ":")).encode()
+        encrypted = _encrypt(payload)
+
+        with open(filepath, "wb") as handle:
+            handle.write(encrypted)
+
+        self._update_latest_pointer(name, filepath)
+        return filepath
+
+    def _session_filepath(self, name: str) -> Path:
         safe_name = re.sub(r"[^a-zA-Z0-9_-]", "_", name)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{timestamp}_{safe_name}.enc"
         filepath = (self._sessions_dir / filename).resolve()
-        if (
-            self._sessions_dir.resolve() not in filepath.parents
-            and filepath.parent != self._sessions_dir.resolve()
-        ):
-            raise ValueError(f"Invalid session path: {filepath}")
+        _validate_session_path(filepath, self._sessions_dir)
+        return filepath
 
-        session_data = {
-            "name": name,
-            "timestamp": datetime.now().isoformat(),
-            "model": agent.model,
-            "cwd": str(agent.cwd),
-            "history": agent.history,
-            "usage": agent.usage,
-        }
-
-        payload = json.dumps(session_data, separators=(",", ":")).encode()
-        encrypted = _encrypt(payload)
-
-        with open(filepath, "wb") as f:
-            f.write(encrypted)
-
-        # Atomically update the "latest" pointer using a temp symlink + rename.
-        # Some platforms (Windows without Developer Mode/admin) cannot create
-        # symlinks — fall back to a plain pointer file in that case.
+    def _update_latest_pointer(self, name: str, filepath: Path) -> None:
         latest_link = self._sessions_dir / f"latest_{name}.json"
         tmp_link = self._sessions_dir / f".latest_{name}.tmp"
         try:
@@ -157,45 +212,15 @@ class SessionManager:
             tmp_link.symlink_to(filepath.name)
             os.replace(str(tmp_link), str(latest_link))
         except OSError:
-            try:
-                if tmp_link.exists() or tmp_link.is_symlink():
-                    tmp_link.unlink()
-            except OSError:
-                pass
-            latest_link.write_text(filepath.name, encoding="utf-8")
-
-        return filepath
+            _fallback_latest_pointer(tmp_link, latest_link, filepath.name)
 
     def load(self, name: str, agent: Agent) -> bool:
-        latest_link = self._sessions_dir / f"latest_{name}.json"
-        if not latest_link.exists():
-            matching = list(self._sessions_dir.glob(f"*_{name}.enc"))
-            if not matching:
-                matching = list(self._sessions_dir.glob(f"*_{name}.json"))
-            if not matching:
-                return False
-            filepath = max(matching, key=lambda p: p.stat().st_mtime)
-        else:
-            try:
-                resolved = (self._sessions_dir / latest_link.readlink()).resolve()
-            except OSError:
-                # Plain pointer file fallback (symlinks unavailable).
-                pointer = latest_link.read_text(encoding="utf-8").strip()
-                resolved = (self._sessions_dir / pointer).resolve()
-            if not str(resolved).startswith(str(self._sessions_dir.resolve())):
-                return False
-            filepath = resolved
-
+        filepath = self._resolve_latest(name)
+        if filepath is None:
+            return False
         try:
-            raw = filepath.read_bytes()
-            if filepath.suffix == ".json":
-                session_data = json.loads(raw)
-            else:
-                session_data = json.loads(_decrypt(raw))
-
-            agent.switch_model(session_data.get("model", "claude-sonnet"))
-            agent.cwd = Path(session_data.get("cwd", "."))
-            agent.history = session_data.get("history", [])
+            session_data = _read_session_file(filepath)
+            self._apply_session_data(agent, session_data)
             return True
         except Exception:
             logger.exception(
@@ -203,43 +228,33 @@ class SessionManager:
             )
             return False
 
+    def _resolve_latest(self, name: str) -> Path | None:
+        latest_link = self._sessions_dir / f"latest_{name}.json"
+        if not latest_link.exists():
+            return _latest_matching_file(self._sessions_dir, name)
+        try:
+            resolved = (self._sessions_dir / latest_link.readlink()).resolve()
+        except OSError:
+            # Plain pointer file fallback (symlinks unavailable).
+            pointer = latest_link.read_text(encoding="utf-8").strip()
+            resolved = (self._sessions_dir / pointer).resolve()
+        if not str(resolved).startswith(str(self._sessions_dir.resolve())):
+            return None
+        return resolved
+
+    def _apply_session_data(self, agent: Agent, data: dict[str, Any]) -> None:
+        agent.switch_model(data.get("model", "claude-sonnet"))
+        agent.cwd = Path(data.get("cwd", "."))
+        agent.history = data.get("history", [])
+
     def list_sessions(self) -> list[dict[str, Any]]:
-        sessions = []
-        for filepath in self._sessions_dir.glob("*.json"):
-            if filepath.is_symlink():
-                continue
-            try:
-                with open(filepath) as f:
-                    data = json.load(f)
-                    sessions.append(
-                        {
-                            "name": data.get("name", "unknown"),
-                            "timestamp": data.get("timestamp", ""),
-                            "model": data.get("model", ""),
-                            "history_len": len(data.get("history", [])),
-                        }
-                    )
-            except Exception:
-                logger.exception("Failed to read session file %s", filepath)
-                continue
+        """List all saved sessions."""
+        sessions: list[dict[str, Any]] = []
         for filepath in self._sessions_dir.glob("*.enc"):
-            if filepath.is_symlink():
-                continue
-            try:
-                raw = filepath.read_bytes()
-                data = json.loads(_decrypt(raw))
-                sessions.append(
-                    {
-                        "name": data.get("name", "unknown"),
-                        "timestamp": data.get("timestamp", ""),
-                        "model": data.get("model", ""),
-                        "history_len": len(data.get("history", [])),
-                    }
-                )
-            except Exception:
-                logger.exception("Failed to decrypt session file %s", filepath)
-                continue
-        return sorted(sessions, key=lambda s: s["timestamp"], reverse=True)
+            session = _read_session_summary(filepath)
+            if session is not None:
+                sessions.append(session)
+        return sorted(sessions, key=lambda item: item["timestamp"], reverse=True)
 
     def share(self, agent: Agent, name: str = "default") -> str:
         session_data = {
@@ -298,3 +313,19 @@ class SessionManager:
         except Exception:
             logger.exception("Failed to load shared session %s", share_id)
             return False
+
+
+def _read_session_summary(filepath: Path) -> dict[str, Any] | None:
+    """The summary of one session file, or ``None`` when it cannot be read."""
+    try:
+        raw = filepath.read_bytes()
+        data = json.loads(_decrypt(raw))
+    except Exception:  # noqa: BLE001
+        return None
+    return {
+        "name": data.get("name", filepath.stem),
+        "timestamp": data.get("timestamp", ""),
+        "model": data.get("model", ""),
+        "history_len": len(data.get("history", [])),
+        "path": str(filepath),
+    }
