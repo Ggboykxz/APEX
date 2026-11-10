@@ -33,8 +33,10 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
+const https = require("https");
 const resolver = require("../lib/resolver");
 const native = require("../lib/native");
+const tui = require("../lib/tui");
 
 const SELF_REAL = resolver.realpath(__filename);
 const EXCLUDE = SELF_REAL ? [SELF_REAL] : [];
@@ -191,8 +193,77 @@ async function main() {
   if (!binary) {
     fail(missingBinaryHint());
   }
+
+  const httpPort = String(process.env.APEX_HTTP_PORT || "8765");
+
+  // No arguments: start the full TUI connected to the native backend.
+  if (args.length === 0) {
+    note("[apex] installing native backend (apex-rs)…");
+    note("[apex] starting native backend on port " + httpPort + "…");
+    const server = spawn(binary, ["serve", "--port", httpPort], {
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+    });
+    server.stdout.on("data", () => {});
+    server.stderr.on("data", () => {});
+    server.unref();
+
+    // Wait for the native backend to answer on /health.
+    const healthUrl = `http://127.0.0.1:${httpPort}/health`;
+    let ready = false;
+    for (let i = 0; i < 50; i++) {
+      try {
+        await fetchJson(healthUrl);
+        ready = true;
+        break;
+      } catch {
+        /* not ready yet */
+      }
+      await sleep(200);
+    }
+    if (!ready) {
+      note(
+        `[apex] native backend did not become reachable at ${healthUrl}; ` +
+          "continuing anyway."
+      );
+    }
+
+    note("[apex] preparing TUI frontend…");
+    const tuiDirectory = await tui.ensureTuiFrontend();
+    note("[apex] launching TUI (Ctrl+C to exit)…");
+    tui.runTui(tuiDirectory, args);
+    return;
+  }
+
+  // With arguments: run the native backend headless (serve, run, tools, …).
   note("[apex] using the native backend (apex-rs, headless).");
   run(binary, args);
+}
+
+/** Tiny GET helper returning the parsed JSON body, or throwing. */
+async function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, { headers: { "User-Agent": "apex-npm-installer" } }, (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            reject(new Error(`non-JSON health response: ${data}`));
+          }
+        });
+        res.on("error", reject);
+      })
+      .on("error", reject);
+  });
+}
+
+/** Sleep for ms milliseconds. */
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 main().catch((err) => {

@@ -50,11 +50,15 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          personal_token: ${{ secrets.DEPLOY_TOKEN }}
+          # peaceiris/actions-gh-pages requires an explicit token: it looks for
+          # `personal_token` or a deploy key and fails with
+          # "not found deploy key or tokens" otherwise. The workflow already
+          # declares `permissions: contents: write`, so the built-in
+          # GITHUB_TOKEN can push gh-pages.
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./out
           publish_branch: gh-pages
           force_orphan: true
           user_name: "github-actions[bot]"
           user_email: "github-actions[bot]@users.noreply.github.com"
           commit_message: "Deploy website from ${{ github.sha }}"
-        continue-on-error: true

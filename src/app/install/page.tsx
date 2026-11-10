@@ -64,7 +64,7 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 /* ──── INSTALL METHODS ──── */
 const INSTALL_METHODS = [
   { id: 'npm', label: 'npm', icon: Box, platform: 'All', cmd: 'npm install -g apex-ai\napex --version', desc: 'Recommended. Installs the apex command; the wrapper downloads and verifies the native backend on first run. Zero runtime dependencies.' },
-  { id: 'native', label: 'native', icon: Terminal, platform: 'macOS / Linux', cmd: 'curl -fsSLO https://apex-ai.dev/install.sh\nbash install.sh --method native', desc: 'Downloads the verified apex-rs release asset to ~/.apex/bin (checksum checked before writing). Headless: serve, run, tools.' },
+  { id: 'native', label: 'native', icon: Terminal, platform: 'macOS / Linux', cmd: 'curl -fsSL https://apex-ai.dev/install.sh | bash', desc: 'Downloads the verified apex-rs release asset to ~/.apex/bin (checksum checked before writing). Headless: serve, run, tools.' },
   { id: 'docker', label: 'docker', icon: Container, platform: 'All', cmd: 'docker run -it ghcr.io/ggboykxz/apex', desc: 'Run APEX in a Docker container. Great for isolated environments and CI/CD.' },
   { id: 'source', label: 'source', icon: Github, platform: 'Development', cmd: 'git clone https://github.com/Ggboykxz/APEX.git\ncd APEX\npip install -e ".[dev]"', desc: 'Development only. The Python CLI/TUI is not distributed through a package index; run it from a checkout.' },
 ]
@@ -225,8 +225,8 @@ export default function InstallPage() {
               <div className="p-5 rounded-xl border border-border/50 bg-card/30" style={{ borderLeftColor: '#00e5ff', borderLeftWidth: 3 }}>
                 <h3 className="font-bold font-mono text-[#00e5ff] mb-3">macOS</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>• npm or the installer: <code className="text-apex-cyan">bash install.sh</code></li>
-                  <li>• Native backend: <code className="text-apex-cyan">bash install.sh --method native</code></li>
+                  <li>• npm or the one-command installer: <code className="text-apex-cyan">curl -fsSL https://apex-ai.dev/install.sh | bash</code></li>
+                  <li>• Native backend: <code className="text-apex-cyan">curl -fsSL https://apex-ai.dev/install.sh | bash -s -- --method native</code></li>
                   <li>• Terminal.app, iTerm2, Warp, Kitty all supported</li>
                 </ul>
               </div>
@@ -242,7 +242,7 @@ export default function InstallPage() {
                 <h3 className="font-bold font-mono text-[#ffaa00] mb-3">Windows</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>• npm: <code className="text-apex-cyan">npm install -g apex-ai</code></li>
-                  <li>• Native: <code className="text-apex-cyan">.\install.ps1 -Method native</code></li>
+                  <li>• Native: <code className="text-apex-cyan">irm https://apex-ai.dev/install.ps1 | iex</code></li>
                   <li>• Docker: <code className="text-apex-cyan">docker run -it ghcr.io/ggboykxz/apex</code></li>
                   <li>• WSL2 recommended for the best terminal experience</li>
                 </ul>
@@ -267,7 +267,7 @@ export default function InstallPage() {
             <div className="grid sm:grid-cols-2 gap-6">
               <div>
                 <h3 className="font-bold font-mono text-apex-cyan mb-4">Upgrade</h3>
-                <CodeBlock code={`# npm\nnpm install -g apex-ai@latest\n\n# native (verified download)\nbash install.sh --method native\n\n# source checkout\ngit pull\n\n# Check version\napex --version`} />
+                <CodeBlock code={`# npm\nnpm install -g apex-ai@latest\n\n# native (verified download)\ncurl -fsSL https://apex-ai.dev/install.sh | bash\n\n# source checkout\ngit pull\n\n# Check version\napex --version`} />
               </div>
               <div>
                 <h3 className="font-bold font-mono text-apex-yellow mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> Common Issues</h3>

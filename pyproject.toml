@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "apex-ai"
-version = "0.1.0"
+version = "0.2.0"
 description = "Universal AI coding agent — source-only development surface; distributed via npm (apex-ai) and native backend (apex-rs), not PyPI"
 readme = "README.md"
 license-files = ["LICENSE"]

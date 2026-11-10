@@ -71,6 +71,26 @@ updates:
       include: scope
     rebase-strategy: auto
 
+  # npm dependencies — Electron desktop (integrations/desktop/)
+  - package-ecosystem: npm
+    directory: /integrations/desktop
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: UTC
+    open-pull-requests-limit: 10
+    reviewers:
+      - Ggboykxz
+    labels:
+      - dependencies
+      - desktop
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    rebase-strategy: auto
+
   # GitHub Actions
   - package-ecosystem: github-actions
     directory: /

@@ -6,6 +6,8 @@ import pytest
 
 from apex.permission import (
     PermissionAction,
+    PermissionContext,
+    PermissionGrant,
     PermissionManager,
     PermissionRequest,
     PermissionRequestDenied,
@@ -224,19 +226,25 @@ class TestPermissionManagerAddRule:
 
     def test_add_rule_with_expiration(self, manager):
         before = time.time()
-        manager.add_rule("temp_tool", PermissionAction.DENY, "Temp deny", expires_in=60)
+        manager.add_rule(
+            "temp_tool", PermissionAction.DENY, "Temp deny", grant=PermissionGrant(expires_in=60)
+        )
         assert manager._rules[0].expires_at is not None
         assert manager._rules[0].expires_at >= before + 59
         assert manager._rules[0].expires_at <= before + 61
 
     def test_add_rule_with_remember_no_expiry(self, manager):
-        manager.add_rule("remembered", PermissionAction.ALLOW, remember=True)
+        manager.add_rule("remembered", PermissionAction.ALLOW, grant=PermissionGrant(remember=True))
         assert manager._rules[0].remember is True
         # When remember=True and no expires_in, expires_at should be None
         assert manager._rules[0].expires_at is None
 
     def test_add_rule_with_remember_and_expiry(self, manager):
-        manager.add_rule("remembered", PermissionAction.ALLOW, expires_in=3600, remember=True)
+        manager.add_rule(
+            "remembered",
+            PermissionAction.ALLOW,
+            grant=PermissionGrant(expires_in=3600, remember=True),
+        )
         assert manager._rules[0].remember is True
         assert manager._rules[0].expires_at is not None
 
@@ -413,8 +421,7 @@ class TestPermissionManagerRequestPermission:
             tool_name="my_tool",
             args={"arg1": "val1"},
             permission="shell:execute",
-            workspace_id="ws_1",
-            user_id="u_1",
+            context=PermissionContext(workspace_id="ws_1", user_id="u_1"),
         )
         request = manager._requests[request_id]
         assert request.tool_name == "my_tool"
