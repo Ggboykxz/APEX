@@ -210,9 +210,7 @@ class DynamicSkillManager:
             if cfg.kind == "directory":
                 watcher = SkillWatcher(cfg, self.hooks)
                 self._watchers.append(watcher)
-                task = asyncio.create_task(
-                    watcher.start(lambda skills: self._register_skills(skills))
-                )
+                task = asyncio.create_task(watcher.start(self._register_skills))
                 self._tasks.append(task)
 
     async def stop(self) -> None:

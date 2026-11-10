@@ -4,6 +4,13 @@ from datetime import datetime
 from typing import Any
 
 
+def _same_role(current: dict | None, msg: dict) -> bool:
+    """Whether two messages share a role and can be merged."""
+    if current is None:
+        return False
+    return msg["role"] == current["role"]
+
+
 class ContextManager:
     """Manage large context with compaction and prefix caching."""
 
@@ -104,22 +111,26 @@ class ContextManager:
         if len(self._messages) < 3:
             return
 
-        merged = []
-        current = None
-
-        for msg in self._messages:
-            if msg["role"] == current["role"] if current else False:
-                current["content"] += f"\n{msg['content']}"
-            else:
-                if current:
-                    merged.append(current)
-                current = msg.copy()
-
+        merged, current = self._merge_messages(self._messages)
         if current:
             merged.append(current)
 
         self._messages = merged
         self._recalc_tokens()
+
+    @staticmethod
+    def _merge_messages(messages: list[dict]) -> tuple[list[dict], dict | None]:
+        """Collapse consecutive messages sharing a role."""
+        merged: list[dict] = []
+        current: dict | None = None
+        for msg in messages:
+            if _same_role(current, msg):
+                current["content"] += f"\n{msg['content']}"
+                continue
+            if current is not None:
+                merged.append(current)
+            current = msg.copy()
+        return merged, current
 
     def _create_summary(self, messages: list[dict]) -> str:
         """Create a summary of messages."""
