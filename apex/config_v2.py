@@ -310,6 +310,17 @@ class ApexConfig:
         self._auto_migrate()
         self._load_all()
 
+    # ── cwd ────────────────────────────────────────────────────
+    # Compatibilité avec le constructeur d'Agent (agent.py lit config.cwd).
+    @property
+    def cwd(self) -> Path:
+        """Répertoire de travail effectif du projet (défaut: cwd actuel)."""
+        return self._project_dir or Path.cwd().resolve()
+
+    @cwd.setter
+    def cwd(self, value: str | Path) -> None:
+        self._project_dir = Path(value).expanduser().resolve()
+
     # ── Loading ──────────────────────────────────────────────
 
     def _auto_migrate(self) -> None:

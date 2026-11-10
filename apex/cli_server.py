@@ -21,20 +21,21 @@ def _resolve_endpoint(args: argparse.Namespace) -> tuple[str, int]:
 
 
 def _start_http_server(args: argparse.Namespace, ui: UI, *, open_browser: bool) -> None:
-    from .http_api import HTTPServer
+    import asyncio
+
+    from .http_api import run_server
 
     host, port = _resolve_endpoint(args)
     kind = "web" if open_browser else "HTTP API"
     ui.print_info(f"Starting APEX {kind} server on {host}:{port}...")
     Agent(apex_config)
-    server = HTTPServer(host=host, port=port)
     if open_browser:
         url = f"http://{host}:{port}"
         ui.print_success(f"Opening {url} in browser...")
         webbrowser.open(url)
     else:
         ui.print_success(f"Server running at http://{host}:{port}")
-    server.run()
+    asyncio.run(run_server(host=host, port=port, require_auth=True))
 
 
 def _cmd_serve(args: argparse.Namespace, ui: UI) -> None:
