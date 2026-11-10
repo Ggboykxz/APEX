@@ -111,7 +111,7 @@ describe("ensureTuiFrontend", () => {
           extracted = true;
           extractArchive(archivePath, destination);
         },
-        runtime: () => "bun", // bun is on PATH in this environment
+        runtime: () => "npm", // npm est toujours disponible sur les runners CI (bun ne l'est pas)
         log: () => {},
       });
       assert.strictEqual(downloaded, true);
