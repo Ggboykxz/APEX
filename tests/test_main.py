@@ -773,3 +773,77 @@ class TestDispatchVerb:
         with patch("sys.exit") as mock_exit:
             _dispatch_verb("nonexistent", self._make_args())
             assert mock_exit.called
+
+
+class TestUpgradeCheck:
+    """`apex upgrade --check` never fails when nothing is published yet."""
+
+    class _UI:
+        def __init__(self):
+            self.lines = []
+
+        def _record(self, kind):
+            return lambda message: self.lines.append((kind, message))
+
+        def __getattr__(self, name):
+            if name.startswith("print_"):
+                return self._record(name.removeprefix("print_"))
+            raise AttributeError(name)
+
+    def _args(self):
+        return argparse.Namespace(check=True, method=None)
+
+    def test_no_published_release_is_not_an_error(self):
+        from apex import install_manager
+        from apex.main import _cmd_upgrade
+
+        ui = self._UI()
+        with patch.object(
+            install_manager,
+            "fetch_latest_release",
+            side_effect=install_manager.ReleaseUnavailable("no release"),
+        ):
+            _cmd_upgrade(self._args(), ui)
+        assert ui.lines and ui.lines[0][0] == "info"
+        assert "No published release yet" in ui.lines[0][1]
+
+    def test_reports_a_newer_release(self):
+        from apex import install_manager
+        from apex.main import _cmd_upgrade
+
+        ui = self._UI()
+        with patch.object(install_manager, "fetch_latest_release", return_value="99.0.0"):
+            _cmd_upgrade(self._args(), ui)
+        assert any("Update available" in message for _, message in ui.lines)
+
+    def test_reports_being_up_to_date(self):
+        from apex import __version__, install_manager
+        from apex.main import _cmd_upgrade
+
+        ui = self._UI()
+        with patch.object(install_manager, "fetch_latest_release", return_value=__version__):
+            _cmd_upgrade(self._args(), ui)
+        assert any(kind == "success" for kind, _ in ui.lines)
+
+    def test_reports_being_ahead_of_the_release(self):
+        from apex import install_manager
+        from apex.main import _cmd_upgrade
+
+        ui = self._UI()
+        with patch.object(install_manager, "fetch_latest_release", return_value="0.0.1"):
+            _cmd_upgrade(self._args(), ui)
+        assert any("ahead of the latest release" in message for _, message in ui.lines)
+
+    def test_network_failure_still_exits(self):
+        from apex import install_manager
+        from apex.main import _cmd_upgrade
+
+        ui = self._UI()
+        with (
+            patch.object(
+                install_manager, "fetch_latest_release", side_effect=RuntimeError("offline")
+            ),
+            pytest.raises(SystemExit),
+        ):
+            _cmd_upgrade(self._args(), ui)
+        assert any(kind == "error" for kind, _ in ui.lines)

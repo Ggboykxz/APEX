@@ -118,7 +118,7 @@ def _replace_content(message: Any, content: str) -> Any | None:
         return updated
     try:
         updated = copy.copy(message)
-        setattr(updated, "content", content)
+        updated.content = content
     except (AttributeError, TypeError):
         return None
     return updated
@@ -128,6 +128,48 @@ def _coerce_non_negative_int(value: Any, default: int) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         return default
     return max(0, value)
+
+
+@dataclass(frozen=True)
+class _PruneDecision:
+    """The inputs of one pruning decision."""
+
+    index: int
+    content: str
+    limit: int
+    tool_indexes: tuple[int, ...]
+    protected: frozenset[int]
+
+
+@dataclass(frozen=True)
+class _PruneContext:
+    """The context of one pruning pass."""
+
+    message: Any
+    output: list[Any]
+
+
+def _prune_one(decision: _PruneDecision, context: _PruneContext) -> tuple[str, bool]:
+    """Prune one message; returns the replacement and whether it was pruned."""
+    if not _should_prune(decision):
+        return decision.content, False
+    replacement = _pruned_marker(decision.content)
+    updated = _replace_content(context.message, replacement)
+    if updated is None:  # pragma: no cover - defensive for immutable objects
+        return decision.content, False
+    context.output[decision.index] = updated
+    return replacement, True
+
+
+def _should_prune(decision: _PruneDecision) -> bool:
+    """Whether a tool result should be pruned."""
+    if decision.index not in decision.tool_indexes:
+        return False
+    if decision.index in decision.protected:
+        return False
+    if len(decision.content) <= decision.limit:
+        return False
+    return not _is_pruned_marker(decision.content)
 
 
 def prune_tool_outputs(
@@ -178,22 +220,13 @@ def prune_tool_outputs(
             continue
         tokens_before += estimate_tokens(content)
 
-        replacement = content
-        if (
-            index in tool_indexes
-            and index not in protected
-            and len(content) > limit
-            and not _is_pruned_marker(content)
-        ):
-            replacement = _pruned_marker(content)
-            updated = _replace_content(message, replacement)
-            if updated is not None:
-                output[index] = updated
-                pruned_messages += 1
-                pruned_chars += len(content) - len(replacement)
-            else:  # pragma: no cover - defensive for immutable objects
-                replacement = content
-
+        replacement, pruned = _prune_one(
+            _PruneDecision(index, content, limit, tuple(tool_indexes), frozenset(protected)),
+            _PruneContext(message, output),
+        )
+        if pruned:
+            pruned_messages += 1
+            pruned_chars += len(content) - len(replacement)
         tokens_after += estimate_tokens(replacement)
 
     stats = ContextStats(
@@ -241,7 +274,7 @@ def inject_repo_map(system_prompt: str, root: Path | str, max_tokens: int) -> tu
 
     try:
         repo_map = build_repo_map(Path(root), max_tokens=budget)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return prompt, 0
     if not repo_map.strip():
         return prompt, 0

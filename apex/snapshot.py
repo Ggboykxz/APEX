@@ -1,5 +1,7 @@
 """Snapshot system for APEX - Git-based undo/redo."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
@@ -50,6 +52,30 @@ class Snapshot:
         }
 
 
+def _lines_equal(before_lines: list[str], after_lines: list[str], i: int, j: int) -> bool:
+    """Whether the two lines at *i* and *j* are equal."""
+    if i >= len(before_lines) or j >= len(after_lines):
+        return False
+    return before_lines[i] == after_lines[j]
+
+
+def _is_addition(before_lines: list[str], after_lines: list[str], i: int, j: int) -> bool:
+    """Whether the next step is an addition."""
+    if j >= len(after_lines):
+        return False
+    if i >= len(before_lines):
+        return True
+    return before_lines[i] != after_lines[j]
+
+
+@dataclass
+class _DiffIndices:
+    """The current position of the diff."""
+
+    i: int
+    j: int
+
+
 class SnapshotManager:
     """Git-based snapshot system for undo/redo."""
 
@@ -65,16 +91,20 @@ class SnapshotManager:
         """Initialize or use existing git repo for snapshots."""
         git_dir = self._snapshots_dir / ".git"
         if not git_dir.exists():
-            subprocess.run(["git", "init"], cwd=self._snapshots_dir, capture_output=True)
+            subprocess.run(
+                ["git", "init"], cwd=self._snapshots_dir, capture_output=True, check=False
+            )
             subprocess.run(
                 ["git", "config", "user.email", "apex@snapshot.local"],
                 cwd=self._snapshots_dir,
                 capture_output=True,
+                check=False,
             )
             subprocess.run(
                 ["git", "config", "user.name", "APEX Snapshot"],
                 cwd=self._snapshots_dir,
                 capture_output=True,
+                check=False,
             )
 
     def _get_file_hash(self, path: Path) -> str:
@@ -98,7 +128,7 @@ class SnapshotManager:
         return snapshot_id
 
     def add_file_change(
-        self, snapshot_id: str, path: str, before: str = None, after: str = None
+        self, snapshot_id: str, path: str, before: str | None = None, after: str | None = None
     ) -> None:
         """Add a file change to a snapshot."""
         for snapshot in self._undo_stack:
@@ -128,23 +158,31 @@ class SnapshotManager:
         before_lines = before.splitlines(keepends=True)
         after_lines = after.splitlines(keepends=True)
 
-        diff = []
-        i = j = 0
-        while i < len(before_lines) or j < len(after_lines):
-            if i < len(before_lines) and j < len(after_lines) and before_lines[i] == after_lines[j]:
-                diff.append(f"  {before_lines[i]}")
-                i += 1
-                j += 1
-            elif j < len(after_lines) and (
-                i >= len(before_lines) or before_lines[i] != after_lines[j]
-            ):
-                diff.append(f"+ {after_lines[j]}")
-                j += 1
-            elif i < len(before_lines):
-                diff.append(f"- {before_lines[i]}")
-                i += 1
-
+        diff: list[str] = []
+        indices = _DiffIndices(0, 0)
+        while indices.i < len(before_lines) or indices.j < len(after_lines):
+            indices = self._diff_step(diff, before_lines, after_lines, indices)
         return "".join(diff)
+
+    def _diff_step(
+        self,
+        diff: list[str],
+        before_lines: list[str],
+        after_lines: list[str],
+        indices: _DiffIndices,
+    ) -> _DiffIndices:
+        """Apply one step of the diff and return the new indices."""
+        i, j = indices.i, indices.j
+        if _lines_equal(before_lines, after_lines, i, j):
+            diff.append(f"  {before_lines[i]}")
+            return _DiffIndices(i + 1, j + 1)
+        if _is_addition(before_lines, after_lines, i, j):
+            diff.append(f"+ {after_lines[j]}")
+            return _DiffIndices(i, j + 1)
+        if i < len(before_lines):
+            diff.append(f"- {before_lines[i]}")
+            return _DiffIndices(i + 1, j)
+        return _DiffIndices(i, j)
 
     def get_snapshot(self, snapshot_id: str) -> Snapshot | None:
         """Get a snapshot by ID."""
@@ -213,6 +251,7 @@ class SnapshotManager:
             ["git", "add", str(meta_path.relative_to(self._snapshots_dir))],
             cwd=self._snapshots_dir,
             capture_output=True,
+            check=False,
         )
 
     def get_history(self, limit: int = 50) -> list[Snapshot]:

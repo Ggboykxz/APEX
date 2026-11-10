@@ -44,7 +44,7 @@ class TestMODELS:
         assert len(MODELS) > 0
 
     def test_models_are_strings(self):
-        for alias, model_id in MODELS.items():
+        for model_id in MODELS.values():
             assert isinstance(model_id, str)
             assert "/" in model_id
 

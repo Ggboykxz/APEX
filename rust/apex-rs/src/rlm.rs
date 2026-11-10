@@ -3,10 +3,8 @@
 //! Note: The Python version depends on `litellm` for LLM calls. The Rust port
 //! provides the rate-limit manager and query structure; actual LLM invocation
 //! is a stub since there is no direct litellm equivalent in Rust.
-
-#![allow(dead_code)]
-#![allow(clippy::upper_case_acronyms)]
-#![allow(clippy::all)]
+//!
+//! Wired into the CLI via `apex-rs rlm` (per-key rate-limit check/increment).
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -32,6 +30,7 @@ impl Default for RLMConfig {
 }
 
 /// Rate Limit Manager — tracks and enforces per-key rate limits.
+#[allow(clippy::upper_case_acronyms)] // Python parity name: RLM
 pub struct RLM {
     config: RLMConfig,
     counts: HashMap<String, HashMap<String, (i64, f64)>>,
@@ -120,10 +119,12 @@ impl RLM {
         self.check_rate_limit(key)
     }
 
+    #[allow(dead_code)] // TODO(v2.6): wire a public reset API
     pub fn reset(&mut self, key: &str) {
         self.counts.remove(key);
     }
 
+    #[allow(dead_code)] // TODO(v2.6): expose RLM state via CLI/HTTP
     pub fn to_dict(&self) -> serde_json::Value {
         let mut counts_map = serde_json::Map::new();
         for (k, wins) in &self.counts {
@@ -153,6 +154,7 @@ impl RLM {
         })
     }
 
+    #[allow(dead_code)] // TODO(v2.6): load RLM state from persisted config
     pub fn from_dict(data: &serde_json::Value) -> Self {
         let config = RLMConfig {
             requests_per_minute: data["config"]["requests_per_minute"].as_i64().unwrap_or(60),
@@ -184,6 +186,7 @@ impl RLM {
 /// Remote Language Model query for batched cheap analysis.
 /// Note: The Python version uses `litellm` for actual LLM calls. The Rust port
 /// provides the query structure; LLM invocation returns an error stub.
+#[allow(dead_code)] // LLM stubs; TODO(v2.6): wire a litellm-style client
 pub struct RLMQuery {
     cheap_model: String,
     expensive_model: String,
@@ -200,6 +203,7 @@ impl Default for RLMQuery {
     }
 }
 
+#[allow(dead_code)] // LLM stubs; see struct-level allow
 impl RLMQuery {
     pub fn new() -> Self {
         Self::default()
@@ -211,6 +215,7 @@ impl RLMQuery {
     }
 
     /// Batch query multiple prompts (stub).
+    #[allow(clippy::type_complexity)] // callback fn signature is a single-purpose FFI-style hook
     pub fn batch_query(
         &self,
         _prompts: &[String],
@@ -257,8 +262,10 @@ fn time_now() -> f64 {
         .as_secs_f64()
 }
 
+#[allow(dead_code)] // LLM stub singleton; see struct-level allow
 static RLM_QUERY: OnceLock<Mutex<RLMQuery>> = OnceLock::new();
 
+#[allow(dead_code)] // LLM stub singleton accessor; see struct-level allow
 pub fn rlm_query() -> &'static Mutex<RLMQuery> {
     RLM_QUERY.get_or_init(|| Mutex::new(RLMQuery::new()))
 }

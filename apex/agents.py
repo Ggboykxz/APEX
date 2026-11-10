@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import fnmatch
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -229,34 +230,35 @@ Output a well-structured summary suitable for saving to the session log."""
 # ────────────────────────────────────────────────────────────
 
 
+def _bash_permission_pattern(key: str) -> str | None:
+    """The glob pattern a permission key applies to, if it is a bash rule."""
+    if key == "bash":
+        return "*"
+    if not key.startswith("bash:"):
+        return None
+    return key.split(":", 1)[1] if ":" in key else "*"
+
+
+@dataclass(repr=False, eq=False)
 class AgentConfig:
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        system_prompt: str,
-        mode: str = "primary",
-        model: str | None = None,
-        temperature: float = 0.0,
-        top_p: float | None = None,
-        max_steps: int | None = None,
-        hidden: bool = False,
-        disabled: bool = False,
-        permission: dict[str, str] | None = None,
-        color: str = "cyan",
-    ):
-        self.name = name
-        self.description = description
-        self.system_prompt = system_prompt
-        self.mode = mode
-        self.model = model
-        self.temperature = temperature
-        self.top_p = top_p
-        self.max_steps = max_steps
-        self.hidden = hidden
-        self.disabled = disabled
-        self.permission = permission or {}
-        self.color = color
+    """The definition of one agent: its prompt, its model and its permissions."""
+
+    name: str
+    description: str
+    system_prompt: str
+    mode: str = "primary"
+    model: str | None = None
+    temperature: float = 0.0
+    top_p: float | None = None
+    max_steps: int | None = None
+    hidden: bool = False
+    disabled: bool = False
+    permission: dict[str, str] | None = None
+    color: str = "cyan"
+
+    def __post_init__(self) -> None:
+        if self.permission is None:
+            self.permission = {}
 
     @property
     def is_hidden(self) -> bool:
@@ -270,19 +272,22 @@ class AgentConfig:
     def is_subagent(self) -> bool:
         return self.mode in ("subagent", "all")
 
+    def _bash_pattern(self, key: str) -> str | None:
+        """The glob pattern a permission key applies to, if it is a bash rule."""
+        if key == "bash":
+            return "*"
+        if not key.startswith("bash:"):
+            return None
+        return key.split(":", 1)[1] if ":" in key else "*"
+
     def check_bash_permission(self, command: str) -> str:
         """Check if a specific bash command is allowed, supporting glob patterns in permission keys."""
         best_match = PERMISSION_DENY
         for key, value in self.permission.items():
-            if not key.startswith("bash:") and key != "bash":
+            pattern = self._bash_pattern(key)
+            if pattern is None:
                 continue
-            pattern = key
-            if pattern == "bash":
-                if fnmatch.fnmatch(command, "*"):
-                    best_match = value
-                continue
-            cmd_pattern = key.split(":", 1)[1] if ":" in key else "*"
-            if fnmatch.fnmatch(command, cmd_pattern):
+            if fnmatch.fnmatch(command, pattern):
                 best_match = value
         wildcard = self.permission.get("*")
         if wildcard and best_match == PERMISSION_DENY:
@@ -542,21 +547,29 @@ class AgentManager:
         ---
         You are in code review mode...
         """
-        search_dirs = [
+        for agents_dir in self._markdown_agent_dirs():
+            self._load_markdown_agents_from(agents_dir)
+
+    @staticmethod
+    def _markdown_agent_dirs() -> list[Path]:
+        """The directories that may hold markdown agent definitions."""
+        return [
             Path.home() / ".config" / "apex" / "agents",
             Path.cwd() / ".apex" / "agents",
         ]
-        for agents_dir in search_dirs:
-            if not agents_dir.is_dir():
-                continue
-            for md_file in sorted(agents_dir.glob("*.md")):
-                try:
-                    config = self._parse_markdown_agent(md_file)
-                    if config:
-                        self.register(config)
-                        logger.info("Loaded markdown agent: %s from %s", config.name, md_file)
-                except Exception as exc:
-                    logger.warning("Failed to load agent from %s: %s", md_file, exc)
+
+    def _load_markdown_agents_from(self, agents_dir: Path) -> None:
+        """Load every markdown agent of one directory."""
+        if not agents_dir.is_dir():
+            return
+        for md_file in sorted(agents_dir.glob("*.md")):
+            try:
+                config = self._parse_markdown_agent(md_file)
+                if config:
+                    self.register(config)
+                    logger.info("Loaded markdown agent: %s from %s", config.name, md_file)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to load agent from %s: %s", md_file, exc)
 
     def _parse_markdown_agent(self, path: Path) -> AgentConfig | None:
         text = path.read_text(encoding="utf-8")
@@ -685,10 +698,11 @@ class AgentManager:
         # Try specific bash:<pattern> keys
         best_match = PERMISSION_DENY
         for key, value in permission.items():
-            if key.startswith("bash:") or key == "bash":
-                pattern = key.split(":", 1)[1] if ":" in key else "*"
-                if fnmatch.fnmatch(command, pattern) or pattern == "*":
-                    best_match = value
+            pattern = _bash_permission_pattern(key)
+            if pattern is None:
+                continue
+            if fnmatch.fnmatch(command, pattern) or pattern == "*":
+                best_match = value
 
         # Fallback to wildcard "*"
         wildcard = permission.get("*")

@@ -269,21 +269,28 @@ class TestGenerateCtags:
         git_dir.mkdir()
         (git_dir / "HEAD").write_text("ref: refs/heads/main")
         # Initialize a real git repo so `git ls-files` works
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         result = generate_ctags(tmp_path)
         # Should be either "no code files found" or a list of files
         assert isinstance(result, str)
 
     def test_git_repo_with_code_files(self, tmp_path):
         """Git repo with tracked code files returns them."""
-        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=False)
         subprocess.run(
-            ["git", "config", "user.email", "test@test.com"], cwd=tmp_path, capture_output=True
+            ["git", "config", "user.email", "test@test.com"],
+            cwd=tmp_path,
+            capture_output=True,
+            check=False,
         )
-        subprocess.run(["git", "config", "user.name", "Test"], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Test"], cwd=tmp_path, capture_output=True, check=False
+        )
         (tmp_path / "main.py").write_text("print('hello')")
-        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "init"], cwd=tmp_path, capture_output=True, check=False
+        )
 
         result = generate_ctags(tmp_path)
         assert "main.py" in result
@@ -302,7 +309,6 @@ class TestContextEdgeCases:
     def test_get_repo_map_permission_error(self, tmp_path, monkeypatch):
         """Hit line 66-67 — PermissionError returns ERROR string."""
         # Patch Path.iterdir to raise PermissionError
-        type(tmp_path).iterdir
 
         def broken_iterdir(self):
             raise PermissionError("Access denied")

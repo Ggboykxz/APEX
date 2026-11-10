@@ -1,6 +1,6 @@
 [package]
 name = "apex-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "APEX backend rewritten in Rust"
 
@@ -28,3 +28,4 @@ hmac = "0.12"
 sha2 = "0.10"
 getrandom = "0.2"
 lazy_static = "1.4"
+serde_yaml = "0.9"

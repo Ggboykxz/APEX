@@ -1,9 +1,9 @@
 //! telemetry — Telemetry and logging system ported from `apex/telemetry.py`.
 //!
 //! Provides event logging, session tracking, and performance monitoring.
-
-#![allow(dead_code)]
-#![allow(clippy::all)]
+//!
+//! Wired into the HTTP server: session and agent start are recorded on
+//! `serve`, and `GET /api/v1/telemetry` exposes live statistics.
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -18,6 +18,8 @@ use serde_json::Value;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventType {
     AgentStart,
+    /// Unused as no log helper constructs it yet.
+    #[allow(dead_code)] // Reserved event type; TODO(v2.6): use on assistant-message log
     AgentMessage,
     ToolCall,
     ToolResult,
@@ -119,6 +121,7 @@ impl Logger {
         self.log(EventType::AgentStart, Some(data), None);
     }
 
+    #[allow(dead_code)] // Instrumentation helper; TODO(v2.6): hook into agent tool loop
     pub fn log_tool_call(&mut self, tool_name: &str, args: &HashMap<String, Value>) -> String {
         let sanitized = self._sanitize_args(args);
         let mut data = HashMap::new();
@@ -131,6 +134,7 @@ impl Logger {
         tool_name.to_string()
     }
 
+    #[allow(dead_code)] // Instrumentation helper; TODO(v2.6): hook into agent tool loop
     pub fn log_tool_result(&mut self, tool_name: &str, result: &str, duration_ms: f64) {
         let success = !result.starts_with("ERROR");
         let mut data = HashMap::new();
@@ -143,6 +147,7 @@ impl Logger {
         self.log(EventType::ToolResult, Some(data), Some(duration_ms));
     }
 
+    #[allow(dead_code)] // Instrumentation helper; TODO(v2.6): use on model switch
     pub fn log_model_switch(&mut self, old_model: &str, new_model: &str) {
         let mut data = HashMap::new();
         data.insert("old".to_string(), Value::String(old_model.to_string()));
@@ -150,6 +155,7 @@ impl Logger {
         self.log(EventType::ModelSwitch, Some(data), None);
     }
 
+    #[allow(dead_code)] // Instrumentation helper; TODO(v2.6): use on agent switch
     pub fn log_agent_switch(&mut self, old_agent: &str, new_agent: &str) {
         let mut data = HashMap::new();
         data.insert("old".to_string(), Value::String(old_agent.to_string()));
@@ -157,6 +163,7 @@ impl Logger {
         self.log(EventType::AgentSwitch, Some(data), None);
     }
 
+    #[allow(dead_code)] // Instrumentation helper; TODO(v2.6): use in error paths
     pub fn log_error(
         &mut self,
         error_type: &str,
@@ -187,6 +194,7 @@ impl Logger {
         self.log(EventType::SessionStart, Some(data), None);
     }
 
+    #[allow(dead_code)] // Persistence helper; TODO(v2.6): flush on server shutdown
     pub fn log_session_end(&mut self) {
         let duration = (time_now() - self.start_time) * 1000.0;
         let mut data = HashMap::new();
@@ -241,6 +249,7 @@ impl Logger {
         sanitized
     }
 
+    #[allow(dead_code)] // Persistence helper; TODO(v2.6): flush on server shutdown
     pub fn save(&self) {
         let log_file = self
             .log_dir
@@ -292,6 +301,7 @@ impl Logger {
         })
     }
 
+    #[allow(dead_code)] // Summary helper; TODO(v2.6): expose via CLI/HTTP
     pub fn print_summary(&self) {
         let stats = self.get_stats();
         println!("\n=== Session Summary ===");
@@ -310,7 +320,7 @@ impl Logger {
                 .iter()
                 .filter_map(|(k, v)| v.as_i64().map(|i| (k, i)))
                 .collect();
-            sorted.sort_by(|a, b| b.1.cmp(&a.1));
+            sorted.sort_by_key(|&(_, count)| std::cmp::Reverse(count));
             for (tool, count) in sorted.into_iter().take(5) {
                 println!("  {}: {}", tool, count);
             }
@@ -330,10 +340,12 @@ impl PerformanceMonitor {
         }
     }
 
+    #[allow(dead_code)] // Timer helper; TODO(v2.6): use in instrumentation
     pub fn measure(&self) -> f64 {
         time_now()
     }
 
+    #[allow(dead_code)] // Recorder helper; TODO(v2.6): use in instrumentation
     pub fn record(&mut self, operation: &str, duration_ms: f64) {
         self.measurements
             .entry(operation.to_string())
@@ -360,8 +372,8 @@ impl PerformanceMonitor {
 
     pub fn get_all_stats(&self) -> HashMap<String, HashMap<String, f64>> {
         self.measurements
-            .iter()
-            .map(|(op, _)| (op.clone(), self.get_stats(op)))
+            .keys()
+            .map(|op| (op.clone(), self.get_stats(op)))
             .collect()
     }
 }

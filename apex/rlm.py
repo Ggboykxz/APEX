@@ -5,6 +5,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
+from typing import ClassVar
 
 import litellm
 
@@ -23,7 +24,7 @@ class RLMConfig:
 class RLM:
     """Rate Limit Manager - tracks and enforces per-key rate limits."""
 
-    WINDOWS = {
+    WINDOWS: ClassVar[dict[str, int]] = {
         "minute": 60,
         "hour": 3600,
         "day": 86400,
@@ -118,7 +119,7 @@ class RLMQuery:
                 model=model_str, messages=[{"role": "user", "content": prompt}], **kwargs
             )
             return response.choices[0].message.content or ""
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def batch_query(
@@ -139,7 +140,7 @@ class RLMQuery:
                     model=model_str, messages=[{"role": "user", "content": prompt}], timeout=30
                 )
                 result = response.choices[0].message.content or ""
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 result = f"ERROR: {e}"
 
             if callback:
@@ -160,7 +161,7 @@ class RLMQuery:
                 model=model_str, messages=[{"role": "user", "content": prompt}], **kwargs
             )
             return response.choices[0].message.content or ""
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     async def async_batch_query(
@@ -176,7 +177,7 @@ class RLMQuery:
                     model=model_str, messages=[{"role": "user", "content": prompt}], **kwargs
                 )
                 return response.choices[0].message.content or ""
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 return f"ERROR: {e}"
 
         tasks = [query_single(p) for p in prompts]
@@ -210,7 +211,7 @@ Items:
         """Summarize each item in a batch using cheap model."""
 
         def summarize(idx_prompt):
-            idx, item = idx_prompt
+            _idx, item = idx_prompt
             prompt = f"Summarize this in max {max_length} chars: {item}"
             return self.query(prompt, use_cheap=True)
 
@@ -220,7 +221,7 @@ Items:
         """Extract information from a batch using a pattern."""
 
         def extract(idx_item):
-            idx, item = idx_item
+            _idx, item = idx_item
             prompt = f"Extract {extract_pattern} from: {item}"
             result = self.query(prompt, use_cheap=True)
             return [x.strip() for x in result.split("\n") if x.strip()]

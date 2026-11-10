@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import copy
+import logging
 import os
 import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -144,49 +147,58 @@ class FormatterManager:
         self._formatters = copy.deepcopy(BUILTIN_FORMATTERS)
 
         if cfg is False:
-            for fmt in self._formatters:
-                fmt.disabled = True
-            self._loaded = True
-            self._available = {f.name: False for f in self._formatters}
+            self._disable_all()
             return
-
         if cfg is True:
-            self._loaded = True
-            self.discover_available()
+            self._finish_loading()
+            return
+        if not isinstance(cfg, dict):
+            self._finish_loading()
+            return
+        if cfg.get("disabled", False) is True:
+            self._disable_all()
             return
 
-        if isinstance(cfg, dict):
-            if cfg.get("disabled", False) is True:
-                for fmt in self._formatters:
-                    fmt.disabled = True
-                self._loaded = True
-                self._available = {f.name: False for f in self._formatters}
-                return
+        for name, opts in cfg.items():
+            if isinstance(opts, dict):
+                self._apply_formatter_options(name, opts)
 
-            for name, opts in cfg.items():
-                if isinstance(opts, dict):
-                    existing = next((f for f in self._formatters if f.name == name), None)
-                    if existing is not None:
-                        existing.disabled = opts.get("disabled", False)
-                        if "command" in opts:
-                            existing.command = opts["command"]
-                        if "extensions" in opts:
-                            existing.extensions = opts["extensions"]
-                        if "environment" in opts:
-                            existing.environment = opts["environment"]
-                    elif "command" in opts and "extensions" in opts:
-                        self._formatters.append(
-                            FormatterConfig(
-                                name=name,
-                                command=opts["command"],
-                                extensions=opts["extensions"],
-                                environment=opts.get("environment", {}),
-                                disabled=opts.get("disabled", False),
-                            )
-                        )
+        self._finish_loading()
 
+    def _disable_all(self) -> None:
+        """Disable every registered formatter."""
+        for fmt in self._formatters:
+            fmt.disabled = True
+        self._loaded = True
+        self._available = {f.name: False for f in self._formatters}
+
+    def _finish_loading(self) -> None:
+        """Mark the manager as loaded and discover availability."""
         self._loaded = True
         self.discover_available()
+
+    def _apply_formatter_options(self, name: str, opts: dict) -> None:
+        """Apply one formatter's options."""
+        existing = next((f for f in self._formatters if f.name == name), None)
+        if existing is not None:
+            existing.disabled = opts.get("disabled", False)
+            if "command" in opts:
+                existing.command = opts["command"]
+            if "extensions" in opts:
+                existing.extensions = opts["extensions"]
+            if "environment" in opts:
+                existing.environment = opts["environment"]
+            return
+        if "command" in opts and "extensions" in opts:
+            self._formatters.append(
+                FormatterConfig(
+                    name=name,
+                    command=opts["command"],
+                    extensions=opts["extensions"],
+                    environment=opts.get("environment", {}),
+                    disabled=opts.get("disabled", False),
+                )
+            )
 
     @staticmethod
     def _check_requirement(req: str) -> bool:
@@ -197,7 +209,8 @@ class FormatterManager:
                 return False
             try:
                 return dep in p.read_text(encoding="utf-8", errors="replace")
-            except Exception:
+            except Exception:  # noqa: BLE001
+                logger.debug("failed to read %s", p)
                 return False
         p = Path(req)
         if p.is_file():
@@ -251,13 +264,33 @@ class FormatterManager:
     def format_code(self, code: str, extension: str) -> str:
         if not self._loaded:
             self.load_from_config()
+        if not self._valid_extension(extension):
+            return code
         ext = extension if extension.startswith(".") else f".{extension}"
-        for fmt in self._formatters:
-            if fmt.disabled:
+        formatter = self._available_formatter(ext)
+        if formatter is None:
+            return code
+        return self._run_formatter_tempfile(formatter, code, ext)
+
+    @staticmethod
+    def _valid_extension(extension: str) -> bool:
+        """Whether an extension is safe to use as a temp file suffix."""
+        if not extension:
+            return False
+        if "/" in extension:
+            return False
+        if "\\" in extension:
+            return False
+        return ".." not in extension
+
+    def _available_formatter(self, extension: str) -> FormatterConfig | None:
+        """The first available formatter for an extension."""
+        for formatter in self._formatters:
+            if formatter.disabled:
                 continue
-            if ext in fmt.extensions and self._available.get(fmt.name, False):
-                return self._run_formatter_tempfile(fmt, code, ext)
-        return code
+            if extension in formatter.extensions and self._available.get(formatter.name, False):
+                return formatter
+        return None
 
     def _build_command(self, fmt: FormatterConfig, file_path: str) -> list[str]:
         return [part.replace("$FILE", file_path) for part in fmt.command]
@@ -268,36 +301,41 @@ class FormatterManager:
         cmd = self._build_command(fmt, file_path)
         env = {**os.environ, **fmt.environment}
         try:
+            # cmd is a list (not shell=True), so shell injection is impossible.
+            # file_path comes from formatter config / user input but is passed
+            # as a discrete argument, not interpolated into a shell string.
             result = subprocess.run(
                 cmd,
                 env=env,
                 capture_output=True,
                 timeout=60,
+                check=False,
             )
             return result.returncode == 0
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             return False
 
     def _run_formatter_tempfile(self, fmt: FormatterConfig, code: str, extension: str) -> str:
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False)
-        try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False) as tmp:
             tmp.write(code)
-            tmp.close()
-            cmd = self._build_command(fmt, tmp.name)
+            tmp_path = tmp.name
+        try:
+            cmd = self._build_command(fmt, tmp_path)
             env = {**os.environ, **fmt.environment}
             result = subprocess.run(
                 cmd,
                 env=env,
                 capture_output=True,
                 timeout=60,
+                check=False,
             )
             if result.returncode == 0:
-                return Path(tmp.name).read_text(encoding="utf-8")
+                return Path(tmp_path).read_text(encoding="utf-8")
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             pass
         finally:
             try:
-                os.unlink(tmp.name)
+                os.unlink(tmp_path)
             except OSError:
                 pass
         return code

@@ -107,6 +107,6 @@ class GatewayConfig:
                     auth = json.loads(auth_path.read_text())
                     or_data = auth.get("openrouter", {})
                     c.upstream_api_key = or_data.get("api_key", "")
-                except Exception:
+                except Exception:  # noqa: S110, BLE001
                     pass
         return c

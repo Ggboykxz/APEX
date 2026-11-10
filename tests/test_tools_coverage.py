@@ -3,6 +3,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -411,7 +412,7 @@ def test_retry_tool_exception(executor, monkeypatch):
             max_retries = 1
 
         def execute(self, fn, name, args):
-            raise Exception("failed")
+            raise Exception("failed")  # noqa: TRY002
 
     monkeypatch.setattr("apex.advanced.get_retry_handler", lambda: FakeRH(), raising=False)
     result = executor.execute(
@@ -432,7 +433,7 @@ def test_get_context_info_with_agent(executor, monkeypatch):
     monkeypatch.setattr("apex.advanced.ContextOptimizer", FakeCO, raising=False)
 
     class FakeAgent:
-        history = ["msg"]
+        history: ClassVar[list[str]] = ["msg"]
 
     executor._agent = FakeAgent()
     result = executor.execute("get_context_info", {})
@@ -473,7 +474,7 @@ def test_run_command_restricted(executor, monkeypatch):
     class FakeAnalysis:
         requires_confirmation = True
         category = type("FakeCat", (), {"value": "network"})()
-        warnings = ["Network access"]
+        warnings: ClassVar[list[str]] = ["Network access"]
 
     monkeypatch.setattr(shell_analyzer, "analyze", lambda cmd: FakeAnalysis())
     result = executor.execute("run_command", {"command": "curl http://x.com"})

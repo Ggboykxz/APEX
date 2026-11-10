@@ -560,7 +560,7 @@ class TestLoadPluginsFromConfigFull:
         config_path.write_text("invalid: [yaml: content\n")
         try:
             load_plugins_from_config(config_path, app=None)
-        except Exception:
+        except Exception:  # noqa: S110, BLE001
             pass
 
 

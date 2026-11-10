@@ -4,24 +4,31 @@ Get up and running with APEX in 5 minutes.
 
 ## Step 1: Installation
 
-### Option A: pip (recommended)
+### Option A: npm (recommended)
 
 ```bash
-pip install apex-ai
+npm install -g apex-ai
 ```
 
-### Option B: pipx (isolated environment)
+The wrapper downloads the verified native `apex-rs` backend on first run.
+
+### Option B: native backend (headless)
 
 ```bash
-pipx install apex-ai
+curl -fsSLO https://apex-ai.dev/install.sh
+bash install.sh --method native
 ```
 
-### Option C: From source
+This installs `apex-rs` (no TUI) in `~/.apex/bin`.
+
+### Option C: From source (development)
+
+The Python CLI/TUI is not distributed through a package index:
 
 ```bash
 git clone https://github.com/Ggboykxz/APEX.git
 cd APEX
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ## Step 2: Configure API Keys

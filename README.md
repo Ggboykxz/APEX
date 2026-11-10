@@ -1,11 +1,10 @@
 <div align="center">
 
-# ◆ APEX v2.0.0
+# ◆ APEX v0.1.0
 
 **The universal AI coding agent. Every model. One terminal.**
 
-[![PyPI version](https://img.shields.io/pypi/v/apex-ai?color=00e5ff&style=flat-square)](https://pypi.org/project/apex-ai)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-00e5ff?style=flat-square)](https://python.org)
+[![npm](https://img.shields.io/npm/v/apex-ai?color=00e5ff&style=flat-square)](https://www.npmjs.com/package/apex-ai)
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-ff4444?style=flat-square)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-00e5ff?style=flat-square)](https://github.com/Ggboykxz/APEX/pkgs/container/apex)
 [![Stars](https://img.shields.io/github/stars/Ggboykxz/APEX?color=ffaa00&style=flat-square)](https://github.com/Ggboykxz/APEX/stargazers)
@@ -16,7 +15,7 @@
 [**Docs**](https://apex-ai.dev/docs) ·
 [**CLI**](#-cli-commands) ·
 [**Security**](#-security) ·
-[**Models**](#-supported-models) ·
+[**Models**](#-supported-models-170) ·
 [**Sponsor**](#-sponsors)
 
 </div>
@@ -50,7 +49,7 @@
 | Live token cost tracker | ✅ | ❌ | ❌ | ✅ |
 | Shell security analysis | ✅ | ❌ | ❌ | ❌ |
 | File watcher with ignores | ✅ | ✅ | ❌ | ❌ |
-| `pip install` | ✅ | ❌ | ❌ | ✅ |
+| `npm install` | ✅ | ✅ | ✅ | ❌ |
 | Built in Africa 🇬🇦 | ✅ | ❌ | ❌ | ❌ |
 
 ---
@@ -70,12 +69,12 @@ apex
 > write tests for the payment module
 ```
 
-### Switch models / agents anytime:
+### Switch models / agents anytime
 
 ```bash
 apex --model gpt-4o            # Start with GPT-4o
 apex --model ollama-llama3      # Local, no API key needed
-apex --agent architect          # Start in read-only architect mode
+apex --agent plan               # Start in read-only plan mode
 apex --continue                 # Resume last session
 apex --session mysession        # Load a specific session
 ```
@@ -84,11 +83,15 @@ apex --session mysession        # Load a specific session
 
 ## 🎨 TUI — Terminal User Interface
 
-APEX features a modern terminal UI built with [Ink](https://github.com/vadimdemedes/ink) (React for terminals). The TUI connects to the APEX backend via HTTP SSE for real-time token streaming, live cost tracking, and context percentage monitoring. The backend runs on a random localhost port with a WebSocket EventBus for real-time state synchronization, following the OpenCode architecture pattern.
+APEX's terminal UI is built with [Ink](https://github.com/vadimdemedes/ink)
+(React for terminals). It connects to the APEX backend over HTTP SSE for
+real-time token streaming, live cost tracking, and context percentage
+monitoring. The backend runs on a localhost port with a WebSocket EventBus for
+real-time state synchronization, following the OpenCode architecture pattern.
 
 ```bash
-apex              # Launch TUI (default)
-apex --model gpt-4o            # Start with GPT-4o
+apex                          # Launch TUI (default)
+apex --model gpt-4o          # Start with GPT-4o
 ```
 
 ### Keybindings
@@ -122,50 +125,56 @@ apex --model gpt-4o            # Start with GPT-4o
 | `Ctrl+Q` | Quit |
 
 ### Features
+
 - **11 Agents**: 4 primary (Tab) + 4 subagents (@mention) + 3 system
 - **170+ Models**: OpenAI, Anthropic, Google, Meta, Mistral, DeepSeek, xAI, etc.
-- **Live Metrics**: Token streaming, per-message cost, total spent, context %
+- **Live Metrics**: token streaming, per-message cost, total spent, context %
 - **12 Themes**: apex, nord, catppuccin, tokyonight, gruvbox, matrix, etc.
-- **Agent Theming**: Title bar and status bar change color per agent
-- **75+ Tools**: File, Code, Shell, Git, Web, Database, Docker, K8s, Security
-- **Reversible Workspaces**: Git-backed snapshots, turn history, one-command restore
-- **MCP/LSP**: Server status monitoring
-- **Leader Keys**: Ctrl+X + mnemonic for all actions
-- **Command Palette**: Ctrl+P with fuzzy search
-- **@ References**: Fuzzy file search with `@filename`
-- **! Bash**: Run shell commands inline with `!command`
-- **HTTP Backend**: Local SSE server on random port with WebSocket EventBus
+- **Agent Theming**: title bar and status bar change color per agent
+- **100+ Tools**: file, code, shell, git, web, database, docker, k8s, security
+- **Reversible Workspaces**: git-backed snapshots, turn history, one-command restore
+- **MCP/LSP**: server/client status and tool bridging
+- **Leader Keys**: `Ctrl+X` + mnemonic for all actions
+- **Command Palette**: `Ctrl+P` with fuzzy search
+- **@ References**: fuzzy file search with `@filename`
+- **! Bash**: run shell commands inline with `!command`
+- **HTTP Backend**: local SSE server with WebSocket EventBus
 
 ---
 
 ## 🎮 Agents
 
-APEX has **11 specialized agents** organized by type:
+APEX ships with **11 built-in agents** — 4 primary (cycle with `Tab`),
+4 subagents (invoke with `@mention`), and 3 hidden system agents.
 
-### Primary Agents (Tab to cycle)
+### Primary Agents (`Tab` to cycle)
+
 | Agent | Color | Description |
 |-------|-------|-------------|
-| **Coder** | Cyan | Full-access development agent with all tools |
-| **Architect** | Purple | Architecture analysis & design (read-only) |
-| **Planner** | Yellow | Planning & strategy (read-only) |
-| **Shell** | Orange | Infrastructure, DevOps, CI/CD |
+| **build** | Cyan | Default agent with full tool access for development |
+| **plan** | Purple | Read-only planning & analysis (does not modify files) |
+| **planner** | Yellow | Read-only detailed planning (no delegation) |
+| **shell** | Orange | Infrastructure, DevOps, CI/CD (asks before system changes) |
 
-### Subagents (@mention to invoke)
+### Subagents (`@mention` to invoke)
+
 | Agent | Description |
 |-------|-------------|
-| **@reviewer** | Code review & audit specialist |
+| **@reviewer** | Code review & audit specialist (read-only) |
 | **@general** | General-purpose multi-task assistant |
 | **@explore** | Fast read-only codebase exploration |
 | **@scout** | External docs & dependency research |
 
 ### System Agents (automatic, hidden)
+
 | Agent | Role |
 |-------|------|
 | **@compaction** | Context window compression |
 | **@title** | Session title generation |
 | **@summary** | Session summary generation |
 
-Custom agents via Markdown files in `.apex/agents/*.md` or `~/.config/apex/agents/*.md`.
+Custom agents can be defined via Markdown files in `.apex/agents/*.md` or
+`~/.config/apex/agents/*.md`, or as JSON in `apex.json`.
 
 ---
 
@@ -295,10 +304,14 @@ APEX_CONFIG_CONTENT='{"model": "gpt-4o"}'
 
 ## 🦀 Rust Backend (Internal GA)
 
-`rust/apex-rs/` is the progressively ported Rust backend. It is an internal
-GA: the agent loop, HTTP server, and tool registry are usable, but nothing is
-published (see [ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
-The wired surface includes workspace awareness and workspace rollback:
+`rust/apex-rs/` is the Rust backend. It is an **internal GA**: the agent loop,
+HTTP server, and tool registry are usable, and the binary is published as a
+verified GitHub Release asset (never on crates.io, see
+[ADR-0008](docs/adr/ADR-0008-installation-refonte.md) and
+[ADR-0009](docs/adr/ADR-0009-npm-native-only.md)). The wired surface includes
+workspace awareness, workspace rollback, shell security, HTTP auth, rate
+limiting, the permission gate, the gateway, and the full route-parity
+surface:
 
 ```bash
 cd rust/apex-rs
@@ -400,35 +413,51 @@ Bearer token auth on all endpoints, configurable via config.
 
 ## ⚡ Installation
 
-### One-line install
+APEX ships through **npm** and the **native Rust backend** only. PyPI, pip,
+pipx, uv and Homebrew are not installation channels.
 
-**npm (no Python required — provisions the Python package on first run):**
-```bash
-npm install -g apex-ai
-apex
-```
+### Quick install — one command
 
-**macOS / Linux:**
+**macOS / Linux — native backend (headless, no Node required):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh | bash
+curl -fsSL https://apex-ai.dev/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.ps1 | iex
+irm https://apex-ai.dev/install.ps1 | iex
 ```
 
-### Package managers
+**npm (cross-platform wrapper) — provides the `apex` command:**
+```bash
+npm install -g apex-ai
+```
 
-| Method | Command |
-|--------|---------|
-| **npm** (no Python required) | `npm install -g apex-ai` |
-| **uv** (fastest) | `uv tool install apex-ai` |
-| **pipx** (isolated) | `pipx install apex-ai` |
-| **pip** | `pip install apex-ai` |
-| **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` |
+Each command performs the complete install: it fetches the installer, downloads
+the matching `apex-rs` release asset, verifies its `.sha256` sidecar, installs
+it and adds it to your PATH. The wrapper variant does the same lazily on first
+run instead. After install, run `apex` (or `apex tui`).
 
-### From source
+Both installers accept `--method auto|npm|native|docker`, `--version`,
+`--prefix`, `--no-path`, `--yes`, `--dry-run` and `--uninstall [--purge]`.
+`auto` (the default) installs the native backend. See the
+[installation guide](docs/getting-started/installation.md) for the full
+matrix.
+
+### Distribution channels
+
+| Channel | Command | What you get |
+|---------|---------|--------------|
+| **npm** (zero-dependency wrapper) | `npm install -g apex-ai` | `apex` + verified `apex-rs` |
+| **Native backend** (headless) | `curl -fsSL https://apex-ai.dev/install.sh | bash` | `apex-rs` in `~/.apex/bin` |
+| **Windows native** | `irm https://apex-ai.dev/install.ps1 | iex` | `apex-rs` in `~\.apex\bin` |
+| **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` | APEX in a container |
+| **Source** (development) | `git clone … && pip install -e ".[dev]"` | Python CLI/TUI |
+
+### From source (development)
+
+The Python CLI/TUI is a source-only development surface, not a distributed
+package:
 
 ```bash
 git clone https://github.com/Ggboykxz/APEX
@@ -440,7 +469,8 @@ pip install -e ".[dev]"
 
 ## ⚡ APEX Gateway (Zero-Config Free Models)
 
-APEX Gateway is a built-in proxy server that gives you access to free + paid models **without configuring API keys**.
+APEX Gateway is a built-in proxy server that gives you access to free + paid
+models **without configuring API keys**.
 
 ```bash
 # 1. Get your free OpenRouter API key
@@ -586,7 +616,7 @@ apex --model deepseek-v4-pro
 
 ## 💖 Sponsors
 
-APEX is free and open source. If it saves you time, consider sponsoring.
+APEX is free to use. If it saves you time, consider sponsoring.
 
 <div align="center">
 
@@ -612,7 +642,8 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Customize with commands in `.apex/commands/*.md`, agents in `.apex/agents/*.md`, and themes in `.apex/themes/*.json`.
+Customize with commands in `.apex/commands/*.md`, agents in `.apex/agents/*.md`,
+and themes in `.apex/themes/*.json`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -620,7 +651,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
-**Proprietary** — All rights reserved by Ggboykxz.
+**Proprietary** — All rights reserved by Ggboykxz (Copyright © 2026).
 
 See [LICENSE](LICENSE) for full terms.
 

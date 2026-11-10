@@ -53,7 +53,7 @@ class SkillManager:
             prompt = "\n".join(prompt_lines).strip()
             if prompt:
                 self._skills[name] = Skill(name, description, prompt)
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     def get(self, name: str) -> Skill | None:
@@ -103,10 +103,10 @@ class DiffTool:
 
         try:
             result = subprocess.run(
-                ["diff", "-u", str(p1), str(p2)], capture_output=True, text=True
+                ["diff", "-u", str(p1), str(p2)], capture_output=True, text=True, check=False
             )
             return result.stdout if result.stdout else "Files are identical"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
     def three_way_diff(self, base: str, local: str, remote: str) -> str:
@@ -124,9 +124,10 @@ class DiffTool:
                 ["diff3", "-m", "-E", str(b), str(local_path), str(r)],
                 capture_output=True,
                 text=True,
+                check=False,
             )
             return result.stdout if result.stdout else "No conflicts"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
 
@@ -164,7 +165,7 @@ class SearchReplace:
                             results["files_modified"].append(
                                 f"{filepath.relative_to(self.cwd)} ({count} replacements)"
                             )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     results["errors"].append(f"{filepath}: {e}")
 
         return results
@@ -212,10 +213,10 @@ class CodeAnalyzer:
                     analysis["imports"].append(imp)
 
             return analysis
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {"error": str(e)}
 
-    def explain_code(self, path: str, start_line: int = 1, end_line: int = None) -> str:
+    def explain_code(self, path: str, start_line: int = 1, end_line: int | None = None) -> str:
         analysis = self.analyze_file(path)
         if "error" in analysis:
             return analysis["error"]

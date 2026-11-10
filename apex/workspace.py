@@ -29,6 +29,35 @@ class WorkspaceContext:
     test_framework: str = ""
 
 
+def _pr_number_from_env() -> int | None:
+    """Return the CI pull-request number, or None outside a PR workflow."""
+    if "GITHUB_HEAD_REF" not in subprocess.os.environ:
+        return None
+    try:
+        return int(subprocess.os.environ.get("GITHUB_PR_NUMBER", 0))
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return None
+
+
+def _git(root: Path, args: list[str]) -> subprocess.CompletedProcess:
+    """Run a git command with the standard timeout."""
+    return subprocess.run(
+        ["git", *args],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+
+
+def _count_lines(text: str) -> int:
+    """The number of non-empty lines of a git output."""
+    if not text.strip():
+        return 0
+    return len(text.strip().split("\n"))
+
+
 class WorkspaceManager:
     def __init__(self, root: Path | None = None):
         self._root = root or Path.cwd()
@@ -49,97 +78,59 @@ class WorkspaceManager:
     def _get_git_context(self) -> GitContext:
         ctx = GitContext()
 
+        # Read CI PR metadata first: a slow or failing network call below must
+        # never discard this information.
+        ctx.pr_number = _pr_number_from_env()
+
         try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=self._root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                ctx.branch = result.stdout.strip()
-
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=self._root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                ctx.commit = result.stdout.strip()[:8]
-
-            result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                cwd=self._root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            ctx.is_dirty = bool(result.stdout.strip())
-
-            result = subprocess.run(
-                ["git", "remote", "get-url", "origin"],
-                cwd=self._root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                ctx.remote_url = result.stdout.strip()
-
-                if "github.com" in ctx.remote_url:
-                    owner_repo = ctx.remote_url.replace(".git", "").split("github.com/")[-1]
-                    ctx.remote = owner_repo
-
-                    result = subprocess.run(
-                        ["git", "fetch", "--dry-run"],
-                        cwd=self._root,
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-
-            result = subprocess.run(
-                ["git", "log", "@{u}..HEAD", "--oneline"],
-                cwd=self._root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            ctx.commits_ahead = (
-                len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
-            )
-
-            result = subprocess.run(
-                ["git", "log", "HEAD..@{u}", "--oneline"],
-                cwd=self._root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            ctx.commits_behind = (
-                len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
-            )
-
-            if "GITHUB_HEAD_REF" in subprocess.os.environ:
-                ctx.pr_number = int(subprocess.os.environ.get("GITHUB_PR_NUMBER", 0))
-
-            result = subprocess.run(
-                ["git", "tag", "--list", "-l", "--sort=-creatordate"],
-                cwd=self._root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                ctx.tags = result.stdout.strip().split("\n")[:5]
-
-        except Exception:
+            self._fill_git_branch_and_commit(ctx)
+            self._fill_git_status(ctx)
+            self._fill_git_remote(ctx)
+            self._fill_git_ahead_behind(ctx)
+            self._fill_git_tags(ctx)
+        except Exception:  # noqa: S110, BLE001
             pass
 
         return ctx
+
+    def _fill_git_branch_and_commit(self, ctx: GitContext) -> None:
+        """The current branch and the short commit hash."""
+        result = _git(self._root, ["rev-parse", "--abbrev-ref", "HEAD"])
+        if result.returncode == 0:
+            ctx.branch = result.stdout.strip()
+
+        result = _git(self._root, ["rev-parse", "HEAD"])
+        if result.returncode == 0:
+            ctx.commit = result.stdout.strip()[:8]
+
+    def _fill_git_status(self, ctx: GitContext) -> None:
+        """Whether the working tree is dirty."""
+        result = _git(self._root, ["status", "--porcelain"])
+        ctx.is_dirty = bool(result.stdout.strip())
+
+    def _fill_git_remote(self, ctx: GitContext) -> None:
+        """The remote URL and the GitHub owner/repo, when available."""
+        result = _git(self._root, ["remote", "get-url", "origin"])
+        if result.returncode != 0:
+            return
+        ctx.remote_url = result.stdout.strip()
+        if "github.com" not in ctx.remote_url:
+            return
+        ctx.remote = ctx.remote_url.replace(".git", "").split("github.com/")[-1]
+        _git(self._root, ["fetch", "--dry-run"])
+
+    def _fill_git_ahead_behind(self, ctx: GitContext) -> None:
+        """The number of commits ahead of and behind the upstream."""
+        ahead = _git(self._root, ["log", "@{u}..HEAD", "--oneline"])
+        ctx.commits_ahead = _count_lines(ahead.stdout)
+        behind = _git(self._root, ["log", "HEAD..@{u}", "--oneline"])
+        ctx.commits_behind = _count_lines(behind.stdout)
+
+    def _fill_git_tags(self, ctx: GitContext) -> None:
+        """The five most recent tags."""
+        result = _git(self._root, ["tag", "--list", "-l", "--sort=-creatordate"])
+        if result.returncode == 0:
+            ctx.tags = result.stdout.strip().split("\n")[:5]
 
     def _detect_language(self) -> str:
         for ext_file, lang in {

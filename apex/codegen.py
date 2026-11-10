@@ -36,7 +36,7 @@ class CodeRefactorer:
                     return {"success": True, "function": function_name, "style": style}
 
             return {"error": "Function not found"}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {"error": str(e)}
 
     def extract_method(
@@ -59,7 +59,7 @@ class CodeRefactorer:
 
             path.write_text(content)
             return {"success": True, "method": new_method}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {"error": str(e)}
 
     def convert_to_class(self, filepath: str, function_name: str) -> dict[str, Any]:
@@ -84,7 +84,7 @@ class CodeRefactorer:
             path.write_text(content)
 
             return {"success": True, "class": function_name.capitalize()}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {"error": str(e)}
 
     def add_type_hints(self, filepath: str) -> dict[str, Any]:
@@ -103,7 +103,7 @@ class CodeRefactorer:
 
             path.write_text(content)
             return {"success": True, "file": str(filepath)}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {"error": str(e)}
 
 
@@ -218,10 +218,14 @@ CMD ["java", "-jar", "target/app.jar"]
 
         try:
             result = subprocess.run(
-                ["docker", "build", "-t", tag, "."], cwd=self.cwd, capture_output=True, text=True
+                ["docker", "build", "-t", tag, "."],
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             return {"success": result.returncode == 0, "output": result.stdout}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return {"error": str(e)}
 
 
@@ -248,7 +252,7 @@ class APIClientGenerator:
             lines.append("")
 
             for path_name, methods in spec.get("paths", {}).items():
-                for method, details in methods.items():
+                for method in methods:
                     if method in ["get", "post", "put", "delete", "patch"]:
                         func_name = f"{method}_{path_name.replace('/', '_').strip('_')}"
                         lines.append(f"    def {func_name}(self, **kwargs):")
@@ -258,10 +262,12 @@ class APIClientGenerator:
                         lines.append("")
 
             return "\n".join(lines)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             return f"ERROR: {e}"
 
-    def generate_curl(self, method: str, url: str, headers: dict = None, data: Any = None) -> str:
+    def generate_curl(
+        self, method: str, url: str, headers: dict | None = None, data: Any | None = None
+    ) -> str:
         parts = ["curl", f"-X {method.upper()}", f'"{url}"']
 
         if headers:

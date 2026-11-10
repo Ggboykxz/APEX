@@ -288,7 +288,7 @@ class TestInjectRepoMap:
         assert tokens > 0
 
     def test_second_call_is_a_noop(self, repo):
-        prompt, tokens = inject_repo_map("system", repo, max_tokens=500)
+        prompt, _tokens = inject_repo_map("system", repo, max_tokens=500)
         again, second_tokens = inject_repo_map(prompt, repo, max_tokens=500)
 
         assert again == prompt
@@ -346,7 +346,7 @@ class TestInjectRepoMap:
 @pytest.fixture
 def config_module(monkeypatch, tmp_path):
     """Isolate config_v2 file paths without reloading the process singleton."""
-    import apex.config_v2 as module
+    from apex import config_v2 as module
 
     paths = {
         "CONFIG_DIR": tmp_path / "config",
@@ -517,10 +517,10 @@ def _fake_response(text: str = "done"):
 @pytest.fixture
 def agent_context(monkeypatch, repo):
     """Give the global config deterministic context settings."""
-    from apex.agent import apex_config
+    from apex import config_v2
 
     monkeypatch.setitem(
-        apex_config._data,
+        config_v2.apex_config._data,
         "context",
         {
             "max_repo_map_tokens": 500,
@@ -603,10 +603,10 @@ class TestAgentIntegration:
         assert agent.last_context_stats.tokens_after < agent.last_context_stats.tokens_before
 
     def test_pruning_can_be_disabled(self, agent_context, monkeypatch):
-        from apex.agent import apex_config
+        from apex import config_v2
 
         monkeypatch.setitem(
-            apex_config._data,
+            config_v2.apex_config._data,
             "context",
             {
                 "max_repo_map_tokens": 0,

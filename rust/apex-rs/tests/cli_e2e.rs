@@ -7,6 +7,8 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
+use futures::StreamExt;
+
 struct Sandbox {
     _dir: tempfile::TempDir,
     home: PathBuf,
@@ -50,6 +52,11 @@ impl Sandbox {
             "APEX_RATE_LIMIT_PER_HOUR",
             "APEX_RATE_LIMIT_PER_DAY",
             "APEX_RATE_LIMIT_BURST",
+            "APEX_GATEWAY_HOST",
+            "APEX_GATEWAY_PORT",
+            "APEX_GATEWAY_KEY",
+            "APEX_GATEWAY_ADMIN_KEY",
+            "APEX_GATEWAY_UPSTREAM_BASE",
             // Provider keys: `/api/v1/auth/status` must be deterministic.
             "ANTHROPIC_API_KEY",
             "OPENAI_API_KEY",
@@ -182,6 +189,28 @@ async fn wait_for_health(client: &reqwest::Client, base: &str) -> bool {
     false
 }
 
+async fn get(client: &reqwest::Client, base: &str, path: &str) -> reqwest::Response {
+    client.get(format!("{base}{path}")).send().await.unwrap()
+}
+
+async fn post_json(
+    client: &reqwest::Client,
+    base: &str,
+    path: &str,
+    body: &serde_json::Value,
+) -> reqwest::Response {
+    client
+        .post(format!("{base}{path}"))
+        .json(body)
+        .send()
+        .await
+        .unwrap()
+}
+
+async fn delete(client: &reqwest::Client, base: &str, path: &str) -> reqwest::Response {
+    client.delete(format!("{base}{path}")).send().await.unwrap()
+}
+
 /// `apex-rs key create NAME` → (key id, plaintext key).
 fn create_key(sandbox: &Sandbox, name: &str) -> (String, String) {
     let out = sandbox.run(&["key", "create", name]);
@@ -235,6 +264,9 @@ fn help_lists_subcommands() {
         "github",
         "skill",
         "key",
+        "message",
+        "watch",
+        "rlm",
     ] {
         assert!(
             text.contains(subcommand),
@@ -262,6 +294,7 @@ fn tools_prints_known_tool_schemas() {
         "read_file",
         "write_file",
         "run_command",
+        "run_code",
         "git_status",
         "lsp_diagnostics",
         "list_skills",
@@ -271,6 +304,105 @@ fn tools_prints_known_tool_schemas() {
             "missing tool `{expected}` in {names:?}"
         );
     }
+}
+
+#[test]
+fn run_code_tool_is_hermetic_and_rejects_unsupported_language() {
+    let sb = Sandbox::new();
+
+    // The tool is wired and listed among the registry schemas.
+    let listed = sb.run(&["tools"]);
+    assert_success(&listed, "tools");
+    let schemas: serde_json::Value =
+        serde_json::from_slice(&listed.stdout).expect("`tools` must print valid JSON");
+    let names: Vec<&str> = schemas
+        .as_array()
+        .expect("tool list must be an array")
+        .iter()
+        .filter_map(|tool| tool.get("function")?.get("name")?.as_str())
+        .collect();
+    assert!(
+        names.contains(&"run_code"),
+        "missing tool `run_code` in {names:?}"
+    );
+
+    // An unsupported language fails deterministically without spawning any
+    // interpreter, so the check is hermetic on any machine.
+    let out = sb.run(&[
+        "call-tool",
+        "run_code",
+        r#"{"code":"print(1)","language":"not-a-real-language"}"#,
+    ]);
+    assert_success(&out, "call-tool run_code (unsupported language)");
+    let text = stdout(&out);
+    assert!(
+        text.contains("ERROR: Unsupported language: not-a-real-language"),
+        "expected unsupported-language error, got: {text}"
+    );
+}
+
+#[test]
+fn cli_message_command_builds_structured_message() {
+    let sb = Sandbox::new();
+
+    let out = sb.run(&["message", "user", "hello world"]);
+    assert_success(&out, "message");
+    let text = stdout(&out);
+    let v: serde_json::Value =
+        serde_json::from_str(&text).expect("`message` must print valid JSON");
+    assert_eq!(v["role"], "user", "got: {text}");
+    assert!(
+        v["id"].as_str().map(|s| !s.is_empty()).unwrap_or(false),
+        "got: {text}"
+    );
+    assert_eq!(v["parts"][0]["type"], "text", "got: {text}");
+    assert_eq!(v["parts"][0]["content"], "hello world", "got: {text}");
+    assert!(v.get("timestamp").is_some(), "got: {text}");
+}
+
+#[test]
+fn cli_watch_lists_non_ignored_files() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("a.txt"), "hello").unwrap();
+    std::fs::create_dir_all(sb.cwd.join("node_modules").join("pkg")).unwrap();
+    std::fs::write(
+        sb.cwd.join("node_modules").join("pkg").join("index.js"),
+        "const x = 1;\n",
+    )
+    .unwrap();
+
+    let out = sb.run(&["watch", sb.cwd.to_str().unwrap()]);
+    assert_success(&out, "watch");
+    let text = stdout(&out);
+    assert!(
+        text.contains("a.txt"),
+        "expected a.txt in watch output, got: {text}"
+    );
+    assert!(
+        !text.contains("node_modules"),
+        "node_modules must be ignored by the watcher, got: {text}"
+    );
+}
+
+#[test]
+fn cli_rlm_reports_rate_limits() {
+    let sb = Sandbox::new();
+
+    let check = sb.run(&["rlm", "e2e-key"]);
+    assert_success(&check, "rlm check");
+    let check_v: serde_json::Value =
+        serde_json::from_str(&stdout(&check)).expect("`rlm` must print valid JSON");
+    assert_eq!(check_v["allowed"], true, "got: {check_v}");
+    assert_eq!(check_v["remaining_minute"], 60, "got: {check_v}");
+    assert_eq!(check_v["remaining_hour"], 1000, "got: {check_v}");
+    assert_eq!(check_v["remaining_day"], 10000, "got: {check_v}");
+
+    // Incrementing consumes one minute-window slot.
+    let inc = sb.run(&["rlm", "e2e-key", "--inc"]);
+    assert_success(&inc, "rlm --inc");
+    let inc_v: serde_json::Value =
+        serde_json::from_str(&stdout(&inc)).expect("`rlm --inc` must print valid JSON");
+    assert_eq!(inc_v["remaining_minute"], 59, "got: {inc_v}");
 }
 
 #[test]
@@ -358,6 +490,12 @@ fn session_lifecycle_is_hermetic() {
         value["cwd"].as_str().unwrap(),
         sb.cwd.to_string_lossy().as_ref()
     );
+    // A CLI save has no agent state: the persisted usage must be the
+    // idle-agent shape Python's `agent.usage` starts with (three zero
+    // counters), never an empty object.
+    assert_eq!(value["usage"]["prompt_tokens"], 0);
+    assert_eq!(value["usage"]["completion_tokens"], 0);
+    assert_eq!(value["usage"]["total_tokens"], 0);
 }
 
 #[test]
@@ -818,6 +956,546 @@ async fn serve_exposes_context_routes() {
 }
 
 #[tokio::test]
+async fn serve_exposes_python_parity_routes() {
+    let sb = Sandbox::new();
+    std::fs::write(sb.cwd.join("main.py"), "x = 1\n").unwrap();
+    std::fs::write(sb.cwd.join("README.md"), "# hi\n").unwrap();
+
+    let port = free_port();
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+    assert!(wait_for_health(&client, &base).await, "server not healthy");
+
+    // ── Root + health ──────────────────────────────────────
+    let index = get(&client, &base, "/").await;
+    assert_eq!(index.status(), 200, "GET / must serve the index page");
+    let health: serde_json::Value = get(&client, &base, "/global/health")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(health["healthy"], true, "got: {health}");
+    assert!(health["version"].is_string(), "got: {health}");
+
+    // ── Status endpoints (no LLM) ──────────────────────────
+    let lsp: serde_json::Value = get(&client, &base, "/api/v1/lsp")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(lsp.is_array(), "lsp status must be a list: {lsp}");
+
+    let formatter: serde_json::Value = get(&client, &base, "/api/v1/formatter")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        formatter.is_array(),
+        "formatter status must be a list: {formatter}"
+    );
+
+    let mcp: serde_json::Value = get(&client, &base, "/api/v1/mcp")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(mcp.is_object(), "mcp status must be an object: {mcp}");
+
+    let formatters: serde_json::Value = get(&client, &base, "/api/v1/formatters")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(formatters["formatters"].is_array(), "got: {formatters}");
+
+    let rl: serde_json::Value = get(&client, &base, "/rate-limit/status")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        rl["minute"].is_object() || rl["minute"].is_number(),
+        "got: {rl}"
+    );
+
+    // ── Models / providers ─────────────────────────────────
+    let models: serde_json::Value = get(&client, &base, "/models").await.json().await.unwrap();
+    assert!(
+        models["models"].is_array(),
+        "/models must expose a models list: {models}"
+    );
+
+    let refreshed: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/models/refresh",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(
+        refreshed["models"].is_array() && refreshed["count"].is_number(),
+        "got: {refreshed}"
+    );
+
+    let providers: serde_json::Value = get(&client, &base, "/api/v1/providers")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(providers["providers"].is_array(), "got: {providers}");
+
+    // ── Agents ─────────────────────────────────────────────
+    let agents: serde_json::Value = get(&client, &base, "/api/v1/agents")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        agents["agents"].is_array(),
+        "/api/v1/agents must expose an agents list: {agents}"
+    );
+
+    let missing_agent = get(&client, &base, "/api/v1/agents/does-not-exist").await;
+    assert_eq!(missing_agent.status(), 404, "unknown agent must 404");
+    let missing_body: serde_json::Value = missing_agent.json().await.unwrap();
+    assert!(
+        missing_body["error"]
+            .as_str()
+            .unwrap()
+            .contains("not found"),
+        "got: {missing_body}"
+    );
+
+    // ── Commands (listing only; execution would hit the LLM) ─
+    let commands: serde_json::Value = get(&client, &base, "/api/v1/commands")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(commands["commands"].is_array(), "got: {commands}");
+
+    // A non-slash command is not handled and yields no output.
+    let cmd: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/command",
+        &serde_json::json!({"command": "hello"}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(cmd["handled"], false, "got: {cmd}");
+
+    // ── Config / themes ────────────────────────────────────
+    let config: serde_json::Value = get(&client, &base, "/api/v1/config")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(config["model"].is_string(), "got: {config}");
+
+    let updated: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/config",
+        &serde_json::json!({"theme": "nord"}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(updated["theme"], "nord", "got: {updated}");
+
+    let theme_err = post_json(&client, &base, "/api/v1/themes", &serde_json::json!({})).await;
+    assert_eq!(theme_err.status(), 400, "theme name is required");
+
+    let theme: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/themes",
+        &serde_json::json!({"theme": "nord"}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(theme["theme"], "nord", "got: {theme}");
+
+    // ── Stats ──────────────────────────────────────────────
+    let stats: serde_json::Value = get(&client, &base, "/api/v1/stats")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(stats["usage"].is_object(), "got: {stats}");
+
+    // ── Session lifecycle ──────────────────────────────────
+    let saved: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/session/save",
+        &serde_json::json!({"name": "e2e_sess"}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(
+        saved["saved"].is_string() && !saved["saved"].as_str().unwrap().is_empty(),
+        "got: {saved}"
+    );
+
+    let load_err = post_json(&client, &base, "/session/load", &serde_json::json!({})).await;
+    assert_eq!(load_err.status(), 400, "load name is required");
+
+    let fork: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/session/e2e/fork",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(fork["forked"], true, "got: {fork}");
+
+    let abort: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/session/e2e/abort",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(abort["aborted"], true, "got: {abort}");
+
+    let del_missing = client
+        .delete(format!("{base}/api/v1/sessions/does-not-exist"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        del_missing.status(),
+        404,
+        "deleting an unknown session 404s"
+    );
+
+    let export_missing = get(&client, &base, "/api/v1/export/does-not-exist").await;
+    assert_eq!(
+        export_missing.status(),
+        404,
+        "exporting an unknown session 404s"
+    );
+
+    let import_err = post_json(&client, &base, "/api/v1/import", &serde_json::json!({})).await;
+    assert_eq!(import_err.status(), 400, "import needs file_path or data");
+
+    let unshare_missing = post_json(
+        &client,
+        &base,
+        "/api/v1/unshare/does-not-exist",
+        &serde_json::json!({}),
+    )
+    .await;
+    assert_eq!(
+        unshare_missing.status(),
+        404,
+        "unsharing an unknown share 404s"
+    );
+
+    // ── Find file ──────────────────────────────────────────
+    let no_match: serde_json::Value = get(&client, &base, "/find/file?query=")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        no_match.is_array() && no_match.as_array().unwrap().is_empty(),
+        "got: {no_match}"
+    );
+
+    let found: serde_json::Value = get(&client, &base, "/find/file?query=main")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(found.is_array(), "got: {found}");
+    let hits = found.as_array().unwrap();
+    assert!(
+        hits.iter()
+            .any(|h| h.as_str().unwrap_or_default().contains("main.py")),
+        "expected main.py in: {found}"
+    );
+
+    // ── Diff validation (error paths before any git call) ──
+    let bad_json = client
+        .post(format!("{base}/api/v1/session/e2e/diff/decision"))
+        .header("content-type", "application/json")
+        .body("{not json")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_json.status(), 400, "malformed JSON body 400s");
+
+    let bad_decision = post_json(
+        &client,
+        &base,
+        "/api/v1/session/e2e/diff/decision",
+        &serde_json::json!({"decision": "maybe"}),
+    )
+    .await;
+    assert_eq!(bad_decision.status(), 400, "unknown decision 400s");
+
+    // ── Metrics ────────────────────────────────────────────
+    let metrics: serde_json::Value = get(&client, &base, "/metrics").await.json().await.unwrap();
+    assert!(metrics["total_tokens"].is_number(), "got: {metrics}");
+
+    // ── SSE global event: first frame announces connection ──
+    let sse = client
+        .get(format!("{base}/global/event"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(sse.status(), 200, "SSE endpoint must stream");
+    let mut stream = sse.bytes_stream();
+    let first = tokio::time::timeout(std::time::Duration::from_secs(5), stream.next())
+        .await
+        .expect("SSE stream timed out")
+        .expect("SSE stream closed before first frame")
+        .expect("SSE read error");
+    let first = String::from_utf8_lossy(&first);
+    assert!(first.contains("connected"), "first SSE frame: {first}");
+}
+
+#[tokio::test]
+async fn serve_diff_preview_accepts_and_rejects() {
+    let sb = Sandbox::new();
+    // A committed file whose working-tree copy we will modify.
+    git(&sb.cwd, &["init"]);
+    // Pin line endings so `git restore --worktree` (reject) writes back the
+    // exact committed bytes: Windows' default `core.autocrlf=true` would
+    // restore `line1\n` as `line1\r\n`.
+    git(&sb.cwd, &["config", "core.autocrlf", "false"]);
+    std::fs::write(sb.cwd.join("file.txt"), "line1\n").unwrap();
+    git(&sb.cwd, &["add", "file.txt"]);
+    git(&sb.cwd, &["commit", "-m", "init"]);
+
+    let port = free_port();
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+    assert!(wait_for_health(&client, &base).await, "server not healthy");
+
+    // A clean tree reports `(clean)` with no paths.
+    let clean: serde_json::Value = client
+        .get(format!("{base}/api/v1/session/s1/diff"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(clean["files"], "(clean)", "got: {clean}");
+    assert_eq!(clean["paths"], serde_json::json!([]), "got: {clean}");
+    assert_eq!(clean["session_id"], "s1", "got: {clean}");
+
+    // Modify the tracked file → a non-empty working-tree diff.
+    std::fs::write(sb.cwd.join("file.txt"), "line1\nline2\n").unwrap();
+    let diff: serde_json::Value = client
+        .get(format!("{base}/api/v1/session/s1/diff"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        diff["paths"],
+        serde_json::json!(["file.txt"]),
+        "got: {diff}"
+    );
+    let fingerprint = diff["fingerprint"].as_str().unwrap().to_string();
+    assert_eq!(fingerprint.len(), 64, "fingerprint must be a sha256 hex");
+    assert!(
+        diff["diff"].as_str().unwrap().contains("line2"),
+        "got: {diff}"
+    );
+
+    // Validation chain: invalid JSON, non-object body, bad decision,
+    // non-list files, invalid path, path outside the current diff.
+    let bad_json = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .body("not json")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_json.status(), 400);
+    assert_eq!(
+        bad_json.json::<serde_json::Value>().await.unwrap()["error"],
+        "invalid JSON body"
+    );
+
+    let not_object = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .body("[1, 2]")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(not_object.status(), 400);
+
+    let bad_decision = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "maybe"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_decision.status(), 400);
+    assert_eq!(
+        bad_decision.json::<serde_json::Value>().await.unwrap()["error"],
+        "decision must be 'accept' or 'reject'"
+    );
+
+    let not_list = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "accept", "files": "file.txt"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(not_list.status(), 400);
+    assert_eq!(
+        not_list.json::<serde_json::Value>().await.unwrap()["error"],
+        "files must be a list"
+    );
+
+    let bad_path = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "accept", "files": ["../evil"]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_path.status(), 400);
+    assert_eq!(
+        bad_path.json::<serde_json::Value>().await.unwrap()["error"],
+        "invalid path: '../evil'"
+    );
+
+    let not_in_diff = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "accept", "files": ["other.txt"]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(not_in_diff.status(), 400);
+    assert_eq!(
+        not_in_diff.json::<serde_json::Value>().await.unwrap()["error"],
+        "path not in current diff: other.txt"
+    );
+
+    // Accept with `files: null` → all current paths are accepted.
+    let accepted: serde_json::Value = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({"decision": "accept"}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(accepted["status"], "accepted", "got: {accepted}");
+    assert_eq!(
+        accepted["files"],
+        serde_json::json!(["file.txt"]),
+        "got: {accepted}"
+    );
+    assert_eq!(accepted["fingerprint"], fingerprint, "got: {accepted}");
+
+    // Modify again → the fingerprint moves.
+    std::fs::write(sb.cwd.join("file.txt"), "line1\nline2\nline3\n").unwrap();
+    let diff2: serde_json::Value = client
+        .get(format!("{base}/api/v1/session/s1/diff"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let fingerprint2 = diff2["fingerprint"].as_str().unwrap().to_string();
+    assert_ne!(
+        fingerprint2, fingerprint,
+        "fingerprint must change with the diff"
+    );
+
+    // Rejecting with a stale fingerprint is a 409 `diff_changed`.
+    let conflict = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({
+            "decision": "reject",
+            "fingerprint": fingerprint,
+            "files": ["file.txt"],
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(conflict.status(), 409);
+    let conflict_body: serde_json::Value = conflict.json().await.unwrap();
+    assert_eq!(
+        conflict_body["error"], "diff_changed",
+        "got: {conflict_body}"
+    );
+    assert_eq!(
+        conflict_body["fingerprint"], fingerprint2,
+        "got: {conflict_body}"
+    );
+
+    // Reject with the current fingerprint reverts the working-tree change.
+    let rejected: serde_json::Value = client
+        .post(format!("{base}/api/v1/session/s1/diff/decision"))
+        .json(&serde_json::json!({
+            "decision": "reject",
+            "fingerprint": fingerprint2,
+            "files": ["file.txt"],
+        }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(rejected["status"], "rejected", "got: {rejected}");
+    assert_eq!(
+        rejected["reverted"],
+        serde_json::json!(["file.txt"]),
+        "got: {rejected}"
+    );
+    assert_eq!(rejected["failed"], serde_json::json!([]), "got: {rejected}");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("file.txt")).unwrap(),
+        "line1\n",
+        "reject must restore the committed content"
+    );
+
+    // The tree is clean again.
+    let after: serde_json::Value = client
+        .get(format!("{base}/api/v1/session/s1/diff"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(after["files"], "(clean)", "got: {after}");
+}
+
+#[tokio::test]
 async fn serve_http_auth_and_rate_limit_are_hermetic() {
     let sb = Sandbox::new();
     let client = reqwest::Client::new();
@@ -1273,5 +1951,884 @@ fn crate_root_has_no_global_dead_code_allow() {
         !main_rs.contains("#![allow(dead_code)]"),
         "src/main.rs must not re-introduce the crate-level dead-code allow; \
          use a justified, item-scoped attribute instead"
+    );
+}
+
+#[test]
+fn cli_locale_command_works() {
+    let sb = Sandbox::new();
+
+    // Default (no --lang): shows the active locale and available locales.
+    let out = sb.run(&["locale"]);
+    assert_success(&out, "locale");
+    let text = stdout(&out);
+    assert!(text.contains("Current locale:"), "got: {text}");
+    assert!(
+        text.contains("Available locales: en, ja, zh-Hans, pt-BR"),
+        "got: {text}"
+    );
+
+    // Switching to Japanese selects the locale and localizes the welcome.
+    let ja = sb.run(&["locale", "--lang", "ja"]);
+    assert_success(&ja, "locale --lang ja");
+    let ja_text = stdout(&ja);
+    assert!(ja_text.contains("Current locale: ja"), "got: {ja_text}");
+    assert!(
+        ja_text.contains("APEXへようこそ"),
+        "expected the Japanese welcome string, got: {ja_text}"
+    );
+
+    // Switching back to English.
+    let en = sb.run(&["locale", "--lang", "en"]);
+    assert_success(&en, "locale --lang en");
+    let en_text = stdout(&en);
+    assert!(en_text.contains("Current locale: en"), "got: {en_text}");
+    assert!(
+        en_text.contains("Welcome to APEX"),
+        "expected the English welcome string, got: {en_text}"
+    );
+}
+
+#[tokio::test]
+async fn serve_exposes_telemetry_route() {
+    let sb = Sandbox::new();
+
+    // Grab a free port, then let the server child bind it.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+
+    let healthy = wait_for_health(&client, &base).await;
+    assert!(healthy, "apex-rs serve did not become healthy");
+
+    let tele: serde_json::Value = get(&client, &base, "/api/v1/telemetry")
+        .await
+        .json()
+        .await
+        .unwrap();
+    // Session start is recorded at service bootstrap.
+    let stats = tele["telemetry"]
+        .as_object()
+        .expect("telemetry must be an object");
+    assert!(stats.contains_key("session_id"), "got: {tele}");
+    assert!(stats.contains_key("total_events"), "got: {tele}");
+    assert!(tele["performance"].is_object(), "got: {tele}");
+}
+
+#[tokio::test]
+async fn serve_exposes_context_tracking_route() {
+    let sb = Sandbox::new();
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve did not become healthy"
+    );
+
+    let tracking: serde_json::Value = get(&client, &base, "/api/v1/context/tracking")
+        .await
+        .json()
+        .await
+        .unwrap();
+    // Fresh server: default token budget and no tracked sessions yet.
+    assert_eq!(tracking["max_tokens"], 128000, "got: {tracking}");
+    assert!(
+        (tracking["threshold"].as_f64().unwrap() - 0.8).abs() < f64::EPSILON,
+        "got: {tracking}"
+    );
+    assert_eq!(tracking["session_count"], 0, "got: {tracking}");
+    assert!(
+        tracking["sessions"].as_array().unwrap().is_empty(),
+        "got: {tracking}"
+    );
+}
+
+#[tokio::test]
+async fn serve_snapshot_undo_redo_lifecycle() {
+    let sb = Sandbox::new();
+
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve did not become healthy"
+    );
+
+    // Track the file before modification (the manager roots at the server cwd).
+    std::fs::write(sb.cwd.join("notes.txt"), "v1").unwrap();
+    let tracked: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/track-file",
+        &serde_json::json!({ "path": "notes.txt" }),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(tracked["ok"].as_bool().unwrap(), "got: {tracked}");
+    let snap = &tracked["snapshot"];
+    assert_eq!(snap["files"][0]["path"], "notes.txt", "got: {tracked}");
+    assert_eq!(snap["files"][0]["before"], "v1", "got: {tracked}");
+    assert!(snap["files"][0]["after"].is_null(), "got: {tracked}");
+
+    // Modify, then undo: the tracked pre-change content comes back.
+    std::fs::write(sb.cwd.join("notes.txt"), "v2").unwrap();
+    let undone: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/undo",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(undone["ok"].as_bool().unwrap(), "got: {undone}");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("notes.txt")).unwrap(),
+        "v1",
+        "undo must restore the tracked content"
+    );
+
+    // status reflects the moved snapshot.
+    let status: serde_json::Value = get(&client, &base, "/api/v1/snapshot/status")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(status["can_undo"], false, "got: {status}");
+    assert_eq!(status["can_redo"], true, "got: {status}");
+    assert_eq!(status["undo_count"], 0, "got: {status}");
+    assert_eq!(status["redo_count"], 1, "got: {status}");
+
+    // Redo: track_file captured no `after`, so the file is left as-is
+    // (Python parity), but the snapshot returns to the undo stack.
+    let redone: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/redo",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(redone["ok"].as_bool().unwrap(), "got: {redone}");
+    assert_eq!(
+        std::fs::read_to_string(sb.cwd.join("notes.txt")).unwrap(),
+        "v1",
+        "redo of a track_file snapshot rewrites nothing"
+    );
+
+    // The history keeps the single snapshot with its action type.
+    let history: serde_json::Value = get(&client, &base, "/api/v1/snapshot/history?limit=10")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(history["ok"].as_bool().unwrap(), "got: {history}");
+    let snaps = history["snapshots"].as_array().unwrap();
+    assert_eq!(snaps.len(), 1, "got: {history}");
+    assert_eq!(snaps[0]["action_type"], "file_edit", "got: {history}");
+
+    // Undo again, then the stack is empty.
+    let undone2: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/undo",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(undone2["ok"].as_bool().unwrap(), "got: {undone2}");
+
+    // A third undo still answers 200, with the `ok` flag false.
+    let empty: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/snapshot/undo",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(empty["ok"], false, "got: {empty}");
+    assert_eq!(empty["error"], "nothing to undo", "got: {empty}");
+}
+
+/// Index of the first occurrence of `needle` in `haystack` (fake upstreams).
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.len() > haystack.len() {
+        return None;
+    }
+    haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+/// Body range of the first HTTP request carried by `data`, if complete.
+fn request_body_range(data: &[u8]) -> Option<(usize, usize)> {
+    let pos = find_bytes(data, b"\r\n\r\n")?;
+    let headers = String::from_utf8_lossy(&data[..pos]).to_lowercase();
+    let body_len = headers
+        .lines()
+        .find_map(|l| l.strip_prefix("content-length:"))
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .unwrap_or(0);
+    Some((pos + 4, pos + 4 + body_len))
+}
+
+/// Serve exactly one OpenAI-shaped chat completion on `listener`.
+///
+/// The listener is bound by the caller so the port is never released between
+/// choosing it and using it. A client-side keep-alive connection closed
+/// before the request is complete is tolerated: the upstream keeps reading
+/// until it has a full request.
+fn serve_fake_upstream(listener: std::net::TcpListener) {
+    use std::io::{Read, Write};
+    let (mut stream, _) = listener.accept().unwrap();
+    let mut data: Vec<u8> = Vec::new();
+    let mut buf = [0u8; 8192];
+    loop {
+        let n = match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(_) => break,
+        };
+        data.extend_from_slice(&buf[..n]);
+        let Some((start, end)) = request_body_range(&data) else {
+            continue;
+        };
+        if data.len() < end {
+            continue;
+        }
+        let body_preview = String::from_utf8_lossy(&data[start..end]).to_string();
+        assert!(
+            body_preview.contains("free-or-qwen3-coder"),
+            "body: {body_preview}"
+        );
+        let resp = r#"{"id":"chatcmpl-e2e","object":"chat.completion","model":"free-or-qwen3-coder","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}"#;
+        let out = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{resp}",
+            resp.len()
+        );
+        stream.write_all(out.as_bytes()).unwrap();
+        return;
+    }
+}
+
+/// Full gateway lifecycle against a fake OpenRouter upstream: CLI key
+/// generation and status, the 8 HTTP routes (auth, 403 model gate,
+/// register, payload cap, proxy, usage injection, admin trio), and a
+/// revoke visible to both the server and the CLI.
+#[tokio::test]
+async fn gateway_proxy_lifecycle_is_hermetic() {
+    let sb = Sandbox::new();
+
+    // ── CLI: key generation + status against the temp `~/.apex` ──
+    let out = sb.run(&["gateway", "key", "free", "e2e-label"]);
+    assert_success(&out, "gateway key");
+    let text = stdout(&out);
+    assert!(
+        text.contains("Gateway API key generated (free):"),
+        "unexpected output:\n{text}"
+    );
+    let key = text.lines().nth(1).unwrap_or_default().trim().to_string();
+    assert!(key.starts_with("apex_"), "missing gateway key:\n{text}");
+
+    let listed = sb.run(&["gateway", "status"]);
+    assert_success(&listed, "gateway status");
+    let status_text = stdout(&listed);
+    assert!(
+        status_text.contains("Gateway keys (1):")
+            && status_text.contains("[free]")
+            && status_text.contains("e2e-label")
+            && status_text.contains("(active)"),
+        "got:\n{status_text}"
+    );
+
+    // ── Fake OpenRouter upstream: one request, fixed OpenAI-shaped body ──
+    // Bind the listener here (not inside the thread) so the port is never
+    // released between picking it and using it: `free_port()` has a
+    // time-of-check/time-of-use race that makes this test flaky when the
+    // runner is loaded and another process grabs the port first.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let upstream_port = listener.local_addr().unwrap().port();
+    let upstream = std::thread::spawn(move || serve_fake_upstream(listener));
+
+    // ── Gateway server pointed at the fake upstream ──
+    let port = free_port();
+    let port_s = port.to_string();
+    let upstream_base = format!("http://127.0.0.1:{upstream_port}");
+    let _gw = ServerGuard::spawn_with(
+        &sb,
+        &["gateway", "start"],
+        &[
+            ("APEX_GATEWAY_PORT", &port_s),
+            ("APEX_GATEWAY_KEY", "test-upstream-key"),
+            ("APEX_GATEWAY_ADMIN_KEY", "admin-test"),
+            ("APEX_GATEWAY_UPSTREAM_BASE", &upstream_base),
+        ],
+    );
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::Client::new();
+
+    // `wait_for_health` targets `/health`; the gateway answers on `/v1/health`.
+    let mut up = false;
+    for _ in 0..600 {
+        if client
+            .get(format!("{base}/v1/health"))
+            .send()
+            .await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false)
+        {
+            up = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(up, "apex-rs gateway start did not become healthy");
+
+    // Health + models.
+    let health: serde_json::Value = get(&client, &base, "/v1/health")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        health,
+        serde_json::json!({ "status": "ok", "service": "apex-gateway" })
+    );
+
+    let models: serde_json::Value = get(&client, &base, "/v1/models")
+        .await
+        .json()
+        .await
+        .unwrap();
+    let list = models["models"].as_array().expect("models must be a list");
+    assert!(!list.is_empty(), "free-/pro- aliases are missing");
+    for (i, m) in list.iter().enumerate() {
+        let id = m["id"].as_str().unwrap_or("");
+        assert!(
+            id.starts_with("free-") || id.starts_with("pro-"),
+            "unexpected model {id}"
+        );
+        assert!(m["provider"].is_string(), "missing provider: {m}");
+        if i > 0 {
+            assert!(
+                list[i - 1]["id"].as_str().unwrap_or("") <= id,
+                "models must be sorted by id"
+            );
+        }
+    }
+
+    // Register: success, invalid tier, oversized payload.
+    let reg = post_json(
+        &client,
+        &base,
+        "/v1/register",
+        &serde_json::json!({ "tier": "pro", "label": "registered" }),
+    )
+    .await;
+    assert_eq!(reg.status(), 200);
+    let reg_body: serde_json::Value = reg.json().await.unwrap();
+    assert!(reg_body["api_key"]
+        .as_str()
+        .unwrap_or("")
+        .starts_with("apex_"));
+    assert_eq!(reg_body["tier"], "pro");
+    assert_eq!(reg_body["label"], "registered");
+    assert_eq!(reg_body["limits"]["daily_requests"], 500);
+    assert_eq!(reg_body["limits"]["rate_per_minute"], 60);
+    assert_eq!(reg_body["limits"]["max_concurrent"], 3);
+
+    let bad_tier = post_json(
+        &client,
+        &base,
+        "/v1/register",
+        &serde_json::json!({ "tier": "bogus" }),
+    )
+    .await;
+    assert_eq!(bad_tier.status(), 400);
+    assert_eq!(
+        bad_tier.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Invalid tier: bogus" })
+    );
+
+    let big = post_json(
+        &client,
+        &base,
+        "/v1/register",
+        &serde_json::json!({ "label": "x".repeat(5000) }),
+    )
+    .await;
+    assert_eq!(big.status(), 413);
+    assert_eq!(
+        big.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Payload too large" })
+    );
+
+    // Chat: missing auth, unknown key, model not in tier, then the proxy.
+    let chat_body = serde_json::json!({ "model": "free-or-qwen3-coder", "messages": [] });
+    let anon = client
+        .post(format!("{base}/v1/chat/completions"))
+        .json(&chat_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(anon.status(), 401);
+    assert_eq!(
+        anon.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Missing or invalid Authorization header" })
+    );
+
+    let bad_key = client
+        .post(format!("{base}/v1/chat/completions"))
+        .bearer_auth("apex_bogus")
+        .json(&chat_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bad_key.status(), 401);
+    assert_eq!(
+        bad_key.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Invalid or revoked API key" })
+    );
+
+    let forbidden = client
+        .post(format!("{base}/v1/chat/completions"))
+        .bearer_auth(&key)
+        .json(&serde_json::json!({ "model": "pro-glm-5", "messages": [] }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(forbidden.status(), 403);
+    assert_eq!(
+        forbidden.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Model 'pro-glm-5' not available in 'free' tier" })
+    );
+
+    // The 200 path consumes the fake upstream's single request.
+    let ok = client
+        .post(format!("{base}/v1/chat/completions"))
+        .bearer_auth(&key)
+        .json(&chat_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(ok.status(), 200, "chat must proxy to the upstream");
+    let ok_body: serde_json::Value = ok.json().await.unwrap();
+    assert_eq!(ok_body["choices"][0]["message"]["content"], "ok");
+    assert_eq!(ok_body["usage"]["prompt_tokens"], 11);
+    assert_eq!(ok_body["usage"]["completion_tokens"], 7);
+    assert_eq!(ok_body["usage"]["apex_gateway"]["tier"], "free");
+    assert_eq!(ok_body["usage"]["apex_gateway"]["requests_today"], 1);
+
+    // Status: unauthenticated, then the free key's counters.
+    let no_auth = get(&client, &base, "/v1/status").await;
+    assert_eq!(no_auth.status(), 401);
+    assert_eq!(
+        no_auth.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Unauthorized" })
+    );
+
+    let st = client
+        .get(format!("{base}/v1/status"))
+        .bearer_auth(&key)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(st.status(), 200);
+    let st_body: serde_json::Value = st.json().await.unwrap();
+    assert_eq!(st_body["tier"], "free");
+    assert_eq!(st_body["requests_today"], 1);
+    assert_eq!(st_body["requests_limit"], 50);
+    assert_eq!(st_body["tokens_today"], 18);
+    assert_eq!(st_body["rate_per_minute"], 10);
+    assert_eq!(st_body["max_concurrent"], 1);
+
+    // Admin: auth gate, list, generate, revoke, revoke-again.
+    let no_admin = get(&client, &base, "/admin/keys").await;
+    assert_eq!(no_admin.status(), 401);
+    let wrong_admin = client
+        .get(format!("{base}/admin/keys"))
+        .header("X-Admin-Key", "wrong")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(wrong_admin.status(), 401);
+
+    let keys = client
+        .get(format!("{base}/admin/keys"))
+        .header("X-Admin-Key", "admin-test")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(keys.status(), 200);
+    let keys_body: serde_json::Value = keys.json().await.unwrap();
+    let rows = keys_body["keys"].as_array().expect("keys list");
+    assert!(
+        rows.iter()
+            .any(|k| k["tier"] == "free" && k["label"] == "e2e-label"),
+        "generated key must be listed: {}",
+        serde_json::to_string(rows).unwrap_or_default()
+    );
+    assert!(
+        rows.iter()
+            .all(|k| !k.as_object().unwrap().contains_key("api_key")),
+        "listings must not expose plaintext keys"
+    );
+
+    let gen = client
+        .post(format!("{base}/admin/keys/generate"))
+        .header("X-Admin-Key", "admin-test")
+        .json(&serde_json::json!({ "tier": "unlimited", "label": "boss" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(gen.status(), 200);
+    let gen_body: serde_json::Value = gen.json().await.unwrap();
+    assert!(gen_body["api_key"]
+        .as_str()
+        .unwrap_or("")
+        .starts_with("apex_"));
+    assert_eq!(gen_body["tier"], "unlimited");
+    assert_eq!(gen_body["label"], "boss");
+
+    let revoke = client
+        .post(format!("{base}/admin/keys/revoke"))
+        .header("X-Admin-Key", "admin-test")
+        .json(&serde_json::json!({ "api_key": key }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(revoke.status(), 200);
+    assert_eq!(
+        revoke.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "status": "revoked" })
+    );
+
+    let revoke_again = client
+        .post(format!("{base}/admin/keys/revoke"))
+        .header("X-Admin-Key", "admin-test")
+        .json(&serde_json::json!({ "api_key": key }))
+        .send()
+        .await
+        .unwrap();
+    // Python's `UPDATE ... WHERE api_key = ?` reports the row even when it
+    // is already revoked: re-revoking a known key returns 200.
+    assert_eq!(revoke_again.status(), 200);
+    assert_eq!(
+        revoke_again.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "status": "revoked" })
+    );
+
+    let unknown = client
+        .post(format!("{base}/admin/keys/revoke"))
+        .header("X-Admin-Key", "admin-test")
+        .json(&serde_json::json!({ "api_key": "apex_unknown" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unknown.status(), 404);
+    assert_eq!(
+        unknown.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Key not found" })
+    );
+
+    // The revoked key is rejected by a running server (re-read-on-access).
+    let revoked_chat = client
+        .post(format!("{base}/v1/chat/completions"))
+        .bearer_auth(&key)
+        .json(&chat_body)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(revoked_chat.status(), 401);
+    assert_eq!(
+        revoked_chat.json::<serde_json::Value>().await.unwrap(),
+        serde_json::json!({ "error": "Invalid or revoked API key" })
+    );
+
+    // CLI sees the revoke and the two extra keys.
+    let after = sb.run(&["gateway", "status"]);
+    assert_success(&after, "gateway status (after revoke)");
+    let after_text = stdout(&after);
+    assert!(
+        after_text.contains("Gateway keys (3):")
+            && after_text.contains("[free]")
+            && after_text.contains("(revoked)")
+            && after_text.contains("[pro]")
+            && after_text.contains("[unlimited]"),
+        "got:\n{after_text}"
+    );
+
+    drop(_gw);
+    let _ = upstream.join();
+}
+
+#[tokio::test]
+async fn serve_durable_tasks_lifecycle() {
+    let sb = Sandbox::new();
+    let client = reqwest::Client::new();
+
+    // First server: enqueue, list, filter, fetch, cancel, delete.
+    let port = free_port();
+    let _server = ServerGuard::spawn(&sb, &["serve", "--port", &port.to_string()]);
+    let base = format!("http://127.0.0.1:{port}");
+    assert!(
+        wait_for_health(&client, &base).await,
+        "apex-rs serve did not become healthy"
+    );
+
+    let first: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/tasks",
+        &serde_json::json!({
+            "name": "first",
+            "description": "first task",
+            "payload": { "key": "val" },
+        }),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(first["ok"].as_bool().unwrap(), "got: {first}");
+    let first_id = first["task_id"].as_str().unwrap().to_string();
+    assert!(first_id.starts_with("task_"), "got: {first}");
+    assert_eq!(first["task"]["status"], "pending", "got: {first}");
+    assert_eq!(first["task"]["payload"]["key"], "val", "got: {first}");
+
+    // Sleep so the two `created_at` values differ (microsecond clock).
+    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    let second: serde_json::Value = post_json(
+        &client,
+        &base,
+        "/api/v1/tasks",
+        &serde_json::json!({ "name": "second" }),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    let second_id = second["task_id"].as_str().unwrap().to_string();
+
+    // List: newest first.
+    let all: serde_json::Value = get(&client, &base, "/api/v1/tasks")
+        .await
+        .json()
+        .await
+        .unwrap();
+    let tasks = all["tasks"].as_array().unwrap();
+    assert_eq!(tasks.len(), 2, "got: {all}");
+    assert_eq!(tasks[0]["name"], "second", "newest first: {all}");
+
+    // Filter by status.
+    let pending: serde_json::Value = get(&client, &base, "/api/v1/tasks?status=pending")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        pending["tasks"].as_array().unwrap().len(),
+        2,
+        "got: {pending}"
+    );
+
+    // Fetch by id; an unknown id answers ok:false (no 4xx, like the snapshot routes).
+    let by_id: serde_json::Value = get(&client, &base, &format!("/api/v1/tasks/{second_id}"))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(by_id["ok"].as_bool().unwrap(), "got: {by_id}");
+    assert_eq!(by_id["task"]["name"], "second", "got: {by_id}");
+    let missing: serde_json::Value = get(&client, &base, "/api/v1/tasks/task_nope")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(missing["ok"], false, "got: {missing}");
+    assert_eq!(missing["error"], "task not found", "got: {missing}");
+
+    // Cancel: succeeds once, then fails (the task is no longer pending).
+    let cancelled: serde_json::Value = post_json(
+        &client,
+        &base,
+        &format!("/api/v1/tasks/{first_id}/cancel"),
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert!(cancelled["ok"].as_bool().unwrap(), "got: {cancelled}");
+    let again: serde_json::Value = post_json(
+        &client,
+        &base,
+        &format!("/api/v1/tasks/{first_id}/cancel"),
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(again["ok"], false, "no longer pending: {again}");
+    let cancelled_only: serde_json::Value = get(&client, &base, "/api/v1/tasks?status=cancelled")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        cancelled_only["tasks"].as_array().unwrap().len(),
+        1,
+        "got: {cancelled_only}"
+    );
+
+    // Delete removes any task; deleting it again fails.
+    let deleted: serde_json::Value = delete(&client, &base, &format!("/api/v1/tasks/{first_id}"))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(deleted["ok"].as_bool().unwrap(), "got: {deleted}");
+    let deleted_again: serde_json::Value =
+        delete(&client, &base, &format!("/api/v1/tasks/{first_id}"))
+            .await
+            .json()
+            .await
+            .unwrap();
+    assert_eq!(deleted_again["ok"], false, "got: {deleted_again}");
+
+    drop(_server);
+
+    // The queue persisted under the sandbox HOME (`~/.apex/tasks/tasks.json`).
+    let tasks_file = sb.home.join(".apex").join("tasks").join("tasks.json");
+    assert!(tasks_file.exists(), "tasks.json must be persisted");
+    let disk: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&tasks_file).unwrap()).unwrap();
+    assert_eq!(
+        disk.as_object().unwrap().len(),
+        1,
+        "only the second task survives: {disk}"
+    );
+    assert_eq!(disk[&second_id]["status"], "pending", "got: {disk}");
+
+    // Simulate a worker finishing the task, then restart the server in the
+    // same sandbox: the queue rehydrates with the completed state.
+    let mut on_disk = disk.clone();
+    on_disk[&second_id]["status"] = serde_json::json!("completed");
+    on_disk[&second_id]["completed_at"] = serde_json::json!("2026-01-01T00:00:00.000000");
+    on_disk[&second_id]["result"] = serde_json::json!({ "done": true });
+    std::fs::write(&tasks_file, serde_json::to_string_pretty(&on_disk).unwrap()).unwrap();
+
+    let port2 = free_port();
+    let _server2 = ServerGuard::spawn(&sb, &["serve", "--port", &port2.to_string()]);
+    let base2 = format!("http://127.0.0.1:{port2}");
+    assert!(
+        wait_for_health(&client, &base2).await,
+        "restart did not become healthy"
+    );
+
+    let resumed: serde_json::Value = get(&client, &base2, "/api/v1/tasks")
+        .await
+        .json()
+        .await
+        .unwrap();
+    let resumed_tasks = resumed["tasks"].as_array().unwrap();
+    assert_eq!(resumed_tasks.len(), 1, "got: {resumed}");
+    assert_eq!(
+        resumed_tasks[0]["status"], "completed",
+        "persistence: {resumed}"
+    );
+    assert_eq!(resumed_tasks[0]["result"]["done"], true, "got: {resumed}");
+
+    // Clear removes the completed task.
+    let cleared: serde_json::Value = post_json(
+        &client,
+        &base2,
+        "/api/v1/tasks/clear",
+        &serde_json::json!({}),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(cleared["removed"], 1, "got: {cleared}");
+    let empty: serde_json::Value = get(&client, &base2, "/api/v1/tasks")
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        empty["tasks"].as_array().unwrap().is_empty(),
+        "got: {empty}"
+    );
+}
+
+#[test]
+fn custom_tools_via_cli() {
+    let sb = Sandbox::new();
+
+    // JSON tool definitions under `./.apex/tools` (the Rust divergence from
+    // Python's `*.py` imports, documented in PARITY.md).
+    let tools_dir = sb.cwd.join(".apex").join("tools");
+    std::fs::create_dir_all(&tools_dir).unwrap();
+    std::fs::write(
+        tools_dir.join("version.json"),
+        r#"{"name": "version", "description": "Show git version", "command": "git --version"}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        tools_dir.join("blocked.json"),
+        r#"{"name": "blocked", "command": "sudo ls"}"#,
+    )
+    .unwrap();
+
+    // The tool is exposed to the model under the `custom_` schema name;
+    // the blocked command must not register at all.
+    let listing = sb.run(&["tools"]);
+    assert_success(&listing, "tools listing");
+    let listed = stdout(&listing);
+    assert!(listed.contains("custom_version"), "got:\n{listed}");
+    assert!(
+        !listed.contains("custom_blocked"),
+        "blocked commands must not register:\n{listed}"
+    );
+
+    // Dispatch reaches the handler by its defined name (Python parity: the
+    // manager keys by the defined name, the `custom_` prefix is schema-only).
+    let call = sb.run(&["call-tool", "version", "{}"]);
+    assert_success(&call, "call-tool version");
+    let out = stdout(&call);
+    assert!(out.contains("git version"), "got:\n{out}");
+
+    // An unknown tool reports the built-in error string.
+    let unknown = sb.run(&["call-tool", "nope", "{}"]);
+    assert_success(&unknown, "call-tool nope");
+    let unknown_out = stdout(&unknown);
+    assert!(
+        unknown_out.contains("ERROR: Unknown tool 'nope'"),
+        "got:\n{unknown_out}"
     );
 }

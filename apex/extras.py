@@ -12,7 +12,7 @@ class ShellExpander:
     VAR_PATTERN = re.compile(r"\$\{?([a-zA-Z_][a-zA-Z0-9_]*)\}?")
 
     @classmethod
-    def expand(cls, text: str, env: dict = None) -> str:
+    def expand(cls, text: str, env: dict | None = None) -> str:
         env = env or os.environ
 
         def replace_var(match):
@@ -38,7 +38,7 @@ class EnvManager:
         self.cwd = Path(cwd)
         self._local_env: dict[str, str] = {}
 
-    def get(self, key: str, default: str = None) -> str:
+    def get(self, key: str, default: str | None = None) -> str:
         return self._local_env.get(key, os.environ.get(key, default))
 
     def set(self, key: str, value: str):
@@ -105,7 +105,7 @@ class TaskQueue:
             else:
                 task.result = func(*args, **kwargs)
             task.status = "completed"
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             task.error = str(e)
             task.status = "failed"
 
@@ -135,7 +135,7 @@ class HistorySearch:
         self.max_items = max_items
         self._history: list[dict[str, Any]] = []
 
-    def add(self, query: str, response: str = "", metadata: dict = None):
+    def add(self, query: str, response: str = "", metadata: dict | None = None):
         self._history.append(
             {
                 "query": query,
@@ -195,7 +195,7 @@ class WorkspaceValidator:
                     results["passed"].append(rule["name"])
                 else:
                     results["failed"].append({"name": rule["name"], "message": rule["message"]})
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 results["warnings"].append(f"{rule['name']}: {e}")
 
         return results
@@ -247,7 +247,7 @@ class SecurityAuditor:
                 if re.search(pattern, content, re.IGNORECASE):
                     issues.append({"type": "security", "severity": "high", "message": message})
 
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
         return issues

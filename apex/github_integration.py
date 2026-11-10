@@ -51,7 +51,9 @@ class GitHubClient:
     def _run_gh(self, *args) -> tuple[int, str, str]:
         """Run gh CLI command."""
         try:
-            result = subprocess.run(["gh"] + list(args), capture_output=True, text=True)
+            result = subprocess.run(
+                ["gh"] + list(args), capture_output=True, text=True, check=False
+            )
             return result.returncode, result.stdout, result.stderr
         except FileNotFoundError:
             return -1, "", "gh not found"
@@ -76,7 +78,7 @@ class GitHubClient:
         try:
             response = urllib.request.urlopen(req)
             return json.loads(response.read().decode())
-        except Exception:
+        except Exception:  # noqa: BLE001
             return None
 
     def set_repo(self, owner: str, repo: str):

@@ -479,6 +479,26 @@ You have access to tools: read_file, write_file, edit_file, run_command, list_fi
 Output complete solutions. When asked to write code, write the FULL code without truncation."""
 
 
+def _is_env_assignment(line: str) -> bool:
+    """Whether the line carries a KEY=VALUE assignment."""
+    if not line:
+        return False
+    if line.startswith("#"):
+        return False
+    return "=" in line
+
+
+def _apply_env_file(env_path: Path) -> None:
+    """Load the KEY=VALUE pairs of an env file into the environment."""
+    with open(env_path) as handle:
+        for line in handle:
+            line = line.strip()
+            if not _is_env_assignment(line):
+                continue
+            key, value = line.split("=", 1)
+            os.environ[key.strip()] = value.strip()
+
+
 class Config:
     def __init__(self, config_path: Path | None = None):
         self._apex_dir = Path.home() / ".apex"
@@ -501,13 +521,7 @@ class Config:
         env_paths = [self._env_file, Path.cwd() / ".env", Path.home() / ".env"]
         for env_path in env_paths:
             if env_path.exists():
-                with open(env_path) as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#"):
-                            if "=" in line:
-                                key, value = line.split("=", 1)
-                                os.environ[key.strip()] = value.strip()
+                _apply_env_file(env_path)
                 break
 
     def save(self) -> None:

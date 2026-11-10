@@ -87,9 +87,8 @@ class LSPDiagnostics:
 
     def initialize(self, language: str, filepath: Path) -> bool:
         """Initialize LSP server for a file."""
-        if language not in self._servers:
-            if not self.start_server(language):
-                return False
+        if language not in self._servers and not self.start_server(language):
+            return False
 
         server = self._servers[language]
         if server.get("initialized"):
@@ -139,7 +138,7 @@ class LSPDiagnostics:
                     return json.loads(line)
                 line = process.stdout.readline()
 
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
         return None
@@ -158,7 +157,7 @@ class LSPDiagnostics:
             notification_json = json.dumps(notification) + "\n"
             process.stdin.write(notification_json)
             process.stdin.flush()
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
     def get_diagnostics(self, filepath: Path) -> list[Diagnostic]:

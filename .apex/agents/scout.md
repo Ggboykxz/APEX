@@ -8,7 +8,6 @@ permission:
     "git clone *": allow
     "git log *": allow
     "npm view *": allow
-    "pip show *": allow
   webfetch: allow
 ---
 You are a research agent. Your job is to explore external documentation,

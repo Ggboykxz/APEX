@@ -10,14 +10,20 @@ from apex.workspace_rollback import TurnTracker, WorkspaceRollback
 
 
 def _git_init(path):
-    subprocess.run(["git", "init"], cwd=path, capture_output=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=path, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=path, capture_output=True)
+    subprocess.run(["git", "init"], cwd=path, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "config", "user.email", "test@test.com"], cwd=path, capture_output=True, check=False
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], cwd=path, capture_output=True, check=False
+    )
 
 
 def _git_commit(path, msg="init"):
-    subprocess.run(["git", "add", "."], cwd=path, capture_output=True)
-    subprocess.run(["git", "commit", "-m", msg, "--allow-empty"], cwd=path, capture_output=True)
+    subprocess.run(["git", "add", "."], cwd=path, capture_output=True, check=False)
+    subprocess.run(
+        ["git", "commit", "-m", msg, "--allow-empty"], cwd=path, capture_output=True, check=False
+    )
 
 
 class TestWorkspaceRollback:
@@ -204,7 +210,7 @@ class TestWorkspaceRollbackEdgeCases:
 
         monkeypatch.setattr(subprocess, "run", broken_run)
         rb = WorkspaceRollback(cwd=tmp_path)
-        code, out, err = rb._run_git("status")
+        code, _, err = rb._run_git("status")
         assert code == -1
         assert "git not found" in err
 
@@ -215,9 +221,12 @@ class TestWorkspaceRollbackEdgeCases:
         import subprocess
 
         (git_repo / "tracked.txt").write_text("original")
-        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True, check=False)
         subprocess.run(
-            ["git", "commit", "-m", "add tracked.txt"], cwd=git_repo, capture_output=True
+            ["git", "commit", "-m", "add tracked.txt"],
+            cwd=git_repo,
+            capture_output=True,
+            check=False,
         )
         # Now modify the tracked file
         (git_repo / "tracked.txt").write_text("modified")
@@ -232,8 +241,10 @@ class TestWorkspaceRollbackEdgeCases:
         import subprocess
 
         (git_repo / "tracked_restore.txt").write_text("original")
-        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True)
-        subprocess.run(["git", "commit", "-m", "add file"], cwd=git_repo, capture_output=True)
+        subprocess.run(["git", "add", "."], cwd=git_repo, capture_output=True, check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "add file"], cwd=git_repo, capture_output=True, check=False
+        )
         # Modify the file (don't stage) so git diff picks it up
         (git_repo / "tracked_restore.txt").write_text("modified")
         snap_name = rb.create_snapshot("before_restore")

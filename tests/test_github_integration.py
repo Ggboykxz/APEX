@@ -205,7 +205,7 @@ class TestGitHubIntegrationEdgeCases:
 
         monkeypatch.setattr(subprocess, "run", mock_run)
         client = GitHubClient()
-        code, out, err = client._run_gh("repo", "view")
+        code, out, _err = client._run_gh("repo", "view")
         assert code == 0
         assert out == "ok"
 

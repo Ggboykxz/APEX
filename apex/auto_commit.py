@@ -24,17 +24,18 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 __all__ = [
     "ALLOWED_TYPES",
     "MAX_SUBJECT_LENGTH",
-    "sanitize_message",
-    "is_git_repo",
-    "has_changes",
-    "generate_commit_message",
     "auto_commit",
+    "generate_commit_message",
+    "has_changes",
+    "is_git_repo",
+    "sanitize_message",
 ]
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,7 @@ def _run_git(cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
         encoding="utf-8",
         errors="replace",
         timeout=60,
+        check=False,
     )
 
 
@@ -111,30 +113,39 @@ def sanitize_message(raw: str | None) -> str | None:
     """Normalize model output to a valid conventional message, or None."""
     if not raw:
         return None
-    # First non-empty line only; strip wrapping quotes and backticks.
     for line in raw.replace("\r", "\n").split("\n"):
-        line = line.strip().strip('"').strip("`").strip()
-        if not line:
+        candidate = _normalize_line(line)
+        if candidate is None:
             continue
-        # Drop a leading "commit message" style prefix if the model added one.
-        line = re.sub(r"^(commit message|message)\s*[:\-]\s*", "", line, flags=re.IGNORECASE)
-        # Normalize the whole header: lowercase the type part.
-        candidate = line
-        match = _MESSAGE_RE.match(candidate)
-        if match:
-            subject = " ".join(match.group("subject").split())
-            subject = re.sub(r"[.!]+$", "", subject)
-            if len(subject) > MAX_SUBJECT_LENGTH:
-                cut = subject[: MAX_SUBJECT_LENGTH - 1].rstrip()
-                subject = f"{cut}…"
-            candidate = (
-                f"{match.group('type').lower()}{match.group('scope') or ''}"
-                f"{match.group('bang') or ''}: {subject}"
-            )
         if _MESSAGE_RE.match(candidate):
             return candidate
-        return None
     return None
+
+
+def _normalize_line(line: str) -> str | None:
+    """Normalize one candidate line into a conventional message."""
+    line = line.strip().strip('"').strip("`").strip()
+    if not line:
+        return None
+    line = re.sub(r"^(commit message|message)\s*[:\-]\s*", "", line, flags=re.IGNORECASE)
+    match = _MESSAGE_RE.match(line)
+    if match is None:
+        return None
+    subject = _normalize_subject(match.group("subject"))
+    return (
+        f"{match.group('type').lower()}{match.group('scope') or ''}"
+        f"{match.group('bang') or ''}: {subject}"
+    )
+
+
+def _normalize_subject(subject: str) -> str:
+    """Clean up the subject of a commit message."""
+    subject = " ".join(subject.split())
+    subject = re.sub(r"[.!]+$", "", subject)
+    if len(subject) <= MAX_SUBJECT_LENGTH:
+        return subject
+    cut = subject[: MAX_SUBJECT_LENGTH - 1].rstrip()
+    return f"{cut}…"
 
 
 def _collect_diff(cwd: Path) -> tuple[str, str]:
@@ -167,17 +178,19 @@ def generate_commit_message(
         if llm is None:
             import litellm
 
-            llm = lambda p: (  # noqa: E731 - small local closure
-                litellm.completion(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": p}],
-                    max_tokens=64,
-                    timeout=30,
+            def llm(p: str) -> str:
+                return (
+                    litellm.completion(
+                        model="gpt-4o-mini",
+                        messages=[{"role": "user", "content": p}],
+                        max_tokens=64,
+                        timeout=30,
+                    )
+                    .choices[0]
+                    .message.content
+                    or ""
                 )
-                .choices[0]
-                .message.content
-                or ""
-            )
+
         raw = llm(prompt)
     except Exception as exc:  # noqa: BLE001 - any LLM failure must not lose the task
         logger.info("auto-commit message generation failed, using fallback: %s", exc)

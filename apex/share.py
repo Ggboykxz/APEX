@@ -32,6 +32,37 @@ ENVVAR_PATTERNS: list[re.Pattern] = [
 ]
 
 
+def _is_sensitive_key(key: object) -> bool:
+    """Whether a key names a secret and must be dropped."""
+    return any(pattern.search(str(key)) for pattern in ENVVAR_PATTERNS)
+
+
+def _sanitize_value(value: Any) -> Any:
+    """Sanitize one value of a session."""
+    if isinstance(value, dict):
+        return ShareManager.sanitize_session_data(value)
+    if isinstance(value, list):
+        return [_sanitize_list_item(item) for item in value]
+    if isinstance(value, str):
+        return ShareManager._sanitize_string(value)
+    return value
+
+
+def _sanitize_list_item(item: Any) -> Any:
+    """Sanitize one item of a list."""
+    if isinstance(item, dict):
+        return ShareManager.sanitize_session_data(item)
+    if isinstance(item, str):
+        return ShareManager._sanitize_string(item)
+    return item
+
+
+def _drop_sensitive_keys(sanitized: dict[str, Any]) -> None:
+    """Remove the keys that name a secret."""
+    for key in [key for key in sanitized if any(p.search(str(key)) for p in SENSITIVE_PATTERNS)]:
+        del sanitized[key]
+
+
 class ShareManager:
     def __init__(self, config_path: Path | None = None):
         self._shares_dir = Path.home() / ".config" / "apex" / "shares"
@@ -40,53 +71,36 @@ class ShareManager:
 
     @property
     def _mode(self) -> str:
-        try:
-            if self._config_path and self._config_path.exists():
-                with open(self._config_path) as f:
-                    cfg = json.load(f)
-                val = cfg.get("share", "manual")
-                if val in ("manual", "auto", "disabled"):
-                    return val
-        except Exception:
-            pass
-        apex_config_path = Path.home() / ".apex" / "config.json"
-        if apex_config_path.exists():
-            try:
-                with open(apex_config_path) as f:
-                    cfg = json.load(f)
-                val = cfg.get("share", "manual")
-                if val in ("manual", "auto", "disabled"):
-                    return val
-            except Exception:
-                pass
+        value = self._mode_from_path(self._config_path)
+        if value is not None:
+            return value
+        value = self._mode_from_path(Path.home() / ".apex" / "config.json")
+        if value is not None:
+            return value
         return "manual"
+
+    def _mode_from_path(self, path: Path | None) -> str | None:
+        """The share mode declared by a config file, or ``None``."""
+        if not path or not path.exists():
+            return None
+        try:
+            with open(path) as handle:
+                cfg = json.load(handle)
+        except Exception:  # noqa: BLE001
+            return None
+        val = cfg.get("share", "manual") if isinstance(cfg, dict) else "manual"
+        if val in ("manual", "auto", "disabled"):
+            return val
+        return None
 
     @staticmethod
     def sanitize_session_data(data: dict) -> dict:
         sanitized: dict[str, Any] = {}
         for key, value in data.items():
-            if any(p.search(str(key)) for p in ENVVAR_PATTERNS):
+            if _is_sensitive_key(key):
                 continue
-            if isinstance(value, dict):
-                sanitized[key] = ShareManager.sanitize_session_data(value)
-            elif isinstance(value, list):
-                sanitized[key] = [
-                    ShareManager.sanitize_session_data(item)
-                    if isinstance(item, dict)
-                    else ShareManager._sanitize_string(item)
-                    if isinstance(item, str)
-                    else item
-                    for item in value
-                ]
-            elif isinstance(value, str):
-                sanitized[key] = ShareManager._sanitize_string(value)
-            else:
-                sanitized[key] = value
-
-        for key in list(sanitized.keys()):
-            if any(p.search(str(key)) for p in SENSITIVE_PATTERNS):
-                del sanitized[key]
-
+            sanitized[key] = _sanitize_value(value)
+        _drop_sensitive_keys(sanitized)
         return sanitized
 
     @staticmethod
@@ -153,7 +167,7 @@ class ShareManager:
                         "messages_count": data.get("messages_count", 0),
                     }
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001, S112
                 continue
         return results
 
@@ -164,7 +178,7 @@ class ShareManager:
                 with open(filepath) as f:
                     data = json.load(f)
                 return data.get("url", f"https://apex-ai.dev/s/{share_id}")
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
         return ""
 
@@ -192,7 +206,7 @@ class ShareManager:
         try:
             with open(path) as f:
                 data = json.load(f)
-        except Exception:
+        except Exception:  # noqa: BLE001
             return None
 
         session_data = data.get("data", data)
@@ -216,22 +230,42 @@ class ShareManager:
         for base in base_dirs:
             if not base.exists():
                 continue
-            for fpath in base.glob("*"):
-                if fpath.is_file() and fpath.suffix == ".json":
-                    try:
-                        with open(fpath) as f:
-                            data = json.load(f)
-                        if data.get("session_id") == session_id or data.get("name") == session_id:
-                            return data
-                    except Exception:
-                        continue
-            for fpath in base.glob(f"*{session_id}*"):
-                if fpath.is_file() and fpath.suffix == ".json":
-                    try:
-                        with open(fpath) as f:
-                            return json.load(f)
-                    except Exception:
-                        continue
+            data = self._load_from_base(base, session_id)
+            if data:
+                return data
+        return {}
+
+    def _load_from_base(self, base: Path, session_id: str) -> dict:
+        """Load a session from one base directory."""
+        data = self._load_by_name(base, session_id)
+        if data:
+            return data
+        return self._load_by_glob(base, session_id)
+
+    def _load_by_name(self, base: Path, session_id: str) -> dict:
+        """Load a session whose content carries the id."""
+        for fpath in base.glob("*"):
+            if not fpath.is_file() or fpath.suffix != ".json":
+                continue
+            try:
+                with open(fpath) as handle:
+                    data = json.load(handle)
+            except Exception:  # noqa: BLE001, S112
+                continue
+            if data.get("session_id") == session_id or data.get("name") == session_id:
+                return data
+        return {}
+
+    def _load_by_glob(self, base: Path, session_id: str) -> dict:
+        """Load a session whose file name carries the id."""
+        for fpath in base.glob(f"*{session_id}*"):
+            if not fpath.is_file() or fpath.suffix != ".json":
+                continue
+            try:
+                with open(fpath) as handle:
+                    return json.load(handle)
+            except Exception:  # noqa: BLE001, S112
+                continue
         return {}
 
 

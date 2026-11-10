@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -127,25 +128,33 @@ def resolve_allow_tools(
     The caller still filters the result against known tool names.
     """
     allowed: set[str] = set()
-    for value in cli or []:
-        if isinstance(value, str) and value.strip():
-            allowed.add(value.strip())
-    if env:
-        for part in env.split(","):
-            part = part.strip()
-            if part:
-                allowed.add(part)
-    if isinstance(config, dict):
-        raw = (
-            config.get("server", {}).get("allow_tools", [])
-            if isinstance(config.get("server"), dict)
-            else []
-        )
-        if isinstance(raw, list):
-            for value in raw:
-                if isinstance(value, str) and value.strip():
-                    allowed.add(value.strip())
+    allowed.update(_names_from_list(cli))
+    allowed.update(_names_from_list(_split_env(env)))
+    allowed.update(_names_from_list(_config_allow_tools(config)))
     return allowed
+
+
+def _names_from_list(values: list[Any] | None) -> set[str]:
+    """The non-empty strings of a list."""
+    return {value.strip() for value in values or [] if isinstance(value, str) and value.strip()}
+
+
+def _split_env(env: str | None) -> list[str]:
+    """The comma-separated values of an environment variable."""
+    if not env:
+        return []
+    return [part.strip() for part in env.split(",")]
+
+
+def _config_allow_tools(config: Any) -> list[Any]:
+    """The ``mcp.server.allow_tools`` list of a validated config."""
+    if not isinstance(config, dict):
+        return []
+    server = config.get("server")
+    if not isinstance(server, dict):
+        return []
+    raw = server.get("allow_tools", [])
+    return raw if isinstance(raw, list) else []
 
 
 class StdioMCPServer:
@@ -176,6 +185,7 @@ class StdioMCPServer:
         try:
             config_mcp = apex_config.mcp
         except Exception:
+            logger.exception("Failed to read MCP config from apex_config")
             config_mcp = {}
         explicit = resolve_allow_tools(
             cli_allow, os.environ.get("APEX_MCP_ALLOW_TOOLS"), config_mcp
@@ -196,6 +206,10 @@ class StdioMCPServer:
             raise MCPError(INVALID_REQUEST, "missing method")
         if method.startswith("notifications/"):
             return None
+        return self._dispatch(method, msg_id, params)
+
+    def _dispatch(self, method: str, msg_id: Any, params: Any) -> dict[str, Any]:
+        """Answer one known JSON-RPC method."""
         if method == "initialize":
             return self._initialize(msg_id, params)
         if method == "ping":
@@ -205,6 +219,29 @@ class StdioMCPServer:
         if method == "tools/call":
             return self._tools_call(msg_id, params)
         raise MCPError(METHOD_NOT_FOUND, f"method not found: {method}")
+
+    def _check_tool_call(self, name: Any, arguments: Any) -> dict[str, Any]:
+        """Validate the name and the arguments of a tool call."""
+        self._check_tool_name(name)
+        return self._check_tool_arguments(arguments)
+
+    def _check_tool_name(self, name: Any) -> str:
+        """Validate the name of a tool call against the profile."""
+        if not isinstance(name, str) or not name:
+            raise MCPError(INVALID_PARAMS, "tool name required")
+        if name not in self._schemas:
+            raise MCPError(INVALID_PARAMS, f"unknown tool: {name}")
+        if name not in self._allowed:
+            raise MCPError(INVALID_PARAMS, f"tool not allowed: {name}")
+        return name
+
+    def _check_tool_arguments(self, arguments: Any) -> dict[str, Any]:
+        """Validate the arguments of a tool call."""
+        if arguments is None:
+            return {}
+        if not isinstance(arguments, dict):
+            raise MCPError(INVALID_PARAMS, "tool arguments must be an object")
+        return arguments
 
     def _initialize(self, msg_id: Any, params: Any) -> dict[str, Any]:
         if not isinstance(params, dict):
@@ -239,29 +276,23 @@ class StdioMCPServer:
         tools.sort(key=lambda item: item["name"])
         return self._result(msg_id, {"tools": tools})
 
+    def _run_tool(self, name: str, arguments: dict[str, Any]) -> str:
+        """Run one tool, turning a failure into an error text."""
+        try:
+            return self._execute_with_timeout(name, arguments)
+        except MCPError:
+            raise
+        except Exception as exc:
+            logger.exception("Tool call failed")
+            return f"ERROR: {type(exc).__name__}: {exc}"
+
     def _tools_call(self, msg_id: Any, params: Any) -> dict[str, Any]:
         if not isinstance(params, dict):
             raise MCPError(INVALID_PARAMS, "tools/call params must be an object")
         name = params.get("name")
-        arguments = params.get("arguments")
-        if not isinstance(name, str) or not name:
-            raise MCPError(INVALID_PARAMS, "tool name required")
-        if name not in self._schemas:
-            raise MCPError(INVALID_PARAMS, f"unknown tool: {name}")
-        if name not in self._allowed:
-            raise MCPError(INVALID_PARAMS, f"tool not allowed: {name}")
-        if arguments is None:
-            arguments = {}
-        if not isinstance(arguments, dict):
-            raise MCPError(INVALID_PARAMS, "tool arguments must be an object")
+        arguments = self._check_tool_call(name, params.get("arguments"))
 
-        try:
-            text = self._execute_with_timeout(name, arguments)
-        except MCPError:
-            raise
-        except Exception as exc:
-            text = f"ERROR: {type(exc).__name__}: {exc}"
-
+        text = self._run_tool(name, arguments)
         is_error = text.startswith("ERROR:")
         text = self._clamp_response(text)
         return self._result(
@@ -322,17 +353,7 @@ def _process_line(server: StdioMCPServer, line: str, out: TextIO) -> None:
         # nothing. An empty batch is itself invalid.
         responses = []
         for item in payload:
-            if not isinstance(item, dict):
-                responses.append(
-                    server._error(None, INVALID_REQUEST, "batch entries must be objects")
-                )
-                continue
-            try:
-                response = server._handle(item)
-            except MCPError as exc:
-                response = server._error(item.get("id"), exc.code, exc.message, exc.data)
-            except Exception as exc:  # pragma: no cover - defensive boundary
-                response = server._error(item.get("id"), INTERNAL_ERROR, f"internal error: {exc}")
+            response = _handle_payload(server, item)
             if response is not None:
                 responses.append(response)
         if responses:
@@ -343,56 +364,79 @@ def _process_line(server: StdioMCPServer, line: str, out: TextIO) -> None:
         _write_message(out, server._error(None, INVALID_REQUEST, "request must be an object"))
         return
 
-    try:
-        response = server._handle(payload)
-    except MCPError as exc:
-        response = server._error(payload.get("id"), exc.code, exc.message, exc.data)
-    except Exception as exc:  # pragma: no cover - defensive boundary
-        response = server._error(payload.get("id"), INTERNAL_ERROR, f"internal error: {exc}")
+    response = _handle_payload(server, payload)
     if response is not None:
         _write_message(out, response)
+
+
+def _handle_payload(server: StdioMCPServer, payload: Any) -> dict[str, Any] | None:
+    """Answer one JSON-RPC payload, or ``None`` for a notification."""
+    if not isinstance(payload, dict):
+        return server._error(None, INVALID_REQUEST, "request must be an object")
+    try:
+        return server._handle(payload)
+    except MCPError as exc:
+        return server._error(payload.get("id"), exc.code, exc.message, exc.data)
+    except Exception as exc:  # pragma: no cover - defensive boundary
+        logger.exception("Internal error handling MCP request")
+        return server._error(payload.get("id"), INTERNAL_ERROR, f"internal error: {exc}")
+
+
+@dataclass
+class ServerStreams:
+    """The streams the stdio server reads from and writes to."""
+
+    stdin: TextIO | None = None
+    stdout: TextIO | None = None
 
 
 def serve(
     cwd: Path | str | None = None,
     allow_tools: list[str] | None = None,
     call_timeout: float = DEFAULT_CALL_TIMEOUT,
-    stdin: TextIO | None = None,
-    stdout: TextIO | None = None,
+    streams: ServerStreams | None = None,
 ) -> int:
     """Run the stdio MCP server until stdin closes. Returns exit code."""
     server = StdioMCPServer(cwd=cwd, allow_tools=allow_tools, call_timeout=call_timeout)
-    inp = stdin if stdin is not None else sys.stdin
-    out = stdout if stdout is not None else sys.stdout
+    inp = streams.stdin if streams and streams.stdin is not None else sys.stdin
+    out = streams.stdout if streams and streams.stdout is not None else sys.stdout
 
     for line in inp:
         if not line:
             break
-        line = line.rstrip("\r\n")
-        if not line:
-            continue
-        if len(line.encode("utf-8")) > MAX_REQUEST_BYTES:
-            _write_message(out, server._error(None, INVALID_REQUEST, "request exceeds 1 MiB"))
-            continue
-        try:
-            _process_line(server, line, out)
-        except Exception as exc:  # pragma: no cover - defensive boundary
-            logger.exception("unhandled MCP server error: %s", exc)
-            try:
-                _write_message(out, server._error(None, INTERNAL_ERROR, f"internal error: {exc}"))
-            except Exception:
-                break
+        if not _handle_line(server, line.rstrip("\r\n"), out):
+            break
     return 0
+
+
+def _handle_line(server: StdioMCPServer, line: str, out: TextIO) -> bool:
+    """Answer one input line; returns False when the server must stop."""
+    if not line:
+        return True
+    if len(line.encode("utf-8")) > MAX_REQUEST_BYTES:
+        _write_message(out, server._error(None, INVALID_REQUEST, "request exceeds 1 MiB"))
+        return True
+    try:
+        _process_line(server, line, out)
+    except Exception as exc:  # pragma: no cover - defensive boundary
+        logger.exception("unhandled MCP server error")
+        try:
+            _write_message(out, server._error(None, INTERNAL_ERROR, f"internal error: {exc}"))
+        except Exception:
+            logger.exception("Failed to write MCP error response")
+            return False
+    return True
 
 
 __all__ = [
     "DEFAULT_CALL_TIMEOUT",
     "MAX_REQUEST_BYTES",
     "MAX_RESPONSE_BYTES",
-    "MCPError",
     "PROTOCOL_VERSION",
     "READ_ONLY_TOOLS",
     "SERVER_NAME",
+    "MCPError",
+    "ServerStreams",
     "StdioMCPServer",
     "resolve_allow_tools",
     "serve",

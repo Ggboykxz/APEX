@@ -1,6 +1,6 @@
 """UI components for APEX - Premium terminal interface - Better than OpenCode."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 from rich.box import ROUNDED
 from rich.columns import Columns
@@ -15,7 +15,7 @@ class APEXTheme:
     """Premium color themes - Better than OpenCode."""
 
     # Dracula-inspired (default)
-    DRACULA = {
+    DRACULA: ClassVar[dict[str, str]] = {
         "bg": "#282A36",
         "fg": "#F8F8F2",
         "red": "#FF5555",
@@ -30,7 +30,7 @@ class APEXTheme:
     }
 
     # Nord-inspired
-    NORD = {
+    NORD: ClassVar[dict[str, str]] = {
         "bg": "#2E3440",
         "fg": "#ECEFF4",
         "red": "#BF616A",
@@ -45,7 +45,7 @@ class APEXTheme:
     }
 
     # One Dark
-    ONE_DARK = {
+    ONE_DARK: ClassVar[dict[str, str]] = {
         "bg": "#282C34",
         "fg": "#ABB2BF",
         "red": "#E06C75",
@@ -254,33 +254,42 @@ class UI:
             parts = text.split("```")
             for i, part in enumerate(parts):
                 if i % 2 == 0:
-                    if part.strip():
-                        md = Markdown(part.strip())
-                        self.console.print(md)
+                    self._print_markdown(part)
                 else:
-                    lines = part.split("\n", 1)
-                    lang = lines[0].strip() if lines else ""
-                    code = lines[1] if len(lines) > 1 else ""
-                    if code:
-                        syntax = Syntax(
-                            code,
-                            lang or "python",
-                            theme="monokai",
-                            line_numbers=True,
-                            padding=1,
-                            indent_guides=True,
-                        )
-                        self.console.print(
-                            Panel(
-                                syntax,
-                                title=f" {lang.upper() if lang else 'CODE'} ",
-                                border_style="cyan",
-                                box=ROUNDED,
-                            )
-                        )
+                    self._print_code(part)
         else:
             md = Markdown(text)
             self.console.print(md)
+
+    def _print_markdown(self, part: str) -> None:
+        """Print a markdown segment of a response."""
+        if not part.strip():
+            return
+        self.console.print(Markdown(part.strip()))
+
+    def _print_code(self, part: str) -> None:
+        """Print a code segment of a response, with syntax highlighting."""
+        lines = part.split("\n", 1)
+        lang = lines[0].strip() if lines else ""
+        code = lines[1] if len(lines) > 1 else ""
+        if not code:
+            return
+        syntax = Syntax(
+            code,
+            lang or "python",
+            theme="monokai",
+            line_numbers=True,
+            padding=1,
+            indent_guides=True,
+        )
+        self.console.print(
+            Panel(
+                syntax,
+                title=f" {lang.upper() if lang else 'CODE'} ",
+                border_style="cyan",
+                box=ROUNDED,
+            )
+        )
 
     def print_tool_call(self, name: str, args: dict[str, Any]) -> None:
         """Tool call display - Premium."""

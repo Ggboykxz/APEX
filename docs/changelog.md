@@ -4,6 +4,172 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 ## Unreleased
 
+### Rust migration — Phase 2c (custom tools + durable tasks)
+
+- **Ported `apex/config_tools.py`** as a new Rust module
+  (`rust/apex-rs/src/config_tools.rs`): the 34-command `ALLOWED_COMMANDS`
+  allowlist, the dangerous-pattern blocklist (`$( `, backtick, `rm -rf`,
+  `chmod 777`), `CustomToolManager` (register/get/list/execute/get_schemas),
+  the one-shot `ensure_tools_loaded` directory scan, the YAML `custom_tools:`
+  loader, `{key}`/`{{ }}` command templating (`ERROR: '{key}'` on a missing
+  key), and the 30 s capped execution returning `stdout or stderr or
+  "[no output]"`. Wired into the registry: `tool_schemas()` (the `tools` CLI
+  and the agent's tool list) appends the manager's schemas after the
+  built-ins, and `execute_tool` dispatches unknown names through the manager
+  before `ERROR: Unknown tool '…'` (Python's `ToolExecutor.execute` order).
+- **Divergence (documented)**: Python's `load_tools_from_dirs` imports
+  `*.py` modules exposing a `TOOL_DEFINITION` with a callable handler; Rust
+  cannot import Python, so the same four directories
+  (`~/.config/opencode/tools`, `./.opencode/tools`, `~/.config/apex/tools`,
+  `./.apex/tools`) are scanned for `*.json` definitions
+  (`{name?, description?, parameters?, command, cwd?}`) that run through the
+  same allowlist/pattern/timeout pipeline. The dispatch keys by the defined
+  name, so a `custom_{name}` schema call is unreachable — Python has the same
+  gap (its manager also keys by the defined name).
+- **Ported `apex/task_queue.py`** as a new Rust module
+  (`rust/apex-rs/src/durable_tasks.rs`): `TaskStatus` (5 lowercase values),
+  `Task` (10 fields, same JSON shape on disk), and `TaskQueue` (enqueue with
+  `task_{YYYYmmddHHMMSS}_{n}` ids, get, list newest-first with status filter
+  and limit, cancel PENDING only, clear_completed, delete, persistence to
+  `~/.apex/tasks/tasks.json` rewritten on every mutation). Python's only
+  production consumer is the TUI REPL `/tasks` command (excluded from the
+  Rust port), so — like the snapshot manager — the Rust server is the
+  production surface:
+  - `serve` holds one `TaskQueue` in `AppState`.
+  - Six new routes: `POST /api/v1/tasks` (enqueue), `GET /api/v1/tasks`
+    (`?status=&limit=`, default 100, newest first), `GET
+    /api/v1/tasks/:id`, `DELETE /api/v1/tasks/:id`, `POST
+    /api/v1/tasks/:id/cancel` and `POST /api/v1/tasks/clear`. All answer 200
+    with an `ok` flag (no 4xx).
+  - Divergences: `get` returns a snapshot copy (Python returns a live
+    reference); a corrupt `tasks.json` resets the queue to empty (Python
+    additionally crashes on an invalid status string); `stop_workers` joins
+    each thread instead of `join(timeout=1)`. `start_worker`/`stop_workers`
+    are dead in Python too (production never starts a worker) and stay
+    item-scoped.
+- Tests: 38 new unit tests (allowlist/blocklist, shlex quoting, templating,
+  timeouts, tool-dir scanning, task lifecycle, persistence/rehydration) and
+  two E2E tests: `custom_tools_via_cli` (`.apex/tools/*.json` registration,
+  `call-tool` execution of the defined command, the `custom_` schema in the
+  `tools` listing, a blocked `sudo` command not registering) and
+  `serve_durable_tasks_lifecycle` (enqueue/list/filter, cancel and delete
+  idempotence, clear, and persistence across a server restart in the same
+  sandbox HOME).
+- PARITY.md: `config_tools.py` and `task_queue.py` Missing → Wired; route
+  parity counters updated (94 production registrations = 53 Python + 41
+  Rust-only extras); item-level allow inventory 114 → 119 (two in
+  `config_tools.rs`, three in `durable_tasks.rs`); baseline 383 unit + 29
+  E2E tests.
+
+### Rust migration — Phase 2b (snapshot manager)
+
+- **Ported `apex/snapshot.py`** as a new Rust module (`rust/apex-rs/src/snapshot.rs`):
+  `ActionType` (6 variants with Python's values), `FileChange`, `Snapshot`
+  + `to_dict`, and `SnapshotManager` (track, add_file_change, track_file,
+  naive line diff, get_snapshot, restore, undo, redo, can_undo/can_redo,
+  get_history with Python's `[-limit:]` semantics, clear), plus a side git
+  repo under `.apex/snapshots/` (best-effort `git init`, like Python's
+  captured subprocesses). Python exports `SnapshotManager` but never calls
+  it (its `/undo` and `/redo` routes use a separate `session.UndoManager`),
+  so — like `workspace.rs` — the Rust server is now its production surface:
+  - `serve` holds one `SnapshotManager` in `AppState` (rooted at the server
+    cwd).
+  - Seven new routes: `POST /api/v1/snapshot/{track,track-file,undo,redo,restore}`
+    and `GET /api/v1/snapshot/{history,status}`. All answer 200 with an `ok`
+    flag (no 4xx), mirroring `/api/v1/undo`/`/api/v1/redo`. `history` takes
+    `?limit=` (Python's default of 50; `0` returns all, matching Python's
+    `[-0:]` slice).
+- **Fixed a latent Python bug (documented divergence)**: Python's `undo()`
+  pops the snapshot and then calls `restore(id)`, which looks it up in the
+  undo stack where it no longer exists — so Python's undo never restored
+  any file. The port applies the popped snapshot's file changes directly;
+  `restore(id)` stays the lookup API.
+- `track_file` captures only `before` (`after` stays null), so a redo after
+  `track_file` rewrites nothing (Python parity). `file_hash`,
+  `save_snapshot_to_git` and `clear` remain item-scoped (dead in Python too).
+- Tests: 10 unit tests (action types, diff, tracking, undo/redo, restore,
+  history, `to_dict` shape, snapshots dir) and the E2E
+  `serve_snapshot_undo_redo_lifecycle` (track-file → modify → undo → status
+  → no-op redo → history → empty-stack undo, against a running server).
+- PARITY.md: `snapshot.py` Missing → Wired; route parity counters updated
+  (88 production registrations = 53 Python + 35 Rust-only extras);
+  item-level allow inventory 111 → 114 (three in `snapshot.rs`).
+
+### Rust migration — Phase 2 (context tracking + mentions)
+
+- **Wired the last two Ported modules** in `rust/apex-rs` (`context_tracking`
+  and `mentions`), leaving no ported-but-unwired module in the parity matrix:
+  - `context_tracking` — every `Agent` now carries a `ContextTracker`
+    (`default_with_budget`: 128k token budget, 80% threshold).
+    `record_api_usage` feeds `record_usage`, and the auto-compact gate in
+    `chat`/`chat_stream` now also fires on `should_compact` (token budget)
+    alongside the existing message-count threshold. New route
+    `GET /api/v1/context/tracking` exposes the budget, threshold and
+    per-session stats. `record_compaction`, `remove` and the compaction
+    history stay item-scoped until `Agent::compact_context` records them.
+  - `mentions` — `Agent::expand_mentions` (both `chat` and `chat_stream`)
+    now parses input with `MentionParser::parse` + `resolve_file` instead of
+    `split_whitespace`, faithful to `apex/mentions.py` (boundary `@file.py`
+    and in-word `src@file.py` forms, case-insensitive agent dedup). File
+    mentions are inlined with the same `[File: …]` format as before (images
+    as base64, uncapped); agent mentions are recognized but not inlined
+    (subagent routing is a TUI concern, Python parity). `read_mentioned_files`
+    and `FileMentionCompleter` remain item-scoped (TUI surface).
+- Dead-code inventory: item-level allows dropped from 115 to 111
+  (`context_tracking.rs` 5 → 4, `mentions.rs` 6 → 3, scoped more precisely);
+  the stale `sandbox.rs` count in the inventory (5) is corrected to 6.
+- New tests: unit coverage for mention expansion (file, missing file, image
+  base64, agent mentions) and context-tracker wiring, plus the E2E
+  `serve_exposes_context_tracking_route`. Route parity counters updated in
+  PARITY.md (81 registrations = 53 Python + 28 Rust-only extras, including
+  the previously uncounted `GET /api/v1/telemetry`).
+
+### Rust migration — Phase 1 (wire the remaining backend modules)
+
+- **Wired 10 of the 10 PR-#348 modules** in `rust/apex-rs`:
+  - `i18n` — new CLI `apex-rs locale [--lang]` reports the active locale and
+    prints a localized welcome string; fixed a latent bug (the lookup used
+    `LOCALES` instead of `STRINGS` and the type declared 13 strings per locale
+    while every locale has 14). The module was never compiled before because
+    `mod i18n` was not declared in `main.rs` — now wired.
+  - `telemetry` — `serve` records session and agent start at bootstrap, and a
+    new `GET /api/v1/telemetry` route exposes event statistics and performance
+    metrics.
+  - `sandbox` — `CodeSandbox::run_code` exposed as the new `run_code` tool
+    (python/javascript/bash/ruby/go/rust/php) with output truncation and
+    exit-code reporting; unsupported languages fail deterministically.
+  - `watcher` — new CLI `apex-rs watch [PATH]` lists the non-ignored files of
+    a tree (config + `.gitignore` patterns); `serve` now starts the global
+    `FileWatcher` on the project directory at bootstrap (disabled by default
+    via `WatcherConfig.enabled`).
+  - `structured_message` — new CLI `apex-rs message <role> <content>` builds a
+    structured message (typed parts) and prints it as JSON.
+  - `rlm` — new CLI `apex-rs rlm <key> [--inc]` reports (or increments) the
+    per-key minute/hour/day rate limits as JSON. `RLMQuery` (batched LLM
+    queries) remains an error stub (no litellm equivalent in Rust).
+  - `formatter`, `billing`, `project`, `slash` were already reachable from the
+    tool registry / HTTP server; their stale module-level
+    `#![allow(dead_code)]` attributes were removed and their secondary APIs
+    scoped to item-level allows with `TODO(v2.6)` exit criteria.
+- Removed all 10 module-level dead-code allows: no module in `rust/apex-rs`
+  carries a module-level `#![allow(dead_code)]` anymore. Updated the dead-code
+  inventory and module matrix in `rust/apex-rs/PARITY.md` and AGENTS.md.
+- Workflows: `pr-checks.yml` now detects `rust/**` (plus root `Cargo.toml`)
+  in its changed-paths filter, alongside python/tui/website/docs.
+- New E2E tests: `cli_locale_command_works`,
+  `serve_exposes_telemetry_route`,
+  `run_code_tool_is_hermetic_and_rejects_unsupported_language`,
+  `cli_message_command_builds_structured_message`,
+  `cli_watch_lists_non_ignored_files` and
+  `cli_rlm_reports_rate_limits`. Clippy fixes
+  exposed by removing module-level
+  `clippy::all` allows (billing collapsible-if/str-replace, telemetry
+  sort-by-key/iter-kv-map).
+
+### Docs & governance
+
+- **README overhaul** — rewrote `README.md` to realign with the current codebase: corrected the primary-agent table (`build`/`plan`/`planner`/`shell`, matching `apex/agents.py`), fixed the model-section TOC fragment, corrected the sample `--agent plan` flag, updated the tool count to 100+, and expanded the Rust-backend section to cover shell security, HTTP auth, rate limiting, the permission gate, the gateway, and route parity. Update to `CHANGELOG.md` and `docs/changelog.md` alongside.
+
 ### CI & automation
 
 - **opencode AI maintainer** — `.github/workflows/opencode.yml` answers `/oc` / `/opencode` comments from maintainers only (`OWNER` / `MEMBER` / `COLLABORATOR`, bots rejected) on issues, PRs, and review lines. It uses OIDC app tokens, a 30-minute timeout, per-issue concurrency, no session sharing, and fails with a clear message when no provider key is configured. The archived upstream action is pinned to `github-v1.2.28` (`17b79f4e…`). Setup requires the `opencode-agent` GitHub App plus `DEEPSEEK_API_KEY` or `ANTHROPIC_API_KEY`; the `OPENCODE_MODEL` repository variable overrides the default DeepSeek model.
@@ -30,8 +196,8 @@ All notable changes to APEX are documented in this file. The project follows [Se
 
 Full rewrite of the backend in Rust. The Python implementation stays the reference until parity is reached.
 
-- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`, `memory`, `session`, `security`, `context`, `workspace`, `rollback`, `github`, `skill`, `key`.
-- **Repository context** — `context.rs` mirrors `apex/context.py`: `apex-rs context repo-map|git|stats|ctags|tree|glob` and `GET /api/v1/context/*` (43 HTTP routes total), with `?path=`, `?depth=` and `?pattern=`.
+- **CLI** — `run`, `chat`, `serve`, `tools`, `plugins`, `call-tool`, `cost`, `memory`, `session`, `security`, `context`, `workspace`, `rollback`, `github`, `skill`, `key`, `gateway`.
+- **Repository context** — `context.rs` mirrors `apex/context.py`: `apex-rs context repo-map|git|stats|ctags|tree|glob` and `GET /api/v1/context/*` (79 route registrations covering all 52 `apex/http_api.py` routes), with `?path=`, `?depth=` and `?pattern=`.
 - **Rate limiting** — `rate_limiter.rs` wired into `serve`: per-key in-memory limits (`X-API-Key` / `Authorization: Bearer` / `anonymous`) on every route except `/health`, 429 + `Retry-After` with the Python response body, `GET /api/v1/rate-limit` counters, and `APEX_RATE_LIMIT_*` env overrides.
 - **Permission gate** — `permission.rs` enforced at both agent dispatch sites (one-shot and streaming): first-match rules, headless manager (`*` → ALLOW since there is no prompt surface, ASK refuses with the rule reason), and `APEX_PERMISSION_DENY` / `APEX_PERMISSION_ASK` env rules. The interactive request/approve flow is ported but unwired.
 - **Editing tools** — `edit_file` (first-occurrence replacement, Python-identical success/error strings) and `apply_patch` via the new `patch.rs`, a faithful port of `apex/apply_patch.py`: Codex-style and unified-diff dialects, full pre-write validation (path traversal, absolute paths, duplicate targets, 1 MB patch / 512 KB file limits, binary content), hunk matching with forward/backward fuzz and signed offset warnings, no-newline markers, and atomic temp-file + rename writes with best-effort rollback. `dry_run` previews without writing.
@@ -40,6 +206,9 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **Task & plan tools** — `task` (validates `agent` against the 11 built-in names from `apex/agents.py` and returns `[Delegated to @{agent}]: {task}`, or `ERROR: Unknown agent: …`), `submit_task` / `list_tasks` / `get_task` backed by a new `task_queue.rs` porting the `TaskQueue` from `apex/extras.py` (in-memory, one background thread per task, `stdout or stderr` as the result, `completed` / `failed` statuses, 8-char ids in the shape of Python's `uuid4()[:8]`), and `plan_approve` / `plan_reject` (always `ERROR: No pending plan to …` — Python's `_plan_approval` is never set on the executor either). Tool registry is now 80 schemas.
 - **GitHub CLI & skill authoring** — `github.rs` is wired through a `github` CLI group: `install` / `run` (Python `_cmd_github` parity: three info lines, then `Found N issues and M PRs` against the detected repo), `issue` / `issue-close` / `pr` / `pr-merge` over the REST `GitHubClient`, and `automate {create-pr,changes,issue,list,todos,close-completed}` over `GitHubAutomation` (credentials from `GITHUB_TOKEN` / `GH_TOKEN`, API root overridable with `APEX_GITHUB_API` — tests point it at a dead local port). `apex-rs skill {list,add,remove}` exposes `SkillManager::add`/`remove`; `add` persists to `.apex/skills/<name>.md` in the loader's exact format (Python's add/remove are in-memory and unwired there) and `remove` deletes the project file, so a fresh process sees the change. Skill names reject path separators and `..`. Five more dead-code allows removed (28 remain).
 - **HTTP auth & route-level E2E** — opt-in API-key authentication (`APEX_REQUIRE_AUTH=1|true|yes|on`) on every `serve` route except `/health`, `/ws` and `/ws/events`, with Python's carrier precedence (`Authorization: Bearer …` → `?api_key=` → `X-API-Key`) and the exact 401 body (`{"error": "Authentication required", "code": "AUTH_REQUIRED"}`). New `api_key.rs` stores `apex_` + 32 random urlsafe-base64 bytes as sha256 in `~/.apex/api_keys.json` (`APEX_API_KEYS_FILE` overrides; Python uses SQLite), re-read on every request so `apex-rs key {create,list,revoke,delete}` reaches a running server. `POST /api/v1/auth/{login,logout}` and `GET /api/v1/auth/status` are wired and, when auth is on, protected like every other route; auth wraps the limiter so 401s never consume key budget. `GET /api/v1/rate-limit` now reports the minute-window `reset_at`, retiring the last `rate_limiter` allow (27 remain). Python's `apex serve` defaults auth on; the Rust port defaults off because the TUI backend sends no key (divergence recorded in `PARITY.md`).
+- **HTTP route parity** — the `serve` router now covers all 52 routes of `apex/http_api.py` (79 route registrations total, plus 26 Rust-only extras): `GET /`, `POST /chat`, `GET /stream`, `GET /models` + `POST /api/v1/models/refresh` + `GET /api/v1/providers`, `POST /session/save|load`, `GET /metrics`, `GET /rate-limit/status`, `GET/POST /api/v1/config`, `GET /api/v1/agents{,/:id}`, `DELETE /api/v1/sessions/:id`, `POST /api/v1/unshare/:id`, `GET/POST /api/v1/themes`, `GET /api/v1/stats`, `GET /api/v1/formatters` + `POST /api/v1/format`, `GET /api/v1/commands` + `POST /api/v1/commands/execute`, `GET /find/file`, `POST /api/v1/command`, `GET /global/health`, `POST /api/v1/init`, `GET /api/v1/export/:session_id`, `POST /api/v1/import`, `GET /global/event` (SSE with 30 s keepalive), `GET /api/v1/session/:id/diff` + `POST .../diff/decision` (fingerprint-validated accept/reject, `409 diff_changed`), `POST /api/v1/session/:id/{fork,abort}`, and the LSP/formatter/MCP status routes. New `models.rs` (static model/provider table) and `commands.rs` (markdown custom-command manager with `$ARGUMENTS`/`$N`/`!cmd`/`@file` templating) back the ported routes. The rate-limit middleware now releases its lock before running the handler, fixing a latent deadlock on every route that reads limiter status in-request. Two new binary E2E tests cover every non-LLM route and the full diff preview lifecycle (clean tree → modified tree → fingerprint change → stale-fingerprint `409` → reject/restore). Divergences (versions, `rate_limit` presence, UTC import stamps, key-id billing key, extra `usage`/`done` SSE frames, ...) are recorded in `PARITY.md`'s route parity table.
+- **Gateway** — `gateway.rs` ports `apex/gateway/*`: the OpenRouter model proxy with the `free` / `pro` / `unlimited` tiers (identical limits and model lists, unknown names fall back to `free`), `apex_` + 48-hex keys with 16-hex ids stored in `~/.apex/gateway.json` (Python uses SQLite `~/.apex/gateway.db`), re-read on every access so an admin or CLI revoke reaches a running server without a restart, and a sliding 60 s per-key rate limiter. All eight routes are wired — `POST /v1/chat/completions` (Bearer key → tier model gate → rate limit → daily request/token caps → upstream proxy with `usage.apex_gateway` injected on 200), `POST /v1/register` (413 above 4096 bytes, `Invalid tier: …`), `GET /v1/status`, `GET /v1/health`, `GET /v1/models` (sorted `free-`/`pro-` aliases with provider), and the `X-Admin-Key`-protected `/admin/keys`, `/admin/keys/generate`, `/admin/keys/revoke` — with Python's exact rejection strings. CLI: `apex-rs gateway {start,key,status}` mirrors `_cmd_gateway` including the env-only start gate (no `APEX_GATEWAY_KEY` / `OPENROUTER_API_KEY` → error + exit 1). `APEX_GATEWAY_UPSTREAM_BASE` overrides Python's hardcoded `https://openrouter.ai/api/v1` so the binary E2E (`gateway_proxy_lifecycle_is_hermetic`) runs hermetic against a local fake upstream. Divergences (JSON store, 400 `Invalid JSON` on a malformed chat body, tier *name* in `usage.apex_gateway`, re-revoking a known key returns 200) are recorded in `PARITY.md`.
+- **Session metadata (usage)** — session saves now persist the real usage counters: `Agent::save_session` and `POST /session/save` write the live `{prompt_tokens, completion_tokens, total_tokens}` (Python's `SessionManager.save` writes `agent.usage`); the CLI `session save` has no agent state, so it persists the idle-agent zeros. `Agent::load_session` now restores model (default `claude-sonnet`) and cwd (default `.`) exactly like Python's `SessionManager.load`; usage is intentionally not restored (Python's counters start fresh on load). Rust-only extension: a fork carries the parent's `usage` over, falling back to the idle-agent zeros when the parent payload has no `usage` object (Python's fork path copies model/cwd/history only). Five new unit tests (usage roundtrip, fork usage carry-over, fork zero fallback, model/cwd/history restore with usage left fresh, Python defaults) plus the extended hermetic E2E session lifecycle (`session show` after a CLI save reports the three zero counters).
 - **Python-written session fixtures** — `tests/fixtures/session/` contains sessions encrypted by Python's `cryptography.fernet` (the library `apex/session.py` uses), plus a deterministic `generate.py`. The Rust loader decrypts them through both key schemes: the native 44-byte Fernet key and the legacy raw 32-byte key (`sha256(raw + b":fernet")`). Unit tests cover the crypto boundary and the binary E2E loads the fixtures through `session show`/`list` with a temporary `HOME`.
 - **Workspace awareness** — new `workspace.rs` ports `apex/workspace.py`: Git branch, 8-char commit, dirty flag, `origin` URL and GitHub `owner/repo`, ahead/behind counts, `GITHUB_HEAD_REF`/`GITHUB_PR_NUMBER`, first five tags (5-second timeout per git call), plus language, package-manager and test-framework detection in Python's marker order. The `[WORKSPACE CONTEXT]` block is now appended to both agent system prompts (analyzed once per user turn) and exposed by `apex-rs workspace [PATH] [--json]`. Python exports the class but never wires it. Divergences: no `git fetch --dry-run` network call, empty tags on tagless repos, no global singleton. Unit tests use real repositories (dirty state, ahead/behind against a bare remote, GitHub remote parsing, tag cap); the binary E2E checks the prompt block and JSON in a dirty repo.
 - **Workspace rollback** — new `workspace_rollback.rs` ports `apex/workspace_rollback.py`: snapshots under `.apex/snapshots/` capture metadata, `git status --porcelain`, and byte copies of tracked modifications from `git diff --name-only` (untracked files stay in the status file only), with sorted listing, restore (parents recreated), delete, and clamped `rollback_turn`. `TurnTracker` persists `.apex/turns.json` and restores recorded turns. Wired as `apex-rs rollback {snapshot,list,restore,delete,turn,record,revert,history}` (Python only wires `/restore` and `/revert`). Divergences: UTC timestamps, bare-name validation for labels and snapshot names (Python's join allows `../` escapes), `turn 0` is an error instead of `IndexError`, and modification times are not preserved.
@@ -56,7 +225,7 @@ Full rewrite of the backend in Rust. The Python implementation stays the referen
 - **Code generation** — `codegen.rs` mirrors `apex/codegen.py` (refactorer, DB/Docker/OpenAPI/docs generators, profiler) with Python-verified outputs.
 - **GitHub** — `github.rs` mirrors `apex/github_integration.py` (issues, PRs, merge, branches, automation) over the REST API or `gh`; `git_create_pr` returns the real PR URL.
 - **Skills & analysis** — `skills.rs` mirrors `apex/skills.py` (skill manifests, unified diff, regex search/replace, code analyzer) and exposes six tools (`diff_files`, `list_skills`, `use_skill`, `replace_in_files`, `analyze_code`, `explain_code`).
-- **Tests** — 218 unit + 16 binary E2E passing (217 on Windows: the write-failure rollback test is POSIX-gated), including an MCP roundtrip against a fake server, plugin execution, streamed usage, JSON-RPC framing (line + `Content-Length`), a fake GitHub API, codegen parity fixtures, repository-context commands, the workspace analyzer (marker order, dirty state, ahead/behind against a real bare remote, GitHub remote parsing, PR environment, tag cap, prompt caching) and its CLI prompt block/JSON in a dirty repository, the rollback snapshot/turn lifecycles (tracked-file backup, untracked-file exclusion, restore, delete, clamping, persistence, traversal rejection), the per-key rate-limit middleware (429 + `Retry-After`, independent key budgets), the HTTP-auth middleware (carrier precedence, empty-Bearer handling, revoked/expired keys, `/health` exemption, 404-before-auth) and the full binary auth flow (CLI-created key, exact 401 body, login/logout/status, out-of-band revoke, 429 with 401s not consuming budget), Python-written Fernet session fixtures under both key schemes (unit crypto tests and the binary `session show`/`list` flow), the permission-gate refusal in the agent loop, the multi-file patch engine (both dialects, fuzz offset warnings, dry-run preview, write-failure rollback), the `get_repo_map` / `get_file_tree` tools (tree connectors, dotfile filter, `max_depth` cutoff, missing-path error), the web tools (urllib-style quoting, DuckDuckGo HTML parsing with snippet fallback and 5-result cap, Brave/Tavily/Exa JSON parsing with the 200-char Exa text cap, and `fetch_url` cleaning — script/style/tag strip, whitespace-before-entities order, 3000-char cap), the task/plan tools (submit → `completed` with `stdout or stderr`, spawn failure → `failed`, `No tasks` empty state, `Tasks:` header + insertion-order listing, `Task:`/`Status:`/`Result:`/`Error:` format, `ERROR: Task … not found`, `ERROR: Unknown agent: …`, and the always-`No pending plan` plan tools), the `github` CLI (install/run/usage parity, issue/PR/automate error paths against a dead local port, `No GitHub repository detected` for the write flows), and the hermetic `skill` lifecycle (add → fresh-process list → remove → `No skills found`, path-traversal name rejection, `ERROR: Skill not found` on double remove).
+- **Tests** — 332 unit + 19 binary E2E passing (all on Windows), including an MCP roundtrip against a fake server, plugin execution, streamed usage, JSON-RPC framing (line + `Content-Length`), a fake GitHub API, codegen parity fixtures, repository-context commands, the workspace analyzer (marker order, dirty state, ahead/behind against a real bare remote, GitHub remote parsing, PR environment, tag cap, prompt caching) and its CLI prompt block/JSON in a dirty repository, the rollback snapshot/turn lifecycles (tracked-file backup, untracked-file exclusion, restore, delete, clamping, persistence, traversal rejection), the per-key rate-limit middleware (429 + `Retry-After`, independent key budgets), the HTTP-auth middleware (carrier precedence, empty-Bearer handling, revoked/expired keys, `/health` exemption, 404-before-auth) and the full binary auth flow (CLI-created key, exact 401 body, login/logout/status, out-of-band revoke, 429 with 401s not consuming budget), Python-written Fernet session fixtures under both key schemes (unit crypto tests and the binary `session show`/`list` flow), the PR 351 session-metadata roundtrip (CLI save persists the idle-agent zero counters, the agent save path persists live counters, a fork carries the parent usage with a zero fallback, and `apply_loaded_session` restores model/cwd/history with usage left fresh), the permission-gate refusal in the agent loop, the multi-file patch engine (both dialects, fuzz offset warnings, dry-run preview, write-failure rollback), the `get_repo_map` / `get_file_tree` tools (tree connectors, dotfile filter, `max_depth` cutoff, missing-path error), the web tools (urllib-style quoting, DuckDuckGo HTML parsing with snippet fallback and 5-result cap, Brave/Tavily/Exa JSON parsing with the 200-char Exa text cap, and `fetch_url` cleaning — script/style/tag strip, whitespace-before-entities order, 3000-char cap), the task/plan tools (submit → `completed` with `stdout or stderr`, spawn failure → `failed`, `No tasks` empty state, `Tasks:` header + insertion-order listing, `Task:`/`Status:`/`Result:`/`Error:` format, `ERROR: Task … not found`, `ERROR: Unknown agent: …`, and the always-`No pending plan` plan tools), the `github` CLI (install/run/usage parity, issue/PR/automate error paths against a dead local port, `No GitHub repository detected` for the write flows), and the hermetic `skill` lifecycle (add → fresh-process list → remove → `No skills found`, path-traversal name rejection, `ERROR: Skill not found` on double remove), and the gateway lifecycle against a local fake OpenRouter upstream (all eight routes, the tier model gate, usage counters, the admin trio, and an out-of-band revoke).
 
 #### Fixed during the port
 

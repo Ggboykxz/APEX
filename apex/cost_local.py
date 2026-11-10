@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import ClassVar
 
 
 @dataclass
@@ -149,7 +150,7 @@ class CostTracker:
 class LocalExecutionManager:
     """Manage local execution options for privacy."""
 
-    LOCAL_PROVIDERS = {
+    LOCAL_PROVIDERS: ClassVar[dict[str, dict]] = {
         "ollama": {
             "url": "http://localhost:11434",
             "models": ["llama3", "codellama", "mistral", "phi3"],

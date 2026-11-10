@@ -47,6 +47,7 @@ next-env.d.ts
 # Rust
 rust/target/
 rust/apex-rs/target/
+/rust/apex-rs/.apex/
 
 # Python
 __pycache__/
@@ -95,3 +96,9 @@ apex_agent.egg-info/
 
 # Python coverage artifacts (accidentally tracked historically)
 *.py,cover
+test-results/
+playwright-report/
+node_modules/
+
+# Python virtualenv
+.venv/

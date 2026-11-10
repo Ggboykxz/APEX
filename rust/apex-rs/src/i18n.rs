@@ -1,11 +1,9 @@
 //! i18n — Internationalization support ported from `apex/i18n.py`.
 //!
 //! Provides multi-language string lookup with auto-detection from environment.
+//!
+//! Wired into the CLI via `apex-rs locale`.
 
-#![allow(dead_code)]
-#![allow(clippy::all)]
-
-use std::collections::HashMap;
 use std::sync::OnceLock;
 
 /// Detected locale from environment variables.
@@ -34,12 +32,15 @@ pub fn detect_locale() -> String {
 pub const LOCALES: &[&str] = &["en", "ja", "zh-Hans", "pt-BR"];
 
 /// Localized strings, mirrored from Python's `LOCALES`.
-pub const STRINGS: &[(&str, &[(&str, &str); 13])] = &[
+pub const STRINGS: &[(&str, &[(&str, &str); 14])] = &[
     (
         "en",
         &[
             ("app_name", "APEX"),
-            ("welcome", "Welcome to APEX - The last coding agent you'll ever need"),
+            (
+                "welcome",
+                "Welcome to APEX - The last coding agent you'll ever need",
+            ),
             ("prompt", ">>> "),
             ("thinking", "Thinking..."),
             ("working", "Working..."),
@@ -96,7 +97,10 @@ pub const STRINGS: &[(&str, &[(&str, &str); 13])] = &[
         "pt-BR",
         &[
             ("app_name", "APEX"),
-            ("welcome", "Bem-vindo ao APEX - O último agente de codificação que você precisará"),
+            (
+                "welcome",
+                "Bem-vindo ao APEX - O último agente de codificação que você precisará",
+            ),
             ("prompt", ">>> "),
             ("thinking", "Pensando..."),
             ("working", "Trabalhando..."),
@@ -115,7 +119,7 @@ pub const STRINGS: &[(&str, &[(&str, &str); 13])] = &[
 
 /// Look up a translated string for a given locale and key.
 fn lookup(locale: &str, key: &str) -> Option<&'static str> {
-    let entry = LOCALES.iter().find(|(l, _)| *l == locale)?;
+    let entry = STRINGS.iter().find(|(l, _)| *l == locale)?;
     entry.1.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
 }
 
@@ -137,6 +141,7 @@ impl I18n {
     }
 
     /// Get a translated string by key.
+    #[allow(dead_code)] // Part of i18n public API; TODO(v2.6): use in agent/system prompts
     pub fn get(&self, key: &str, default: &str) -> String {
         lookup(&self.locale, key).unwrap_or(default).to_string()
     }
@@ -147,6 +152,7 @@ impl I18n {
     }
 
     /// Check if a key exists in the current locale.
+    #[allow(dead_code)] // Part of i18n public API; TODO(v2.6): use in agent/system prompts
     pub fn contains(&self, key: &str) -> bool {
         lookup(&self.locale, key).is_some()
     }
@@ -174,6 +180,8 @@ pub fn set_locale(locale: &str) {
     if let Some(mutex) = I18N_INSTANCE.get() {
         *mutex.lock().unwrap() = I18n::new(locale);
     } else {
-        I18N_INSTANCE.set(std::sync::Mutex::new(I18n::new(locale))).ok();
+        I18N_INSTANCE
+            .set(std::sync::Mutex::new(I18n::new(locale)))
+            .ok();
     }
 }

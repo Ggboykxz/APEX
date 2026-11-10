@@ -2,7 +2,7 @@
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -34,8 +34,19 @@ class CommandAnalysis:
     description: str | None = None
 
 
+@dataclass
+class _AnalysisState:
+    """The mutable result of analyzing one command."""
+
+    safe: bool = True
+    category: CommandCategory = CommandCategory.WORKING_DIR
+    warnings: list[str] = field(default_factory=list)
+    requires_confirmation: bool = False
+    description: str | None = None
+
+
 class ShellSecurityAnalyzer:
-    DANGEROUS_PATTERNS = [
+    DANGEROUS_PATTERNS = [  # noqa: RUF012
         (
             r"rm\s+-[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*\s+/(?:\s|$|--no-preserve-root)?",
             "Destructive system-wide deletion",
@@ -59,7 +70,7 @@ class ShellSecurityAnalyzer:
         (r"wget.*\.sh\s*\|\s*(sudo\s+)?(?:ba)?sh", "Download and execute script"),
     ]
 
-    NETWORK_PATTERNS = [
+    NETWORK_PATTERNS = [  # noqa: RUF012
         r"\bcurl\b.*-X\s*(POST|PUT|PATCH|DELETE)",
         r"\bwget\b",
         r"\bnetcat\b",
@@ -72,7 +83,7 @@ class ShellSecurityAnalyzer:
         r"\bsftp\b",
     ]
 
-    SYSTEM_PATTERNS = [
+    SYSTEM_PATTERNS = [  # noqa: RUF012
         r"\bsudo\b",
         r"\bchmod\b",
         r"\bchown\b",
@@ -87,14 +98,14 @@ class ShellSecurityAnalyzer:
         r"\bpasswd\b",
     ]
 
-    FILE_DELETE_PATTERNS = [
+    FILE_DELETE_PATTERNS = [  # noqa: RUF012
         r"\brm\s+",
         r"\brmdir\b",
         r"\bunlink\b",
         r"\bdel\b",
     ]
 
-    FILE_WRITE_PATTERNS = [
+    FILE_WRITE_PATTERNS = [  # noqa: RUF012
         r"\btee\b",
         r">\s*[a-zA-Z]?",
         r"\bcat\b.*>",
@@ -104,7 +115,7 @@ class ShellSecurityAnalyzer:
         r"\bsed\s+-i\b",
     ]
 
-    PROCESS_PATTERNS = [
+    PROCESS_PATTERNS = [  # noqa: RUF012
         r"\bkill\b",
         r"\bps\b",
         r"\btop\b",
@@ -116,7 +127,7 @@ class ShellSecurityAnalyzer:
         r"\bspawn\b",
     ]
 
-    GIT_PATTERNS = [
+    GIT_PATTERNS = [  # noqa: RUF012
         # Note: "push" is intentionally NOT in the safe list so that any
         # `git push` (plain or forced) is classified GIT and triggers the
         # `if "push" in command` confirmation branch below.
@@ -127,7 +138,7 @@ class ShellSecurityAnalyzer:
         r"\bgit\s+push\s+--all\b",
     ]
 
-    BUILD_PATTERNS = [
+    BUILD_PATTERNS = [  # noqa: RUF012
         r"\bnpm\s+(?:run|build|test|start|dev)",
         r"\byarn\s+(?:run|build|start|dev)",
         r"\bpnpm\s+(?:run|build|start|dev)",
@@ -141,7 +152,7 @@ class ShellSecurityAnalyzer:
         r"\bupload.*pypi\b",
     ]
 
-    CONTAINER_PATTERNS = [
+    CONTAINER_PATTERNS = [  # noqa: RUF012
         r"\bdocker\b",
         r"\bpodman\b",
         r"\bkubectl\b",
@@ -150,7 +161,7 @@ class ShellSecurityAnalyzer:
         r"\bkubernetes\b",
     ]
 
-    SAFE_COMMANDS = [
+    SAFE_COMMANDS = [  # noqa: RUF012
         "ls",
         "pwd",
         "cd",
@@ -185,121 +196,156 @@ class ShellSecurityAnalyzer:
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
-        self._dangerous_re = [re.compile(p, re.IGNORECASE) for p, _ in self.DANGEROUS_PATTERNS]
-        self._network_re = [re.compile(p, re.IGNORECASE) for p in self.NETWORK_PATTERNS]
-        self._system_re = [re.compile(p, re.IGNORECASE) for p in self.SYSTEM_PATTERNS]
-        self._file_delete_re = [re.compile(p, re.IGNORECASE) for p in self.FILE_DELETE_PATTERNS]
-        self._file_write_re = [re.compile(p, re.IGNORECASE) for p in self.FILE_WRITE_PATTERNS]
-        self._process_re = [re.compile(p, re.IGNORECASE) for p in self.PROCESS_PATTERNS]
-        self._git_re = [re.compile(p, re.IGNORECASE) for p in self.GIT_PATTERNS]
-        self._build_re = [re.compile(p, re.IGNORECASE) for p in self.BUILD_PATTERNS]
-        self._container_re = [re.compile(p, re.IGNORECASE) for p in self.CONTAINER_PATTERNS]
+        self._dangerous_re = self._compile_many(self.DANGEROUS_PATTERNS, first=True)
+        self._network_re = self._compile_many(self.NETWORK_PATTERNS)
+        self._system_re = self._compile_many(self.SYSTEM_PATTERNS)
+        self._file_delete_re = self._compile_many(self.FILE_DELETE_PATTERNS)
+        self._file_write_re = self._compile_many(self.FILE_WRITE_PATTERNS)
+        self._process_re = self._compile_many(self.PROCESS_PATTERNS)
+        self._git_re = self._compile_many(self.GIT_PATTERNS)
+        self._build_re = self._compile_many(self.BUILD_PATTERNS)
+        self._container_re = self._compile_many(self.CONTAINER_PATTERNS)
+
+    @staticmethod
+    def _compile_many(patterns: list, first: bool = False) -> list[re.Pattern]:
+        """Compile a list of patterns, optionally taking the first element."""
+        source = [pattern[0] if first else pattern for pattern in patterns]
+        return [re.compile(pattern, re.IGNORECASE) for pattern in source]
 
     def analyze(self, command: str) -> CommandAnalysis:
         command = command.strip()
         parts = command.split()
         cmd = parts[0] if parts else ""
         args = parts[1:] if len(parts) > 1 else []
-        warnings = []
-        requires_confirmation = False
-        safe = True
-        category = CommandCategory.WORKING_DIR
-        description = None
+        state = _AnalysisState()
 
-        for i, (pattern, warning) in enumerate(self.DANGEROUS_PATTERNS):
-            if self._dangerous_re[i].search(command):
-                warnings.append(warning)
-                safe = False
-                category = CommandCategory.DANGEROUS
-                requires_confirmation = True
-                description = "DANGEROUS: " + warning
-
-        if safe:
-            for pattern, re_obj in zip(self.NETWORK_PATTERNS, self._network_re):
-                if re_obj.search(command):
-                    category = CommandCategory.NETWORK
-                    requires_confirmation = True
-                    warnings.append("Network operation")
-                    break
-
-        if safe and category == CommandCategory.WORKING_DIR:
-            for pattern, re_obj in zip(self.SYSTEM_PATTERNS, self._system_re):
-                if re_obj.search(command):
-                    category = CommandCategory.SYSTEM
-                    requires_confirmation = True
-                    warnings.append("System modification")
-                    break
-
-        if safe:
-            for pattern, re_obj in zip(self.FILE_DELETE_PATTERNS, self._file_delete_re):
-                if re_obj.search(command):
-                    if "node_modules" in command or ".git" in command:
-                        warnings.append("Recursive deletion may affect dependencies")
-                        category = CommandCategory.FILE_DELETE
-                    else:
-                        category = CommandCategory.FILE_DELETE
-                        requires_confirmation = True
-                    break
-
-        if safe:
-            for pattern, re_obj in zip(self.FILE_WRITE_PATTERNS, self._file_write_re):
-                if re_obj.search(command):
-                    category = CommandCategory.FILE_WRITE
-                    break
-
-        if safe:
-            for pattern, re_obj in zip(self.PROCESS_PATTERNS, self._process_re):
-                if re_obj.search(command):
-                    category = CommandCategory.PROCESS
-                    requires_confirmation = True
-                    warnings.append("Process manipulation")
-                    break
-
-        if safe:
-            for pattern, re_obj in zip(self.GIT_PATTERNS, self._git_re):
-                if re_obj.search(command):
-                    category = CommandCategory.GIT
-                    warnings.append("Git operation")
-                    if "push" in command:
-                        requires_confirmation = True
-                    break
-
-        if safe:
-            for pattern, re_obj in zip(self.BUILD_PATTERNS, self._build_re):
-                if re_obj.search(command):
-                    category = CommandCategory.BUILD
-                    break
-
-        if safe:
-            for pattern, re_obj in zip(self.CONTAINER_PATTERNS, self._container_re):
-                if re_obj.search(command):
-                    category = CommandCategory.CONTAINER
-                    requires_confirmation = True
-                    warnings.append("Container operation")
-                    break
-
-        if safe:
-            if cmd in self.SAFE_COMMANDS:
-                category = CommandCategory.FILE_READ
-            elif cmd in ["cd", "pushd", "popd"]:
-                category = CommandCategory.WORKING_DIR
-
-        if "sudo" in command:
-            warnings.append("Requires elevated privileges")
-            requires_confirmation = True
-
-        if "&&" in command or "||" in command or ";" in command:
-            warnings.append("Multiple commands chained")
+        self._check_dangerous(command, state)
+        self._check_network(command, state)
+        self._check_system(command, state)
+        self._check_file_delete(command, state)
+        self._check_file_write(command, state)
+        self._check_process(command, state)
+        self._check_git(command, state)
+        self._check_build(command, state)
+        self._check_container(command, state)
+        self._check_safe_command(cmd, state)
+        self._check_sudo(command, state)
+        self._check_chaining(command, state)
 
         return CommandAnalysis(
-            safe=safe,
-            category=category,
+            safe=state.safe,
+            category=state.category,
             command=command,
             args=args,
-            warnings=warnings,
-            requires_confirmation=requires_confirmation,
-            description=description,
+            warnings=state.warnings,
+            requires_confirmation=state.requires_confirmation,
+            description=state.description,
         )
+
+    def _check_dangerous(self, command: str, state: _AnalysisState) -> None:
+        for index, (_pattern, warning) in enumerate(self.DANGEROUS_PATTERNS):
+            if self._dangerous_re[index].search(command):
+                state.warnings.append(warning)
+                state.safe = False
+                state.category = CommandCategory.DANGEROUS
+                state.requires_confirmation = True
+                state.description = "DANGEROUS: " + warning
+
+    def _check_network(self, command: str, state: _AnalysisState) -> None:
+        if not state.safe:
+            return
+        for re_obj in self._network_re:
+            if re_obj.search(command):
+                state.category = CommandCategory.NETWORK
+                state.requires_confirmation = True
+                state.warnings.append("Network operation")
+                return
+
+    def _check_system(self, command: str, state: _AnalysisState) -> None:
+        if not state.safe or state.category != CommandCategory.WORKING_DIR:
+            return
+        for re_obj in self._system_re:
+            if re_obj.search(command):
+                state.category = CommandCategory.SYSTEM
+                state.requires_confirmation = True
+                state.warnings.append("System modification")
+                return
+
+    def _check_file_delete(self, command: str, state: _AnalysisState) -> None:
+        if not state.safe:
+            return
+        for re_obj in self._file_delete_re:
+            if re_obj.search(command):
+                state.category = CommandCategory.FILE_DELETE
+                if "node_modules" not in command and ".git" not in command:
+                    state.requires_confirmation = True
+                else:
+                    state.warnings.append("Recursive deletion may affect dependencies")
+                return
+
+    def _check_file_write(self, command: str, state: _AnalysisState) -> None:
+        if not state.safe:
+            return
+        for re_obj in self._file_write_re:
+            if re_obj.search(command):
+                state.category = CommandCategory.FILE_WRITE
+                return
+
+    def _check_process(self, command: str, state: _AnalysisState) -> None:
+        if not state.safe:
+            return
+        for re_obj in self._process_re:
+            if re_obj.search(command):
+                state.category = CommandCategory.PROCESS
+                state.requires_confirmation = True
+                state.warnings.append("Process manipulation")
+                return
+
+    def _check_git(self, command: str, state: _AnalysisState) -> None:
+        if not state.safe:
+            return
+        for re_obj in self._git_re:
+            if re_obj.search(command):
+                state.category = CommandCategory.GIT
+                state.warnings.append("Git operation")
+                if "push" in command:
+                    state.requires_confirmation = True
+                return
+
+    def _check_build(self, command: str, state: _AnalysisState) -> None:
+        if not state.safe:
+            return
+        for re_obj in self._build_re:
+            if re_obj.search(command):
+                state.category = CommandCategory.BUILD
+                return
+
+    def _check_container(self, command: str, state: _AnalysisState) -> None:
+        if not state.safe:
+            return
+        for re_obj in self._container_re:
+            if re_obj.search(command):
+                state.category = CommandCategory.CONTAINER
+                state.requires_confirmation = True
+                state.warnings.append("Container operation")
+                return
+
+    def _check_safe_command(self, cmd: str, state: _AnalysisState) -> None:
+        if not state.safe:
+            return
+        if cmd in self.SAFE_COMMANDS:
+            state.category = CommandCategory.FILE_READ
+        elif cmd in ("cd", "pushd", "popd"):
+            state.category = CommandCategory.WORKING_DIR
+
+    def _check_sudo(self, command: str, state: _AnalysisState) -> None:
+        if "sudo" in command:
+            state.warnings.append("Requires elevated privileges")
+            state.requires_confirmation = True
+
+    def _check_chaining(self, command: str, state: _AnalysisState) -> None:
+        if _has_chaining(command):
+            state.warnings.append("Multiple commands chained")
 
     def is_safe(self, command: str) -> bool:
         analysis = self.analyze(command)
@@ -309,6 +355,11 @@ class ShellSecurityAnalyzer:
         return list(
             set(self.SAFE_COMMANDS + ["npm", "pip", "git", "make", "cargo", "go", "python", "node"])
         )
+
+
+def _has_chaining(command: str) -> bool:
+    """Whether the command chains several sub-commands."""
+    return "&&" in command or "||" in command or ";" in command
 
 
 shell_analyzer = ShellSecurityAnalyzer()

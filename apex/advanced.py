@@ -4,7 +4,7 @@ import asyncio
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass
@@ -26,7 +26,7 @@ class RetryHandler:
         for attempt in range(self.config.max_retries + 1):
             try:
                 return func(*args, **kwargs)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 last_error = e
                 if attempt < self.config.max_retries:
                     time.sleep(delay)
@@ -63,7 +63,7 @@ class BatchOperation:
             try:
                 if full_path.exists():
                     results[path] = full_path.read_text()
-            except Exception:
+            except Exception:  # noqa: BLE001
                 results[path] = f"ERROR: Cannot read {path}"
 
         return results
@@ -84,7 +84,7 @@ class BatchOperation:
                 full_path.parent.mkdir(parents=True, exist_ok=True)
                 full_path.write_text(content)
                 results["success"].append(path)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 results["failed"].append({"path": path, "error": str(e)})
 
         return results
@@ -117,7 +117,7 @@ class StreamingOutput:
 class ToolTimeout:
     DEFAULT_TIMEOUT = 30
 
-    TIMEOUTS = {
+    TIMEOUTS: ClassVar[dict[str, int]] = {
         "run_command": 300,
         "run_test": 120,
         "install_package": 180,
@@ -139,7 +139,7 @@ class ToolTimeout:
 class ContextOptimizer:
     @staticmethod
     def prioritize_messages(
-        messages: list[dict[str, Any]], priority_keywords: list[str] = None
+        messages: list[dict[str, Any]], priority_keywords: list[str] | None = None
     ) -> list[dict[str, Any]]:
         priority_keywords = priority_keywords or ["error", "fix", "bug", "important", "critical"]
         high_priority = []

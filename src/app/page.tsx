@@ -25,38 +25,37 @@ function timeAgo(dateString: string): string {
 
 /* ──── CONSTANTS ──── */
 const INSTALL_COMMANDS: Record<string, { label: string; cmd: string }> = {
-  curl: { label: 'curl', cmd: 'curl -fsSL https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh | bash' },
-  pipx: { label: 'pipx', cmd: 'pipx install apex-ai' },
-  pip: { label: 'pip', cmd: 'pip install apex-ai' },
-  uv: { label: 'uv', cmd: 'uv tool install apex-ai' },
+  npm: { label: 'npm', cmd: 'npm install -g apex-ai' },
+  native: { label: 'native', cmd: 'curl -fsSL https://apex-ai.dev/install.sh | bash' },
   docker: { label: 'docker', cmd: 'docker run -it ghcr.io/ggboykxz/apex' },
+  source: { label: 'source', cmd: 'git clone https://github.com/Ggboykxz/APEX.git && cd APEX && pip install -e ".[dev]"' },
 }
 
 const FEATURES = [
-  { icon: Cpu, title: '170+ Models', description: 'Use any LLM from any provider. GPT-5, Claude Sonnet 4.6, Gemini 3, Grok 4, DeepSeek V4, Qwen 3.6, and 150+ more models via litellm.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
-  { icon: Bot, title: '11 Specialized Agents', description: '4 Primary agents (Coder, Architect, Planner, Shell), 4 Subagents (@reviewer, @general, @explore, @scout), and 3 system agents. Full primary + subagent system with @mention support.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
-  { icon: Wrench, title: '75+ Tools', description: 'File ops, search, git, web, LSP, code generation, sandboxed execution, clipboard, skills, and more — all built in and ready.', color: 'text-apex-yellow', glow: 'group-hover:shadow-[0_0_30px_rgba(255,170,0,0.15)]' },
+  { icon: Cpu, title: '201 Models', description: 'Use any LLM from any provider. GPT-5, Claude Sonnet 4.6, Gemini 3, Grok 4, DeepSeek V4, Qwen 3.6, and 180+ more models via litellm.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
+  { icon: Bot, title: '11 Specialized Agents', description: '4 Primary agents (Build, Plan, Planner, Shell), 4 Subagents (@reviewer, @general, @explore, @scout), and 3 system agents. Full primary + subagent system with @mention support.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
+  { icon: Wrench, title: '103 Tools', description: 'File ops, search, git, web, LSP, code generation, sandboxed execution, clipboard, skills, and more — all built in and ready.', color: 'text-apex-yellow', glow: 'group-hover:shadow-[0_0_30px_rgba(255,170,0,0.15)]' },
   { icon: Shield, title: 'Security System', description: 'Shell command analysis, permission rulesets (ALLOW/DENY/ASK), rate limiting, API key management, billing system, and path traversal protection.', color: 'text-apex-red', glow: 'group-hover:shadow-[0_0_30px_rgba(255,68,68,0.15)]' },
   { icon: Zap, title: 'Switch Models Live', description: 'Switch between any model mid-session without restarting. Compare outputs, optimize costs, and never lose context.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
   { icon: Terminal, title: 'Ink TUI + WebSocket EventBus + 12 Themes', description: 'Rich Ink + React TUI with WebSocket EventBus for real-time sync, command palette (Ctrl+P), leader keys (Ctrl+X), @ file references, ! bash inline, 12 built-in themes with dark/light mode. OpenCode architecture with random port binding.', color: 'text-apex-cyan', glow: 'group-hover:shadow-[0_0_30px_rgba(0,229,255,0.15)]' },
   { icon: Layers, title: 'Snapshots & Undo/Redo', description: 'Git-based snapshot system creates automatic backups before every destructive action. Undo/redo with full diff computation. Never lose work again.', color: 'text-apex-green', glow: 'group-hover:shadow-[0_0_30px_rgba(0,255,136,0.15)]' },
-  { icon: Command, title: 'Custom Commands + Session Sharing + Formatters', description: 'Create custom commands via .md files with $ARGUMENTS, !shell, @file. Share sessions via public URLs. 11 auto-formatters (ruff, prettier, gofmt, rustfmt, etc.). File watcher with gitignore-aware patterns.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
+  { icon: Command, title: 'Custom Commands + Session Sharing + Formatters', description: 'Create custom commands via .md files with $ARGUMENTS, !shell, @file. Share sessions via public URLs. 20 auto-formatters (ruff, prettier, gofmt, rustfmt, biome, zig, etc.). File watcher with gitignore-aware patterns.', color: 'text-apex-magenta', glow: 'group-hover:shadow-[0_0_30px_rgba(217,70,239,0.15)]' },
 ]
 
 const STATS = [
-  { value: '170+', label: 'Models Supported', icon: Cpu },
-  { value: '75+', label: 'Built-in Tools', icon: Wrench },
+  { value: '201+', label: 'Models Supported', icon: Cpu },
+  { value: '103+', label: 'Built-in Tools', icon: Wrench },
   { value: '11', label: 'Specialized Agents', icon: Bot },
-  { value: '2,094+', label: 'Tests Passing', icon: Check },
+  { value: '3,933+', label: 'Tests Passing', icon: Check },
   { value: '12', label: 'Built-in Themes', icon: Sparkles },
-  { value: '11', label: 'Auto-Formatters', icon: FileCode },
+  { value: '20', label: 'Auto-Formatters', icon: FileCode },
 ]
 
 const PAGE_LINKS = [
   { href: '/agents', icon: Bot, title: 'Agents', desc: '11 specialized agents for every workflow', color: 'text-apex-cyan' },
-  { href: '/models', icon: Cpu, title: 'Models', desc: '170+ models from 21 providers', color: 'text-apex-green' },
-  { href: '/tools', icon: Wrench, title: 'Tools', desc: '75+ built-in tools for every workflow', color: 'text-apex-yellow' },
-  { href: '/install', icon: Box, title: 'Install', desc: '6 installation methods for every platform', color: 'text-apex-cyan' },
+  { href: '/models', icon: Cpu, title: 'Models', desc: '201 models from 21 providers', color: 'text-apex-green' },
+  { href: '/tools', icon: Wrench, title: 'Tools', desc: '103 built-in tools for every workflow', color: 'text-apex-yellow' },
+  { href: '/install', icon: Box, title: 'Install', desc: 'npm, native backend, Docker or source', color: 'text-apex-cyan' },
   { href: '/security', icon: Shield, title: 'Security', desc: 'Permissions, rate limiting, and shell security', color: 'text-apex-red' },
   { href: '/activity', icon: Activity, title: 'Activity', desc: 'Live issues, PRs, and releases feed', color: 'text-apex-green' },
   { href: '/roadmap', icon: GitBranch, title: 'Roadmap', desc: 'From Foundation to Enterprise', color: 'text-apex-magenta' },
@@ -155,7 +154,7 @@ function NavBar({ scrolled, mobileMenuOpen, setMobileMenuOpen, apiStatus }: {
 
 /* ──── MAIN ──── */
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<keyof typeof INSTALL_COMMANDS>('curl')
+  const [activeTab, setActiveTab] = useState<keyof typeof INSTALL_COMMANDS>('npm')
   const [copied, setCopied] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -252,7 +251,7 @@ export default function Home() {
               The Universal <span className="animated-gradient-text">AI Coding</span><br />Agent
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Every model. One terminal. APEX runs in your terminal with 170+ models from 21 providers, 75+ tools, and 11 specialized agents. WebSocket EventBus for real-time sync. Snapshots, custom commands, and OpenCode architecture built in.
+              Every model. One terminal. APEX runs in your terminal with 201 models from 21 providers, 103 tools, and 11 specialized agents. WebSocket EventBus for real-time sync. Snapshots, custom commands, and OpenCode architecture built in.
             </p>
 
             {/* Install Tabs */}
@@ -300,7 +299,7 @@ export default function Home() {
               <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground font-mono"><span className="text-apex-cyan">coder</span><span className="text-muted-foreground">•</span><span className="flex items-center gap-1"><AnthropicIcon size={12} /><span>claude-sonnet-4.6</span></span></div>
             </div>
             <div className="bg-[#0a0e14] p-6 font-mono text-sm leading-7 min-h-[320px]">
-              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v2.0.0 — Production Release</div>
+              <div className="text-muted-foreground"><span className="text-apex-cyan">◆</span> APEX v0.2.0 — Production Release</div>
               <div className="mt-2"><span className="text-apex-green">user</span><span className="text-muted-foreground">@apex</span><span className="text-apex-cyan"> ~ </span><span className="text-foreground">Fix the authentication bug in auth.py</span></div>
               <div className="mt-3 text-muted-foreground"><span className="text-apex-cyan">◆</span> Using <span className="text-foreground">coder</span> agent with <span className="text-apex-cyan">claude-sonnet-4.6</span></div>
               <div className="mt-2 space-y-1.5">
@@ -349,7 +348,7 @@ export default function Home() {
                 )
               })}
             </div>
-            <p className="text-xs text-muted-foreground font-mono mt-6">+ 150 more models via litellm · <a href="/models" className="text-apex-cyan hover:underline">View all models →</a></p>
+            <p className="text-xs text-muted-foreground font-mono mt-6">+ 180 more models via litellm · <a href="/models" className="text-apex-cyan hover:underline">View all models →</a></p>
           </motion.div>
         </div>
       </section>
@@ -466,7 +465,7 @@ export default function Home() {
               <span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />Features
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-4 font-mono">Everything You Need</h2>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">APEX combines the power of 170+ models, 75+ tools, 11 specialized agents, and OpenCode architecture in one terminal-native experience.</p>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto leading-relaxed">APEX combines the power of 201 models, 103 tools, 11 specialized agents, and OpenCode architecture in one terminal-native experience.</p>
           </motion.div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map((feature, i) => (
@@ -497,11 +496,11 @@ export default function Home() {
               <div className="md:px-8 pt-6 md:pt-0">
                 <p className="eyebrow mb-2">02 · Sandbox Protection</p>
                 <h3 className="text-lg font-bold font-mono mb-3">Eleven agents, one approval system</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">Coder asks, Architect reads, Planner observes. Sandboxed via landlock (Linux), seatbelt (macOS), restricted tokens (Windows).</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">Build asks, Plan reads, Planner observes. Sandboxed via landlock (Linux), seatbelt (macOS), restricted tokens (Windows).</p>
               </div>
               <div className="md:pl-8 pt-6 md:pt-0">
                 <p className="eyebrow mb-2">03 · Model Freedom</p>
-                <h3 className="text-lg font-bold font-mono mb-3">170+ models by default</h3>
+                <h3 className="text-lg font-bold font-mono mb-3">201 models by default</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">Use any LLM from any provider. Swap with /model command mid-session. Structured messages with Parts, snapshots with undo/redo, and custom commands.</p>
               </div>
             </div>
@@ -566,7 +565,7 @@ export default function Home() {
                 {/* LLM API */}
                 <rect x="640" y="25" width="200" height="50" rx="8" fill="#161b22" stroke="#30363d" strokeWidth="1.5" />
                 <text x="740" y="46" textAnchor="middle" fill="#e6edf3" fontSize="13" fontWeight="bold" fontFamily="monospace">LLM API</text>
-                <text x="740" y="62" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">170+ models</text>
+                <text x="740" y="62" textAnchor="middle" fill="#7d8590" fontSize="10" fontFamily="monospace">201 models</text>
 
                 {/* Tools */}
                 <rect x="640" y="120" width="200" height="75" rx="8" fill="#161b22" stroke="#30363d" strokeWidth="1.5" />

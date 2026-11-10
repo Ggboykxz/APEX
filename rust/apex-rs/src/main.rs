@@ -4,20 +4,26 @@ mod api_key;
 mod billing;
 mod codegen;
 mod codegen_tools;
+mod commands;
 mod config;
+mod config_tools;
 mod context;
 mod context_tracking;
 mod cost;
+mod durable_tasks;
 mod files;
 mod formatter;
+mod gateway;
 mod git_tools;
 mod github;
 mod hooks;
+mod i18n;
 mod jsonrpc;
 mod lsp;
 mod mcp_client;
 mod memory;
 mod mentions;
+mod models;
 mod patch;
 mod permission;
 mod plugins;
@@ -32,6 +38,7 @@ mod shell_security;
 mod shell_tools;
 mod skills;
 mod slash;
+mod snapshot;
 mod structured_message;
 mod task_queue;
 mod telemetry;
@@ -71,6 +78,11 @@ enum Commands {
     Serve {
         #[arg(short, long, default_value = "8765")]
         port: u16,
+    },
+    /// APEX Gateway: model proxy with auth, rate limits, and usage tracking
+    Gateway {
+        #[command(subcommand)]
+        action: Option<GatewayAction>,
     },
     /// List tools
     Tools,
@@ -142,6 +154,45 @@ enum Commands {
         #[command(subcommand)]
         action: ConfigAction,
     },
+    /// Localization: show or set the active locale
+    Locale {
+        /// Locale to switch to (e.g. `ja`, `zh-Hans`, `pt-BR`)
+        #[arg(long)]
+        lang: Option<String>,
+    },
+    /// Build and show a structured message (structured_message parity)
+    Message {
+        /// Message role (`user`, `assistant`, `tool`)
+        role: String,
+        /// Initial text content
+        content: String,
+    },
+    /// One-shot file watcher scan: list non-ignored files under PATH
+    Watch {
+        /// Directory to scan (defaults to the current directory)
+        path: Option<String>,
+    },
+    /// OKLM per-key rate-limit check/increment (rlm parity)
+    Rlm {
+        /// Rate-limit key to inspect
+        key: String,
+        /// Increment the counters before reporting (defaults to check-only)
+        #[arg(long)]
+        inc: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum GatewayAction {
+    /// Start the gateway server (needs APEX_GATEWAY_KEY or OPENROUTER_API_KEY)
+    Start,
+    /// Generate a gateway API key: `apex-rs gateway key [tier] [label]`
+    Key {
+        tier: Option<String>,
+        label: Option<String>,
+    },
+    /// Show registered gateway keys
+    Status,
 }
 
 #[derive(Subcommand, Debug)]
@@ -535,6 +586,106 @@ async fn main() {
         Some(Commands::Serve { port }) => {
             server::serve(config, port).await;
         }
+        Some(Commands::Locale { lang }) => {
+            if let Some(l) = &lang {
+                crate::i18n::set_locale(l);
+            }
+            let i18n = crate::i18n::get_i18n(lang.as_deref().unwrap_or("auto"));
+            let guard = i18n.lock().unwrap();
+            println!("Current locale: {}", guard.locale());
+            println!(
+                "Available locales: {}",
+                guard.available_locales().join(", ")
+            );
+            println!("Welcome: {}", guard.get_bracket("welcome"));
+        }
+        Some(Commands::Message { role, content }) => {
+            let msg = crate::structured_message::create_message(role, content);
+            println!("{}", serde_json::to_string_pretty(&msg.to_dict()).unwrap());
+        }
+        Some(Commands::Watch { path }) => {
+            let base = path
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+            let mut patterns = crate::watcher::DEFAULT_IGNORE_PATTERNS
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+            patterns.extend(crate::watcher::load_gitignore_patterns(&base));
+            let mut seen: Vec<String> = Vec::new();
+            let _ = walk_watch(&base, &base, &patterns, &mut seen);
+            seen.sort();
+            for path in seen {
+                println!("{path}");
+            }
+        }
+        Some(Commands::Rlm { key, inc }) => {
+            let mut rlm = crate::rlm::RLM::new(None);
+            if inc {
+                let result = rlm.increment(&key);
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+            } else {
+                let result = rlm.check_rate_limit(&key);
+                println!("{}", serde_json::to_string_pretty(&result).unwrap());
+            }
+        }
+        Some(Commands::Gateway { action }) => match action {
+            Some(GatewayAction::Start) => {
+                // Python gate: checks the environment only (not the auth.json
+                // fallback) and exits 1 when neither key is set.
+                let env_empty =
+                    |name: &str| std::env::var(name).map(|v| v.is_empty()).unwrap_or(true);
+                if env_empty("APEX_GATEWAY_KEY") && env_empty("OPENROUTER_API_KEY") {
+                    eprintln!("ERROR: APEX_GATEWAY_KEY or OPENROUTER_API_KEY must be set in .env");
+                    eprintln!("Get a free key at https://openrouter.ai/keys");
+                    std::process::exit(1);
+                }
+                gateway::start(gateway::GatewayConfig::from_env()).await;
+            }
+            Some(GatewayAction::Key { tier, label }) => {
+                let cfg = gateway::GatewayConfig::from_env();
+                let auth = gateway::GatewayAuth::new(cfg.db_path);
+                let tier = tier.unwrap_or_else(|| "free".to_string());
+                let label = label.unwrap_or_default();
+                let key = auth.generate_key(&tier, &label);
+                println!("Gateway API key generated ({tier}):");
+                println!("{key}");
+            }
+            Some(GatewayAction::Status) => {
+                let cfg = gateway::GatewayConfig::from_env();
+                let auth = gateway::GatewayAuth::new(cfg.db_path);
+                let keys = auth.list_keys();
+                if keys.is_empty() {
+                    println!("No API keys registered");
+                } else {
+                    println!("Gateway keys ({}):", keys.len());
+                    for k in &keys {
+                        let label = k["label"].as_str().unwrap_or("");
+                        let state = if k["is_active"].as_bool().unwrap_or(false) {
+                            "(active)"
+                        } else {
+                            "(revoked)"
+                        };
+                        println!(
+                            "  [{}] {} — {} {}",
+                            k["tier"].as_str().unwrap_or(""),
+                            k["key_id"].as_str().unwrap_or(""),
+                            if label.is_empty() { "no label" } else { label },
+                            state
+                        );
+                    }
+                }
+            }
+            _ => {
+                println!("Usage:");
+                println!("  apex-rs gateway start              Start the gateway server");
+                println!("  apex-rs gateway key [tier] [label]  Generate an API key");
+                println!("  apex-rs gateway status              Show registered keys");
+                println!();
+                println!("Tiers: free (default), pro, unlimited");
+                println!("Set OPENROUTER_API_KEY or APEX_GATEWAY_KEY in .env");
+            }
+        },
         Some(Commands::Tools) => {
             let v = tools::tool_schemas();
             println!("{}", serde_json::to_string_pretty(&v).unwrap());
@@ -651,7 +802,9 @@ async fn main() {
             },
             SessionAction::Save { name } => {
                 let cwd = config.cwd.to_string_lossy().to_string();
-                match share::save_session(&name, &config.model, &cwd, &[]) {
+                // No agent state here: persist the idle-agent usage shape,
+                // exactly what Python's `agent.usage` is for a fresh agent.
+                match share::save_session(&name, &config.model, &cwd, &[], &share::zero_usage()) {
                     Some(p) => println!("Saved {}", p.display()),
                     None => eprintln!("failed to save session"),
                 }
@@ -1226,6 +1379,38 @@ fn open_turn_tracker(path: &str) -> workspace_rollback::TurnTracker {
             std::process::exit(1);
         }
     }
+}
+
+/// Recursively collect non-ignored files under `dir` (relative to `root`),
+/// mirroring the watcher's scan for the `watch` CLI command.
+fn walk_watch(
+    dir: &std::path::Path,
+    root: &std::path::Path,
+    patterns: &[String],
+    out: &mut Vec<String>,
+) -> std::io::Result<()> {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return Ok(()),
+    };
+    let mut dirs: Vec<std::path::PathBuf> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let rel = path
+            .strip_prefix(root)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .to_string();
+        if path.is_dir() && !crate::watcher::is_ignored(&rel, patterns) {
+            dirs.push(path);
+        } else if path.is_file() && !crate::watcher::is_ignored(&rel, patterns) {
+            out.push(rel);
+        }
+    }
+    for d in dirs {
+        let _ = walk_watch(&d, root, patterns, out);
+    }
+    Ok(())
 }
 
 /// Exit with a clear error when no repository can be detected for automation.

@@ -1,4 +1,4 @@
-# APEX — Agent for Programming EXecution v2.0.0
+# APEX — Agent for Programming EXecution v0.1.0
 
 *Built in Gabon 🇬🇦 for the world.*
 
@@ -51,7 +51,7 @@ APEX is an **autonomous agent** capable of:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│                        APEX v2.0.0                       │
+│                        APEX v0.1.0                       │
 │                                                          │
 │   Frontend (TUI / REPL / API / Web)                     │
 │          ↕  HTTP / SSE / stdin                           │
@@ -82,14 +82,51 @@ APEX is an **autonomous agent** capable of:
 |-----------|-------------|
 | `main.py` | CLI entry point, 20+ subcommands, TUI launcher |
 | `agent.py` | Agent core, chat loop, LLM interaction |
-| `tools.py` | 75+ built-in tools |
+| `agent_rules.py` | Project/global rules and custom instructions |
+| `agent_context.py` | Context budget, repository map, request building |
+| `agent_history.py` | History, compaction and auto-compaction |
+| `agent_permissions.py` | Permission gate and pending requests |
+| `agent_models.py` | Model and agent selection |
+| `agent_messages.py` | Tool-call wire-format helpers |
+| `apply_patch.py` | Patch engine facade: `parse_patch`, `preview_patch`, `apply_patch` |
+| `apply_patch_types.py` | Patch types, constants and errors |
+| `apply_patch_codex.py` | Parser for the Codex patch dialect |
+| `apply_patch_unified.py` | Parser for the unified-diff dialect |
+| `apply_patch_paths.py` | Path validation and resolution |
+| `apply_patch_hunks.py` | Hunk matching and application |
+| `apply_patch_writer.py` | Reading and writing the patched files |
+| `apply_patch_api.py` | Patch resolution pipeline |
+| `tools.py` | Tool executor core, custom/MCP/plugin dispatch |
+| `tools_files.py` | File I/O tools |
+| `tools_search.py` | Discovery tools |
+| `tools_shell.py` | Shell and process tools |
+| `tools_git.py` | Git tools |
+| `tools_web.py` | Web tools |
+| `tools_lsp.py` | Language-server tools |
+| `tools_session.py` | Session tools |
+| `tools_project.py` | Project tools |
+| `tools_codegen.py` | Code analysis and generation tools |
+| `tools_ux.py` | User-interaction tools |
+| `tools_env.py` | Environment, task-queue and watcher tools |
+| `tools_security.py` | Secret-file read policy |
+| `tools_schemas.py` | The tool schemas exposed to the model |
 | `session.py` | Session management, persistence |
 | `permission.py` | Permission system (ALLOW/DENY/ASK) |
 | `shell_security.py` | Shell command analysis |
 | `rate_limiter.py` | Rate limiting |
 | `api_key.py` | API key management |
 | `billing.py` | Cost tracking |
-| `http_api.py` | 56 HTTP API endpoints |
+| `http_api.py` | HTTP server core, middleware and entry points |
+| `http_routes_chat.py` | Chat and streaming routes |
+| `http_routes_sessions.py` | Session, share and diff routes |
+| `http_routes_catalog.py` | Model, provider, agent and theme routes |
+| `http_routes_config.py` | Configuration and command routes |
+| `http_routes_auth.py` | Authentication routes |
+| `http_routes_system.py` | Health, metrics and file-system routes |
+| `http_helpers.py` | Shared HTTP helpers |
+| `repomap.py` | Repository map: cache, scan and rendering |
+| `repomap_types.py` | Repository-map types and text helpers |
+| `repomap_symbols.py` | Per-language symbol extractors |
 | `config_v2.py` | Hierarchical JSON/JSONC config system |
 | `theme_manager.py` | 12 themes, dark/light, custom themes |
 | `share.py` | Session sharing with public URLs |
@@ -100,6 +137,7 @@ APEX is an **autonomous agent** capable of:
 | `mcp_server.py` | MCP stdio server exposing native tools |
 | `vision.py` | Image attachment validation and vision content blocks |
 | `auto_commit.py` | AI-generated conventional-commit autocommit for one-shot runs |
+| `install_manager.py` | Install-channel detection, upgrade commands, verified native downloads, uninstall plans |
 
 ### TUI Architecture (Ink + React)
 
@@ -991,7 +1029,7 @@ Precedence (later overrides earlier):
 ```python
 from apex.shell_security import shell_analyzer
 
-analysis = shell_analyzer.analyze("rm -rf /tmp/test")
+analysis = shell_analyzer.analyze("rm -rf ./temp")
 # safe: False, category: DANGEROUS
 ```
 
@@ -1021,6 +1059,7 @@ Current policy and floors (kept green):
 | Python | `filelock>=4.2.4,<5` | CVE-2026-112907/112913/112940 (litellm chain) |
 | npm (root) | `next>=16.4.3`, `zod>=4.6.7` | Next.js / zod advisories |
 | npm (root) | override `@prisma/config → deepmerge-ts ^8.0.2` | GHSA-ggr8-5vv4-36mx (Prisma 6 kept) |
+| npm (root) | override `@typescript-eslint/typescript-estree → minimatch ^11.0.1` | GHSA-g3hv-75wg-m249 / CVE-2026-118764 (no 10.x patch) |
 | npm (TUI) | `ws>=8.21`, `tsx>=4.23`, override `esbuild ^0.28.1` | ws / esbuild advisories |
 
 Do not bump Prisma to 7.x without an ADR: it is a breaking major
@@ -1043,7 +1082,7 @@ advisory on Prisma 6.
 | Milestone | Scope | Status |
 |-----------|-------|--------|
 | M1 — Repository Map & Context | symbol-level repository map, context-window optimization | Done (v2.5) |
-| M2 — Rust GA (internal) | remove crate-level `#![allow(dead_code)]`, parity matrix, binary E2E; no publishing (ADR-0004) | Done (v2.5) |
+| M2 — Rust GA (internal) | remove crate-level `#![allow(dead_code)]`, parity matrix, binary E2E; release assets only, no crates.io (ADR-0008) | Done (v2.5) |
 | M3 — TUI Streaming & Diff | SSE/WS streaming, tool-call lifecycle, diff preview | Done (v2.5) |
 | M4 — MCP, Vision, VS Code | MCP server mode, vision input, auto-commit, VS Code extension | Done (v2.5) |
 
@@ -1056,6 +1095,7 @@ advisory on Prisma 6.
 - TUI: `npm run typecheck`, `bun test` green.
 - Website: `eslint .`, `next build` green when `src/**` changes.
 - Docs: `AGENTS.md` and mkdocs updated; ADR added for architectural decisions.
+- Release: `VERSION` is canonical; `python scripts/version.py check` passes and the tag matches it.
 - Every required workflow green before merge.
 
 ### ECC workflow
@@ -1083,9 +1123,13 @@ advisory on Prisma 6.
 ## 24. Rust Port (Internal GA)
 
 `rust/apex-rs/` is the Rust rewrite of the backend. It is an **internal GA**:
-the binary, HTTP server, and tool registry are usable, but nothing is
-published (no crates.io, no GitHub Release binaries — see
-[ADR-0004](docs/adr/ADR-0004-rust-distribution-deferred.md)).
+the binary, HTTP server, and tool registry are usable. Release binaries are
+published as GitHub Release assets for five targets
+([ADR-0008](docs/adr/ADR-0008-installation-refonte.md)); the crate is **not**
+published on crates.io. APEX is distributed through npm and the native
+backend only ([ADR-0009](docs/adr/ADR-0009-npm-native-only.md)); the Python
+CLI/TUI is a source-only development surface and the native backend is
+headless.
 
 The authoritative Python ↔ Rust matrix is
 [`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md). It records what is wired,
@@ -1097,8 +1141,11 @@ surface change.
 - No crate-level `#![allow(dead_code)]`.
 - Allows are scoped to a module or item and carry a justification plus a
   `TODO(v2.6)` exit criterion.
-- No module-level allow exists at this baseline; the full item-level
-  inventory is the table in PARITY.md.
+- No module-level allows remain: every PR-#348 module
+  (`watcher`, `structured_message`, `sandbox`, `rlm`, `telemetry`, `i18n`,
+  `slash`, `project`, `billing`, `formatter`) is now wired to the CLI or the
+  HTTP server. The full module-level and item-level inventories are the
+  tables in PARITY.md.
 
 ### Shell security
 
@@ -1106,7 +1153,7 @@ The Rust port applies the same safety policy as Python on every path that can
 execute a command:
 
 ```bash
-apex-rs security check "rm -rf /"   # JSON verdict (safe, category, warnings, allowed)
+apex-rs security check "rm -rf ./temp"   # JSON verdict (safe, category, warnings, allowed)
 apex-rs security allowed            # allow-listed commands
 ```
 
@@ -1158,6 +1205,108 @@ header and a JSON error body.
 - `GET /api/v1/rate-limit` reports the caller's counters, limits and the
   minute-window `reset_at` (epoch seconds; Python's
   `RateLimitResult.reset_at`).
+- The limiter's lock is released before the handler runs, so routes that
+  read limiter status in-request (`GET /api/v1/rate-limit`,
+  `GET /rate-limit/status`, `POST /chat`, `GET /metrics`,
+  `GET /api/v1/stats`) cannot deadlock on the non-reentrant tokio mutex.
+
+### HTTP route parity
+
+The `serve` router covers all 52 routes of Python's `apex/http_api.py`
+(`GET /`, `POST /chat`, `GET /stream`, models/providers, sessions and
+shares, `POST /session/save|load`, config, themes, stats, formatters and
+`POST /api/v1/format`, commands and `POST /api/v1/command`,
+`POST /api/v1/init`, `GET /find/file`, export/import,
+`GET /api/v1/session/{id}/diff{,/decision}`, `POST /api/v1/session/{id}/{fork,abort}`,
+LSP/formatter/MCP status, `GET /global/event` SSE, `GET /metrics`,
+`GET /rate-limit/status`, `GET /global/health`, auth) plus 41 Rust-only
+extras. The authoritative per-route table and the divergence list live in
+[`rust/apex-rs/PARITY.md`](rust/apex-rs/PARITY.md) (route parity section);
+update it in the same PR as any surface change.
+New helper modules back the ported routes: `models.rs` (static model
+table) and `commands.rs` (markdown custom-command manager).
+
+### Snapshot manager
+
+`snapshot.rs` ports `apex/snapshot.py` (Git-based undo/redo). Python
+exports `SnapshotManager` but never calls it — its `/undo` and `/redo`
+routes use a separate `session.UndoManager` — so the Rust server is the
+production surface, wired further than Python, like `workspace.rs`:
+
+- `serve` holds one `SnapshotManager` in `AppState` (rooted at the server
+  cwd, side git repo under `.apex/snapshots/`, best-effort `git init`).
+- Seven routes: `POST /api/v1/snapshot/{track,track-file,undo,redo,restore}`
+  and `GET /api/v1/snapshot/{history,status}`. All answer 200 with an
+  `ok` flag (no 4xx), mirroring `/api/v1/undo` and `/api/v1/redo`.
+  `history` takes `?limit=` (Python's default of 50; `0` returns all,
+  matching Python's `[-0:]` slice).
+- **Bug fix (documented divergence)**: Python's `undo()` pops the snapshot
+  and then calls `restore(id)`, which looks it up in the undo stack where
+  it no longer exists — so Python's undo never restored any file. The port
+  applies the popped snapshot's changes directly; `restore(id)` stays the
+  lookup API.
+- `track_file` captures only `before` (`after` stays null), so a redo after
+  `track_file` rewrites nothing (Python parity).
+- `file_hash`, `save_snapshot_to_git` and `clear` remain item-scoped (dead
+  in Python too).
+
+### Context tracking & mentions
+
+`context_tracking.rs` (port of `apex/context_manager.py` /
+`context_tracking.py`) and `mentions.rs` (port of `apex/mentions.py`) are
+wired into the agent:
+
+- **Context tracking** — every `Agent` carries a `ContextTracker`
+  (`default_with_budget`: 128k token budget, 80% threshold). `record_api_usage`
+  feeds `record_usage`, and the auto-compact gate in `chat`/`chat_stream`
+  now fires on `should_compact` (token budget) in addition to the
+  message-count threshold. `GET /api/v1/context/tracking` exposes the budget,
+  threshold and per-session stats. `record_compaction`, `remove` and the
+  compaction history stay item-scoped until `Agent::compact_context` records
+  them.
+- **Mentions** — `Agent::expand_mentions` (both `chat` and `chat_stream`)
+  parses input with `MentionParser::parse` + `resolve_file` instead of
+  `split_whitespace`. File mentions are inlined as `[File: …]` (images as
+  base64, uncapped, same format as before); agent mentions are recognized but
+  not inlined (subagent routing is a TUI concern, Python parity).
+  `read_mentioned_files` and `FileMentionCompleter` remain item-scoped
+  (TUI surface).
+
+### Gateway
+
+`gateway.rs` ports `apex/gateway/*` — the OpenRouter model proxy with
+per-key tiers, rate limits, and usage tracking:
+
+```bash
+apex-rs gateway start              # run the proxy (needs APEX_GATEWAY_KEY or OPENROUTER_API_KEY)
+apex-rs gateway key [tier] [label]  # generate an apex_ key, print it once
+apex-rs gateway status              # list registered keys (no plaintext)
+```
+
+- Tiers mirror Python's `config.py`: `free` (50 requests/day, 500k tokens,
+  10/min, 1 concurrent, 19 models), `pro` (500/day, 5M tokens, 60/min, 3
+  concurrent, 10 models) and `unlimited` (999999/day, 100M tokens, 300/min,
+  10 concurrent, every model). Unknown tier names fall back to `free`,
+  exactly like Python's `_get_tier`.
+- Eight routes: `POST /v1/chat/completions` (Bearer key → tier model gate →
+  sliding 60 s per-key rate limit → daily request and token caps → upstream
+  proxy; usage is recorded per key/day and `usage.apex_gateway` is injected
+  on 200), `POST /v1/register` (413 above 4096 bytes, `Invalid tier: …`),
+  `GET /v1/status`, `GET /v1/health`, `GET /v1/models` (sorted `free-`/`pro-`
+  aliases with provider), and the `X-Admin-Key`-protected `/admin/keys`,
+  `/admin/keys/generate`, `/admin/keys/revoke`. Rejections use Python's exact
+  error strings (`Missing or invalid Authorization header`, `Invalid or
+  revoked API key`, `Model '…' not available in '…' tier`,
+  `Rate limit exceeded ({n}/minute)`, `Daily request limit reached ({n})`,
+  `Upstream request timed out`, `Upstream error: …`).
+- The key/usage store is `~/.apex/gateway.json` (Python uses SQLite
+  `~/.apex/gateway.db`), re-read on every access: an admin or CLI revoke
+  takes effect without restarting the server. Re-revoking a known key
+  returns 200 (SQLite `UPDATE` row-count parity); only an unknown key is
+  404 `Key not found`.
+- `APEX_GATEWAY_UPSTREAM_BASE` overrides Python's hardcoded
+  `https://openrouter.ai/api/v1` so tests can point the proxy at a local
+  fake upstream; the divergences are recorded in `PARITY.md`.
 
 ### Permission gate
 
@@ -1228,7 +1377,7 @@ apex-rs workspace --json           # full context as JSON
   `Cargo.lock`, `Gemfile`) and test framework (`pytest.ini`,
   `pyproject.toml`, `jest.config.js`, `vitest.config.ts`, `go.sum`,
   `Cargo.toml`) in Python's marker order.
-- The block is appended to the system prompt of both agent entry points
+- The block is appended to the agent instructions of both agent entry points
   (`chat` and `chat_stream`), analyzed once per user turn so a ten-round
   tool loop does not respawn git ten times.
 - Divergences recorded in `PARITY.md`: no `git fetch --dry-run` network
@@ -1332,11 +1481,12 @@ inside the agent loop's Tokio runtime.
   a 300 s timeout. Returns `SUCCESS: Installed <package> via <manager>` on
   success, `ERROR: …` on failure.
 
+`run_code` is also wired through the sandboxed code executor
+(`sandbox::CodeSandbox::run_code`, python/javascript/bash/ruby/go/rust/php).
 The following shell tools remain pending (they depend on `sandbox.py` /
 `commands.py`, ported in later waves):
 
 - `run_command_custom` → `commands.py` (command manager)
-- `run_code` → `sandbox.py` (ShellSession)
 - `start_shell` / `run_shell` / `close_shell` → `sandbox.py` (ShellSession)
 
 ### Codegen tools
@@ -1409,6 +1559,36 @@ Existing LSP tools (`lsp_definition`, `lsp_references`, `lsp_hover`,
 
 The billing manager supports plan types (Free/Pro/Enterprise/Custom) with different monthly limits, token limits, and rate limits, plus trial periods and overage handling.
 
+### Custom tools
+
+`config_tools.rs` ports `apex/config_tools.py` — tools defined from
+configuration:
+
+- The 34-command `ALLOWED_COMMANDS` allowlist plus a dangerous-pattern
+  blocklist (`$( `, backtick, `rm -rf`, `chmod 777`) gate every command
+  before it registers.
+- `CustomToolManager` (register/get/list/execute/`get_schemas`); schemas are
+  exposed to the model under the `custom_{name}` prefix.
+- `ensure_tools_loaded` scans the same four directories as Python
+  (`~/.config/opencode/tools`, `./.opencode/tools`, `~/.config/apex/tools`,
+  `./.apex/tools`) once per process. `{key}`/`{{ }}` templating fills the
+  arguments (`ERROR: '{key}'` on a missing key) and execution is capped at
+  30 s, returning `stdout or stderr or "[no output]"`.
+- Wired into the registry: `tool_schemas()` (backing the `tools` CLI and the
+  agent's tool list) appends the manager's schemas after the built-ins, and
+  `execute_tool` dispatches unknown names through the manager before
+  answering `ERROR: Unknown tool '…'` (Python's `ToolExecutor.execute`
+  order).
+- **Divergence**: Python's `load_tools_from_dirs` imports `*.py` modules
+  exposing a `TOOL_DEFINITION` with a callable handler; Rust cannot import
+  Python, so the same directories are scanned for `*.json` definitions
+  (`{name?, description?, parameters?, command, cwd?}`) that run through the
+  same allowlist/pattern/timeout pipeline.
+- The dispatch keys by the defined name, so calling the `custom_{name}`
+  schema name is unreachable — Python has the same gap (its manager also
+  keys by the defined name). `load_custom_tools` (the YAML loader, dead in
+  Python too) and `list_tools` stay item-scoped.
+
 ### Task queue & plans
 
 `task_queue.rs` ports the `TaskQueue` from `apex/extras.py` (tool registry
@@ -1434,6 +1614,29 @@ is now 51 schemas):
   in `commands.py` but is never wired to it), so both always return
   `ERROR: No pending plan to …`; the stateless Rust dispatch reproduces
   that exactly.
+
+### Durable task queue
+
+`durable_tasks.rs` ports `apex/task_queue.py` — background tasks that
+survive restarts. Python's only production consumer is the TUI REPL `/tasks`
+command (excluded from the Rust port), so — like the snapshot manager — the
+Rust HTTP routes are the production surface:
+
+- `serve` holds one `TaskQueue` in `AppState`; the queue persists to
+  `~/.apex/tasks/tasks.json`, rewritten on every mutation and rehydrated on
+  start.
+- Six routes, all answering 200 with an `ok` flag (no 4xx): `POST
+  /api/v1/tasks` (enqueue, `task_{YYYYmmddHHMMSS}_{n}` ids), `GET
+  /api/v1/tasks` (`?status=&limit=`, newest first, default limit 100),
+  `GET /api/v1/tasks/:id`, `DELETE /api/v1/tasks/:id`, `POST
+  /api/v1/tasks/:id/cancel` (pending tasks only) and `POST
+  /api/v1/tasks/clear` (removes completed tasks).
+- Divergences: `get` returns a snapshot copy (Python returns a live
+  reference); a corrupt `tasks.json` resets the queue to empty (Python
+  additionally crashes on an invalid status string); `stop_workers` joins
+  each thread instead of `join(timeout=1)`.
+- `start_worker`/`stop_workers` are dead in Python too (production never
+  starts a worker) and stay item-scoped.
 
 ### GitHub CLI
 
@@ -1487,8 +1690,29 @@ both the native and legacy key derivations), security verdicts, the
 repository-context commands, the workspace prompt block and JSON output,
 the rollback snapshot and turn lifecycles, HTTP auth (all three carriers,
 exact 401 body, auth routes, a CLI revoke
-observed by a running server, and 429 + `Retry-After`), and the
-no-crate-level-allow regression.
+observed by a running server, and 429 + `Retry-After`), the no-crate-level-allow
+regression, the Python-parity HTTP routes (every route that does not require
+an LLM call, the SSE `connected` frame, and the diff/decision error paths),
+and the diff preview accept/reject lifecycle against a real git repository
+(fingerprint change, `409 diff_changed` on a stale fingerprint, and
+reject/restore of a working-tree change), and the snapshot undo/redo
+lifecycle against a running `serve` (track-file, undo restoring the
+pre-change content, status counts, a no-op redo of a `track_file`
+snapshot, history, and the empty-stack `ok:false`). PR 350 adds the gateway lifecycle:
+CLI key generation and status, all eight routes, the tier model gate, usage
+counters, the admin trio, and an out-of-band revoke — against a local fake
+OpenRouter upstream, with no network and no API key. PR 351 adds session
+metadata: the CLI `session save` path persists the idle-agent usage shape
+(three zero counters, never an empty object), `Agent::load_session` restores
+model and cwd (Python defaults) with usage left fresh, and a fork carries the
+parent usage over. Phase 2c adds the durable task queue lifecycle
+(`serve_durable_tasks_lifecycle`: enqueue, newest-first listing, status
+filter, cancel/delete idempotence, and rehydration from
+`~/.apex/tasks/tasks.json` after a server restart in the same sandbox HOME)
+and custom tools via the CLI (`custom_tools_via_cli`: JSON definitions under
+`.apex/tools/`, `call-tool` execution of the defined command, the `custom_`
+schema in the `tools` listing, a blocked `sudo` command not registering, and
+the built-in `ERROR: Unknown tool '…'` for an unknown name).
 
 ```bash
 cd rust/apex-rs
@@ -1501,7 +1725,7 @@ cargo test
 
 ## Project Status
 
-- **Version**: 2.0.0
+- **Version**: 0.1.0
 - **Tests**:
   - Suite pytest (`tests/`) — run `pytest -q` from the repo root
   - Rust (`rust/apex-rs/`) — `cargo fmt --all -- --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`
@@ -1512,19 +1736,63 @@ cargo test
 
 ## Installation
 
+`VERSION` at the repository root is canonical. `python scripts/version.py
+check` (CI gate) verifies every manifest — `apex/__init__.py`,
+`pyproject.toml`, `rust/apex-rs/Cargo.toml`, `Cargo.lock` and
+`integrations/npm/package.json` — and `sync` rewrites them from it. A `v*`
+release tag must equal `VERSION`, and the npm package version must match the
+tag.
+
+APEX ships through **npm** and the **native Rust backend** only. PyPI, pip,
+pipx, uv and Homebrew are not distribution channels; the Python CLI/TUI runs
+from a source checkout for development.
+
 ```bash
-npm install -g apex-ai      # npm wrapper — provisions the Python package on first run
-pip install apex-ai
-pipx install apex-ai
-git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e .
+npm install -g apex-ai                     # `apex` command + verified apex-rs
+bash install.sh --method native            # headless apex-rs in ~/.apex/bin
+git clone https://github.com/Ggboykxz/APEX && cd APEX && pip install -e ".[dev]"
 ```
 
-The npm package (`integrations/npm/`, published as `apex-ai` on npm) is a
-zero-dependency wrapper: it resolves an existing `apex` on PATH, or installs
-the Python package via `pipx` > `uv` > `pip` on first run, then execs it.
-`APEX_BINARY`, `APEX_VERSION`, `APEX_INSTALL_METHOD` and `APEX_SKIP_INSTALL`
-control the behavior. Published from the `Release` workflow on `v*` tags
-(requires the `NPM_TOKEN` secret; the package version must match the tag).
+### Unified installers
+
+`scripts/install.sh` and `scripts/install.ps1` share
+`--method auto|npm|native|docker` (auto = native), `--version`, `--prefix`,
+`--no-path`, `--yes`, `--dry-run`, `--uninstall [--purge]`. The repository-root
+`install.sh` / `install.ps1` only dispatch to those canonical scripts. There
+is no silent `curl | sh` bootstrap. `.github/workflows/install.yml` runs both
+installers in `--dry-run`, checks their syntax, and re-runs the npm wrapper
+tests on Node 18/20/22 plus Windows.
+
+### Native backend (headless)
+
+`apex-rs` is downloaded from GitHub Release assets, verified against the
+`.sha256` sidecar published next to it, and installed as `apex-rs`
+(`apex-rs.exe` on Windows) in `~/.apex/bin` (`APEX_INSTALL_DIR` overrides).
+It is **never** installed as `apex`, so it cannot shadow an `apex` launcher.
+Targets: `x86_64`/`aarch64` Linux, `x86_64`/`aarch64` macOS, `x86_64` Windows.
+The crate is not published on crates.io (ADR-0008).
+
+### npm wrapper
+
+`integrations/npm/` (published as `apex-ai`) is a zero-dependency wrapper.
+Resolution order: `APEX_BINARY` → `apex` on PATH → native (`apex-rs` on PATH,
+the managed `~/.apex/bin/apex-rs`, or a verified download).
+`APEX_INSTALL_METHOD` accepts `auto` or `native`; any pip/pipx/uv value is
+rejected. `APEX_VERSION` pins the release, `APEX_INSTALL_DIR` moves the
+native binary, `APEX_NATIVE=0` disables the download, `APEX_SKIP_INSTALL=1`
+fails fast. Published from the `Release` workflow on `v*` tags (requires the
+`NPM_TOKEN` secret; the package version must match the tag).
+
+### Upgrade and uninstall
+
+`apex upgrade [--check] [--method …]` detects the install channel
+(`npm`/`native`, plus `source` for a checkout) and upgrades through it;
+`APEX_VERSION` pins a version. A source checkout is told to `git pull`; pip
+channels are rejected. `apex uninstall [--keep-config] [--keep-data]
+[--purge] [--dry-run]` executes the plan from `apex/install_manager.py`: by
+default it removes `~/.config/apex`, `~/.apex/{sessions,memory,tasks}` and
+the native binary, but **never** `api_keys.json` or `gateway.json` — only
+`--purge` removes the whole `~/.apex` tree.
 
 ## Launch
 
@@ -1565,4 +1833,89 @@ apex -p "prompt" -f json   # CI/CD mode
 ---
 
 *Made with ❤️ in Gabon 🇬🇦*
-*APEX v2.0.0 — Inspired by OpenCode, built for everyone*
+*APEX v0.1.0 — Inspired by OpenCode, built for everyone*
+
+## Graphify
+
+This repo is indexed in Graphify. For questions about code structure, callers, dependencies, or the impact of a change, use Graphify's MCP tools before grep or reading files one by one: query_graph for how something works, graphify_find for where a symbol is defined, graphify_callers / graphify_callees for who calls what, graphify_impact for what a change could affect. Use grep for exact strings, such as error messages or config keys. If a Graphify tool fails or the repository isn't indexed, say so, then fall back to grep.
+
+## Code Health (CodeScene)
+
+After changing code, run `code_health_review` on the changed files. If Code Health drops, fix the issues, run the review again, and use `code_health_score` to confirm the result. Before finishing, run `pre_commit_code_health_safeguard` and only stop when it passes.
+
+- Score below 5: problematic range — scope changes narrowly.
+- Score 5–7: warning range — no broad refactors.
+- Score above 7: safer to refactor, still verify after each edit.
+
+Current known scores:
+- `scripts/version.py`: 9.84 (green)
+- `scripts/install.ps1`: 9.68 (green)
+- `apex/install_manager.py`: 8.18 (green)
+- `apex/main.py`: 10.00 (green — parser, dispatch, runtime, re-exports)
+- `apex/cli_handlers.py`: 10.00 (green — slash commands + `COMMAND_DISPATCH`)
+- `apex/cli_auth.py`: 10.00 (green)
+- `apex/cli_sessions.py`: 10.00 (green)
+- `apex/cli_server.py`: 10.00 (green)
+- `apex/cli_maint.py`: 10.00 (green)
+- `apex/cli_misc.py`: 10.00 (green)
+- `apex/tui_launcher.py`: 10.00 (green)
+- `apex/agent.py`: 10.00 (green — chat loop, tool orchestration, subagent dispatch)
+- `apex/agent_rules.py`: 10.00 (green)
+- `apex/agent_context.py`: 10.00 (green)
+- `apex/agent_history.py`: 10.00 (green)
+- `apex/agent_permissions.py`: 10.00 (green)
+- `apex/agent_models.py`: 10.00 (green)
+- `apex/agent_messages.py`: 10.00 (green)
+- `apex/tools.py`: 10.00 (green — executor core + dispatch)
+- `apex/tools_files.py`: 10.00 (green)
+- `apex/tools_search.py`: 10.00 (green)
+- `apex/tools_shell.py`: 10.00 (green)
+- `apex/tools_git.py`: 10.00 (green)
+- `apex/tools_web.py`: 10.00 (green)
+- `apex/tools_lsp.py`: 10.00 (green)
+- `apex/tools_session.py`: 10.00 (green)
+- `apex/tools_project.py`: 10.00 (green)
+- `apex/tools_codegen.py`: 10.00 (green)
+- `apex/tools_ux.py`: 10.00 (green)
+- `apex/tools_env.py`: 10.00 (green)
+- `apex/tools_security.py`: 10.00 (green)
+- `apex/http_api.py`: 10.00 (green — server core, middleware, entry points)
+- `apex/http_helpers.py`: 10.00 (green)
+- `apex/http_routes_chat.py`: 10.00 (green)
+- `apex/http_routes_sessions.py`: 10.00 (green)
+- `apex/http_routes_catalog.py`: 10.00 (green)
+- `apex/http_routes_config.py`: 10.00 (green)
+- `apex/http_routes_auth.py`: 10.00 (green)
+- `apex/http_routes_system.py`: 10.00 (green)
+- `apex/apply_patch.py`: 10.00 (green — patch engine facade)
+- `apex/apply_patch_types.py`: 10.00 (green)
+- `apex/apply_patch_codex.py`: 10.00 (green)
+- `apex/apply_patch_unified.py`: 10.00 (green)
+- `apex/apply_patch_paths.py`: 10.00 (green)
+- `apex/apply_patch_hunks.py`: 10.00 (green)
+- `apex/apply_patch_writer.py`: 10.00 (green)
+- `apex/apply_patch_api.py`: 10.00 (green)
+- `apex/theme_manager.py`: 10.00 (green)
+- `apex/config.py`: 10.00 (green)
+- `apex/config_v2.py`: 10.00 (green)
+- `apex/ui.py`: 10.00 (green)
+- `apex/agents.py`: 10.00 (green)
+- `apex/billing.py`: 10.00 (green)
+- `apex/slash.py`: 10.00 (green)
+- `apex/mcp.py`: 10.00 (green)
+- `apex/mcp_server.py`: 10.00 (green)
+- `apex/watcher.py`: 10.00 (green)
+- `apex/skills_system.py`: 10.00 (green)
+- `apex/repomap.py`: 10.00 (green — cache, scan and rendering)
+- `apex/repomap_types.py`: 10.00 (green)
+- `apex/repomap_symbols.py`: 10.00 (green — per-language extractors)
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
