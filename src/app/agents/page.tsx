@@ -34,20 +34,20 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 
 const AGENTS = [
   {
-    name: 'Coder', mode: 'Primary', color: '#00e5ff', icon: Code2,
+    name: 'Build', mode: 'Primary', color: '#00e5ff', icon: Code2,
     access: 'Full (read/edit/bash/web)', default: true,
     desc: 'Your primary coding agent. Reads, writes, executes, and browses — the full stack. It handles file operations, code editing, command execution, web searches, and package management.',
     capabilities: ['Write, edit, and delete files', 'Run shell commands and tests', 'Search and analyze code', 'Install packages and format code', 'Browse the web for documentation', 'Create git commits and PRs'],
-    switch: '/agent coder  or press Tab',
-    workflow: 'Use the Coder agent for everyday coding tasks — fixing bugs, adding features, refactoring code, and running tests. It has full access to all tools.',
+    switch: '/agent build  or press Tab',
+    workflow: 'Use the Build agent for everyday coding tasks — fixing bugs, adding features, refactoring code, and running tests. It has full access to all tools.',
   },
   {
-    name: 'Architect', mode: 'Primary', color: '#a855f7', icon: Eye,
+    name: 'Plan', mode: 'Primary', color: '#a855f7', icon: Eye,
     access: 'Read-only (architecture & design)', default: false,
     desc: 'Analyzes your codebase architecture and creates high-level design decisions. Focuses on system design, dependency mapping, and architectural patterns.',
     capabilities: ['Read and analyze all files', 'Map project dependencies and architecture', 'Identify architectural patterns and anti-patterns', 'Suggest structural improvements', 'Design system boundaries and interfaces', 'Evaluate technology choices'],
-    switch: '/agent architect',
-    workflow: 'Switch to Architect when you need high-level design guidance: understanding system architecture, evaluating technology choices, or planning structural changes.',
+    switch: '/agent plan',
+    workflow: 'Switch to Plan when you need high-level design guidance: understanding system architecture, evaluating technology choices, or planning structural changes.',
   },
   {
     name: 'Planner', mode: 'Primary', color: '#ffaa00', icon: Search,
@@ -100,11 +100,11 @@ const AGENTS = [
 ]
 
 const PERMISSION_MATRIX = [
-  { tool: 'read', tools: 'read_file, list_files, search_in_files, glob_search', coder: 'allow', architect: 'allow', reviewer: 'allow', shell: 'allow', planner: 'allow' },
-  { tool: 'edit', tools: 'write_file, edit_file, delete_file', coder: 'allow', architect: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
-  { tool: 'bash', tools: 'run_command', coder: 'ask', architect: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
-  { tool: 'websearch', tools: 'web_search, fetch_url', coder: 'ask', architect: 'allow', reviewer: 'deny', shell: 'allow', planner: 'deny' },
-  { tool: 'task', tools: 'subagent invocation', coder: 'ask', architect: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
+  { tool: 'read', tools: 'read_file, list_files, search_in_files, glob_search', build: 'allow', plan: 'allow', reviewer: 'allow', shell: 'allow', planner: 'allow' },
+  { tool: 'edit', tools: 'write_file, edit_file, delete_file', build: 'allow', plan: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
+  { tool: 'bash', tools: 'run_command', build: 'ask', plan: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
+  { tool: 'websearch', tools: 'web_search, fetch_url', build: 'ask', plan: 'allow', reviewer: 'deny', shell: 'allow', planner: 'deny' },
+  { tool: 'task', tools: 'subagent invocation', build: 'ask', plan: 'deny', reviewer: 'deny', shell: 'ask', planner: 'deny' },
 ]
 
 export default function AgentsPage() {
@@ -181,8 +181,8 @@ export default function AgentsPage() {
                   <tr className="border-b border-border/50 bg-card/50">
                     <th className="text-left p-3 font-mono text-muted-foreground">Permission</th>
                     <th className="text-left p-3 font-mono text-muted-foreground">Tools</th>
-                    <th className="text-center p-3 font-mono text-muted-foreground">Coder</th>
-                    <th className="text-center p-3 font-mono text-muted-foreground">Architect</th>
+                    <th className="text-center p-3 font-mono text-muted-foreground">Build</th>
+                    <th className="text-center p-3 font-mono text-muted-foreground">Plan</th>
                     <th className="text-center p-3 font-mono text-muted-foreground">Reviewer</th>
                     <th className="text-center p-3 font-mono text-muted-foreground">Shell</th>
                     <th className="text-center p-3 font-mono text-muted-foreground">Planner</th>
@@ -193,7 +193,7 @@ export default function AgentsPage() {
                     <tr key={row.tool} className={`border-b border-border/30 ${i % 2 === 0 ? 'bg-card/20' : ''}`}>
                       <td className="p-3 font-mono font-bold text-foreground">{row.tool}</td>
                       <td className="p-3 font-mono text-muted-foreground text-xs">{row.tools}</td>
-                      {[row.coder, row.architect, row.reviewer, row.shell, row.planner].map((val, j) => (
+                      {[row.build, row.plan, row.reviewer, row.shell, row.planner].map((val, j) => (
                         <td key={j} className="p-3 text-center font-mono"><span className={`px-2 py-0.5 rounded text-xs ${val === 'allow' ? 'bg-apex-green/10 text-apex-green' : val === 'ask' ? 'bg-apex-yellow/10 text-apex-yellow' : val === 'config' ? 'bg-apex-cyan/10 text-apex-cyan' : 'bg-apex-red/10 text-apex-red'}`}>{val}</span></td>
                       ))}
                     </tr>
@@ -211,7 +211,7 @@ export default function AgentsPage() {
             <div className="grid sm:grid-cols-3 gap-4">
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">Slash Command</h3>
-                <CodeBlock code="/agent coder\n/agent architect\n/agent shell" />
+                <CodeBlock code="/agent build\n/agent plan\n/agent shell" />
                 <p className="text-sm text-muted-foreground mt-2">Type <code className="text-apex-cyan">/agent</code> followed by the agent name.</p>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
@@ -246,7 +246,7 @@ export default function AgentsPage() {
                 { title: 'Plan Before Coding', desc: 'Use the Planner agent first for complex features. It analyzes your codebase and creates a step-by-step plan before any code is written.' },
                 { title: 'Leverage Subagents', desc: 'Use @reviewer for code reviews and @planner for planning insights. This keeps your main conversation focused.' },
                 { title: 'Configure Permissions', desc: 'Customize the permission matrix for your security needs. Use "ask" mode for sensitive operations and "deny" for destructive ones.' },
-                { title: 'Switch Contextually', desc: 'Switch to Planner for analysis, Coder for implementation, and Shell for infrastructure. Use @mention for subagents like @reviewer, @general, @explore, @scout.' },
+                { title: 'Switch Contextually', desc: 'Switch to Planner for analysis, Build for implementation, and Shell for infrastructure. Use @mention for subagents like @reviewer, @general, @explore, @scout.' },
               ].map(bp => (
                 <div key={bp.title} className="p-4 rounded-lg border border-border/50 bg-card/30">
                   <h4 className="font-bold font-mono text-apex-cyan mb-1">{bp.title}</h4>
@@ -259,8 +259,8 @@ export default function AgentsPage() {
         {/* APEX Architecture */}
         <section className="mb-12">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Layers className="w-6 h-6 text-apex-cyan" /> APEX Architecture (v2.0.0)</h2>
-            <p className="text-muted-foreground mb-6">APEX v2.0.0 features a modular agent architecture — structured messages, snapshots, custom commands, CLI subcommands, gateway proxy, and a typed event bus that powers the agent system.</p>
+            <h2 className="text-2xl font-bold font-mono mb-6 flex items-center gap-2"><Layers className="w-6 h-6 text-apex-cyan" /> APEX Architecture (v0.2.0)</h2>
+            <p className="text-muted-foreground mb-6">APEX v0.2.0 features a modular agent architecture — structured messages, snapshots, custom commands, CLI subcommands, gateway proxy, and a typed event bus that powers the agent system.</p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="p-5 rounded-xl border border-apex-cyan/20 bg-apex-cyan/5">
                 <h3 className="font-bold font-mono text-apex-cyan mb-2">Structured Parts</h3>
@@ -275,7 +275,7 @@ export default function AgentsPage() {
                 <p className="text-sm text-muted-foreground leading-relaxed">Create user: and project: commands with template variables. Store in ~/.apex/commands/ for global access or .apex/commands/ for project-specific commands.</p>
               </div>
               <div className="p-5 rounded-xl border border-apex-yellow/20 bg-apex-yellow/5">
-                <h3 className="font-bold font-mono text-apex-yellow mb-2">Event Bus (25+ Events)</h3>
+                <h3 className="font-bold font-mono text-apex-yellow mb-2">Event Bus (14 Events)</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">Strongly-typed event bus with events for sessions, files, tools, permissions, LSP, and undo/redo. Plugins and TUI components subscribe for real-time updates.</p>
               </div>
               <div className="p-5 rounded-xl border border-apex-red/20 bg-apex-red/5">
@@ -283,8 +283,8 @@ export default function AgentsPage() {
                 <p className="text-sm text-muted-foreground leading-relaxed">Share sessions via Base64-encoded apex://share/{'{id}'} links. Recipients can load shared sessions to review conversations, tool calls, and outcomes.</p>
               </div>
               <div className="p-5 rounded-xl border border-border/50 bg-card/30">
-                <h3 className="font-bold font-mono text-foreground mb-2">Coder & Planner Agents</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">The Coder agent has full access to all tools. The Planner agent is read-only — it analyzes and proposes without touching any file. Switch with /agent coder or /agent planner.</p>
+                <h3 className="font-bold font-mono text-foreground mb-2">Build & Planner Agents</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">The Build agent has full access to all tools. The Planner agent is read-only — it analyzes and proposes without touching any file. Switch with /agent build or /agent planner.</p>
               </div>
             </div>
           </div>
