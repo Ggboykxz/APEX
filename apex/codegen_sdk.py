@@ -32,6 +32,56 @@ def _py_name(s: str) -> str:
     return s.strip("_").lower() or "x"
 
 
+_PY_TYPES = {
+    "string": "str",
+    "integer": "int",
+    "boolean": "bool",
+    "array": "list",
+    "object": "dict",
+}
+
+_PY_DEFAULTS = {
+    "string": ' = ""',
+    "integer": " = 0",
+    "boolean": " = False",
+    "array": " = field(default_factory=list)",
+}
+
+
+def _emit_models(components: dict[str, Any]) -> list[str]:
+    """Emit one dataclass per schema that declares properties."""
+    lines: list[str] = []
+    for name, sch in components.items():
+        props = sch.get("properties", {})
+        if not props:
+            continue
+        lines.append("@dataclass")
+        lines.append(f"class {_py_name(name)}:")
+        for pname, pspec in props.items():
+            ptype = pspec.get("type", "Any")
+            pytype = _PY_TYPES.get(ptype, "Any")
+            default = _PY_DEFAULTS.get(ptype, "")
+            lines.append(f"    {_py_name(pname)}: {pytype}{default}")
+        lines.append("")
+    return lines
+
+
+def _emit_operations(paths: dict[str, Any]) -> list[str]:
+    """Emit one client method per HTTP operation."""
+    lines: list[str] = []
+    for path, methods in paths.items():
+        for method, op in methods.items():
+            if method not in ("get", "post", "put", "delete", "patch"):
+                continue
+            op_id = op.get("operationId", f"{method}_{_py_name(path)}")
+            fn = _py_name(op_id)
+            lines.append(f"    def {fn}(self):")
+            lines.append(f'        """{op.get("summary", op_id)}"""')
+            lines.append(f"        return self._call('{method.upper()}', {path!r})")
+            lines.append("")
+    return lines
+
+
 def generate_client(schema: dict[str, Any], out: Path) -> Path:
     """Émet le client Python depuis le schéma."""
     paths = schema.get("paths", {})
@@ -71,44 +121,10 @@ def generate_client(schema: dict[str, Any], out: Path) -> Path:
     ]
 
     # Modèles (schémas simples avec propriétés)
-    for name, sch in components.items():
-        props = sch.get("properties", {})
-        if not props:
-            continue
-        lines.append("@dataclass")
-        lines.append(f"class {_py_name(name)}:")
-        for pname, pspec in props.items():
-            ptype = pspec.get("type", "Any")
-            pytype = {
-                "string": "str",
-                "integer": "int",
-                "boolean": "bool",
-                "array": "list",
-                "object": "dict",
-            }.get(ptype, "Any")
-            default = ""
-            if ptype == "string":
-                default = ' = ""'
-            elif ptype == "integer":
-                default = " = 0"
-            elif ptype == "boolean":
-                default = " = False"
-            elif ptype == "array":
-                default = " = field(default_factory=list)"
-            lines.append(f"    {_py_name(pname)}: {pytype}{default}")
-        lines.append("")
+    lines.extend(_emit_models(components))
 
     # Opérations
-    for path, methods in paths.items():
-        for method, op in methods.items():
-            if method not in ("get", "post", "put", "delete", "patch"):
-                continue
-            op_id = op.get("operationId", f"{method}_{_py_name(path)}")
-            fn = _py_name(op_id)
-            lines.append(f"    def {fn}(self):")
-            lines.append(f'        """{op.get("summary", op_id)}"""')
-            lines.append(f"        return self._call('{method.upper()}', {path!r})")
-            lines.append("")
+    lines.extend(_emit_operations(paths))
 
     out.write_text("\n".join(lines), encoding="utf-8")
     return out
