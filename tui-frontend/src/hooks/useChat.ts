@@ -2,12 +2,14 @@
 
 /**
  * useChat — centralizes chat logic: slash command dispatch, message sending,
- * bash execution, editor flow and input history. The React state (messages,
- * totals, history) stays in ApexApp; this hook only owns the side effects and
- * command parsing.
+ * bash execution, editor flow and input history.
+ *
+ * The hook no longer owns React state. It dispatches to the central TUI store
+ * (OpenCode SyncProvider pattern) and performs side effects (HTTP, editor,
+ * bash). All mutations go through `dispatch`.
  */
 
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useRef } from "react"
 import { spawnSync } from "node:child_process"
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -15,21 +17,32 @@ import { join } from "node:path"
 import { api } from "../api/client.js"
 import type { ChatMessage } from "../data/apex-data.js"
 import { APEX_MODELS } from "../data/apex-data.js"
+import type { TuiDispatch, TuiState } from "../store/tuiStore.js"
 
 interface UseChatProps {
-  activeAgent: string
-  activeModel: string
-  onConnectionError: (msg: string | null) => void
-  onSetIsGenerating: (v: boolean) => void
-  onSetIsReconnecting: (v: boolean) => void
-  onSetRetryCount: (v: number | ((prev: number) => number)) => void
+  dispatch: TuiDispatch
+  getState: () => TuiState
 }
 
-interface SlashResult {
-  type: "reset" | "help" | "models" | "themes" | "agents" | "sessions" |
-    "editor" | "cost" | "diff" | "copy" | "exit" | "command" | "ignored" |
-    "thinking" | "details" | "export" |
-    boolean
+export interface SlashResult {
+  type:
+    | "reset"
+    | "help"
+    | "models"
+    | "themes"
+    | "agents"
+    | "sessions"
+    | "editor"
+    | "cost"
+    | "diff"
+    | "copy"
+    | "exit"
+    | "command"
+    | "ignored"
+    | "thinking"
+    | "details"
+    | "export"
+    | boolean
   command?: string
 }
 
@@ -56,17 +69,8 @@ const COMMANDS = [
   { id: "/exit", desc: "Exit APEX" },
 ]
 
-export function useChat({
-  activeAgent,
-  activeModel,
-  onConnectionError,
-  onSetIsGenerating,
-  onSetIsReconnecting,
-  onSetRetryCount,
-}: UseChatProps) {
-  const [inputHistory, setInputHistory] = useState<string[]>([])
-  const [historyIdx, setHistoryIdx] = useState(-1)
-  const sendMessageRef = useRef<((message: string) => Promise<void>) | null>(null)
+export function useChat({ dispatch, getState }: UseChatProps) {
+  const sendMessageRef = useRef<((message: string) => Promise<{ type: string }>) | null>(null)
 
   const fuzzyMatch = useCallback((text: string, query: string) => {
     if (!query) return true
@@ -96,7 +100,9 @@ export function useChat({
         case "/themes":
           return { type: "themes" }
         case "/agent":
-          return arg ? { type: "command", command: `agent ${arg}` } : { type: "agents" }
+          return arg
+            ? { type: "command", command: `agent ${arg}` }
+            : { type: "agents" }
         case "/thinking":
           return { type: "thinking" }
         case "/details":
@@ -111,23 +117,23 @@ export function useChat({
           return { type: "sessions" }
         case "/undo":
           api.undo().catch(() =>
-            onConnectionError("Undo failed — backend unreachable")
+            dispatch({ type: "SET_CONNECTION_ERROR", payload: "Undo failed — backend unreachable" })
           )
           return true
         case "/redo":
           api.redo().catch(() =>
-            onConnectionError("Redo failed — backend unreachable")
+            dispatch({ type: "SET_CONNECTION_ERROR", payload: "Redo failed — backend unreachable" })
           )
           return true
         case "/compact":
           api.compact().catch(() =>
-            onConnectionError("Compact failed — backend unreachable")
+            dispatch({ type: "SET_CONNECTION_ERROR", payload: "Compact failed — backend unreachable" })
           )
           return true
         case "/theme":
           if (!arg) return { type: "themes" }
           if (!["default", "light", "dark", "forest", "sunset"].includes(arg)) {
-            onConnectionError(`Unknown theme: ${arg}`)
+            dispatch({ type: "SET_CONNECTION_ERROR", payload: `Unknown theme: ${arg}` })
             return true
           }
           return { type: "command", command: `theme ${arg}` }
@@ -140,7 +146,7 @@ export function useChat({
           return { type: "command", command: `share ${arg}` }
         case "/unshare":
           if (!arg) {
-            onConnectionError("Usage: /unshare <share_id>")
+            dispatch({ type: "SET_CONNECTION_ERROR", payload: "Usage: /unshare <share_id>" })
             return true
           }
           return { type: "command", command: `unshare ${arg}` }
@@ -157,7 +163,7 @@ export function useChat({
           return false
       }
     },
-    [onConnectionError]
+    [dispatch]
   )
 
   const sendEditorPrompt = useCallback(() => {
@@ -170,7 +176,7 @@ export function useChat({
       try {
         spawnSync(editor, [file], { stdio: "inherit" })
       } catch {
-        onConnectionError(`Could not launch editor: ${editor}`)
+        dispatch({ type: "SET_CONNECTION_ERROR", payload: `Could not launch editor: ${editor}` })
       }
       process.stdout.write("\x1b[?1049h\x1b[2J\x1b[H")
       const content = readFileSync(file, "utf8")
@@ -185,7 +191,7 @@ export function useChat({
         rmSync(dir, { recursive: true, force: true })
       } catch {}
     }
-  }, [onConnectionError])
+  }, [dispatch])
 
   const calcMessageCost = useCallback(
     (pt: number, ct: number, modelId: string) => {
@@ -215,42 +221,59 @@ export function useChat({
         return { type: "ignored" }
       }
 
-      onSetIsGenerating(true)
-      onConnectionError(null)
-      onSetIsReconnecting(false)
+      dispatch({ type: "SET_IS_GENERATING", payload: true })
+      dispatch({ type: "SET_CONNECTION_ERROR", payload: null })
+      dispatch({ type: "SET_IS_RECONNECTING", payload: false })
 
       const aid = `msg-${Date.now()}-a`
 
       try {
         const { full, usage } = await api.chatStream({
           message: userMessage,
-          model: activeModel,
+          model: getState().activeModel,
           onChunk: () => {},
         })
 
         const fp = usage.prompt_tokens ?? 0
         const fc = usage.completion_tokens ?? 0
-        const mc = calcMessageCost(fp, fc, activeModel)
+        const mc = calcMessageCost(fp, fc, getState().activeModel)
+
+        const userMsg: ChatMessage = {
+          id: `msg-${Date.now()}-u`,
+          role: "user",
+          content: userMessage,
+          timestamp: Date.now(),
+        }
+
+        const assistantMsg: ChatMessage = {
+          id: aid,
+          role: "assistant",
+          content: full || "(empty)",
+          agent: getState().activeAgent,
+          model: getState().activeModel,
+          timestamp: Date.now(),
+          promptTokens: fp,
+          completionTokens: fc,
+          cost: mc,
+        }
+
+        dispatch({ type: "ADD_MESSAGE", payload: userMsg })
+        dispatch({ type: "ADD_MESSAGE", payload: assistantMsg })
+        dispatch({
+          type: "SET_STATS",
+          payload: {
+            totalPromptTokens: getState().totalPromptTokens + fp,
+            totalCompletionTokens: getState().totalCompletionTokens + fc,
+            totalSpent: getState().totalSpent + mc,
+          },
+        })
+        dispatch({ type: "SET_LIVE_TOKENS", payload: { pt: fp, ct: fc } })
+        dispatch({ type: "SET_RETRY_COUNT", payload: 0 })
 
         return {
           type: "done",
-          userMsg: {
-            id: `msg-${Date.now()}-u`,
-            role: "user",
-            content: userMessage,
-            timestamp: Date.now(),
-          } as ChatMessage,
-          assistantMsg: {
-            id: aid,
-            role: "assistant",
-            content: full || "(empty)",
-            agent: activeAgent,
-            model: activeModel,
-            timestamp: Date.now(),
-            promptTokens: fp,
-            completionTokens: fc,
-            cost: mc,
-          } as ChatMessage,
+          userMsg,
+          assistantMsg,
           totalPromptTokens: fp,
           totalCompletionTokens: fc,
           totalSpent: mc,
@@ -262,88 +285,72 @@ export function useChat({
           msg.includes("ECONNREFUSED") ||
           msg.includes("NetworkError")
         ) {
-          onConnectionError("Cannot connect to APEX backend")
-          onSetIsReconnecting(true)
-          onSetRetryCount((c: number) => c + 1)
+          dispatch({ type: "SET_CONNECTION_ERROR", payload: "Cannot connect to APEX backend" })
+          dispatch({ type: "SET_IS_RECONNECTING", payload: true })
+          dispatch({ type: "SET_RETRY_COUNT", payload: (c: number) => c + 1 })
         } else {
-          onConnectionError(`Error: ${msg}`)
+          dispatch({ type: "SET_CONNECTION_ERROR", payload: `Error: ${msg}` })
         }
-        return {
-          type: "error",
-          assistantMsg: {
-            id: aid,
-            role: "assistant",
-            content: `Error: ${msg}`,
-            agent: activeAgent,
-            model: activeModel,
-            timestamp: Date.now(),
-            promptTokens: 0,
-            completionTokens: 0,
-            cost: 0,
-          } as ChatMessage,
+
+        const assistantMsg: ChatMessage = {
+          id: aid,
+          role: "assistant",
+          content: `Error: ${msg}`,
+          agent: getState().activeAgent,
+          model: getState().activeModel,
+          timestamp: Date.now(),
+          promptTokens: 0,
+          completionTokens: 0,
+          cost: 0,
         }
+        dispatch({ type: "ADD_MESSAGE", payload: assistantMsg })
+
+        return { type: "error", assistantMsg }
       } finally {
-        onSetIsGenerating(false)
+        dispatch({ type: "SET_IS_GENERATING", payload: false })
       }
     },
-    [
-      activeAgent,
-      activeModel,
-      handleSlashCommand,
-      onConnectionError,
-      onSetIsGenerating,
-      onSetIsReconnecting,
-      onSetRetryCount,
-      calcMessageCost,
-    ]
+    [dispatch, getState, handleSlashCommand, calcMessageCost, sendEditorPrompt]
   )
 
   const sendBash = useCallback(
     async (cmd: string) => {
-      onSetIsGenerating(true)
-      onConnectionError(null)
+      dispatch({ type: "SET_IS_GENERATING", payload: true })
+      dispatch({ type: "SET_CONNECTION_ERROR", payload: null })
       const rid = `msg-${Date.now()}-bash`
       try {
         const d = await api.bash(cmd)
-        return {
-          type: "done",
-          userMsg: {
-            id: `msg-${Date.now()}-u`,
-            role: "user",
-            content: `! ${cmd}`,
-            timestamp: Date.now(),
-          } as ChatMessage,
-          assistantMsg: {
-            id: rid,
-            role: "assistant",
-            content: "```\n" + (d.stdout ?? d.output ?? d.result ?? JSON.stringify(d)) + "\n```",
-            agent: "shell",
-            timestamp: Date.now(),
-            promptTokens: 0,
-            completionTokens: 0,
-            cost: 0,
-          } as ChatMessage,
+        const assistantMsg: ChatMessage = {
+          id: rid,
+          role: "assistant",
+          content: "```\n" + (d.stdout ?? d.output ?? d.result ?? JSON.stringify(d)) + "\n```",
+          agent: "shell",
+          timestamp: Date.now(),
+          promptTokens: 0,
+          completionTokens: 0,
+          cost: 0,
         }
+        dispatch({ type: "ADD_MESSAGE", payload: assistantMsg })
+        return { type: "done", assistantMsg }
       } catch (e: any) {
-        onConnectionError(`Bash error: ${e.message}`)
-        return {
-          type: "error",
-          assistantMsg: {
-            id: rid,
-            role: "assistant",
-            content: `Bash error: ${e.message}`,
-            agent: "shell",
-            timestamp: Date.now(),
-            promptTokens: 0,
-            completionTokens: 0,
-            cost: 0,
-          } as ChatMessage,
+        dispatch({ type: "SET_CONNECTION_ERROR", payload: `Bash error: ${e.message}` })
+        const assistantMsg: ChatMessage = {
+          id: rid,
+          role: "assistant",
+          content: `Bash error: ${e.message}`,
+          agent: "shell",
+          timestamp: Date.now(),
+          promptTokens: 0,
+          completionTokens: 0,
+          cost: 0,
         }
+        dispatch({ type: "ADD_MESSAGE", payload: assistantMsg })
+        return { type: "error", assistantMsg }
       } finally {
-        onSetIsGenerating(false)
+        dispatch({ type: "SET_IS_GENERATING", payload: false })
       }
     },
-    [onConnectionError, onSetIsGenerating]
+    [dispatch]
   )
 
   const sendCost = useCallback(async () => {
@@ -357,33 +364,28 @@ export function useChat({
         `  Total tokens: ${usage.total_tokens ?? 0}`,
         `  Cost: $${(d.total_cost ?? 0).toFixed(6)} (${
           d.currency ?? "USD"
-        }, model ${d.model ?? activeModel})`,
+        }, model ${d.model ?? getState().activeModel})`,
       ].join("\n")
-      return {
-        type: "done",
-        assistantMsg: {
-          id: `msg-${Date.now()}-c`,
-          role: "assistant",
-          content,
-          agent: "build",
-          model: activeModel,
-          timestamp: Date.now(),
-          promptTokens: 0,
-          completionTokens: 0,
-          cost: 0,
-        } as ChatMessage,
+      const assistantMsg: ChatMessage = {
+        id: `msg-${Date.now()}-c`,
+        role: "assistant",
+        content,
+        agent: "build",
+        model: getState().activeModel,
+        timestamp: Date.now(),
+        promptTokens: 0,
+        completionTokens: 0,
+        cost: 0,
       }
+      dispatch({ type: "ADD_MESSAGE", payload: assistantMsg })
+      return { type: "done", assistantMsg }
     } catch {
-      onConnectionError("Cost request failed — backend unreachable")
+      dispatch({ type: "SET_CONNECTION_ERROR", payload: "Cost request failed — backend unreachable" })
       return { type: "error" }
     }
-  }, [activeModel, onConnectionError])
+  }, [dispatch, getState])
 
   return {
-    inputHistory,
-    setInputHistory,
-    historyIdx,
-    setHistoryIdx,
     sendMessageRef,
     sendMessage,
     sendBash,

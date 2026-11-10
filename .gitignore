@@ -96,3 +96,6 @@ apex_agent.egg-info/
 
 # Python coverage artifacts (accidentally tracked historically)
 *.py,cover
+test-results/
+playwright-report/
+node_modules/

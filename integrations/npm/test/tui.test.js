@@ -1,18 +1,18 @@
 "use strict";
 
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+const { describe, it } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 
-import {
+const {
   DEFAULT_TUI_URL,
   tuiDir,
   findRuntime,
   ensureTuiFrontend,
   extractArchive,
-} from "../lib/tui.js";
+} = require("../lib/tui.js");
 
 describe("tuiDir", () => {
   it("defaults to ~/.apex/tui-frontend", () => {
@@ -111,7 +111,7 @@ describe("ensureTuiFrontend", () => {
           extracted = true;
           extractArchive(archivePath, destination);
         },
-        runtime: () => "bun", // bun is on PATH in this environment
+        runtime: () => "npm", // npm est toujours disponible sur les runners CI (bun ne l'est pas)
         log: () => {},
       });
       assert.strictEqual(downloaded, true);

@@ -6,6 +6,8 @@
 # Rust backend (`apex-rs`, headless). PyPI/pip/pipx/uv no longer exist.
 #
 # Usage:
+#   irm https://apex-ai.dev/install.ps1 | iex
+#   # or explicitly, with options:
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 [options]
 #
 # Options:
