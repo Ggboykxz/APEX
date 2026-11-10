@@ -16,21 +16,21 @@ from __future__ import annotations
 
 import asyncio
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
 
 from apex.core.service import Core, SkillInfo
-from apex.schema import SkillID
 from apex.hooks import PluginHooks
+from apex.schema import SkillID
 from apex.utils.frontmatter import parse_frontmatter_document
 
 __all__ = [
-    "SkillSourceConfig",
-    "parse_skill_md",
-    "SkillDiscovery",
-    "SkillWatcher",
     "DynamicSkillManager",
+    "SkillDiscovery",
+    "SkillSourceConfig",
+    "SkillWatcher",
+    "parse_skill_md",
 ]
 
 
@@ -44,10 +44,10 @@ SkillSource = str  # "directory" | "url" | "embedded"
 @dataclass
 class SkillSourceConfig:
     kind: SkillSource
-    path: Optional[str] = None          # for directory
-    url: Optional[str] = None           # for url
-    ref: Optional[str] = None           # git ref for url
-    max_depth: int = 6                  # for directory scan
+    path: str | None = None  # for directory
+    url: str | None = None  # for url
+    ref: str | None = None  # git ref for url
+    max_depth: int = 6  # for directory scan
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ class SkillSourceConfig:
 # ---------------------------------------------------------------------------
 
 
-def parse_skill_md(content: str, path: str) -> Optional[SkillInfo]:
+def parse_skill_md(content: str, path: str) -> SkillInfo | None:
     """Parse a SKILL.md file into a :class:`SkillInfo`.
 
     Returns ``None`` if the file has no valid frontmatter or is missing the
@@ -75,9 +75,7 @@ def parse_skill_md(content: str, path: str) -> Optional[SkillInfo]:
         description=metadata.get("description", ""),
         path=path,
         autoinvoke=bool(metadata.get("autoinvoke", False)),
-        disable_model_invocation=bool(
-            metadata.get("disable-model-invocation", False)
-        ),
+        disable_model_invocation=bool(metadata.get("disable-model-invocation", False)),
         metadata=metadata.get("metadata", {}) or {},
     )
 
@@ -152,7 +150,7 @@ class SkillWatcher:
         self.config = config
         self.hooks = hooks
         self.debounce_ms = debounce_ms
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
         self._pending: set[str] = set()
         self._running = False
 
@@ -212,9 +210,7 @@ class DynamicSkillManager:
             if cfg.kind == "directory":
                 watcher = SkillWatcher(cfg, self.hooks)
                 self._watchers.append(watcher)
-                task = asyncio.create_task(
-                    watcher.start(lambda skills: self._register_skills(skills))
-                )
+                task = asyncio.create_task(watcher.start(self._register_skills))
                 self._tasks.append(task)
 
     async def stop(self) -> None:
@@ -234,10 +230,10 @@ class DynamicSkillManager:
 
 
 __all__ = [
-    "SkillSourceConfig",
-    "SkillInfo",
-    "parse_skill_md",
-    "SkillDiscovery",
-    "SkillWatcher",
     "DynamicSkillManager",
+    "SkillDiscovery",
+    "SkillInfo",
+    "SkillSourceConfig",
+    "SkillWatcher",
+    "parse_skill_md",
 ]

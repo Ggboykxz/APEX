@@ -12,7 +12,7 @@ configured object in APEX.  The Core service layer
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 # ---------------------------------------------------------------------------
 # Common
@@ -25,18 +25,21 @@ PermissionAction = Literal["ALLOW", "DENY", "ASK"]
 @dataclass(frozen=True)
 class AgentID:
     """Opaque identifier for an agent."""
+
     value: str
 
 
 @dataclass(frozen=True)
 class CommandID:
     """Opaque identifier for a command."""
+
     value: str
 
 
 @dataclass(frozen=True)
 class SkillID:
     """Opaque identifier for a skill."""
+
     value: str
 
 
@@ -49,7 +52,7 @@ class SkillID:
 class AgentPermission:
     tool: str
     action: PermissionAction
-    pattern: Optional[str] = None
+    pattern: str | None = None
 
 
 @dataclass(frozen=True)
@@ -59,12 +62,12 @@ class AgentInfo:
     model: str
     mode: AgentMode = "primary"
     hidden: bool = False
-    color: Optional[str] = None
-    steps: Optional[int] = None
+    color: str | None = None
+    steps: int | None = None
     permissions: tuple[AgentPermission, ...] = ()
-    description: Optional[str] = None
-    system: Optional[str] = None
-    variant: Optional[str] = None
+    description: str | None = None
+    system: str | None = None
+    variant: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -78,11 +81,11 @@ class CommandInfo:
     id: CommandID
     name: str
     description: str
-    model: Optional[str] = None
-    variant: Optional[str] = None
+    model: str | None = None
+    variant: str | None = None
     subtask: bool = False
-    template: Optional[str] = None
-    agent: Optional[str] = None
+    template: str | None = None
+    agent: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -110,8 +113,8 @@ class SkillInfo:
 @dataclass(frozen=True)
 class MCPServerConfig:
     type: Literal["remote", "local"]
-    url: Optional[str] = None
-    command: Optional[tuple[str, ...]] = None
+    url: str | None = None
+    command: tuple[str, ...] | None = None
     environment: dict[str, str] = field(default_factory=dict)
 
 
@@ -155,19 +158,19 @@ class CommandUpdated:
 
 
 __all__ = [
-    "AgentMode",
-    "PermissionAction",
-    "AgentID",
-    "CommandID",
-    "SkillID",
-    "AgentPermission",
-    "AgentInfo",
-    "CommandInfo",
-    "SkillInfo",
-    "MCPServerConfig",
-    "ToolConfig",
     "APEXConfig",
+    "AgentID",
+    "AgentInfo",
+    "AgentMode",
+    "AgentPermission",
     "AgentUpdated",
-    "SkillUpdated",
+    "CommandID",
+    "CommandInfo",
     "CommandUpdated",
+    "MCPServerConfig",
+    "PermissionAction",
+    "SkillID",
+    "SkillInfo",
+    "SkillUpdated",
+    "ToolConfig",
 ]

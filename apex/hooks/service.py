@@ -16,16 +16,17 @@ it executes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 __all__ = [
-    "HookDomain",
-    "HookEvent",
     "HookCallback",
+    "HookDomain",
+    "HookError",
+    "HookEvent",
     "HookOptions",
     "PluginHooks",
-    "HookError",
 ]
 
 
@@ -36,7 +37,7 @@ __all__ = [
 HookDomain = str
 HookName = str
 HookEvent = dict[str, Any]
-HookCallback = Callable[[HookEvent], Optional[object]]
+HookCallback = Callable[[HookEvent], object | None]
 HookOptions = dict[str, Any]
 
 
@@ -54,14 +55,14 @@ class _HookEntry:
     name: HookName
     callback: HookCallback
     options: HookOptions
-    provider_id: Optional[str] = None
+    provider_id: str | None = None
 
 
 class PluginHooks:
     """Register and trigger hooks across domains."""
 
     # Domains where a hook failure propagates and cancels the operation.
-    FAILABLE_DOMAINS = {"tool"}
+    FAILABLE_DOMAINS: frozenset[str] = frozenset({"tool"})
 
     def __init__(self) -> None:
         # (domain, name) -> list[_HookEntry]
@@ -75,7 +76,7 @@ class PluginHooks:
         name: HookName,
         callback: HookCallback,
         *,
-        provider_id: Optional[str] = None,
+        provider_id: str | None = None,
         **options: Any,
     ) -> None:
         key = (domain, name)
@@ -87,22 +88,18 @@ class PluginHooks:
         self,
         domain: HookDomain,
         name: HookName,
-        provider_id: Optional[str] = None,
+        provider_id: str | None = None,
     ) -> None:
         key = (domain, name)
         if key not in self._hooks:
             return
-        self._hooks[key] = [
-            entry
-            for entry in self._hooks[key]
-            if entry.provider_id != provider_id
-        ]
+        self._hooks[key] = [entry for entry in self._hooks[key] if entry.provider_id != provider_id]
         if not self._hooks[key]:
             del self._hooks[key]
 
     # -- queries ------------------------------------------------------------
 
-    def has(self, domain: HookDomain, name: HookName, provider_id: Optional[str] = None) -> bool:
+    def has(self, domain: HookDomain, name: HookName, provider_id: str | None = None) -> bool:
         """Return ``True`` if at least one hook matches (optionally by provider)."""
         for entry in self._hooks.get((domain, name), ()):
             if provider_id is None or entry.provider_id == provider_id:
@@ -133,9 +130,7 @@ class PluginHooks:
 
     # -- convenience --------------------------------------------------------
 
-    def trigger_tool_before(
-        self, event: HookEvent
-    ) -> Optional[HookError]:
+    def trigger_tool_before(self, event: HookEvent) -> HookError | None:
         """Run ``tool.execute.before`` hooks.
 
         Returns the first :class:`HookError` raised, or ``None`` if all hooks
@@ -153,11 +148,11 @@ class PluginHooks:
 
 
 __all__ = [
-    "HookDomain",
-    "HookName",
-    "HookEvent",
     "HookCallback",
+    "HookDomain",
+    "HookError",
+    "HookEvent",
+    "HookName",
     "HookOptions",
     "PluginHooks",
-    "HookError",
 ]

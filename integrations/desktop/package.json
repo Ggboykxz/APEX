@@ -14,11 +14,14 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
-    "electron": "^33.0.0",
+    "electron": "^42.11.16",
     "electron-builder": "^26.0.0",
     "electron-vite": "^3.0.0",
-    "vite": "^7.3.7",
+    "vite": "^6.4.6",
     "typescript": "^6.0.2"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
   },
   "build": {
     "appId": "dev.apex-ai.desktop",

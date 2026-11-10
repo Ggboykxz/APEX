@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Optional
-from urllib import request, error
+from typing import Any
+from urllib import error, request
 
 __all__ = [
-    "MCPServerConfig",
     "MCPConnection",
     "MCPConnectionPool",
+    "MCPServerConfig",
     "MCPTransportError",
 ]
 
@@ -34,8 +34,8 @@ class MCPServerConfig:
 
     name: str
     type: str  # "remote" | "local"
-    url: Optional[str] = None
-    command: Optional[tuple[str, ...]] = None
+    url: str | None = None
+    command: tuple[str, ...] | None = None
     environment: dict[str, str] = field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
 
@@ -45,9 +45,9 @@ class MCPConnection:
 
     def __init__(self, config: MCPServerConfig) -> None:
         self.config = config
-        self.session_id: Optional[str] = None
-        self.protocol_version: Optional[str] = None
-        self.server_info: Optional[dict[str, Any]] = None
+        self.session_id: str | None = None
+        self.protocol_version: str | None = None
+        self.server_info: dict[str, Any] | None = None
         self._closed = False
 
     # -- lifecycle ----------------------------------------------------------
@@ -82,7 +82,7 @@ class MCPConnection:
 
     # -- JSON-RPC ----------------------------------------------------------
 
-    def _post_jsonrpc(self, method: str, params: dict, notify: bool = False) -> Optional[dict]:
+    def _post_jsonrpc(self, method: str, params: dict, notify: bool = False) -> dict | None:
         payload: dict[str, Any] = {"jsonrpc": "2.0", "method": method, "params": params}
         if not notify:
             payload["id"] = 1
@@ -95,7 +95,9 @@ class MCPConnection:
         if self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
 
-        req = request.Request(self.config.url, data=json.dumps(payload).encode(), headers=headers, method="POST")
+        req = request.Request(
+            self.config.url, data=json.dumps(payload).encode(), headers=headers, method="POST"
+        )
         try:
             with request.urlopen(req, timeout=30) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
@@ -112,10 +114,10 @@ class MCPConnection:
         """Parse the JSON or SSE response body."""
         if body.lstrip().startswith("event:"):
             # SSE stream — take the last data line
-            data_lines = [l for l in body.splitlines() if l.startswith("data:")]
+            data_lines = [line for line in body.splitlines() if line.startswith("data:")]
             if not data_lines:
                 return {}
-            body = data_lines[-1][len("data:"):].strip()
+            body = data_lines[-1][len("data:") :].strip()
         try:
             return json.loads(body)
         except json.JSONDecodeError:
@@ -129,7 +131,7 @@ class MCPConnection:
             return []
         return result["result"].get("tools", [])
 
-    def call_tool(self, name: str, arguments: dict) -> Optional[dict]:
+    def call_tool(self, name: str, arguments: dict) -> dict | None:
         result = self._post_jsonrpc("tools/call", {"name": name, "arguments": arguments})
         if not result or "result" not in result:
             return None
@@ -142,7 +144,7 @@ class MCPConnectionPool:
     def __init__(self) -> None:
         self._connections: dict[str, MCPConnection] = {}
 
-    def get(self, name: str) -> Optional[MCPConnection]:
+    def get(self, name: str) -> MCPConnection | None:
         return self._connections.get(name)
 
     def add(self, connection: MCPConnection) -> None:

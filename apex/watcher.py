@@ -36,6 +36,20 @@ DEFAULT_IGNORE_PATTERNS: list[str] = [
 # ────────────────────────────────────────────────────────────
 
 
+def _is_bare_glob(pattern: str) -> bool:
+    """Whether the pattern is a glob without any directory part."""
+    if "/" in pattern:
+        return False
+    return pattern.startswith("*")
+
+
+def _is_bare_name(pattern: str) -> bool:
+    """Whether the pattern is a plain file name."""
+    if "/" in pattern:
+        return False
+    return "*" not in pattern and "?" not in pattern
+
+
 def _matches_pattern(path: str, pattern: str) -> bool:
     """Match path against a glob pattern.
 
@@ -47,32 +61,28 @@ def _matches_pattern(path: str, pattern: str) -> bool:
     # Normalise to forward slashes
     normalised = path.replace(os.sep, "/")
 
-    # If pattern is an extension pattern like *.log
     if pattern.startswith("*."):
         return fnmatch.fnmatch(normalised, pattern)
-
-    # For **/X/** style patterns
-    if pattern.startswith("**/") and pattern.endswith("/**"):
-        middle = pattern[3:-3]
-        parts = normalised.split("/")
-        return middle in parts
-
-    # For **/X (match anywhere in tree)
     if pattern.startswith("**/"):
-        suffix = pattern[3:]
-        return normalised.endswith(suffix) or f"/{suffix}" in normalised or normalised == suffix
-
-    # Bare filename or extension pattern (e.g. ".env", "*.log")
-    if "/" not in pattern and pattern.startswith("*"):
+        return _matches_tree_pattern(normalised, pattern)
+    if _is_bare_glob(pattern):
         return fnmatch.fnmatch(normalised, pattern)
-
-    # Bare filename without glob (e.g. ".env") — match any file with that name
-    if "/" not in pattern and "*" not in pattern and "?" not in pattern:
+    if _is_bare_name(pattern):
+        # Bare filename without glob (e.g. ".env") — match any file with that name
         base = normalised.rsplit("/", 1)[-1]
         return base == pattern
-
     # Standard fnmatch
     return fnmatch.fnmatch(normalised, pattern)
+
+
+def _matches_tree_pattern(normalised: str, pattern: str) -> bool:
+    """Match a ``**/`` pattern against the path."""
+    if pattern.endswith("/**"):
+        middle = pattern[3:-3]
+        return middle in normalised.split("/")
+    # For **/X (match anywhere in tree)
+    suffix = pattern[3:]
+    return normalised.endswith(suffix) or f"/{suffix}" in normalised or normalised == suffix
 
 
 def is_ignored(path: str, patterns: list[str]) -> bool:
@@ -99,19 +109,7 @@ def _load_gitignore_patterns(project_dir: str) -> list[str]:
 
     # Walk up from project_dir to find .gitignore (root and parent dirs)
     for parent in [root] + list(root.parents):
-        gi = parent / ".gitignore"
-        if gi.is_file():
-            try:
-                for line in gi.read_text(encoding="utf-8", errors="replace").splitlines():
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        # Folders: "some_dir/" -> "**/some_dir/**"
-                        if line.endswith("/"):
-                            line = f"**/{line}**"
-                        # Already a glob
-                        patterns.append(line)
-            except OSError:
-                pass
+        patterns.extend(_gitignore_patterns(parent / ".gitignore"))
         # Stop at filesystem root
         if parent.parent == parent:
             break
@@ -119,9 +117,41 @@ def _load_gitignore_patterns(project_dir: str) -> list[str]:
     return patterns
 
 
+def _gitignore_patterns(gitignore: Path) -> list[str]:
+    """The ignore patterns of one .gitignore file."""
+    if not gitignore.is_file():
+        return []
+    try:
+        lines = gitignore.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return []
+    patterns: list[str] = []
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Folders: "some_dir/" -> "**/some_dir/**"
+        if line.endswith("/"):
+            line = f"**/{line}**"
+        # Already a glob
+        patterns.append(line)
+    return patterns
+
+
 # ────────────────────────────────────────────────────────────
 # Config
 # ────────────────────────────────────────────────────────────
+
+
+@dataclass
+class _Walk:
+    """The state of one directory walk."""
+
+    dirpath: str
+    rel_dir: str
+    patterns: list[str]
+    seen: set[str]
+    now: float
 
 
 @dataclass
@@ -232,31 +262,45 @@ class FileWatcher:
         root = Path(self._project_dir)
         try:
             for dirpath, dirnames, filenames in os.walk(root):
-                # Prune ignored directories in-place
                 rel_dir = os.path.relpath(dirpath, root)
                 if rel_dir == ".":
                     rel_dir = ""
-                filtered: list[str] = []
-                for d in dirnames:
-                    dpath = os.path.join(rel_dir, d) if rel_dir else d
-                    if not is_ignored(dpath, patterns):
-                        filtered.append(d)
-                dirnames[:] = filtered
+                # Prune ignored directories in-place
+                dirnames[:] = self._keep_dirs(dirnames, rel_dir, patterns)
 
-                for f in filenames:
-                    fpath = os.path.join(rel_dir, f) if rel_dir else f
-                    if is_ignored(fpath, patterns):
-                        continue
-                    full = os.path.join(dirpath, f)
-                    try:
-                        st = os.stat(full)
-                        new_mtimes[full] = st.st_mtime
-                    except OSError:
-                        pass
+                new_mtimes.update(dict(self._scan_files(dirpath, rel_dir, filenames, patterns)))
         except OSError:
             return
 
         self._mtimes = new_mtimes
+
+    def _file_mtime(
+        self, dirpath: str, rel_dir: str, name: str, patterns: list[str]
+    ) -> float | None:
+        """The modification time of a file, or ``None`` when it is ignored."""
+        fpath = os.path.join(rel_dir, name) if rel_dir else name
+        if is_ignored(fpath, patterns):
+            return None
+        try:
+            return os.stat(os.path.join(dirpath, name)).st_mtime
+        except OSError:
+            return None
+
+    def _scan_files(
+        self, dirpath: str, rel_dir: str, filenames: list[str], patterns: list[str]
+    ) -> list[tuple[str, float]]:
+        """The files of one directory with their modification time."""
+        entries = [self._file_entry(dirpath, rel_dir, name, patterns) for name in filenames]
+        return [entry for entry in entries if entry is not None]
+
+    def _file_entry(
+        self, dirpath: str, rel_dir: str, name: str, patterns: list[str]
+    ) -> tuple[str, float] | None:
+        """The path and the modification time of a file, when it is tracked."""
+        mtime = self._file_mtime(dirpath, rel_dir, name, patterns)
+        if mtime is None:
+            return None
+        return os.path.join(dirpath, name), mtime
 
     def _poll_loop(self) -> None:
         # Wait one interval first so the initial scan settles before detecting changes
@@ -271,39 +315,55 @@ class FileWatcher:
         seen: set[str] = set()
 
         for dirpath, dirnames, filenames in os.walk(self._project_dir):
-            rel_dir = os.path.relpath(dirpath, self._project_dir)
-            if rel_dir == ".":
-                rel_dir = ""
-
+            rel_dir = self._rel_dir(dirpath)
             # Prune ignored dirs
-            filtered: list[str] = []
-            for d in dirnames:
-                dpath = os.path.join(rel_dir, d) if rel_dir else d
-                if not is_ignored(dpath, patterns):
-                    filtered.append(d)
-            dirnames[:] = filtered
-
-            for f in filenames:
-                fpath = os.path.join(rel_dir, f) if rel_dir else f
-                full = os.path.join(dirpath, f)
-                if is_ignored(fpath, patterns):
-                    continue
-                seen.add(full)
-                try:
-                    st = os.stat(full)
-                    mtime = st.st_mtime
-                except OSError:
-                    continue
-
-                prev = self._mtimes.get(full)
-                if prev is None or abs(mtime - prev) > 1e-6:
-                    self._on_change(full, now)
-                self._mtimes[full] = mtime
+            dirnames[:] = self._keep_dirs(dirnames, rel_dir, patterns)
+            self._check_files(_Walk(dirpath, rel_dir, patterns, seen, now), filenames)
 
         # Remove tracked files that no longer exist
+        self._forget_missing(seen)
+
+    def _rel_dir(self, dirpath: str) -> str:
+        """The path of a directory relative to the watched root."""
+        rel_dir = os.path.relpath(dirpath, self._project_dir or ".")
+        return "" if rel_dir == "." else rel_dir
+
+    def _check_files(self, walk: _Walk, filenames: list[str]) -> None:
+        """Track every file of one directory."""
+        for name in filenames:
+            self._check_file(walk, name)
+
+    def _forget_missing(self, seen: set[str]) -> None:
+        """Stop tracking the files that no longer exist."""
         for full in list(self._mtimes):
             if full not in seen:
                 del self._mtimes[full]
+
+    def _keep_dirs(self, dirnames: list[str], rel_dir: str, patterns: list[str]) -> list[str]:
+        """The sub-directories that are not ignored."""
+        kept: list[str] = []
+        for name in dirnames:
+            dpath = os.path.join(rel_dir, name) if rel_dir else name
+            if not is_ignored(dpath, patterns):
+                kept.append(name)
+        return kept
+
+    def _check_file(self, walk: _Walk, name: str) -> None:
+        """Track one file and fire the callback when it changed."""
+        fpath = os.path.join(walk.rel_dir, name) if walk.rel_dir else name
+        full = os.path.join(walk.dirpath, name)
+        if is_ignored(fpath, walk.patterns):
+            return
+        walk.seen.add(full)
+        try:
+            mtime = os.stat(full).st_mtime
+        except OSError:
+            return
+
+        prev = self._mtimes.get(full)
+        if prev is None or abs(mtime - prev) > 1e-6:
+            self._on_change(full, walk.now)
+        self._mtimes[full] = mtime
 
     def _on_change(self, path: str, timestamp: float) -> None:
         """Debounce and fire the callback."""

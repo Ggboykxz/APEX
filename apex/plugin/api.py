@@ -9,13 +9,13 @@ Plugins are loaded asynchronously and never block the server.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from apex.core.service import Core
-from apex.schema import AgentInfo, CommandInfo, SkillInfo
 
-__all__ = ["Plugin", "define", "PluginContext", "PluginManager"]
+__all__ = ["Plugin", "PluginContext", "PluginManager", "define"]
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +127,7 @@ class PluginManager:
 
     # -- queries ------------------------------------------------------------
 
-    def get(self, plugin_id: str) -> Optional[Plugin]:
+    def get(self, plugin_id: str) -> Plugin | None:
         return self._plugins.get(plugin_id)
 
     def list(self) -> tuple[Plugin, ...]:
@@ -149,7 +149,8 @@ class PluginManager:
         result = plugin.effect(ctx)
         # Support both sync and async effects.
         if hasattr(result, "__await__"):
-            await result
+            # The value of an effect is not used; awaiting it is the point.
+            _ = await result
 
         self._activated.add(plugin_id)
 
@@ -164,4 +165,4 @@ class PluginManager:
         self._activated.clear()
 
 
-__all__ = ["Plugin", "define", "PluginContext", "PluginManager"]
+__all__ = ["Plugin", "PluginContext", "PluginManager", "define"]

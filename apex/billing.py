@@ -141,6 +141,30 @@ class BillingAccount:
     metadata: dict = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class TokenUsage:
+    """The token counters of one request."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+@dataclass(frozen=True)
+class UsageContext:
+    """Where a usage record comes from."""
+
+    session_id: str | None = None
+    workspace_id: str | None = None
+
+
+@dataclass(frozen=True)
+class CacheUsage:
+    """The cached tokens of one request."""
+
+    enabled: bool = False
+    tokens: int = 0
+
+
 class BillingManager:
     PLANS: ClassVar[dict[PlanType, BillingPlan]] = {
         PlanType.FREE: BillingPlan(
@@ -216,19 +240,41 @@ class BillingManager:
         model: str,
         input_tokens: int,
         output_tokens: int,
-        use_cache: bool = False,
-        cache_tokens: int = 0,
+        cache: CacheUsage | None = None,
     ) -> float:
+        usage = cache or CacheUsage()
         input_tokens = max(input_tokens, 0)
         output_tokens = max(output_tokens, 0)
-        cache_tokens = max(cache_tokens, 0)
+        cache_tokens = max(usage.tokens, 0)
         model_key = model.lower().replace("-", "_").replace(" ", "_")
         cost_config = MODEL_COSTS.get(model_key, MODEL_COSTS.get("claude_sonnet"))
         input_cost = (input_tokens / 1000) * cost_config.input_cost_per_1k
         output_cost = (output_tokens / 1000) * cost_config.output_cost_per_1k
-        if use_cache and cache_tokens > 0:
+        if usage.enabled and cache_tokens > 0:
             input_cost += (cache_tokens / 1000) * cost_config.cache_read_cost_per_1m
         return round(input_cost + output_cost, 6)
+
+    def _check_monthly_limit(
+        self, user_id: str, account: "BillingAccount", model: str, cost: float
+    ) -> None:
+        """Raise when the monthly limit is reached and overage is not allowed."""
+        limit = account.plan.monthly_limit
+        if limit <= 0:
+            return
+        if account.used_this_month + cost <= limit:
+            return
+        if account.plan.overage_allowed:
+            logger.warning(f"User {user_id} exceeding monthly limit, applying overage")
+            return
+        raise QuotaExceededError(f"Monthly limit of ${limit} exceeded")
+
+    def _check_token_limit(self, limit: int, used: int, added: int, label: str) -> str | None:
+        """The message of the token limit that is reached, if any."""
+        if limit <= 0:
+            return None
+        if used + added <= limit:
+            return None
+        return f"{label} limit exceeded ({limit})"
 
     def check_quota(
         self, user_id: str, model: str, input_tokens: int, output_tokens: int
@@ -240,45 +286,40 @@ class BillingManager:
             return False, "Account is not active"
         if account.trial_end and time.time() > account.trial_end:
             raise TrialExpiredError("Trial period has expired")
-        if account.plan.monthly_limit > 0:
-            projected_cost = self.calculate_cost(model, input_tokens, output_tokens)
-            if account.used_this_month + projected_cost > account.plan.monthly_limit:
-                if account.plan.overage_allowed:
-                    logger.warning(f"User {user_id} exceeding monthly limit, applying overage")
-                else:
-                    raise QuotaExceededError(
-                        f"Monthly limit of ${account.plan.monthly_limit} exceeded"
-                    )
-        if (
-            account.plan.input_limit > 0
-            and account.input_tokens_used + input_tokens > account.plan.input_limit
-        ):
-            return False, f"Input token limit exceeded ({account.plan.input_limit})"
-        if (
-            account.plan.output_limit > 0
-            and account.output_tokens_used + output_tokens > account.plan.output_limit
-        ):
-            return False, f"Output token limit exceeded ({account.plan.output_limit})"
+
+        self._check_monthly_limit(
+            user_id, account, model, self.calculate_cost(model, input_tokens, output_tokens)
+        )
+
+        input_error = self._check_token_limit(
+            account.plan.input_limit, account.input_tokens_used, input_tokens, "Input token"
+        )
+        if input_error:
+            return False, input_error
+        output_error = self._check_token_limit(
+            account.plan.output_limit, account.output_tokens_used, output_tokens, "Output token"
+        )
+        if output_error:
+            return False, output_error
         return True, "OK"
 
     def record_usage(
         self,
         user_id: str,
         model: str,
-        input_tokens: int,
-        output_tokens: int,
-        session_id: str | None = None,
-        workspace_id: str | None = None,
+        usage: TokenUsage,
+        context: UsageContext | None = None,
     ) -> UsageRecord:
-        cost = self.calculate_cost(model, input_tokens, output_tokens)
+        where = context or UsageContext()
+        cost = self.calculate_cost(model, usage.input_tokens, usage.output_tokens)
         record = UsageRecord(
             timestamp=time.time(),
             model=model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
             cost=cost,
-            session_id=session_id,
-            workspace_id=workspace_id,
+            session_id=where.session_id,
+            workspace_id=where.workspace_id,
         )
         if user_id not in self._usage_history:
             self._usage_history[user_id] = []
@@ -286,8 +327,8 @@ class BillingManager:
         account = self._accounts.get(user_id)
         if account:
             account.used_this_month += cost
-            account.input_tokens_used += input_tokens
-            account.output_tokens_used += output_tokens
+            account.input_tokens_used += usage.input_tokens
+            account.output_tokens_used += usage.output_tokens
         return record
 
     def get_usage_history(self, user_id: str, limit: int = 100) -> list[UsageRecord]:
@@ -338,9 +379,6 @@ def calculate_cost(
     model: str,
     input_tokens: int,
     output_tokens: int,
-    use_cache: bool = False,
-    cache_tokens: int = 0,
+    cache: CacheUsage | None = None,
 ) -> float:
-    return billing_manager.calculate_cost(
-        model, input_tokens, output_tokens, use_cache, cache_tokens
-    )
+    return billing_manager.calculate_cost(model, input_tokens, output_tokens, cache)

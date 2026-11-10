@@ -16,25 +16,23 @@ import os
 import sys
 import tempfile
 
-from apex.utils.frontmatter import parse_frontmatter_document
+from apex.command_declarative import (
+    DeclarativeCommandManager,
+    parse_command_md,
+)
+from apex.core import Core
+from apex.feature_flags import FeatureFlags
+from apex.hooks import PluginHooks
+from apex.mcp_client_ext import (
+    MCPConnectionPool,
+    MCPServerConfig,
+)
 from apex.skill_dynamic import (
     SkillDiscovery,
     SkillSourceConfig,
     parse_skill_md,
 )
-from apex.command_declarative import (
-    DeclarativeCommandManager,
-    parse_command_md,
-)
-from apex.mcp_client_ext import (
-    MCPConnection,
-    MCPConnectionPool,
-    MCPServerConfig,
-    MCPTransportError,
-)
-from apex.feature_flags import FeatureFlags
-from apex.core import Core
-from apex.hooks import PluginHooks
+from apex.utils.frontmatter import parse_frontmatter_document
 
 SKILL_MD = """---
 name: test-skill
@@ -101,6 +99,7 @@ def test_mcp_config_pool():
     pool = MCPConnectionPool()
     pool.remove("ctx")  # no-op
 
+
 def test_feature_flags_layer():
     flags = FeatureFlags(config_experimental={"mcp_oauth": True})
     assert flags.is_enabled("mcp_oauth") is True
@@ -125,7 +124,7 @@ if __name__ == "__main__":
             fn()
             print(f"  PASS {name}")
             passed += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"  FAIL {name}: {e}")
             failed += 1
     print(f"\n{passed} passed, {failed} failed out of {len(tests)}")

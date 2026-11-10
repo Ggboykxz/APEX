@@ -15,23 +15,22 @@ from __future__ import annotations
 import asyncio
 import sys
 
+from apex.core import Core
+from apex.hooks import HookError, PluginHooks
+from apex.plugin import PluginManager, define
 from apex.schema import (
     AgentID,
     AgentInfo,
-    AgentPermission,
     CommandID,
     CommandInfo,
     SkillID,
     SkillInfo,
 )
-from apex.core import Core
-from apex.plugin import PluginManager, define
-from apex.hooks import HookError, PluginHooks
-
 
 # ---------------------------------------------------------------------------
 # Agent service
 # ---------------------------------------------------------------------------
+
 
 def test_agent_register_and_list():
     core = Core()
@@ -68,6 +67,7 @@ def test_agent_resolve_by_name():
 # Command service
 # ---------------------------------------------------------------------------
 
+
 def test_command_register_resolve():
     core = Core()
     core.command.register(
@@ -88,6 +88,7 @@ def test_command_register_resolve():
 # Skill service
 # ---------------------------------------------------------------------------
 
+
 def test_skill_register_resolve():
     core = Core()
     core.skill.register(
@@ -106,6 +107,7 @@ def test_skill_register_resolve():
 # ---------------------------------------------------------------------------
 # Plugin system
 # ---------------------------------------------------------------------------
+
 
 async def test_plugin_activation_async():
     core = Core()
@@ -138,6 +140,7 @@ def test_plugin_activation():
 # Hooks
 # ---------------------------------------------------------------------------
 
+
 def test_hook_trigger():
     hooks = PluginHooks()
     seen = []
@@ -163,6 +166,7 @@ def test_hook_denial():
 # ---------------------------------------------------------------------------
 # Schema types
 # ---------------------------------------------------------------------------
+
 
 def test_agent_info_defaults():
     agent = AgentInfo(
@@ -200,7 +204,7 @@ if __name__ == "__main__":
             fn()
             print(f"  PASS {name}")
             passed += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"  FAIL {name}: {e}")
             failed += 1
 

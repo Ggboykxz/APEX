@@ -8,7 +8,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
 
-const isDev = !!process.env.ELECTRON_IS_DEV;
 const SITE_ROOT = path.join(__dirname, '..', 'out');
 
 function resolveBackendPort(): number | null {

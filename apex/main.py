@@ -1,4 +1,4 @@
-"""APEX CLI entry point â€” full OpenCode-like command suite.
+"""APEX CLI entry point — full OpenCode-like command suite.
 
 Usage:
     apex [prompt]                  One-shot prompt
@@ -106,7 +106,7 @@ _SUBCOMMANDS: dict[str, dict[str, bool]] = {
 }
 
 
-# â”€â”€ Argument parser â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Argument parser ─────────────────────────────────────────
 
 
 _PARSER_EPILOG = textwrap.dedent(r"""\            subcommands:
@@ -266,7 +266,7 @@ def _add_install_args(parser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="apex",
-        description="APEX â€” The last coding agent you'll ever need",
+        description="APEX — The last coding agent you'll ever need",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=_PARSER_EPILOG,
     )
@@ -281,7 +281,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# â”€â”€ Model listing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Model listing ───────────────────────────────────────────
 
 
 def _matches_provider_filter(alias: str, model_id: str, provider_filter: str | None) -> bool:
@@ -297,7 +297,7 @@ def _build_model_row(
     from .cost_local import MODEL_PRICING
 
     provider = alias.split("-")[0] if "-" in alias else "unknown"
-    marker = "âœ“" if alias == config_model else " "
+    marker = "✓" if alias == config_model else " "
     pricing = MODEL_PRICING.get(alias)
     inp = f"${pricing.per_1k_input:.6f}" if pricing and verbose else ""
     out = f"${pricing.per_1k_output:.6f}" if pricing and verbose else ""
@@ -329,14 +329,14 @@ def list_models(
     ui.console.print(table)
 
 
-# â”€â”€ Slash commands â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Slash commands ──────────────────────────────────────────
 
 
 # Slash-command handlers and their dispatch table live in
 # apex/cli_handlers.py; handle_command is re-exported here for callers.
 
 
-# â”€â”€ REPL / Streaming â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── REPL / Streaming ────────────────────────────────────────
 
 
 def run_repl(agent: Agent, ui: UI, use_stream: bool = False) -> None:
@@ -492,20 +492,20 @@ def run_cicd_mode(
             ui.print_error(f"Error: {e}")
 
 
-# â”€â”€ TUI helpers (unchanged) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── TUI helpers (unchanged) ─────────────────────────────────
 
 
-# â”€â”€ Gateway â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Gateway ────────────────────────────────────────────────
 
 
-# â”€â”€ Backward compat aliases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Backward compat aliases ─────────────────────────────────
 
 
 def parse_args() -> argparse.Namespace:
     return build_parser().parse_args()
 
 
-# â”€â”€ Main entry â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Main entry ──────────────────────────────────────────────
 
 
 def _prepare_runtime() -> None:
@@ -559,6 +559,16 @@ def _run_subcommand(parser: argparse.ArgumentParser, raw_args: list[str]) -> boo
     if not raw_args or raw_args[0].lower() not in _SUBCOMMANDS:
         return False
     name = raw_args[0].lower()
+    if name == "models":
+        # `apex models [provider]`: the filter is an extra positional that
+        # the single-prompt top-level parse cannot carry.
+        parsed = _default_verb_namespace()
+        parsed.list_models = True
+        _apply_verb_overrides(parser, raw_args[1:], parsed, include_prompt=True)
+        parsed.provider_filter = parsed.prompt
+        parsed.prompt = None
+        _dispatch(parsed)
+        return True
     parsed = parser.parse_args(raw_args)
     for key, value in _SUBCOMMANDS[name].items():
         setattr(parsed, key, value)
@@ -567,40 +577,63 @@ def _run_subcommand(parser: argparse.ArgumentParser, raw_args: list[str]) -> boo
     return True
 
 
-_PAIRED_VERB_DEFAULTS = {"auth": "login", "agent": "list", "session": "list", "mcp": "list"}
+_PAIRED_VERB_DEFAULTS = {
+    "auth": "login",
+    "agent": "list",
+    "session": "list",
+    "mcp": "list",
+    "db": "path",
+}
+
+_PAIRED_SUBCOMMAND_ATTRS = {
+    "auth": "auth_subcommand",
+    "agent": "agent_subcommand",
+    "session": "session_subcommand",
+    "mcp": "mcp_subcommand",
+    "db": "db_subcommand",
+}
+
+_PAIRED_POSITIONAL_ATTRS = {
+    "auth": "auth_provider",
+    "session": "session_id",
+    "mcp": "mcp_name",
+}
 
 
-def _subcommand_value(verb: str, raw_args: list[str]) -> str:
-    if len(raw_args) > 1:
-        candidate = raw_args[1]
-        if candidate == "ls":
-            return "list"
-        if not candidate.startswith("-"):
-            return candidate
-    return _PAIRED_VERB_DEFAULTS.get(verb, "")
+def _paired_verb_parts(verb: str, raw_args: list[str]) -> tuple[str, list[str]]:
+    """Resolve a paired verb's subcommand and the arguments that follow it.
 
-
-def _paired_verb_args(verb: str, raw_args: list[str]) -> list[str]:
-    if verb == "db":
-        return ["db", "path"]
-    modified = [verb]
+    ``apex session`` -> ``("list", [])``; ``apex auth logout gpt`` ->
+    ``("logout", ["gpt"])``. A leading flag means the verb default applies.
+    """
     if len(raw_args) > 1 and not raw_args[1].startswith("-"):
-        modified.append(raw_args[1])
-        extra = raw_args[2:]
-    else:
-        modified.append(_subcommand_value(verb, raw_args))
-        extra = raw_args[1:]
-    modified.extend(extra)
-    return modified
+        sub = "list" if raw_args[1] == "ls" else raw_args[1]
+        return sub, raw_args[2:]
+    return _PAIRED_VERB_DEFAULTS.get(verb, ""), raw_args[1:]
 
 
 def _run_paired_verb(parser: argparse.ArgumentParser, raw_args: list[str]) -> bool:
-    """Dispatch verbs whose action comes from a subparser (`apex auth login`)."""
+    """Dispatch verbs whose action comes from a subcommand (`apex auth login`).
+
+    The top-level parser has a single positional, so the verb plus its
+    subcommand cannot go through it: the subcommand is resolved
+    positionally, global flags are merged from the remaining arguments,
+    and the handler's expected attributes are filled from the verb tables.
+    """
     verb = raw_args[0].lower() if raw_args else ""
-    if verb not in ("auth", "agent", "session", "mcp", "db"):
+    subcommand_attr = _PAIRED_SUBCOMMAND_ATTRS.get(verb)
+    if subcommand_attr is None:
         return False
-    parsed = parser.parse_args(_paired_verb_args(verb, raw_args))
+    sub, rest = _paired_verb_parts(verb, raw_args)
+    parsed = _default_verb_namespace()
     parsed.prompt = None
+    setattr(parsed, subcommand_attr, sub)
+    positional_attr = _PAIRED_POSITIONAL_ATTRS.get(verb)
+    if positional_attr:
+        value = rest[0] if rest and not rest[0].startswith("-") else None
+        setattr(parsed, positional_attr, value)
+    _apply_verb_overrides(parser, rest, parsed)
+    parsed.raw_args = raw_args[1:]
     _dispatch_verb(verb, parsed)
     return True
 
@@ -638,12 +671,14 @@ _VERB_NAMESPACE_DEFAULTS = {
     "list_models": False,
     "auto_commit": False,
     "image": None,
+    "provider_filter": None,
 }
 
 _DIRECT_VERBS = frozenset(
     {
         "serve",
         "web",
+        "run",
         "connect",
         "init",
         "compact",
@@ -674,14 +709,25 @@ def _default_verb_namespace() -> argparse.Namespace:
 
 
 def _apply_verb_overrides(
-    parser: argparse.ArgumentParser, args: list[str], parsed: argparse.Namespace
+    parser: argparse.ArgumentParser,
+    args: list[str],
+    parsed: argparse.Namespace,
+    include_prompt: bool = False,
 ) -> None:
+    """Merge explicitly given global flags into a prebuilt verb namespace.
+
+    Only flags whose value differs from the parser default are copied, so
+    values already set on ``parsed`` (verb positionals) are preserved.
+    """
     try:
         overrides, _ = parser.parse_known_args(args)
+        base, _ = parser.parse_known_args([])
     except SystemExit:
         sys.exit(1)
     for key, value in vars(overrides).items():
-        if key != "prompt":
+        if key == "prompt" and not include_prompt:
+            continue
+        if value != getattr(base, key, value):
             setattr(parsed, key, value)
 
 
@@ -695,6 +741,10 @@ def _run_direct_verb(parser: argparse.ArgumentParser, raw_args: list[str]) -> bo
     # --dry-run`); the generic verb path used to drop them.
     if verb in ("upgrade", "uninstall"):
         _apply_verb_overrides(parser, raw_args[1:], parsed)
+    elif verb == "run":
+        # `apex run <prompt>`: the prompt is a positional of the top-level
+        # parser, so let the merge keep it.
+        _apply_verb_overrides(parser, raw_args[1:], parsed, include_prompt=True)
     parsed.raw_args = raw_args[1:]
     _dispatch_verb(verb, parsed)
     return True
@@ -852,7 +902,12 @@ def _dispatch(parsed: argparse.Namespace) -> None:
         config.set("default_agent", parsed.agent_name)
 
     if parsed.list_models:
-        list_models(ui, verbose=parsed.verbose, refresh=parsed.refresh)
+        list_models(
+            ui,
+            provider_filter=getattr(parsed, "provider_filter", None),
+            verbose=parsed.verbose,
+            refresh=parsed.refresh,
+        )
         sys.exit(0)
     if parsed.install_tui:
         _install_tui_command(ui)
