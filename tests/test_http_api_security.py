@@ -11,11 +11,13 @@ from apex.api_key import (
     KeyDisabledError,
     KeyExpiredError,
     KeyManager,
+    KeySpec,
 )
 from apex.http_api import (
     AuthMiddleware,
     HTTPServer,
     RateLimitConfig,
+    RateLimiterOptions,
     RateLimitResult,
 )
 from apex.rate_limiter import (
@@ -42,8 +44,7 @@ def key_db(tmp_path):
     raw_key, key_info = km.create_key(
         workspace_id=ws.workspace_id,
         name="test-key",
-        rate_limit_per_minute=60,
-        rate_limit_per_hour=1000,
+        spec=KeySpec(rate_limit_per_minute=60, rate_limit_per_hour=1000),
     )
     return km, raw_key, key_info, ws
 
@@ -57,7 +58,7 @@ def key_db_expired(tmp_path):
     raw_key, key_info = km.create_key(
         workspace_id=ws.workspace_id,
         name="expired-key",
-        expires_in=-1,  # Already expired
+        spec=KeySpec(expires_in=-1),  # Already expired
     )
     return km, raw_key, key_info, ws
 
@@ -336,7 +337,7 @@ class TestRateLimitIntegration:
     @pytest.mark.asyncio
     async def test_rate_limit_429_response(self):
         cfg = RateLimitConfig(requests_per_minute=1, requests_per_hour=1, requests_per_day=1)
-        server = HTTPServer(require_auth=False, rate_limit_config=cfg)
+        server = HTTPServer(require_auth=False, rate_limiter=RateLimiterOptions(config=cfg))
         # Exhaust the rate limiter
         server.rate_limiter.check_rate_limit("anonymous")
         server.rate_limiter.check_rate_limit("anonymous")
