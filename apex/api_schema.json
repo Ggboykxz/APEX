@@ -1,0 +1,10 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/health": { "get": { "operationId": "getHealth", "summary": "Health check" } },
+    "/api/v1/sessions": { "get": { "operationId": "listSessions", "summary": "List sessions" },
+                          "post": { "operationId": "createSession", "summary": "Create session" } },
+    "/api/v1/models": { "get": { "operationId": "listModels", "summary": "List models" } }
+  },
+  "components": { "schemas": { "Session": { "properties": { "id": { "type": "string" }, "title": { "type": "string" }, "createdAt": { "type": "string" } } } } }
+}
