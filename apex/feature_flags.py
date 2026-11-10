@@ -15,9 +15,9 @@ Semantics:
 from __future__ import annotations
 
 import os
-from typing import Any, Optional
+from typing import Any
 
-__all__ = ["Flags", "FeatureFlags"]
+__all__ = ["FeatureFlags", "Flags"]
 
 DEFAULT_FLAGS: dict[str, bool] = {
     "part_rows": True,
@@ -34,7 +34,7 @@ DEFAULT_FLAGS: dict[str, bool] = {
 class Flags:
     """A set of features (defaults + overrides)."""
 
-    def __init__(self, values: Optional[dict[str, Any]] = None) -> None:
+    def __init__(self, values: dict[str, Any] | None = None) -> None:
         self._values: dict[str, Any] = dict(DEFAULT_FLAGS)
         if values:
             self._values.update({k: v for k, v in values.items()})
@@ -61,8 +61,8 @@ class FeatureFlags(Flags):
 
     def __init__(
         self,
-        config_experimental: Optional[dict[str, Any]] = None,
-        env: Optional[dict[str, str]] = None,
+        config_experimental: dict[str, Any] | None = None,
+        env: dict[str, str] | None = None,
     ) -> None:
         super().__init__()
         env = env or os.environ

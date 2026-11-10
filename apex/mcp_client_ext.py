@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any, Optional
-from urllib import request, error
+from typing import Any
+from urllib import error, request
 
 __all__ = [
-    "MCPServerConfig",
     "MCPConnection",
     "MCPConnectionPool",
+    "MCPServerConfig",
     "MCPTransportError",
 ]
 
@@ -34,8 +34,8 @@ class MCPServerConfig:
 
     name: str
     type: str  # "remote" | "local"
-    url: Optional[str] = None
-    command: Optional[tuple[str, ...]] = None
+    url: str | None = None
+    command: tuple[str, ...] | None = None
     environment: dict[str, str] = field(default_factory=dict)
     headers: dict[str, str] = field(default_factory=dict)
 
@@ -45,9 +45,9 @@ class MCPConnection:
 
     def __init__(self, config: MCPServerConfig) -> None:
         self.config = config
-        self.session_id: Optional[str] = None
-        self.protocol_version: Optional[str] = None
-        self.server_info: Optional[dict[str, Any]] = None
+        self.session_id: str | None = None
+        self.protocol_version: str | None = None
+        self.server_info: dict[str, Any] | None = None
         self._closed = False
 
     # -- lifecycle ----------------------------------------------------------
@@ -82,7 +82,7 @@ class MCPConnection:
 
     # -- JSON-RPC ----------------------------------------------------------
 
-    def _post_jsonrpc(self, method: str, params: dict, notify: bool = False) -> Optional[dict]:
+    def _post_jsonrpc(self, method: str, params: dict, notify: bool = False) -> dict | None:
         payload: dict[str, Any] = {"jsonrpc": "2.0", "method": method, "params": params}
         if not notify:
             payload["id"] = 1
@@ -129,7 +129,7 @@ class MCPConnection:
             return []
         return result["result"].get("tools", [])
 
-    def call_tool(self, name: str, arguments: dict) -> Optional[dict]:
+    def call_tool(self, name: str, arguments: dict) -> dict | None:
         result = self._post_jsonrpc("tools/call", {"name": name, "arguments": arguments})
         if not result or "result" not in result:
             return None
@@ -142,7 +142,7 @@ class MCPConnectionPool:
     def __init__(self) -> None:
         self._connections: dict[str, MCPConnection] = {}
 
-    def get(self, name: str) -> Optional[MCPConnection]:
+    def get(self, name: str) -> MCPConnection | None:
         return self._connections.get(name)
 
     def add(self, connection: MCPConnection) -> None:

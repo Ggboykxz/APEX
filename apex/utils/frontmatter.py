@@ -18,7 +18,7 @@ frontmatter.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 __all__ = ["parse_frontmatter", "split_frontmatter"]
 
@@ -26,7 +26,7 @@ __all__ = ["parse_frontmatter", "split_frontmatter"]
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
-def split_frontmatter(content: str) -> tuple[Optional[str], str]:
+def split_frontmatter(content: str) -> tuple[str | None, str]:
     """Return ``(frontmatter_text, body)`` from a markdown document.
 
     ``frontmatter_text`` is ``None`` when no frontmatter block is present.
@@ -59,7 +59,7 @@ def _parse_scalar(raw: str) -> Any:
         inner = raw[1:-1].strip()
         if not inner:
             return {}
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for pair in _split_top_level(inner, ","):
             if ":" not in pair:
                 continue
@@ -78,10 +78,10 @@ def _parse_scalar(raw: str) -> Any:
     return raw
 
 
-def _split_top_level(text: str, sep: str) -> List[str]:
+def _split_top_level(text: str, sep: str) -> list[str]:
     """Split ``text`` on ``sep`` but not inside quotes/brackets."""
-    parts: List[str] = []
-    current: List[str] = []
+    parts: list[str] = []
+    current: list[str] = []
     depth = 0
     in_single = False
     in_double = False
@@ -122,9 +122,9 @@ def _split_top_level(text: str, sep: str) -> List[str]:
     return parts
 
 
-def parse_frontmatter(frontmatter_text: str) -> Dict[str, Any]:
+def parse_frontmatter(frontmatter_text: str) -> dict[str, Any]:
     """Parse frontmatter text into a dict."""
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
     for raw_line in frontmatter_text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -138,7 +138,7 @@ def parse_frontmatter(frontmatter_text: str) -> Dict[str, Any]:
     return result
 
 
-def parse_frontmatter_document(content: str) -> tuple[Optional[Dict[str, Any]], str]:
+def parse_frontmatter_document(content: str) -> tuple[dict[str, Any] | None, str]:
     """Parse a full markdown document.
 
     Returns ``(metadata_dict, body)`` where ``metadata_dict`` is ``None`` if

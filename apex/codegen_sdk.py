@@ -13,14 +13,14 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-__all__ = ["generate_client", "load_schema", "API_SCHEMA_PATH"]
+__all__ = ["API_SCHEMA_PATH", "generate_client", "load_schema"]
 
 API_SCHEMA_PATH = Path(__file__).parent / "api_schema.json"
 
 
-def load_schema(path: Optional[Path] = None) -> dict[str, Any]:
+def load_schema(path: Path | None = None) -> dict[str, Any]:
     p = path or API_SCHEMA_PATH
     return json.loads(p.read_text(encoding="utf-8"))
 

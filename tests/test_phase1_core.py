@@ -15,19 +15,17 @@ from __future__ import annotations
 import asyncio
 import sys
 
+from apex.core import Core
+from apex.hooks import HookError, PluginHooks
+from apex.plugin import PluginManager, define
 from apex.schema import (
     AgentID,
     AgentInfo,
-    AgentPermission,
     CommandID,
     CommandInfo,
     SkillID,
     SkillInfo,
 )
-from apex.core import Core
-from apex.plugin import PluginManager, define
-from apex.hooks import HookError, PluginHooks
-
 
 # ---------------------------------------------------------------------------
 # Agent service
@@ -200,7 +198,7 @@ if __name__ == "__main__":
             fn()
             print(f"  PASS {name}")
             passed += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"  FAIL {name}: {e}")
             failed += 1
 

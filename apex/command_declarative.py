@@ -15,18 +15,17 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 from apex.core.service import Core
-from apex.schema import CommandID, CommandInfo
 from apex.hooks import PluginHooks
+from apex.schema import CommandID, CommandInfo
 from apex.utils.frontmatter import parse_frontmatter_document
 
 __all__ = [
-    "parse_command_md",
     "CommandDiscovery",
-    "DeclarativeCommandManager",
     "CommandResult",
+    "DeclarativeCommandManager",
+    "parse_command_md",
 ]
 
 
@@ -35,7 +34,7 @@ __all__ = [
 # ---------------------------------------------------------------------------
 
 
-def parse_command_md(content: str, path: str) -> Optional[CommandInfo]:
+def parse_command_md(content: str, path: str) -> CommandInfo | None:
     """Parse a command markdown file into a :class:`CommandInfo`.
 
     Frontmatter fields:
@@ -149,7 +148,7 @@ class DeclarativeCommandManager:
     # -- execution ---------------------------------------------------------
 
     def render_template(self, cmd: CommandInfo, arguments: str) -> str:
-        """Interpolate template variables ($ARGUMENTS, $1..$3) and shell
+        r"""Interpolate template variables ($ARGUMENTS, $1..$3) and shell
         interpolation (!\`cmd\`)."""
         body = cmd.metadata.get("body", "") if cmd.metadata else ""
         template = cmd.template or body
@@ -169,6 +168,7 @@ class DeclarativeCommandManager:
                     shell=True,
                     capture_output=True,
                     text=True,
+                    check=False,
                     timeout=30,
                 )
                 return result.stdout or result.stderr
@@ -186,7 +186,7 @@ class DeclarativeCommandManager:
         self,
         command_id: str,
         arguments: str = "",
-        provider_id: Optional[str] = None,
+        provider_id: str | None = None,
     ) -> CommandResult:
         """Execute a registered command."""
         cmd = self.core.command.resolve(command_id)

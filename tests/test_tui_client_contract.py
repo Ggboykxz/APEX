@@ -13,7 +13,6 @@ Ce fichier capture ce contrat pour empêcher les régressions silencieuses
 (si un endpoint change de forme ou disparaît, le TUI casse).
 """
 
-import asyncio
 import json
 
 import pytest
@@ -21,7 +20,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from apex.agent import Agent
 from apex.config import Config
-from apex.http_api import APEXHTTPServer, RateLimitConfig
+from apex.http_api import APEXHTTPServer
 
 
 @pytest.fixture
@@ -77,20 +76,22 @@ async def test_tui_contract_endpoints(tui_server):
 
 async def test_chat_stream_emits_typed_events(tui_server):
     """Le flux SSE de chat émet des événements typés (chunk/usage/rate_limit)."""
-    async with TestClient(TestServer(tui_server.app)) as client:
-        async with client.post("/chat/stream", json={"message": "hi"}) as resp:
-            assert resp.status == 200
+    async with (
+        TestClient(TestServer(tui_server.app)) as client,
+        client.post("/chat/stream", json={"message": "hi"}) as resp,
+    ):
+        assert resp.status == 200
 
-            # En l'absence de clé LLM, le stream émet au moins un événement
-            # (chunk d'erreur ou usage) — mais le canal n'est jamais vide ni
-            # mort : on vérifie qu'il produit des lignes "data:".
-            buffer = []
-            async for line in resp.content:
-                if line.startswith(b"data:"):
-                    buffer.append(line)
-                    if len(buffer) >= 2:
-                        break
+        # En l'absence de clé LLM, le stream émet au moins un événement
+        # (chunk d'erreur ou usage) — mais le canal n'est jamais vide ni
+        # mort : on vérifie qu'il produit des lignes "data:".
+        buffer = []
+        async for line in resp.content:
+            if line.startswith(b"data:"):
+                buffer.append(line)
+                if len(buffer) >= 2:
+                    break
 
-            assert buffer, "le stream /chat/stream n'a émis aucun événement"
-            first = json.loads(buffer[0][5:])
-            assert "chunk" in first or "usage" in first
+        assert buffer, "le stream /chat/stream n'a émis aucun événement"
+        first = json.loads(buffer[0][5:])
+        assert "chunk" in first or "usage" in first

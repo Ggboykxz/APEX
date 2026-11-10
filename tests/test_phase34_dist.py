@@ -10,13 +10,12 @@ Exécution : ``PYTHONPATH=/home/user/myapp/APEX python3 -B tests/test_phase34_di
 
 from __future__ import annotations
 
-import json
 import pathlib
 import sys
 import tempfile
 
-from apex.i18n_ext import LocaleRegistry, t
 from apex.codegen_sdk import generate_client, load_schema
+from apex.i18n_ext import LocaleRegistry, t
 
 SCHEMA = {
     "openapi": "3.0.0",
@@ -104,7 +103,7 @@ if __name__ == "__main__":
             fn()
             print(f"  PASS {name}")
             passed += 1
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"  FAIL {name}: {e}")
             failed += 1
     print(f"\n{passed} passed, {failed} failed out of {len(tests)}")

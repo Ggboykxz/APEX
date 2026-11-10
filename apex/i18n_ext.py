@@ -21,9 +21,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-__all__ = ["SUPPORTED_LOCALES", "t", "load_locale", "LocaleRegistry"]
+__all__ = ["SUPPORTED_LOCALES", "LocaleRegistry", "load_locale", "t"]
 
 SUPPORTED_LOCALES = (
     "en", "fr", "es", "de", "it", "pt", "ru", "ja", "ko",
@@ -36,7 +36,7 @@ DEFAULT_LOCALE = "en"
 class LocaleRegistry:
     """Charge et met en cache les fichiers de locale."""
 
-    def __init__(self, locales_dir: Optional[str] = None) -> None:
+    def __init__(self, locales_dir: str | None = None) -> None:
         env_dir = os.environ.get("APEX_LOCALES_DIR")
         self.dir = Path(locales_dir or env_dir or Path(__file__).parent / "locales")
         self._cache: dict[str, dict[str, Any]] = {}
@@ -75,7 +75,7 @@ class LocaleRegistry:
                 template = template.replace(f"{{{k}}}", str(v))
         return template
 
-_registry: Optional[LocaleRegistry] = None
+_registry: LocaleRegistry | None = None
 
 
 def get_registry() -> LocaleRegistry:
@@ -83,6 +83,11 @@ def get_registry() -> LocaleRegistry:
     if _registry is None:
         _registry = LocaleRegistry()
     return _registry
+
+
+def load_locale(locale: str = DEFAULT_LOCALE) -> dict[str, Any]:
+    """Charge le dictionnaire de traduction d'une locale."""
+    return LocaleRegistry().load(locale)
 
 
 def t(key: str, locale: str = DEFAULT_LOCALE, **kwargs: Any) -> str:
