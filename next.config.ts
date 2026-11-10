@@ -8,9 +8,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   reactStrictMode: true,
   // GitHub Pages deploys to /APEX/ subpath
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",

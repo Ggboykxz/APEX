@@ -35,27 +35,39 @@ function Footer() {
   return (<footer className="border-t border-border py-8 mt-auto"><div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4"><p className="text-xs text-muted-foreground font-mono">Proprietary — All rights reserved. Built in Gabon 🇬🇦 by <a href="https://github.com/Ggboykxz" target="_blank" className="text-apex-cyan hover:underline">Ggboykxz</a></p><div className="flex items-center gap-6"><a href="/docs" className="text-xs text-muted-foreground hover:text-foreground">Docs</a><a href="https://github.com/Ggboykxz/APEX" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground"><Github className="w-4 h-4" /></a></div></div></footer>)
 }
 
-const VERSIONS = [
+type RoadmapStatus = 'released' | 'next' | 'planned'
+
+interface RoadmapVersion {
+  version: string
+  name: string
+  status: RoadmapStatus
+  progress: number
+  color: string
+  desc: string
+  features: { text: string; done: boolean }[]
+}
+
+const VERSIONS: RoadmapVersion[] = [
   {
     version: 'v1.0.0', name: 'First Production Release', status: 'released' as const, progress: 100, color: '#00e5ff',
-    desc: 'APEX — the universal AI coding agent built in Gabon 🇬🇦. 170+ models, 75+ tools, 11 specialized agents, Ink TUI, APEX Gateway, and production-ready security.',
+    desc: 'APEX — the universal AI coding agent built in Gabon 🇬🇦. 201 models, 103 tools, 11 specialized agents, Ink TUI, APEX Gateway, and production-ready security.',
     features: [
-      { text: '170+ AI Models (Claude, GPT, Gemini, DeepSeek, Qwen, Llama, Mistral...)', done: true },
+      { text: '201+ AI Models (Claude, GPT, Gemini, DeepSeek, Qwen, Llama, Mistral...)', done: true },
       { text: 'APEX Free (19 free coding models via OpenRouter — Qwen3 Coder 480B, Ring 2.6 1T, DeepSeek R1...)', done: true },
       { text: 'APEX Pro (10 frontier models — GLM-5.1, Kimi K2.6, MiniMax M2.7, DeepSeek V4 Pro...)', done: true },
       { text: 'APEX Gateway (built-in proxy with auth, rate limits, usage tracking, per-user API keys)', done: true },
       { text: 'Bring Your Own Key (Anthropic, OpenAI, Google, Ollama, or any litellm provider)', done: true },
       { text: 'Ink TUI (command palette Ctrl+P, leader keys Ctrl+X, @ file refs, !bash inline)', done: true },
       { text: '11 Specialized Agents (Build, Plan, Shell + @reviewer, @general, @explore, @scout + system)', done: true },
-      { text: '75+ Built-in Tools (file ops, search, git, web, LSP, sandbox, clipboard, skills...)', done: true },
+      { text: '103+ Built-in Tools (file ops, search, git, web, LSP, sandbox, clipboard, skills...)', done: true },
       { text: '12 Built-in Themes (apex, nord, catppuccin, tokyonight, gruvbox, matrix...)', done: true },
       { text: 'Git-based Snapshots with Undo/Redo', done: true },
       { text: 'Hierarchical JSON/JSONC Config (global → custom → project → inline)', done: true },
       { text: '20+ CLI Subcommands (auth, sessions, agents, MCP, plugins, gateway...)', done: true },
-      { text: '56 HTTP API Endpoints for remote operation', done: true },
+      { text: '52 HTTP API Endpoints for remote operation', done: true },
       { text: 'Session Sharing (public URLs with automatic secret sanitization)', done: true },
       { text: 'File Watcher with gitignore-aware patterns', done: true },
-      { text: '11 Auto-Formatters (ruff, prettier, gofmt, rustfmt...)', done: true },
+      { text: '20 Auto-Formatters (ruff, prettier, gofmt, rustfmt...)', done: true },
       { text: 'Custom Commands via markdown ($ARGUMENTS, !shell, @file)', done: true },
       { text: 'MCP Support (Model Context Protocol)', done: true },
       { text: 'LSP Integration (Language Server Protocol for code intelligence)', done: true },
@@ -80,19 +92,36 @@ const VERSIONS = [
     ]
   },
   {
-    version: 'v2.5.0', name: 'Intelligence', status: 'next' as const, progress: 35, color: '#ffaa00',
+    version: 'v2.5.0', name: 'Intelligence', status: 'released' as const, progress: 100, color: '#ffaa00',
     desc: 'Intelligence features — repo mapping, vision, auto-commit, VS Code extension, MCP server mode.',
     features: [
       { text: 'Repository Map & Code Understanding', done: true },
       { text: 'TUI Streaming & Diff Preview', done: true },
       { text: 'Rust GA (internal, no publishing)', done: true },
-      { text: 'Vision Model Support (image analysis)', done: false },
-      { text: 'Auto-commit with Generated Messages', done: false },
-      { text: 'VS Code Extension', done: false },
-      { text: 'MCP Server Mode (expose APEX as MCP server)', done: false },
-      { text: 'Multi-file Editing with Diff Preview', done: false },
-      { text: 'Context Window Optimization', done: false },
-      { text: 'Custom Skill Templates', done: false },
+      { text: 'Vision Model Support (image analysis)', done: true },
+      { text: 'Auto-commit with Generated Messages', done: true },
+      { text: 'VS Code Extension', done: true },
+      { text: 'MCP Server Mode (expose APEX as MCP server)', done: true },
+      { text: 'Multi-file Editing with Diff Preview', done: true },
+      { text: 'Context Window Optimization', done: true },
+      { text: 'Custom Skill Templates', done: true },
+    ]
+  },
+  {
+    version: 'v3.0.0', name: 'Parity', status: 'next' as const, progress: 40, color: '#d946ef',
+    desc: 'OpenCode parity — typed schema, plugin & hook system, desktop app, and full internationalisation.',
+    features: [
+      { text: 'Typed Schema (Agent, Command, Skill, Config)', done: true },
+      { text: 'Core Service Layer (decoupled from CLI)', done: true },
+      { text: 'Plugin System with rich context', done: true },
+      { text: 'Hook System (tool, session, permission, shell)', done: true },
+      { text: 'Dynamic Skills with filesystem watch', done: true },
+      { text: 'Declarative Slash Commands (frontmatter V2)', done: true },
+      { text: 'Feature Flags (experimental.*)', done: true },
+      { text: 'i18n Infrastructure (18 locales)', done: true },
+      { text: 'Desktop Application (Electron)', done: false },
+      { text: 'Full i18n Coverage (16 locales remaining)', done: false },
+      { text: 'Agent Client Protocol (ACP)', done: false },
     ]
   },
 ]

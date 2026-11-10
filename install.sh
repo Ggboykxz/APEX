@@ -3,10 +3,13 @@
 # APEX installer entry point — https://github.com/Ggboykxz/APEX
 #
 # This file only dispatches to the canonical installer, `scripts/install.sh`,
-# so the one-liner documented on the website keeps working:
+# so the one-command installer documented on the website stays that simple:
 #
-#   curl -fsSLO https://raw.githubusercontent.com/Ggboykxz/APEX/main/install.sh
-#   bash install.sh [--method auto|npm|native|docker] [...]
+#   curl -fsSL https://apex-ai.dev/install.sh | bash
+#
+# Options (passed through to the canonical installer):
+#
+#   curl -fsSL https://apex-ai.dev/install.sh | bash -s -- [--method auto|npm|native|docker] [...]
 #
 # APEX ships through npm and the native Rust backend only; PyPI/pip/pipx/uv
 # channels were removed.
