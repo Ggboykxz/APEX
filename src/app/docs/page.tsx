@@ -109,7 +109,7 @@ function DocOverview() {
       <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Built in Gabon 🇬🇦 for the world. APEX is a production-grade, terminal-native AI coding agent that works with <strong className="text-foreground">any LLM</strong> via a unified interface powered by litellm.</p>
       <DocsHeading id="features">Features</DocsHeading>
       <div className="grid sm:grid-cols-2 gap-3">
-        {[['170+ Models', 'Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more'], ['11 Specialized Agents', 'Coder, Architect, Planner, Shell + @reviewer, @general, @explore, @scout + system agents'], ['75+ Tools', 'File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB'], ['Ink TUI + WebSocket EventBus', 'Rich Ink + React TUI with real-time WebSocket EventBus, 12 themes, leader keys, command palette'], ['Session Persistence', 'Save and load conversations, bookmark positions, share via public URLs'], ['Token Cost Tracking', 'Monitor usage and estimated costs in real-time'], ['Plugin System', 'Extensible with custom tools and TUI hooks'], ['Undo/Redo', 'Revert and reapply changes with full history'], ['LSP Integration', 'Go to definition, references, hover, diagnostics'], ['Security System', 'Shell analysis, permissions (ALLOW/DENY/ASK), rate limiting, billing, API key management'], ['Snapshots & Undo/Redo', 'Git-based snapshots before every destructive action, with full diff computation and restore'], ['OpenCode Architecture', 'WebSocket EventBus, random port binding, state directory, real-time state synchronization']].map(([title, desc]) => (
+        {[['201 Models', 'Claude, GPT-4, Gemini, Grok, DeepSeek, Qwen, Llama, Mistral, and more'], ['11 Specialized Agents', 'Build, Plan, Planner, Shell + @reviewer, @general, @explore, @scout + system agents'], ['103 Tools', 'File ops, git, web, sandbox, MCP, LSP, refactoring, Docker, DB'], ['Ink TUI + WebSocket EventBus', 'Rich Ink + React TUI with real-time WebSocket EventBus, 12 themes, leader keys, command palette'], ['Session Persistence', 'Save and load conversations, bookmark positions, share via public URLs'], ['Token Cost Tracking', 'Monitor usage and estimated costs in real-time'], ['Plugin System', 'Extensible with custom tools and TUI hooks'], ['Undo/Redo', 'Revert and reapply changes with full history'], ['LSP Integration', 'Go to definition, references, hover, diagnostics'], ['Security System', 'Shell analysis, permissions (ALLOW/DENY/ASK), rate limiting, billing, API key management'], ['Snapshots & Undo/Redo', 'Git-based snapshots before every destructive action, with full diff computation and restore'], ['OpenCode Architecture', 'WebSocket EventBus, random port binding, state directory, real-time state synchronization']].map(([title, desc]) => (
           <div key={title} className="p-3 rounded-lg border border-border/50 bg-card/30"><span className="text-apex-cyan font-mono font-bold text-sm">{title}</span><p className="text-muted-foreground text-xs mt-1">{desc}</p></div>
         ))}
       </div>
@@ -118,7 +118,7 @@ function DocOverview() {
       <DocsHeading id="philosophy">Philosophy</DocsHeading>
       <p className="text-muted-foreground leading-relaxed">APEX is built by a Gabonese developer for the world. Every developer deserves a world-class coding agent — regardless of which model they can afford. The core principles are: <strong className="text-foreground">complete code, no truncation</strong>, <strong className="text-foreground">production-ready</strong> with full error handling, tests, and type hints, <strong className="text-foreground">language-agnostic</strong> support for Python, JavaScript, Rust, Go, and more, and a <strong className="text-foreground">senior developer mindset</strong> that is opinionated but effective.</p>
       <div className="mt-8 grid sm:grid-cols-3 gap-4">
-        {[{ href: '/agents', title: 'Agents Guide', desc: '11 specialized agents for every workflow' }, { href: '/models', title: 'Models Guide', desc: '170+ models from every provider' }, { href: '/tools', title: 'Tools Reference', desc: '75+ built-in tools catalog' }].map(l => (
+        {[{ href: '/agents', title: 'Agents Guide', desc: '11 specialized agents for every workflow' }, { href: '/models', title: 'Models Guide', desc: '201 models from every provider' }, { href: '/tools', title: 'Tools Reference', desc: '103 built-in tools catalog' }].map(l => (
           <a key={l.href} href={l.href} className="group p-4 rounded-lg border border-border/50 bg-card/30 hover:border-apex-cyan/30 transition-all"><h4 className="font-mono font-bold text-apex-cyan mb-1">{l.title}</h4><p className="text-xs text-muted-foreground">{l.desc}</p><ArrowRight className="w-4 h-4 mt-2 text-muted-foreground group-hover:text-apex-cyan transition-colors" /></a>
         ))}
       </div>
@@ -134,7 +134,7 @@ function DocQuickstart() {
       <DocsHeading id="step1">Step 1: Installation</DocsHeading>
       <CodeBlock code="npm install -g apex-ai" />
       <p className="text-muted-foreground text-sm">The <code className="text-apex-cyan">apex</code> wrapper downloads and verifies the native backend on first run.</p>
-      <p className="text-muted-foreground text-sm">Headless servers: <code className="text-apex-cyan">bash install.sh --method native</code></p>
+      <p className="text-muted-foreground text-sm">Headless servers: <code className="text-apex-cyan">curl -fsSL https://apex-ai.dev/install.sh | bash -s -- --method native</code></p>
       <DocsHeading id="step2">Step 2: Configure API Keys</DocsHeading>
       <p className="text-muted-foreground text-sm mb-2">Create <code className="text-apex-cyan">~/.apex/.env</code> with your API keys:</p>
       <CodeBlock code={`# At least one of these:\nANTHROPIC_API_KEY=sk-ant-...    # For Claude models\nOPENAI_API_KEY=sk-...          # For GPT models\nDEEPSEEK_API_KEY=...           # For DeepSeek models\nGEMINI_API_KEY=...             # For Gemini models`} />
@@ -146,7 +146,7 @@ function DocQuickstart() {
       <DocsHeading id="workflow">Basic Workflow</DocsHeading>
       <CodeBlock language="text" code={`# Switch models mid-session\n› /model gpt-4o\n\n# Check git status\n› /git\n\n# Analyze project\n› /map\n\n# Save your session\n› /save my-project`} />
       <DocsHeading id="common-commands">Common Commands</DocsHeading>
-      <DocsTable headers={['Command', 'What it does']} rows={[['/help', 'Show all commands'], ['/models', 'List available models'], ['/agent coder', 'Switch to coder agent'], ['/agent architect', 'Switch to architect (read-only) agent'], ['@filename', 'Include file in context'], ['/clear', 'Clear conversation history'], ['/exit', 'Exit APEX']]} />
+      <DocsTable headers={['Command', 'What it does']} rows={[['/help', 'Show all commands'], ['/models', 'List available models'], ['/agent build', 'Switch to coder agent'], ['/agent plan', 'Switch to architect (read-only) agent'], ['@filename', 'Include file in context'], ['/clear', 'Clear conversation history'], ['/exit', 'Exit APEX']]} />
     </div>
   )
 }
@@ -157,9 +157,9 @@ function DocConfiguration() {
       <h1 className="text-3xl font-bold font-mono mb-2">Configuration</h1>
       <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Customize APEX to fit your workflow.</p>
       <DocsHeading id="config-file">Config File</DocsHeading>
-      <CodeBlock language="json" code={`{\n  "model": "claude-sonnet",\n  "cwd": "/home/user/projects",\n  "theme": "monokai",\n  "max_tool_rounds": 20,\n  "auto_commit": false\n}`} />
+      <CodeBlock language="json" code={`{\n  "model": "claude-sonnet",\n  "cwd": "/home/user/projects",\n  "theme": "apex",\n  "max_tool_rounds": 20,\n  "auto_commit": false\n}`} />
       <DocsHeading id="settings">Settings</DocsHeading>
-      <DocsTable headers={['Setting', 'Default', 'Description']} rows={[['model', 'claude-sonnet', 'Default model alias'], ['cwd', 'current directory', 'Working directory'], ['theme', 'monokai', 'Syntax highlighting theme'], ['max_tool_rounds', '20', 'Max tool calls per message'], ['auto_commit', 'false', 'Auto git commit after changes']]} />
+      <DocsTable headers={['Setting', 'Default', 'Description']} rows={[['model', 'claude-sonnet', 'Default model alias'], ['cwd', 'current directory', 'Working directory'], ['theme', 'apex', 'Syntax highlighting theme'], ['max_tool_rounds', '20', 'Max tool calls per message'], ['auto_commit', 'false', 'Auto git commit after changes']]} />
       <DocsHeading id="cli-options">CLI Options</DocsHeading>
       <CodeBlock code={`apex tui                    # Launch TUI (subcommand)\napex --tui                  # Launch TUI (flag)\napex models                 # List available models\napex install-tui            # One-time TUI setup\napex --model gpt-4o          # Use specific model\napex --cwd /path/to/project  # Set working directory\napex --stream                # Enable streaming\napex --auto-commit           # Auto commit changes`} />
       <DocsHeading id="env-vars">Environment Variables</DocsHeading>
@@ -255,7 +255,7 @@ function DocTroubleshooting() {
       <h1 className="text-3xl font-bold font-mono mb-2">Troubleshooting</h1>
       <p className="text-muted-foreground text-lg mb-8 leading-relaxed">Common issues and solutions.</p>
       <DocsHeading id="install-issues">Installation Issues</DocsHeading>
-      <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-red mb-2">&quot;command not found: apex&quot;</h4><CodeBlock code={`# npm channel\nnpm install -g apex-ai\n\n# native channel\nbash install.sh --method native\n\n# check\napex --version`} /></div>
+      <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-red mb-2">&quot;command not found: apex&quot;</h4><CodeBlock code={`# npm channel\nnpm install -g apex-ai\n\n# native channel\ncurl -fsSL https://apex-ai.dev/install.sh | bash\n\n# check\napex --version`} /></div>
       <DocsHeading id="api-issues">API Key Issues</DocsHeading>
       <div className="p-4 rounded-lg border border-border/50 bg-card/30 mb-4"><h4 className="font-bold font-mono text-apex-yellow mb-2">&quot;Authentication failed&quot;</h4><CodeBlock code={`echo $ANTHROPIC_API_KEY\nexport ANTHROPIC_API_KEY="sk-ant-..."`} /></div>
       <DocsHeading id="perf-issues">Performance Issues</DocsHeading>
@@ -274,7 +274,7 @@ function DocOpenCode() {
   return (
     <div>
       <h1 className="text-3xl font-bold font-mono mb-2">OpenCode Architecture</h1>
-      <p className="text-muted-foreground text-lg mb-8 leading-relaxed">APEX v2.0.0 features a modular architecture — WebSocket EventBus, random port binding, structured messages, snapshots, custom commands, and real-time state synchronization following the OpenCode pattern.</p>
+      <p className="text-muted-foreground text-lg mb-8 leading-relaxed">APEX v0.2.0 features a modular architecture — WebSocket EventBus, random port binding, structured messages, snapshots, custom commands, and real-time state synchronization following the OpenCode pattern.</p>
       <DocsHeading id="parts">Structured Messages (Parts)</DocsHeading>
       <p className="text-muted-foreground text-sm leading-relaxed mb-4">Every message in APEX is composed of typed parts — text, file references, tool calls, tool results, images, and snapshots. This structured approach enables rich context management and precise message handling.</p>
       <DocsTable headers={['Part Type', 'Description']} rows={[
@@ -292,7 +292,7 @@ function DocOpenCode() {
       <p className="text-muted-foreground text-sm leading-relaxed mb-4">Create reusable prompt templates with <code className="text-apex-cyan">user:</code> and <code className="text-apex-cyan">project:</code> commands. Store them in <code className="text-apex-cyan">~/.apex/commands/</code> for global commands or <code className="text-apex-cyan">.apex/commands/</code> for project-specific ones. Template variables like <code className="text-apex-cyan">{'{{variable}}'}</code> are expanded at runtime.</p>
       <CodeBlock language="markdown" code={`<!-- ~/.apex/commands/review.md -->\n# Code Review Standard\n\nAnalyse le code et vérifie :\n1. Respect des conventions\n2. Gestion des erreurs complète\n3. Pas de console.log oubliés\n4. Types explicites (pas de any)\n\nRapport : OK / Warning / Critique`} />
       <DocsHeading id="event-bus">WebSocket EventBus</DocsHeading>
-      <p className="text-muted-foreground text-sm leading-relaxed mb-4">APEX v2.0.0 introduces a WebSocket EventBus for real-time bidirectional communication between the Python backend and the Ink TUI frontend. The backend binds to a random localhost port and publishes the port to <code className="text-apex-cyan">~/.apex/state/</code> for discovery. The TUI connects via both HTTP SSE for streaming responses and WebSocket for event-driven state synchronization.</p>
+      <p className="text-muted-foreground text-sm leading-relaxed mb-4">APEX v0.2.0 introduces a WebSocket EventBus for real-time bidirectional communication between the Python backend and the Ink TUI frontend. The backend binds to a random localhost port and publishes the port to <code className="text-apex-cyan">~/.apex/state/</code> for discovery. The TUI connects via both HTTP SSE for streaming responses and WebSocket for event-driven state synchronization.</p>
       <DocsTable headers={['Event', 'Description']} rows={[
         ['session_updated', 'Session was modified'],
         ['session_created', 'New session created'],

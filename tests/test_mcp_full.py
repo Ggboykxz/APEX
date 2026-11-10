@@ -10,6 +10,7 @@ from apex.mcp import (
     MCPManager,
     MCPResource,
     MCPServerConfig,
+    MCPServerOptions,
     MCPTool,
 )
 
@@ -199,7 +200,7 @@ class TestMCPManagerConnectAll:
 
     def test_connect_all_disabled(self):
         mgr = MCPManager()
-        mgr.add_server("disabled", "cmd", enabled=False)
+        mgr.add_server("disabled", "cmd", MCPServerOptions(enabled=False))
 
         async def _test():
             result = await mgr.connect_all()

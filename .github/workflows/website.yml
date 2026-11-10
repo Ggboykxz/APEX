@@ -13,6 +13,14 @@ on:
       - "postcss.config.mjs"
       - "eslint.config.mjs"
       - "prisma/**"
+      - "scripts/check-site-stats.py"
+      - "apex/config.py"
+      - "apex/tools.py"
+      - "apex/agents.py"
+      - "apex/formatter.py"
+      - "apex/theme_manager.py"
+      - "apex/http_api.py"
+      - "VERSION"
       - ".github/workflows/website.yml"
   pull_request:
     branches: [main]
@@ -26,6 +34,14 @@ on:
       - "postcss.config.mjs"
       - "eslint.config.mjs"
       - "prisma/**"
+      - "scripts/check-site-stats.py"
+      - "apex/config.py"
+      - "apex/tools.py"
+      - "apex/agents.py"
+      - "apex/formatter.py"
+      - "apex/theme_manager.py"
+      - "apex/http_api.py"
+      - "VERSION"
       - ".github/workflows/website.yml"
 
 concurrency:
@@ -49,6 +65,24 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+  stats:
+    name: Site stats check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . || pip install -e ".[dev]"
+
+      - name: Verify site stats match the repo
+        run: python scripts/check-site-stats.py
 
   build:
     name: Next.js Build

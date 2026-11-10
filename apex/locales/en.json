@@ -1,0 +1,11 @@
+{
+  "welcome": "Welcome to APEX",
+  "model_count": "{n} models available",
+  "permission_ask": "Ask for permission",
+  "permission_allow": "Allow",
+  "permission_deny": "Deny",
+  "session_created": "Session created",
+  "session_deleted": "Session deleted",
+  "command_not_found": "Unknown command: {cmd}",
+  "skill_loaded": "Skill loaded: {skill}"
+}
