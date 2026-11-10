@@ -50,10 +50,12 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          # The workflow already declares `permissions: contents: write`, so the
-          # built-in GITHUB_TOKEN can push gh-pages. The previous
-          # `secrets.DEPLOY_TOKEN` had expired, which failed the push while
-          # `continue-on-error` hid it and left gh-pages stale for months.
+          # peaceiris/actions-gh-pages requires an explicit token: it looks for
+          # `personal_token` or a deploy key and fails with
+          # "not found deploy key or tokens" otherwise. The workflow already
+          # declares `permissions: contents: write`, so the built-in
+          # GITHUB_TOKEN can push gh-pages.
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./out
           publish_branch: gh-pages
           force_orphan: true
