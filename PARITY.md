@@ -367,7 +367,10 @@ Le plan en 5 phases (20 semaines) permet d'atteindre cette parité de manière i
 
 | Suite | Résultat |
 |-------|----------|
-| pytest (backend Python) | 3917 passés, 6 échecs environnementaux (MCP config, gh CLI absent, formatter), 2 ignorés |
+| pytest (backend Python) | 3924 passés, 6 échecs environnementaux (MCP config, gh CLI absent, formatter), 2 ignorés |
+| cargo test (backend Rust apex-rs) | 29/29 passés |
+| cargo fmt --check | 0 diff |
+| cargo clippy -D warnings | 0 warning |
 | Tests Phase 1 (schema/Core/plugins/hooks) | 10/10 |
 | Tests Phase 2 (skills/commandes/MCP/flags) | 7/7 |
 | Tests Phase 3+4 (i18n/codegen/e2e) | 7/7 |
