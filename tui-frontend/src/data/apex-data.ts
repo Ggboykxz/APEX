@@ -10,10 +10,24 @@ export interface ToolResult {
   error?: string
 }
 
+/**
+ * A structured message part (APEX Structured Memory, §8).
+ *
+ * content stays as the flattened text view for backwards compat; parts is the
+ * authoritative structured representation.
+ */
+export type MessagePart =
+  | { type: "text"; text: string }
+  | { type: "file"; path: string; content?: string }
+  | { type: "tool_call"; toolCallId: string; name: string; args?: Record<string, unknown> }
+  | { type: "tool_result"; toolCallId: string; output?: string; error?: string }
+  | { type: "image"; path: string; dataUrl?: string }
+
 export interface ChatMessage {
   id: string
   role: "user" | "assistant"
   content: string
+  parts?: MessagePart[]
   agent?: string
   model?: string
   timestamp: number

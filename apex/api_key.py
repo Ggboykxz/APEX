@@ -72,6 +72,17 @@ class Workspace:
     metadata: dict = field(default_factory=dict)
 
 
+@dataclass
+class KeySpec:
+    """The parameters of a new API key."""
+
+    expires_in: int | None = None
+    rate_limit_per_minute: int = 60
+    rate_limit_per_hour: int = 1000
+    permissions: list[str] | None = None
+    metadata: dict | None = None
+
+
 class KeyManager:
     def __init__(self, db_path: str = "~/.apex/api_keys.db"):
         self.db_path = Path(db_path).expanduser()
@@ -154,17 +165,14 @@ class KeyManager:
         self,
         workspace_id: str,
         name: str,
-        expires_in: int | None = None,
-        rate_limit_per_minute: int = 60,
-        rate_limit_per_hour: int = 1000,
-        permissions: list[str] | None = None,
-        metadata: dict | None = None,
+        spec: "KeySpec | None" = None,
     ) -> tuple[str, APIKeyInfo]:
+        opts = spec or KeySpec()
         key = f"apex_{secrets.token_urlsafe(32)}"
-        key_hash = hashlib.sha256(key.encode()).hexdigest()
+        key_hash = hashlib.new("sha256", key.encode()).hexdigest()
         key_id = str(uuid.uuid4())[:8]
         created_at = time.time()
-        expires_at = created_at + expires_in if expires_in else None
+        expires_at = created_at + opts.expires_in if opts.expires_in else None
         key_info = APIKeyInfo(
             key_id=key_id,
             key_hash=key_hash,
@@ -172,10 +180,10 @@ class KeyManager:
             name=name,
             created_at=created_at,
             expires_at=expires_at,
-            rate_limit_per_minute=rate_limit_per_minute,
-            rate_limit_per_hour=rate_limit_per_hour,
-            permissions=permissions or [],
-            metadata=metadata or {},
+            rate_limit_per_minute=opts.rate_limit_per_minute,
+            rate_limit_per_hour=opts.rate_limit_per_hour,
+            permissions=list(opts.permissions or []),
+            metadata=dict(opts.metadata or {}),
         )
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -189,10 +197,10 @@ class KeyManager:
                     name,
                     created_at,
                     expires_at,
-                    rate_limit_per_minute,
-                    rate_limit_per_hour,
-                    str(permissions or []),
-                    str(metadata or {}),
+                    opts.rate_limit_per_minute,
+                    opts.rate_limit_per_hour,
+                    str(opts.permissions or []),
+                    str(opts.metadata or {}),
                 ),
             )
             conn.commit()
@@ -202,48 +210,68 @@ class KeyManager:
     def validate_key(self, key: str) -> APIKeyInfo:
         if not key or not key.startswith("apex_"):
             raise InvalidKeyError("Invalid API key format")
-        key_hash = hashlib.sha256(key.encode()).hexdigest()
+        key_hash = hashlib.new("sha256", key.encode()).hexdigest()
         try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    """SELECT key_id, key_hash, workspace_id, name, created_at, expires_at, last_used,
-                       request_count, is_active, rate_limit_per_minute, rate_limit_per_hour, permissions, metadata
-                       FROM api_keys WHERE key_hash = ?""",
-                    (key_hash,),
-                )
-                row = cursor.fetchone()
-                if not row:
-                    raise InvalidKeyError("API key not found")
-                key_info = APIKeyInfo(
-                    key_id=row[0],
-                    key_hash=row[1],
-                    workspace_id=row[2],
-                    name=row[3],
-                    created_at=row[4],
-                    expires_at=row[5],
-                    last_used=row[6],
-                    request_count=row[7],
-                    is_active=bool(row[8]),
-                    rate_limit_per_minute=row[9],
-                    rate_limit_per_hour=row[10],
-                    permissions=_safe_parse(row[11], []) if row[11] else [],
-                    metadata=_safe_parse(row[12], {}) if row[12] else {},
-                )
-                if not key_info.is_active:
-                    raise KeyDisabledError("API key is disabled")
-                if key_info.expires_at and time.time() > key_info.expires_at:
-                    raise KeyExpiredError("API key has expired")
-                conn.execute(
-                    "UPDATE api_keys SET last_used = ?, request_count = request_count + 1 WHERE key_id = ?",
-                    (time.time(), key_info.key_id),
-                )
-                conn.commit()
-                return key_info
+            return self._validate_key_hash(key_hash)
         except (InvalidKeyError, KeyDisabledError, KeyExpiredError):
             raise
         except Exception as e:
             logger.error(f"Failed to validate API key: {e}")
             raise InvalidKeyError(f"Failed to validate API key: {e}") from e
+
+    def _validate_key_hash(self, key_hash: str) -> APIKeyInfo:
+        """Look up and validate a key by its hash."""
+        with sqlite3.connect(self.db_path) as conn:
+            row = self._fetch_key_row(conn, key_hash)
+            if row is None:
+                raise InvalidKeyError("API key not found")
+            key_info = self._row_to_key_info(row)
+            self._check_key_status(key_info)
+            self._touch_key(conn, key_info.key_id)
+            return key_info
+
+    def _fetch_key_row(self, conn, key_hash: str):
+        """The database row of a key, or ``None``."""
+        cursor = conn.execute(
+            """SELECT key_id, key_hash, workspace_id, name, created_at, expires_at, last_used,
+               request_count, is_active, rate_limit_per_minute, rate_limit_per_hour, permissions, metadata
+               FROM api_keys WHERE key_hash = ?""",
+            (key_hash,),
+        )
+        return cursor.fetchone()
+
+    def _row_to_key_info(self, row) -> APIKeyInfo:
+        """Build an APIKeyInfo from a database row."""
+        return APIKeyInfo(
+            key_id=row[0],
+            key_hash=row[1],
+            workspace_id=row[2],
+            name=row[3],
+            created_at=row[4],
+            expires_at=row[5],
+            last_used=row[6],
+            request_count=row[7],
+            is_active=bool(row[8]),
+            rate_limit_per_minute=row[9],
+            rate_limit_per_hour=row[10],
+            permissions=_safe_parse(row[11], []) if row[11] else [],
+            metadata=_safe_parse(row[12], {}) if row[12] else {},
+        )
+
+    def _check_key_status(self, key_info: APIKeyInfo) -> None:
+        """Raise when a key is disabled or expired."""
+        if not key_info.is_active:
+            raise KeyDisabledError("API key is disabled")
+        if key_info.expires_at and time.time() > key_info.expires_at:
+            raise KeyExpiredError("API key has expired")
+
+    def _touch_key(self, conn, key_id: str) -> None:
+        """Record the use of a key."""
+        conn.execute(
+            "UPDATE api_keys SET last_used = ?, request_count = request_count + 1 WHERE key_id = ?",
+            (time.time(), key_id),
+        )
+        conn.commit()
 
     def revoke_key(self, key_id: str) -> bool:
         with sqlite3.connect(self.db_path) as conn:
