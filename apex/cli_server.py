@@ -272,7 +272,7 @@ def _gateway_status(ui: UI) -> None:
     for k in keys:
         state = "(active)" if k["is_active"] else "(revoked)"
         ui.print_info(
-            f"  [{k['tier']}] {k['key_id']} \u00e2\u20ac\u201d {k['label'] or 'no label'} {state}"
+            f"  [{k['tier']}] {k['key_id']} — {k['label'] or 'no label'} {state}"
         )
 
 
