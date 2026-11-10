@@ -77,37 +77,49 @@ _BUILTIN_COMMANDS: dict[str, CommandConfig] = {
 
 def _parse_yaml_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     lines = text.split("\n")
-    if not lines or lines[0].strip() != "---":
-        return {}, text
-
-    end = -1
-    for i in range(1, len(lines)):
-        if lines[i].strip() == "---":
-            end = i
-            break
-
+    end = _frontmatter_end(lines)
     if end == -1:
         return {}, text
-
     frontmatter_lines = lines[1:end]
     body = "\n".join(lines[end + 1 :]).strip()
 
     result: dict[str, Any] = {}
     for line in frontmatter_lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if ":" in stripped:
-            key, _, val = stripped.partition(":")
-            key = key.strip()
-            val = val.strip()
-            if val.lower() in ("true", "false"):
-                val = val.lower() == "true"
-            elif val == "" or val == "null":
-                val = None
+        entry = _frontmatter_entry(line)
+        if entry is not None:
+            key, val = entry
             result[key] = val
-
     return result, body
+
+
+def _frontmatter_end(lines: list[str]) -> int:
+    """The index of the line that closes the frontmatter, or -1."""
+    if not lines or lines[0].strip() != "---":
+        return -1
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            return i
+    return -1
+
+
+def _frontmatter_entry(line: str) -> tuple[str, Any] | None:
+    """One ``key: value`` entry of a frontmatter block."""
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#"):
+        return None
+    if ":" not in stripped:
+        return None
+    key, _, val = stripped.partition(":")
+    return key.strip(), _frontmatter_value(val.strip())
+
+
+def _frontmatter_value(value: str) -> Any:
+    """The value of a frontmatter entry, with its YAML scalar types."""
+    if value.lower() in ("true", "false"):
+        return value.lower() == "true"
+    if value == "" or value == "null":
+        return None
+    return value
 
 
 # ────────────────────────────────────────────────────────────
@@ -117,53 +129,64 @@ def _parse_yaml_frontmatter(text: str) -> tuple[dict[str, Any], str]:
 
 def _render_template(template: str, args: list[str], project_dir: str) -> str:
     result = template
-
     result = result.replace("$ARGUMENTS", " ".join(args))
-
     for i, arg in enumerate(args, start=1):
         result = result.replace(f"${i}", arg)
+    result = re.sub(r"!([^\n]+)", lambda m: _exec_shell(m, project_dir), result)
+    result = re.sub(r"@(\S+)", lambda m: _include_file(m, project_dir), result)
+    return result
 
-    def _exec_shell(m: re.Match) -> str:
-        cmd = m.group(1).strip()
-        analysis = shell_analyzer.analyze(cmd)
-        if analysis.category == CommandCategory.DANGEROUS:
-            return f"[blocked by security: {'; '.join(analysis.warnings)}]"
-        if analysis.requires_confirmation and analysis.category not in [
-            CommandCategory.WORKING_DIR,
-            CommandCategory.FILE_READ,
-            CommandCategory.BUILD,
-        ]:
-            return f"[blocked by security: {analysis.category.value} requires confirmation]"
-        try:
-            proc = subprocess.run(
-                cmd,
-                check=False,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=30,
-                cwd=project_dir,
-            )
-            return proc.stdout.strip() or proc.stderr.strip()
-        except subprocess.TimeoutExpired:
-            return ""
-        except Exception:  # noqa: BLE001
-            return ""
 
-    result = re.sub(r"!([^\n]+)", _exec_shell, result)
+def _exec_shell(m: re.Match, project_dir: str) -> str:
+    """Run a shell command embedded in a template."""
+    cmd = m.group(1).strip()
+    analysis = shell_analyzer.analyze(cmd)
+    if analysis.category == CommandCategory.DANGEROUS:
+        return f"[blocked by security: {'; '.join(analysis.warnings)}]"
+    if _needs_confirmation(analysis):
+        return f"[blocked by security: {analysis.category.value} requires confirmation]"
+    return _run_shell_command(cmd, project_dir)
 
-    def _include_file(m: re.Match) -> str:
-        path_str = m.group(1).strip()
-        p = Path(path_str)
-        if not p.is_absolute():
-            p = Path(project_dir) / p
-        if p.is_file():
-            return p.read_text(encoding="utf-8", errors="replace")
+
+def _needs_confirmation(analysis: Any) -> bool:
+    """Whether a shell command requires confirmation before running."""
+    if not analysis.requires_confirmation:
+        return False
+    return analysis.category not in (
+        CommandCategory.WORKING_DIR,
+        CommandCategory.FILE_READ,
+        CommandCategory.BUILD,
+    )
+
+
+def _run_shell_command(cmd: str, project_dir: str) -> str:
+    """Run a shell command and return its output."""
+    try:
+        proc = subprocess.run(
+            cmd,
+            check=False,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=project_dir,
+        )
+        return proc.stdout.strip() or proc.stderr.strip()
+    except subprocess.TimeoutExpired:
+        return ""
+    except Exception:  # noqa: BLE001
         return ""
 
-    result = re.sub(r"@(\S+)", _include_file, result)
 
-    return result
+def _include_file(m: re.Match, project_dir: str) -> str:
+    """Include the content of a file referenced in a template."""
+    path_str = m.group(1).strip()
+    p = Path(path_str)
+    if not p.is_absolute():
+        p = Path(project_dir) / p
+    if p.is_file():
+        return p.read_text(encoding="utf-8", errors="replace")
+    return ""
 
 
 # ────────────────────────────────────────────────────────────

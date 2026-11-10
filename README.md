@@ -416,28 +416,27 @@ Bearer token auth on all endpoints, configurable via config.
 APEX ships through **npm** and the **native Rust backend** only. PyPI, pip,
 pipx, uv and Homebrew are not installation channels.
 
-### Quick install
+### Quick install — one command
 
-**npm (recommended) — provides the `apex` command:**
+**macOS / Linux — native backend (headless, no Node required):**
 ```bash
-npm install -g apex-ai
-apex run "Fix the bug"
-```
-
-The wrapper downloads the matching `apex-rs` release asset on first run and
-verifies its `.sha256` sidecar before executing it.
-
-**Native backend (headless, no Node required):**
-```bash
-curl -fsSLO https://apex-ai.dev/install.sh
-bash install.sh --method native    # apex-rs in ~/.apex/bin
+curl -fsSL https://apex-ai.dev/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Invoke-WebRequest https://apex-ai.dev/install.ps1 -OutFile install.ps1
-powershell -ExecutionPolicy Bypass -File .\install.ps1 -Method native
+irm https://apex-ai.dev/install.ps1 | iex
 ```
+
+**npm (cross-platform wrapper) — provides the `apex` command:**
+```bash
+npm install -g apex-ai
+```
+
+Each command performs the complete install: it fetches the installer, downloads
+the matching `apex-rs` release asset, verifies its `.sha256` sidecar, installs
+it and adds it to your PATH. The wrapper variant does the same lazily on first
+run instead. After install, run `apex` (or `apex tui`).
 
 Both installers accept `--method auto|npm|native|docker`, `--version`,
 `--prefix`, `--no-path`, `--yes`, `--dry-run` and `--uninstall [--purge]`.
@@ -450,7 +449,8 @@ matrix.
 | Channel | Command | What you get |
 |---------|---------|--------------|
 | **npm** (zero-dependency wrapper) | `npm install -g apex-ai` | `apex` + verified `apex-rs` |
-| **Native backend** (headless) | `bash install.sh --method native` | `apex-rs` in `~/.apex/bin` |
+| **Native backend** (headless) | `curl -fsSL https://apex-ai.dev/install.sh | bash` | `apex-rs` in `~/.apex/bin` |
+| **Windows native** | `irm https://apex-ai.dev/install.ps1 | iex` | `apex-rs` in `~\.apex\bin` |
 | **Docker** | `docker run -it -v $(pwd):/workspace ghcr.io/ggboykxz/apex` | APEX in a container |
 | **Source** (development) | `git clone … && pip install -e ".[dev]"` | Python CLI/TUI |
 
