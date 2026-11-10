@@ -203,7 +203,7 @@ def _cmd_init(ui: UI) -> None:
     content = """# APEX Project Configuration
 
 ## Overview
-This project is configured for use with APEX â€” the coding AI agent.
+This project is configured for use with APEX — the coding AI agent.
 
 ## Commands
 

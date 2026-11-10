@@ -11,6 +11,7 @@ from apex.api_key import (
     KeyDisabledError,
     KeyExpiredError,
     KeyManager,
+    KeySpec,
     Workspace,
     WorkspaceNotFoundError,
     _safe_parse,
@@ -268,7 +269,7 @@ class TestKeyManagerCreateKey:
         assert info.key_hash == expected_hash
 
     def test_create_key_with_expiry(self, manager, workspace_id):
-        _key, info = manager.create_key(workspace_id, "Expiring Key", expires_in=3600)
+        _key, info = manager.create_key(workspace_id, "Expiring Key", KeySpec(expires_in=3600))
         assert info.expires_at is not None
         assert info.expires_at > time.time()
 
@@ -278,17 +279,21 @@ class TestKeyManagerCreateKey:
 
     def test_create_key_custom_rate_limits(self, manager, workspace_id):
         _key, info = manager.create_key(
-            workspace_id, "Custom RL", rate_limit_per_minute=30, rate_limit_per_hour=500
+            workspace_id,
+            "Custom RL",
+            KeySpec(rate_limit_per_minute=30, rate_limit_per_hour=500),
         )
         assert info.rate_limit_per_minute == 30
         assert info.rate_limit_per_hour == 500
 
     def test_create_key_with_permissions(self, manager, workspace_id):
-        _key, info = manager.create_key(workspace_id, "Perm Key", permissions=["read", "write"])
+        _key, info = manager.create_key(
+            workspace_id, "Perm Key", KeySpec(permissions=["read", "write"])
+        )
         assert info.permissions == ["read", "write"]
 
     def test_create_key_with_metadata(self, manager, workspace_id):
-        _key, info = manager.create_key(workspace_id, "Meta Key", metadata={"env": "test"})
+        _key, info = manager.create_key(workspace_id, "Meta Key", KeySpec(metadata={"env": "test"}))
         assert info.metadata == {"env": "test"}
 
     def test_create_multiple_keys(self, manager, workspace_id):
@@ -346,7 +351,7 @@ class TestKeyManagerValidateKey:
             manager.validate_key(key)
 
     def test_validate_expired_key(self, manager, workspace_id):
-        key, _info = manager.create_key(workspace_id, "Expiring Key", expires_in=1)
+        key, _info = manager.create_key(workspace_id, "Expiring Key", KeySpec(expires_in=1))
         # Wait for key to expire
         time.sleep(1.5)
         with pytest.raises(KeyExpiredError):

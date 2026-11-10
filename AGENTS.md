@@ -82,14 +82,51 @@ APEX is an **autonomous agent** capable of:
 |-----------|-------------|
 | `main.py` | CLI entry point, 20+ subcommands, TUI launcher |
 | `agent.py` | Agent core, chat loop, LLM interaction |
-| `tools.py` | 75+ built-in tools |
+| `agent_rules.py` | Project/global rules and custom instructions |
+| `agent_context.py` | Context budget, repository map, request building |
+| `agent_history.py` | History, compaction and auto-compaction |
+| `agent_permissions.py` | Permission gate and pending requests |
+| `agent_models.py` | Model and agent selection |
+| `agent_messages.py` | Tool-call wire-format helpers |
+| `apply_patch.py` | Patch engine facade: `parse_patch`, `preview_patch`, `apply_patch` |
+| `apply_patch_types.py` | Patch types, constants and errors |
+| `apply_patch_codex.py` | Parser for the Codex patch dialect |
+| `apply_patch_unified.py` | Parser for the unified-diff dialect |
+| `apply_patch_paths.py` | Path validation and resolution |
+| `apply_patch_hunks.py` | Hunk matching and application |
+| `apply_patch_writer.py` | Reading and writing the patched files |
+| `apply_patch_api.py` | Patch resolution pipeline |
+| `tools.py` | Tool executor core, custom/MCP/plugin dispatch |
+| `tools_files.py` | File I/O tools |
+| `tools_search.py` | Discovery tools |
+| `tools_shell.py` | Shell and process tools |
+| `tools_git.py` | Git tools |
+| `tools_web.py` | Web tools |
+| `tools_lsp.py` | Language-server tools |
+| `tools_session.py` | Session tools |
+| `tools_project.py` | Project tools |
+| `tools_codegen.py` | Code analysis and generation tools |
+| `tools_ux.py` | User-interaction tools |
+| `tools_env.py` | Environment, task-queue and watcher tools |
+| `tools_security.py` | Secret-file read policy |
+| `tools_schemas.py` | The tool schemas exposed to the model |
 | `session.py` | Session management, persistence |
 | `permission.py` | Permission system (ALLOW/DENY/ASK) |
 | `shell_security.py` | Shell command analysis |
 | `rate_limiter.py` | Rate limiting |
 | `api_key.py` | API key management |
 | `billing.py` | Cost tracking |
-| `http_api.py` | 56 HTTP API endpoints |
+| `http_api.py` | HTTP server core, middleware and entry points |
+| `http_routes_chat.py` | Chat and streaming routes |
+| `http_routes_sessions.py` | Session, share and diff routes |
+| `http_routes_catalog.py` | Model, provider, agent and theme routes |
+| `http_routes_config.py` | Configuration and command routes |
+| `http_routes_auth.py` | Authentication routes |
+| `http_routes_system.py` | Health, metrics and file-system routes |
+| `http_helpers.py` | Shared HTTP helpers |
+| `repomap.py` | Repository map: cache, scan and rendering |
+| `repomap_types.py` | Repository-map types and text helpers |
+| `repomap_symbols.py` | Per-language symbol extractors |
 | `config_v2.py` | Hierarchical JSON/JSONC config system |
 | `theme_manager.py` | 12 themes, dark/light, custom themes |
 | `share.py` | Session sharing with public URLs |
@@ -1822,3 +1859,63 @@ Current known scores:
 - `apex/cli_maint.py`: 10.00 (green)
 - `apex/cli_misc.py`: 10.00 (green)
 - `apex/tui_launcher.py`: 10.00 (green)
+- `apex/agent.py`: 10.00 (green — chat loop, tool orchestration, subagent dispatch)
+- `apex/agent_rules.py`: 10.00 (green)
+- `apex/agent_context.py`: 10.00 (green)
+- `apex/agent_history.py`: 10.00 (green)
+- `apex/agent_permissions.py`: 10.00 (green)
+- `apex/agent_models.py`: 10.00 (green)
+- `apex/agent_messages.py`: 10.00 (green)
+- `apex/tools.py`: 10.00 (green — executor core + dispatch)
+- `apex/tools_files.py`: 10.00 (green)
+- `apex/tools_search.py`: 10.00 (green)
+- `apex/tools_shell.py`: 10.00 (green)
+- `apex/tools_git.py`: 10.00 (green)
+- `apex/tools_web.py`: 10.00 (green)
+- `apex/tools_lsp.py`: 10.00 (green)
+- `apex/tools_session.py`: 10.00 (green)
+- `apex/tools_project.py`: 10.00 (green)
+- `apex/tools_codegen.py`: 10.00 (green)
+- `apex/tools_ux.py`: 10.00 (green)
+- `apex/tools_env.py`: 10.00 (green)
+- `apex/tools_security.py`: 10.00 (green)
+- `apex/http_api.py`: 10.00 (green — server core, middleware, entry points)
+- `apex/http_helpers.py`: 10.00 (green)
+- `apex/http_routes_chat.py`: 10.00 (green)
+- `apex/http_routes_sessions.py`: 10.00 (green)
+- `apex/http_routes_catalog.py`: 10.00 (green)
+- `apex/http_routes_config.py`: 10.00 (green)
+- `apex/http_routes_auth.py`: 10.00 (green)
+- `apex/http_routes_system.py`: 10.00 (green)
+- `apex/apply_patch.py`: 10.00 (green — patch engine facade)
+- `apex/apply_patch_types.py`: 10.00 (green)
+- `apex/apply_patch_codex.py`: 10.00 (green)
+- `apex/apply_patch_unified.py`: 10.00 (green)
+- `apex/apply_patch_paths.py`: 10.00 (green)
+- `apex/apply_patch_hunks.py`: 10.00 (green)
+- `apex/apply_patch_writer.py`: 10.00 (green)
+- `apex/apply_patch_api.py`: 10.00 (green)
+- `apex/theme_manager.py`: 10.00 (green)
+- `apex/config.py`: 10.00 (green)
+- `apex/config_v2.py`: 10.00 (green)
+- `apex/ui.py`: 10.00 (green)
+- `apex/agents.py`: 10.00 (green)
+- `apex/billing.py`: 10.00 (green)
+- `apex/slash.py`: 10.00 (green)
+- `apex/mcp.py`: 10.00 (green)
+- `apex/mcp_server.py`: 10.00 (green)
+- `apex/watcher.py`: 10.00 (green)
+- `apex/skills_system.py`: 10.00 (green)
+- `apex/repomap.py`: 10.00 (green — cache, scan and rendering)
+- `apex/repomap_types.py`: 10.00 (green)
+- `apex/repomap_symbols.py`: 10.00 (green — per-language extractors)
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

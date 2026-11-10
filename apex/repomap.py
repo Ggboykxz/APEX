@@ -1,73 +1,71 @@
-"""Symbol-level repository maps for APEX context.
+"""Repository map: symbol extraction, caching and rendering.
 
-The map is intentionally small and deterministic. A scan walks every supported
-source file below a repository root, extracts declaration signatures with line
-numbers, ranks the files, and renders a compact text map that fits a token
-budget.
-
-Supported languages
--------------------
-* Python (``.py``/``.pyi``) through :mod:`ast`: classes, functions, methods,
-  decorators, parameter signatures and the module docstring summary.
-* JavaScript/TypeScript (``.js``/``.jsx``/``.mjs``/``.cjs``/``.ts``/``.tsx``/
-  ``.mts``/``.cts``) through conservative, line-anchored regular expressions:
-  classes, functions, arrow functions, interfaces, type aliases and enums.
-* Rust (``.rs``): structs, enums, traits, impls, functions and type aliases.
-* Go (``.go``): functions, methods, structs, interfaces and type aliases.
-
-Files larger than :data:`MAX_FILE_BYTES` (512 KiB), binary files and files that
-are not valid UTF-8 are skipped without failing the scan. Directories such as
-``.git``, ``node_modules``, ``target`` and virtual environments are always
-ignored, and the repository's root ``.gitignore`` is applied with basic git
-semantics (comments, negations, directory patterns and globs). Nested
-``.gitignore`` files are not read.
-
-Ranking heuristic
------------------
-Files are ordered by:
-
-1. descending reference count — how often the file's top-level declaration
-   names appear in other scanned files (imports and identifier mentions), then
-2. ascending directory depth (files closer to the root first), then
-3. ascending relative POSIX path for a stable tie-break.
-
-Definitions always stay in source order inside a file. References are counted
-on identifier boundaries from the raw text, so they are a cheap heuristic, not
-a compiler-grade dependency graph.
-
-Token budget
-------------
-Tokens are estimated as ``ceil(len(text) / 4)``. The lowest-ranked file entries
-are dropped whole until the rendered map fits ``max_tokens``. A single entry
-that cannot fit is dropped too, which can yield an empty string for an extreme
-budget. No bodies are emitted, only signatures and line numbers.
-
-Cache
------
-Parsed symbols are cached as JSON under ``~/.apex/cache/repomap/<sha256>.json``,
-where ``<sha256>`` is the digest of the absolute root path. Each entry stores
-the file's ``mtime_ns`` and size. Changed files are reparsed, unchanged files
-reuse their cached symbols, and malformed cache data is silently ignored. Set
-``use_cache=False`` to bypass both cache reads and writes.
+Split out of ``apex.repomap`` so that each module keeps one
+responsibility.
 """
 
 from __future__ import annotations
 
-import ast
 import fnmatch
 import hashlib
 import json
 import os
-import re
 import tempfile
 from collections import Counter
-from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from .repomap_symbols import (
+    _IDENTIFIER_RE,
+    _JS_SUFFIXES,
+    _PYTHON_SUFFIXES,
+    _extract_file,
+)
+from .repomap_types import (
+    _MODULE_DOC_CHARS,
+    _WHITESPACE_RE,
+    FileSymbols,
+    Symbol,
+    _collapse,
+    _SourceFile,
+    _summarize_doc,
+)
+
 __all__ = [
-    "FileSymbols",
-    "Symbol",
+    "DEFAULT_MAX_TOKENS",
+    "IGNORED_DIRS",
+    "MAX_FILE_BYTES",
+    "_CACHE_VERSION",
+    "_IDENTIFIER_RE",
+    "_JS_SUFFIXES",
+    "_MODULE_DOC_CHARS",
+    "_PYTHON_SUFFIXES",
+    "_RANKABLE_KINDS",
+    "_SOURCE_SUFFIXES",
+    "_WHITESPACE_RE",
+    "_GitIgnore",
+    "_cache_dir",
+    "_cache_path",
+    "_collapse",
+    "_entry_from_cache",
+    "_entry_to_cache",
+    "_is_cached_symbol",
+    "_is_source_file",
+    "_is_symlink",
+    "_iter_source_files",
+    "_kept_dirs",
+    "_load_cache",
+    "_normalize_root",
+    "_parse_gitignore_rule",
+    "_read_source",
+    "_reference_counts",
+    "_render_file",
+    "_save_cache",
+    "_scan",
+    "_summarize_doc",
+    "_symbol_from_cache",
+    "_symbol_to_cache",
+    "_tokens_for_chars",
     "build_repo_map",
     "collect_symbols",
     "estimate_tokens",
@@ -75,9 +73,7 @@ __all__ = [
 
 MAX_FILE_BYTES = 512 * 1024
 DEFAULT_MAX_TOKENS = 2000
-_MODULE_DOC_CHARS = 120
 _CACHE_VERSION = 1
-
 IGNORED_DIRS = frozenset(
     {
         ".git",
@@ -95,50 +91,48 @@ IGNORED_DIRS = frozenset(
         "htmlcov",
     }
 )
-
-_PYTHON_SUFFIXES = frozenset({".py", ".pyi"})
-_JS_SUFFIXES = frozenset({".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"})
 _SOURCE_SUFFIXES = _PYTHON_SUFFIXES | _JS_SUFFIXES | frozenset({".rs", ".go"})
 _RANKABLE_KINDS = frozenset({"class", "enum", "function", "interface", "struct", "trait", "type"})
 
-_IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-_WHITESPACE_RE = re.compile(r"\s+")
+
+def _parse_gitignore_rule(raw: str) -> tuple[str, bool, bool, bool] | None:
+    """Parse one .gitignore rule into ``(pattern, negated, dir_only, anchored)``."""
+    line = _rule_text(raw)
+    if line is None:
+        return None
+
+    negated = line.startswith("!")
+    if negated:
+        line = line[1:].strip()
+        if not line:
+            return None
+
+    dir_only = line.endswith("/")
+    if dir_only:
+        line = line.rstrip("/")
+    anchored = line.startswith("/")
+    if anchored:
+        line = line.lstrip("/")
+    if not line:
+        return None
+    return line, negated, dir_only, anchored
 
 
-@dataclass(frozen=True, slots=True)
-class Symbol:
-    """A declaration found in a source file.
-
-    Attributes:
-        kind: Declaration kind (``class``, ``method``, ``function``,
-            ``interface``, ``type``, ``struct``, ``enum``, ``trait`` or
-            ``impl``).
-        name: Simple declared name (no parent qualification).
-        line: 1-based line number of the declaration.
-        signature: Single-line declaration signature without a body.
-        decorators: Python decorator expressions, without the leading ``@``.
-        parent: Enclosing class/type name when known, otherwise ``""``.
-    """
-
-    kind: str
-    name: str
-    line: int
-    signature: str
-    decorators: tuple[str, ...] = ()
-    parent: str = ""
+def _rule_text(raw: str) -> str | None:
+    """The pattern of a .gitignore line, or ``None`` when it carries none."""
+    line = raw.strip()
+    if not line or line.startswith("#"):
+        return None
+    if line.startswith(("\\#", "\\!")):
+        line = line[1:]
+    return line
 
 
-@dataclass(frozen=True, slots=True)
-class FileSymbols:
-    """Symbols and module summary for one scanned source file.
-
-    ``path`` is relative to the scanned root and always uses POSIX separators,
-    which keeps maps and cache keys stable across operating systems.
-    """
-
-    path: str
-    module_doc: str = ""
-    symbols: tuple[Symbol, ...] = ()
+def _rule_matches(rel_path: str, pattern: str, anchored: bool) -> bool:
+    """Whether a .gitignore rule matches the path."""
+    if anchored or "/" in pattern:
+        return fnmatch.fnmatchcase(rel_path, pattern)
+    return fnmatch.fnmatchcase(rel_path.rsplit("/", 1)[-1], pattern)
 
 
 class _GitIgnore:
@@ -157,26 +151,9 @@ class _GitIgnore:
             return
 
         for raw in content.splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line.startswith(("\\#", "\\!")):
-                line = line[1:]
-
-            negated = line.startswith("!")
-            if negated:
-                line = line[1:].strip()
-                if not line:
-                    continue
-
-            dir_only = line.endswith("/")
-            if dir_only:
-                line = line.rstrip("/")
-            anchored = line.startswith("/")
-            if anchored:
-                line = line.lstrip("/")
-            if line:
-                self._rules.append((line, negated, dir_only, anchored))
+            rule = _parse_gitignore_rule(raw)
+            if rule is not None:
+                self._rules.append(rule)
 
     def is_ignored(self, rel_path: str, is_dir: bool) -> bool:
         """Return whether a relative POSIX path is ignored."""
@@ -184,21 +161,9 @@ class _GitIgnore:
         for pattern, negated, dir_only, anchored in self._rules:
             if dir_only and not is_dir:
                 continue
-            if anchored or "/" in pattern:
-                matched = fnmatch.fnmatchcase(rel_path, pattern)
-            else:
-                matched = fnmatch.fnmatchcase(rel_path.rsplit("/", 1)[-1], pattern)
-            if matched:
+            if _rule_matches(rel_path, pattern, anchored):
                 ignored = not negated
         return ignored
-
-
-@dataclass(frozen=True, slots=True)
-class _SourceFile:
-    path: str
-    text: str
-    mtime_ns: int
-    size: int
 
 
 def estimate_tokens(text: str) -> int:
@@ -210,36 +175,11 @@ def _tokens_for_chars(char_count: int) -> int:
     return (char_count + 3) // 4
 
 
-def _collapse(text: str) -> str:
-    return _WHITESPACE_RE.sub(" ", text).strip()
-
-
-def _truncate(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    return text[: limit - 3].rstrip() + "..."
-
-
-def _summarize_doc(doc: str | None) -> str:
-    if not doc:
-        return ""
-    for line in doc.splitlines():
-        compact = _collapse(line)
-        if compact:
-            return _truncate(compact, _MODULE_DOC_CHARS)
-    return ""
-
-
 def _normalize_root(root: Path | str) -> Path:
     try:
         return Path(root).expanduser().resolve()
     except (OSError, RuntimeError, ValueError):
         return Path(root).expanduser().absolute()
-
-
-# ---------------------------------------------------------------------------
-# Scanning
-# ---------------------------------------------------------------------------
 
 
 def _iter_source_files(root: Path) -> list[str]:
@@ -254,37 +194,65 @@ def _iter_source_files(root: Path) -> list[str]:
         root, topdown=True, onerror=onerror, followlinks=False
     ):
         current = Path(dirpath)
-        try:
-            rel_dir = current.relative_to(root).as_posix()
-        except ValueError:
-            rel_dir = ""
-        if rel_dir == ".":
-            rel_dir = ""
-
-        kept_dirs: list[str] = []
-        for dirname in sorted(dirnames):
-            if dirname in IGNORED_DIRS:
-                continue
-            try:
-                if (current / dirname).is_symlink():
-                    continue
-            except OSError:
-                continue
-            rel_path = f"{rel_dir}/{dirname}" if rel_dir else dirname
-            if gitignore.is_ignored(rel_path, True):
-                continue
-            kept_dirs.append(dirname)
-        dirnames[:] = kept_dirs
-
-        for filename in sorted(filenames):
-            if Path(filename).suffix.lower() not in _SOURCE_SUFFIXES:
-                continue
-            rel_path = f"{rel_dir}/{filename}" if rel_dir else filename
-            if gitignore.is_ignored(rel_path, False):
-                continue
-            found.append(rel_path)
+        rel_dir = _relative_dir(current, root)
+        dirnames[:] = _kept_dirs(current, rel_dir, dirnames, gitignore)
+        found.extend(_source_files_of(current, rel_dir, filenames, gitignore))
 
     return sorted(found)
+
+
+def _relative_dir(current: Path, root: Path) -> str:
+    """The path of a directory relative to the scanned root."""
+    try:
+        rel_dir = current.relative_to(root).as_posix()
+    except ValueError:
+        return ""
+    return "" if rel_dir == "." else rel_dir
+
+
+def _source_files_of(
+    current: Path, rel_dir: str, filenames: list[str], gitignore: _GitIgnore
+) -> list[str]:
+    """The scannable source files of one directory."""
+    found = []
+    for filename in sorted(filenames):
+        rel_path = f"{rel_dir}/{filename}" if rel_dir else filename
+        if _is_source_file(current, rel_dir, filename, gitignore):
+            found.append(rel_path)
+    return found
+
+
+def _kept_dirs(
+    current: Path, rel_dir: str, dirnames: list[str], gitignore: _GitIgnore
+) -> list[str]:
+    """The sub-directories that are worth scanning."""
+    kept: list[str] = []
+    for dirname in sorted(dirnames):
+        if dirname in IGNORED_DIRS:
+            continue
+        if _is_symlink(current / dirname):
+            continue
+        rel_path = f"{rel_dir}/{dirname}" if rel_dir else dirname
+        if gitignore.is_ignored(rel_path, True):
+            continue
+        kept.append(dirname)
+    return kept
+
+
+def _is_symlink(path: Path) -> bool:
+    """Whether the path is a symbolic link."""
+    try:
+        return path.is_symlink()
+    except OSError:
+        return True
+
+
+def _is_source_file(current: Path, rel_dir: str, filename: str, gitignore: _GitIgnore) -> bool:
+    """Whether a file is a source file worth scanning."""
+    if Path(filename).suffix.lower() not in _SOURCE_SUFFIXES:
+        return False
+    rel_path = f"{rel_dir}/{filename}" if rel_dir else filename
+    return not gitignore.is_ignored(rel_path, False)
 
 
 def _read_source(root: Path, rel_path: str) -> _SourceFile | None:
@@ -307,354 +275,6 @@ def _read_source(root: Path, rel_path: str) -> _SourceFile | None:
     return _SourceFile(rel_path, text, stat.st_mtime_ns, len(data))
 
 
-# ---------------------------------------------------------------------------
-# Python extraction
-# ---------------------------------------------------------------------------
-
-
-def _python_decorators(
-    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
-) -> tuple[str, ...]:
-    decorators: list[str] = []
-    for decorator in node.decorator_list:
-        try:
-            decorators.append(_collapse(ast.unparse(decorator)))
-        except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001, S112
-            continue
-    return tuple(decorators)
-
-
-def _python_function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
-    prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
-    try:
-        arguments = ast.unparse(node.args)
-    except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001
-        arguments = ""
-    returns = ""
-    if node.returns is not None:
-        try:
-            returns = f" -> {ast.unparse(node.returns)}"
-        except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001
-            returns = ""
-    return _collapse(f"{prefix} {node.name}({arguments}){returns}")
-
-
-def _python_class_signature(node: ast.ClassDef) -> str:
-    parts: list[str] = []
-    for base in node.bases:
-        try:
-            parts.append(ast.unparse(base))
-        except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001, S112
-            continue
-    for keyword in node.keywords:
-        try:
-            value = ast.unparse(keyword.value)
-        except Exception:  # pragma: no cover - defensive for exotic AST nodes  # noqa: BLE001, S112
-            continue
-        parts.append(f"{keyword.arg}={value}" if keyword.arg else f"**{value}")
-    suffix = f"({', '.join(parts)})" if parts else ""
-    return _collapse(f"class {node.name}{suffix}")
-
-
-def _extract_python(text: str) -> tuple[str, list[Symbol]]:
-    try:
-        tree = ast.parse(text)
-    except (SyntaxError, ValueError, MemoryError, RecursionError):
-        return "", []
-
-    module_doc = _summarize_doc(ast.get_docstring(tree, clean=True))
-    symbols: list[Symbol] = []
-
-    def add_class(node: ast.ClassDef, parent: str) -> None:
-        qualified = f"{parent}.{node.name}" if parent else node.name
-        symbols.append(
-            Symbol(
-                "class",
-                node.name,
-                node.lineno,
-                _python_class_signature(node),
-                _python_decorators(node),
-                parent,
-            )
-        )
-        for child in node.body:
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                symbols.append(
-                    Symbol(
-                        "method",
-                        child.name,
-                        child.lineno,
-                        _python_function_signature(child),
-                        _python_decorators(child),
-                        qualified,
-                    )
-                )
-            elif isinstance(child, ast.ClassDef):
-                add_class(child, qualified)
-
-    for node in tree.body:
-        if isinstance(node, ast.ClassDef):
-            add_class(node, "")
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            symbols.append(
-                Symbol(
-                    "function",
-                    node.name,
-                    node.lineno,
-                    _python_function_signature(node),
-                    _python_decorators(node),
-                )
-            )
-
-    symbols.sort(key=lambda symbol: symbol.line)
-    return module_doc, symbols
-
-
-# ---------------------------------------------------------------------------
-# JavaScript / TypeScript extraction
-# ---------------------------------------------------------------------------
-
-_JS_CLASS_RE = re.compile(
-    r"^(?:export\s+(?:default\s+)?)?(?:declare\s+)?(?:abstract\s+)?"
-    r"class\s+(?P<name>[A-Za-z_$][\w$]*)"
-)
-_JS_FUNCTION_RE = re.compile(
-    r"^(?:export\s+(?:default\s+)?)?(?:declare\s+)?(?:async\s+)?"
-    r"function\s*\*?\s*(?P<name>[A-Za-z_$][\w$]*)"
-)
-_JS_INTERFACE_RE = re.compile(
-    r"^(?:export\s+(?:default\s+)?)?(?:declare\s+)?interface\s+"
-    r"(?P<name>[A-Za-z_$][\w$]*)"
-)
-_JS_TYPE_RE = re.compile(r"^(?:export\s+)?(?:declare\s+)?type\s+(?P<name>[A-Za-z_$][\w$]*)")
-_JS_ENUM_RE = re.compile(
-    r"^(?:export\s+)?(?:declare\s+)?(?:const\s+)?enum\s+(?P<name>[A-Za-z_$][\w$]*)"
-)
-_JS_ARROW_RE = re.compile(
-    r"^(?:export\s+)?(?:const|let|var)\s+(?P<name>[A-Za-z_$][\w$]*)"
-    r"(?:\s*:\s*[^=]+)?\s*=\s*(?:async\s*)?"
-    r"(?:<[^>]*>\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*(?::\s*[^=]+)?=>"
-)
-
-
-def _iter_code_lines(text: str) -> Iterator[str]:
-    """Yield lines with C-style comments removed, preserving line numbers.
-
-    This is deliberately lightweight: it protects declaration matching from
-    commented-out code without trying to be a JavaScript/Rust/Go lexer. Odd
-    files still yield lines and can never make the scan crash.
-    """
-    in_block = False
-    for line in text.splitlines():
-        code = line
-        if in_block:
-            end = code.find("*/")
-            if end == -1:
-                yield ""
-                continue
-            code = code[end + 2 :]
-            in_block = False
-
-        while True:
-            start = code.find("/*")
-            if start == -1:
-                break
-            end = code.find("*/", start + 2)
-            if end == -1:
-                code = code[:start]
-                in_block = True
-                break
-            code = code[:start] + code[end + 2 :]
-
-        line_comment = code.find("//")
-        if line_comment != -1:
-            code = code[:line_comment]
-        yield code
-
-
-def _declaration_signature(line: str, *, keep_arrow: bool = False) -> str:
-    """Trim a declaration line to a body-free, single-line signature."""
-    text = line.strip()
-    brace = text.find("{")
-    if brace != -1:
-        text = text[:brace]
-    if keep_arrow:
-        arrow = text.find("=>")
-        if arrow != -1:
-            text = text[: arrow + 2]
-    text = _collapse(text.rstrip(" ;"))
-    if text.endswith("="):
-        text = text[:-1].rstrip()
-    return text
-
-
-def _extract_javascript(text: str) -> tuple[str, list[Symbol]]:
-    symbols: list[Symbol] = []
-    for line_number, raw_line in enumerate(_iter_code_lines(text), start=1):
-        line = raw_line.strip()
-        if not line:
-            continue
-        if match := _JS_CLASS_RE.match(line):
-            symbols.append(
-                Symbol("class", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif match := _JS_FUNCTION_RE.match(line):
-            symbols.append(
-                Symbol("function", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif match := _JS_INTERFACE_RE.match(line):
-            symbols.append(
-                Symbol("interface", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif match := _JS_TYPE_RE.match(line):
-            symbols.append(
-                Symbol("type", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif match := _JS_ENUM_RE.match(line):
-            symbols.append(
-                Symbol("enum", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif match := _JS_ARROW_RE.match(line):
-            symbols.append(
-                Symbol(
-                    "function",
-                    match.group("name"),
-                    line_number,
-                    _declaration_signature(line, keep_arrow=True),
-                )
-            )
-    return "", symbols
-
-
-# ---------------------------------------------------------------------------
-# Rust extraction
-# ---------------------------------------------------------------------------
-
-_RUST_VISIBILITY = r"(?:pub(?:\([^)]*\))?\s+)?"
-_RUST_STRUCT_RE = re.compile(rf"^{_RUST_VISIBILITY}(?:struct|union)\s+(?P<name>[A-Za-z_]\w*)")
-_RUST_ENUM_RE = re.compile(rf"^{_RUST_VISIBILITY}enum\s+(?P<name>[A-Za-z_]\w*)")
-_RUST_TRAIT_RE = re.compile(
-    rf"^{_RUST_VISIBILITY}(?:unsafe\s+)?(?:auto\s+)?trait\s+(?P<name>[A-Za-z_]\w*)"
-)
-_RUST_IMPL_RE = re.compile(r"^(?:unsafe\s+)?impl(?:\s*<[^>]*>)?\s+")
-_RUST_FN_RE = re.compile(
-    rf"^{_RUST_VISIBILITY}(?:(?:const|async|unsafe|extern\s+\"[^\"]*\")\s+)*"
-    r"fn\s+(?P<name>[A-Za-z_]\w*)"
-)
-_RUST_TYPE_RE = re.compile(rf"^{_RUST_VISIBILITY}type\s+(?P<name>[A-Za-z_]\w*)")
-
-
-def _rust_impl_name(signature: str) -> str:
-    target = re.sub(r"^(?:unsafe\s+)?impl\s*", "", signature)
-    target = re.sub(r"^<[^>]*>\s*", "", target)
-    target = target.split(" where ", 1)[0]
-    if " for " in target:
-        target = target.split(" for ", 1)[1]
-    target = target.split("<", 1)[0].strip().lstrip("!&").strip()
-    parts = target.split()
-    return parts[-1] if parts else "impl"
-
-
-def _extract_rust(text: str) -> tuple[str, list[Symbol]]:
-    symbols: list[Symbol] = []
-    for line_number, raw_line in enumerate(_iter_code_lines(text), start=1):
-        line = raw_line.strip()
-        if not line:
-            continue
-        if match := _RUST_STRUCT_RE.match(line):
-            symbols.append(
-                Symbol("struct", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif match := _RUST_ENUM_RE.match(line):
-            symbols.append(
-                Symbol("enum", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif match := _RUST_TRAIT_RE.match(line):
-            symbols.append(
-                Symbol("trait", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif _RUST_IMPL_RE.match(line):
-            signature = _declaration_signature(line)
-            symbols.append(Symbol("impl", _rust_impl_name(signature), line_number, signature))
-        elif match := _RUST_FN_RE.match(line):
-            symbols.append(
-                Symbol("function", match.group("name"), line_number, _declaration_signature(line))
-            )
-        elif match := _RUST_TYPE_RE.match(line):
-            symbols.append(
-                Symbol("type", match.group("name"), line_number, _declaration_signature(line))
-            )
-    return "", symbols
-
-
-# ---------------------------------------------------------------------------
-# Go extraction
-# ---------------------------------------------------------------------------
-
-_GO_FUNC_RE = re.compile(r"^func\s+(?:\((?P<receiver>[^)]*)\)\s*)?(?P<name>[A-Za-z_]\w*)")
-_GO_TYPE_RE = re.compile(r"^type\s+(?P<name>[A-Za-z_]\w*)(?:\[[^\]]*\])?\s+(?P<rest>\S.*)$")
-
-
-def _go_receiver_type(receiver: str | None) -> str:
-    if not receiver:
-        return ""
-    identifiers = _IDENTIFIER_RE.findall(receiver.split("[", 1)[0])
-    return identifiers[-1] if identifiers else ""
-
-
-def _extract_go(text: str) -> tuple[str, list[Symbol]]:
-    symbols: list[Symbol] = []
-    for line_number, raw_line in enumerate(_iter_code_lines(text), start=1):
-        line = raw_line.strip()
-        if not line:
-            continue
-        if match := _GO_FUNC_RE.match(line):
-            receiver = match.group("receiver")
-            symbols.append(
-                Symbol(
-                    "method" if receiver else "function",
-                    match.group("name"),
-                    line_number,
-                    _declaration_signature(line),
-                    parent=_go_receiver_type(receiver),
-                )
-            )
-        elif match := _GO_TYPE_RE.match(line):
-            body = match.group("rest").lstrip("= ").strip()
-            if body.startswith("struct"):
-                kind = "struct"
-            elif body.startswith("interface"):
-                kind = "interface"
-            else:
-                kind = "type"
-            symbols.append(
-                Symbol(kind, match.group("name"), line_number, _declaration_signature(line))
-            )
-    return "", symbols
-
-
-def _extract_file(rel_path: str, text: str) -> tuple[str, list[Symbol]]:
-    """Dispatch extraction for one file; extraction never breaks the scan."""
-    suffix = Path(rel_path).suffix.lower()
-    try:
-        if suffix in _PYTHON_SUFFIXES:
-            return _extract_python(text)
-        if suffix in _JS_SUFFIXES:
-            return _extract_javascript(text)
-        if suffix == ".rs":
-            return _extract_rust(text)
-        if suffix == ".go":
-            return _extract_go(text)
-    except Exception:  # pragma: no cover - last-resort guard for odd input  # noqa: BLE001
-        return "", []
-    return "", []
-
-
-# ---------------------------------------------------------------------------
-# Cache
-# ---------------------------------------------------------------------------
-
-
 def _cache_dir() -> Path:
     return Path.home() / ".apex" / "cache" / "repomap"
 
@@ -675,27 +295,81 @@ def _symbol_to_cache(symbol: Symbol) -> dict[str, object]:
     }
 
 
+@dataclass(frozen=True)
+class _CachedFields:
+    """The symbol fields stored in the cache."""
+
+    kind: object
+    name: object
+    line: object
+    signature: object
+    decorators: object
+    parent: object
+
+
 def _symbol_from_cache(raw: object) -> Symbol | None:
     if not isinstance(raw, dict):
         return None
+    fields = _cached_fields(raw)
+    if fields is None:
+        return None
+    if not _is_cached_symbol(fields):
+        return None
+    return Symbol(
+        fields.kind,
+        fields.name,
+        fields.line,
+        fields.signature,
+        tuple(fields.decorators),
+        fields.parent,
+    )
+
+
+def _cached_fields(raw: dict) -> _CachedFields | None:
+    """The symbol fields read from the cache."""
     try:
-        kind = raw["kind"]
-        name = raw["name"]
-        line = raw["line"]
-        signature = raw["signature"]
-        decorators = raw.get("decorators", [])
-        parent = raw.get("parent", "")
+        return _CachedFields(
+            kind=raw["kind"],
+            name=raw["name"],
+            line=raw["line"],
+            signature=raw["signature"],
+            decorators=raw.get("decorators", []),
+            parent=raw.get("parent", ""),
+        )
     except KeyError:
         return None
-    if not isinstance(kind, str) or not isinstance(name, str) or not isinstance(line, int):
-        return None
-    if not isinstance(signature, str) or not isinstance(parent, str):
-        return None
-    if line < 1 or not isinstance(decorators, list):
-        return None
-    if not all(isinstance(decorator, str) for decorator in decorators):
-        return None
-    return Symbol(kind, name, line, signature, tuple(decorators), parent)
+
+
+def _is_cached_symbol(fields: _CachedFields) -> bool:
+    """Whether the fields read from the cache describe a symbol."""
+    if not _is_cached_identity(fields.kind, fields.name, fields.line):
+        return False
+    if not _is_cached_signature(fields.signature, fields.parent):
+        return False
+    return _is_cached_decorators(fields.decorators)
+
+
+def _is_cached_identity(kind: object, name: object, line: object) -> bool:
+    """Whether the cached identity fields describe a symbol."""
+    if not isinstance(kind, str) or not isinstance(name, str):
+        return False
+    if not isinstance(line, int):
+        return False
+    return line >= 1
+
+
+def _is_cached_signature(signature: object, parent: object) -> bool:
+    """Whether the cached signature fields describe a symbol."""
+    if not isinstance(signature, str):
+        return False
+    return isinstance(parent, str)
+
+
+def _is_cached_decorators(decorators: object) -> bool:
+    """Whether the cached decorators are a list of strings."""
+    if not isinstance(decorators, list):
+        return False
+    return all(isinstance(decorator, str) for decorator in decorators)
 
 
 def _entry_to_cache(entry: FileSymbols, mtime_ns: int, size: int) -> dict[str, object]:
@@ -722,13 +396,8 @@ def _entry_from_cache(rel_path: str, raw: dict[str, object]) -> FileSymbols | No
 
 
 def _load_cache(root: Path) -> dict[str, dict[str, object]]:
-    try:
-        raw = json.loads(_cache_path(root).read_text(encoding="utf-8"))
-    except (OSError, TypeError, ValueError, RecursionError):
-        return {}
-    if not isinstance(raw, dict) or raw.get("version") != _CACHE_VERSION:
-        return {}
-    if raw.get("root") != str(root):
+    raw = _read_cache_file(root)
+    if not _is_cache_for_root(raw, root):
         return {}
     files = raw.get("files")
     if not isinstance(files, dict):
@@ -738,6 +407,22 @@ def _load_cache(root: Path) -> dict[str, dict[str, object]]:
         for key, value in files.items()
         if isinstance(key, str) and isinstance(value, dict)
     }
+
+
+def _read_cache_file(root: Path) -> dict[str, object]:
+    """The raw cache payload of a root, or an empty mapping."""
+    try:
+        raw = json.loads(_cache_path(root).read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError, RecursionError):
+        return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _is_cache_for_root(raw: dict[str, object], root: Path) -> bool:
+    """Whether a cache payload was written for this root and this version."""
+    if raw.get("version") != _CACHE_VERSION:
+        return False
+    return raw.get("root") == str(root)
 
 
 def _save_cache(root: Path, files: dict[str, dict[str, object]]) -> None:
@@ -769,11 +454,6 @@ def _save_cache(root: Path, files: dict[str, dict[str, object]]) -> None:
                 pass
 
 
-# ---------------------------------------------------------------------------
-# Collection, ranking and rendering
-# ---------------------------------------------------------------------------
-
-
 def _scan(root: Path, *, use_cache: bool) -> tuple[list[FileSymbols], dict[str, Counter[str]]]:
     rel_paths = _iter_source_files(root)
     cached = _load_cache(root) if use_cache else {}
@@ -785,19 +465,10 @@ def _scan(root: Path, *, use_cache: bool) -> tuple[list[FileSymbols], dict[str, 
         source = _read_source(root, rel_path)
         if source is None:
             continue
-
-        token_counts[rel_path] = Counter(_IDENTIFIER_RE.findall(source.text))
-        cached_entry = cached.get(rel_path)
-        entry: FileSymbols | None = None
-        if cached_entry is not None and (
-            cached_entry.get("mtime_ns") == source.mtime_ns
-            and cached_entry.get("size") == source.size
-        ):
-            entry = _entry_from_cache(rel_path, cached_entry)
+        entry = _cached_entry(cached, rel_path, source)
         if entry is None:
-            module_doc, symbols = _extract_file(rel_path, source.text)
-            entry = FileSymbols(rel_path, module_doc, tuple(symbols))
-
+            entry = _extract_entry(rel_path, source.text)
+        token_counts[rel_path] = Counter(_IDENTIFIER_RE.findall(source.text))
         entries.append(entry)
         if use_cache:
             cache_payload[rel_path] = _entry_to_cache(entry, source.mtime_ns, source.size)
@@ -805,6 +476,39 @@ def _scan(root: Path, *, use_cache: bool) -> tuple[list[FileSymbols], dict[str, 
     if use_cache:
         _save_cache(root, cache_payload)
     return entries, token_counts
+
+
+def _cached_entry(
+    cached: dict[str, dict[str, object]], rel_path: str, source: _SourceFile
+) -> FileSymbols | None:
+    """The cached symbols of a file, when they are still up to date."""
+    cached_entry = cached.get(rel_path)
+    if cached_entry is None:
+        return None
+    if not _cache_matches(cached_entry, source):
+        return None
+    return _entry_from_cache(rel_path, cached_entry)
+
+
+def _cache_matches(cached_entry: dict[str, object], source: _SourceFile) -> bool:
+    """Whether the cache entry was written for this version of the file."""
+    if cached_entry.get("mtime_ns") != source.mtime_ns:
+        return False
+    return cached_entry.get("size") == source.size
+
+
+def _extract_entry(rel_path: str, text: str) -> FileSymbols:
+    """Extract the symbols of one source file."""
+    module_doc, symbols = _extract_file(rel_path, text)
+    return FileSymbols(rel_path, module_doc, tuple(symbols))
+
+
+def _rank_entries(entries: list[FileSymbols], counts: dict[str, int]) -> list[FileSymbols]:
+    """The entries worth rendering, most referenced first."""
+    return sorted(
+        (entry for entry in entries if entry.symbols or entry.module_doc),
+        key=lambda entry: (-counts.get(entry.path, 0), entry.path.count("/"), entry.path),
+    )
 
 
 def _reference_counts(
@@ -895,11 +599,7 @@ def build_repo_map(root: Path, max_tokens: int = DEFAULT_MAX_TOKENS, use_cache: 
         return ""
 
     entries, token_counts = _scan(root_path, use_cache=use_cache)
-    counts = _reference_counts(entries, token_counts)
-    ranked = sorted(
-        (entry for entry in entries if entry.symbols or entry.module_doc),
-        key=lambda entry: (-counts.get(entry.path, 0), entry.path.count("/"), entry.path),
-    )
+    ranked = _rank_entries(entries, _reference_counts(entries, token_counts))
     blocks = [block for entry in ranked if (block := _render_file(entry))]
     if not blocks:
         return ""

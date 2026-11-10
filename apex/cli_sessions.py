@@ -220,7 +220,7 @@ def _cmd_compact(args: argparse.Namespace, ui: UI) -> None:
         before = len(agent.history) if hasattr(agent, "history") else 0
         agent.compact_context()
         after = len(agent.history) if hasattr(agent, "history") else 0
-        ui.print_success(f"Context compacted: {before} â†’ {after} messages")
+        ui.print_success(f"Context compacted: {before} → {after} messages")
     else:
         ui.print_info("Compaction not available in this context")
 
