@@ -753,6 +753,13 @@ def _detect_terminal_mode() -> str:
     return "dark"
 
 
+def _is_theme_definition(data: Any) -> bool:
+    """Whether the parsed file carries a theme definition."""
+    if isinstance(data, dict):
+        return True
+    return "defs" in data and "theme" in data
+
+
 def _load_theme_files(directory: Path) -> dict[str, dict[str, Any]]:
     """Load JSON theme files from *directory* and return a name-›data map."""
     themes: dict[str, dict[str, Any]] = {}
@@ -764,7 +771,7 @@ def _load_theme_files(directory: Path) -> dict[str, dict[str, Any]]:
         try:
             data = json.loads(fpath.read_text(encoding="utf-8"))
             name = fpath.stem
-            if ("defs" in data and "theme" in data) or isinstance(data, dict):
+            if _is_theme_definition(data):
                 themes[name] = data
         except (json.JSONDecodeError, OSError):
             continue

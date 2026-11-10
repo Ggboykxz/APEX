@@ -11,6 +11,8 @@ import React from "react"
 import { Box, Text } from "ink"
 import { apexTheme } from "../theme/apex.js"
 import type { AgentInfo, ModelInfo, SessionInfo, ThemeInfo } from "../types.js"
+import { useKeymap } from "../keymap/react.js"
+import { formatKey } from "../keymap/format.js"
 
 interface SelectRow<T> {
   key: string
@@ -160,24 +162,90 @@ export function FileFinder(props: {
   )
 }
 
+const HELP_LAYER_TITLES: Record<string, string> = {
+  global: "Global Shortcuts",
+  leader: "Leader Keys (Ctrl+X, then…)",
+  composer: "Composer",
+  completion: "Autocomplete",
+  overlay: "Overlays",
+  diff: "Diff Preview",
+}
+
+const HELP_CMD_LABEL: Record<string, string> = {
+  "palette.open": "Command palette",
+  "models.open": "Model selector",
+  "thinking.cycle": "Cycle thinking mode",
+  "help.open": "Help",
+  "app.quit": "Quit",
+  "sidebar.toggle": "Toggle sidebar",
+  "session.clear": "Clear chat",
+  "input.clear": "Clear input",
+  "input.deleteWord": "Delete word",
+  "filefinder.open": "@ File finder",
+  "tool.toggle": "Expand last tool",
+  "connection.retry": "Retry connection",
+  "scroll.up": "Scroll up",
+  "scroll.down": "Scroll down",
+  "agent.next": "Next agent",
+  "agent.prev": "Previous agent",
+  "completion.hide": "Dismiss suggestions",
+  "completion.prev": "Previous suggestion",
+  "completion.next": "Next suggestion",
+  "completion.select": "Accept suggestion",
+  "composer.submit": "Send message",
+  "composer.newline": "New line",
+  "composer.backspace": "Backspace",
+  "overlay.close": "Close overlay",
+  "overlay.select": "Select row",
+  "overlay.up": "Move up",
+  "overlay.down": "Move down",
+  "overlay.searchDelete": "Backspace search",
+  "leader.new": "/new",
+  "leader.undo": "/undo",
+  "leader.redo": "/redo",
+  "leader.compact": "/compact",
+  "leader.model": "Model selector",
+  "leader.theme": "Theme selector",
+  "leader.status": "Status",
+  "leader.editor": "/editor",
+  "leader.export": "/export",
+  "leader.sidebar": "Toggle sidebar",
+  "leader.agent": "Agent selector",
+  "leader.session": "Sessions",
+  "leader.copy": "/copy",
+  "leader.quit": "Quit",
+}
+
+const HELP_LAYER_ORDER = ["global", "leader", "composer", "completion", "overlay"]
+
 export function HelpOverlay(props: { onClose: () => void }) {
+  const keymap = useKeymap()
+  void props.onClose
   return (
     <Box flexDirection="column" flexGrow={1} padding={1}>
       <Text color={apexTheme.cyan} bold>HELP — Keyboard Shortcuts</Text>
-      <Text color={apexTheme.green} bold>Navigation</Text>
-      <Text color={apexTheme.fg}>  Tab          Switch agent        PgUp/PgDown   Scroll messages</Text>
-      <Text color={apexTheme.fg}>  ?            Help                 @             File finder</Text>
-      <Text color={apexTheme.green} bold>Commands</Text>
-      <Text color={apexTheme.fg}>  Ctrl+P       Command palette     Ctrl+K        Model selector</Text>
-      <Text color={apexTheme.fg}>  Ctrl+O       Toggle sidebar      Ctrl+L        Clear chat</Text>
-      <Text color={apexTheme.fg}>  Ctrl+T       Thinking mode       Ctrl+Q        Quit</Text>
-      <Text color={apexTheme.green} bold>Leader Key (Ctrl+X then...)</Text>
-      <Text color={apexTheme.fg}>  N  /new      U  /undo           R  /redo      C  /compact</Text>
-      <Text color={apexTheme.fg}>  M  /models   T  /themes         S  Status     E  /editor</Text>
-      <Text color={apexTheme.fg}>  X  /export   B  Sidebar         A  Agents     L  Sessions</Text>
-      <Text color={apexTheme.fg}>  Q  Quit</Text>
-      <Text color={apexTheme.green} bold>System</Text>
-      <Text color={apexTheme.fg}>  Enter        Send               !command     Bash execute</Text>
+      {!keymap ? (
+        <Text color={apexTheme.gray}>  (bindings not ready — press Esc)</Text>
+      ) : (
+        <>
+          {HELP_LAYER_ORDER.map((layer) => {
+            const rows = keymap.listKeys().filter((k) => k.layer === layer)
+            if (rows.length === 0) return null
+            return (
+              <Box key={layer} flexDirection="column">
+                <Text color={apexTheme.green} bold>{HELP_LAYER_TITLES[layer]}</Text>
+                {rows.map((r, i) => (
+                  <Text key={i} color={apexTheme.fg}>
+                    {`  ${formatKey(r.key)}`}
+                    {" ".repeat(Math.max(1, 12 - formatKey(r.key).length))}
+                    {HELP_CMD_LABEL[r.cmd] ?? r.cmd}
+                  </Text>
+                ))}
+              </Box>
+            )
+          })}
+        </>
+      )}
       <Text color={apexTheme.gray}>  Press Escape to close</Text>
     </Box>
   )

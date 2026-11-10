@@ -58,6 +58,11 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
     "integrations/**/out/**",
     "integrations/**/dist/**",
     "integrations/npm/**",
+    ".agents/skills/**",
+    ".git/**",
+    "e2e/**",
+    "playwright.config.ts",
+    "integrations/desktop/**",
   ]
 }];
 
