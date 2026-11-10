@@ -95,23 +95,50 @@ def detect_vision_support(model: str) -> bool:
     if not isinstance(model, str) or not model.strip():
         return False
 
-    candidates = [model]
-    if "/" in model:
-        candidates.append(model.split("/", 1)[1])
+    if not _is_string_model(model):
+        return False
 
-    try:
-        from litellm import model_cost
-    except Exception:  # pragma: no cover - litellm optional at import time  # noqa: BLE001
-        model_cost = None
-
+    candidates = _model_candidates(model)
+    model_cost = _litellm_model_cost()
     if isinstance(model_cost, dict):
-        for candidate in candidates:
-            info = model_cost.get(candidate)
-            if isinstance(info, dict) and "supports_vision" in info:
-                return bool(info["supports_vision"])
+        result = _litellm_vision(model_cost, candidates)
+        if result is not None:
+            return result
 
     lowered = model.lower()
     return any(pattern in lowered for pattern in _VISION_PATTERNS)
+
+
+def _is_string_model(model: object) -> bool:
+    """Whether the model is a non-empty string."""
+    return isinstance(model, str) and bool(model.strip())
+
+
+def _model_candidates(model: str) -> list[str]:
+    """The model names to probe litellm with."""
+    candidates = [model]
+    if "/" in model:
+        candidates.append(model.split("/", 1)[1])
+    return candidates
+
+
+def _litellm_model_cost() -> Any:
+    """litellm's model_cost table, or ``None`` when unavailable."""
+    try:
+        from litellm import model_cost
+
+        return model_cost
+    except Exception:  # pragma: no cover - litellm optional at import time  # noqa: BLE001
+        return None
+
+
+def _litellm_vision(model_cost: dict, candidates: list[str]) -> bool | None:
+    """The vision flag litellm reports, or ``None`` when it has none."""
+    for candidate in candidates:
+        info = model_cost.get(candidate)
+        if isinstance(info, dict) and "supports_vision" in info:
+            return bool(info["supports_vision"])
+    return None
 
 
 def load_image(path: Path | str) -> tuple[bytes, str]:
@@ -125,11 +152,7 @@ def load_image(path: Path | str) -> tuple[bytes, str]:
     if not image_path.is_file():
         raise FileNotFoundError(f"Image not found: {image_path}")
 
-    mime = _IMAGE_MIME.get(image_path.suffix.lower())
-    if mime is None:
-        guessed = mimetypes.guess_type(image_path.name)[0]
-        if guessed and guessed.startswith("image/"):
-            mime = guessed
+    mime = _resolve_mime(image_path)
     if mime is None:
         raise ValueError(
             f"Unsupported image type '{image_path.suffix or '(none)'}'; "
@@ -137,11 +160,27 @@ def load_image(path: Path | str) -> tuple[bytes, str]:
         )
 
     raw = image_path.read_bytes()
+    _check_image_size(image_path, raw)
+    return raw, mime
+
+
+def _resolve_mime(image_path: Path) -> str | None:
+    """The MIME type of an image, or ``None`` when it is unsupported."""
+    mime = _IMAGE_MIME.get(image_path.suffix.lower())
+    if mime is not None:
+        return mime
+    guessed = mimetypes.guess_type(image_path.name)[0]
+    if guessed and guessed.startswith("image/"):
+        return guessed
+    return None
+
+
+def _check_image_size(image_path: Path, raw: bytes) -> None:
+    """Raise when the image is empty or too large."""
     if not raw:
         raise ValueError(f"Image file is empty: {image_path}")
     if len(raw) > MAX_IMAGE_BYTES:
         raise ValueError(f"Image too large ({len(raw)} bytes); maximum is {MAX_IMAGE_BYTES} bytes")
-    return raw, mime
 
 
 def build_vision_content(text: str, images: list[tuple[bytes, str]]) -> list[dict[str, Any]]:

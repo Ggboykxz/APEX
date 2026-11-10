@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "servers": {
+    "apex-filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/myapp/APEX"],
+      "env": {}
+    },
+    "apex-memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "env": {}
+    }
+  },
+  "ecc": {
+    "hookConsent": "enabled"
+  }
+}

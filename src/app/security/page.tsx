@@ -39,7 +39,7 @@ const SECURITY_FEATURES = [
     desc: 'Ruleset-based permission system where each tool can be set to ALLOW, DENY, or ASK. Supports wildcards and per-agent configuration. Each agent has its own permission profile.',
     details: [
       'Per-tool permission controls (read, edit, bash, websearch, task)',
-      'Per-agent permission profiles (Coder, Architect, Planner, Reviewer, Shell)',
+      'Per-agent permission profiles (Build, Plan, Planner, Reviewer, Shell)',
       'Three permission levels: ALLOW (always permit), ASK (prompt user), DENY (block completely)',
       'Wildcard pattern support for flexible rule matching',
       'Configurable via .apex/config.yaml or CLI flags',
@@ -142,7 +142,7 @@ const SECURITY_FEATURES = [
 ]
 
 const SUPPORTED_VERSIONS = [
-  { version: 'v2.0.0', status: 'Active', support: 'Current production release — full support, security patches', color: '#00ff88' },
+  { version: 'v0.2.0', status: 'Active', support: 'Current production release — full support, security patches', color: '#00ff88' },
 ]
 
 export default function SecurityPage() {
