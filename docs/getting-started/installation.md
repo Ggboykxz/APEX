@@ -92,13 +92,21 @@ accept the same options:
 | `--purge` | With `--uninstall`: also remove credentials and config |
 
 ```bash
+# macOS / Linux — one command
+curl -fsSL https://apex-ai.dev/install.sh | bash
+
+# Windows (PowerShell) — one command
+irm https://apex-ai.dev/install.ps1 | iex
+```
+
+To pass options through the one-liner (e.g. `--method npm --yes`):
+
+```bash
 # macOS / Linux
-curl -fsSLO https://apex-ai.dev/install.sh
-bash install.sh --method npm --yes
+curl -fsSL https://apex-ai.dev/install.sh | bash -s -- --method npm --yes
 
 # Windows (PowerShell)
-Invoke-WebRequest https://apex-ai.dev/install.ps1 -OutFile install.ps1
-powershell -ExecutionPolicy Bypass -File .\install.ps1 -Method native -Yes
+irm https://apex-ai.dev/install.ps1 | iex -Args "--method npm -Yes"
 ```
 
 The installers never install anything on `--dry-run`. The repository-root

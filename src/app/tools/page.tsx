@@ -60,7 +60,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     ]
   },
   {
-    name: 'Search & Navigation', icon: Search, color: '#00ff88', count: 8,
+    name: 'Search & Navigation', icon: Search, color: '#00ff88', count: 5,
     tools: [
       { name: 'search_in_files', desc: 'Regex search across the codebase. Fast full-text search with pattern matching.', params: 'pattern: str, path?: str', example: '"Search for all API endpoints"' },
       { name: 'glob_search', desc: 'Find files by name pattern. Supports wildcards and recursive search.', params: 'pattern: str', example: '"Find all test files (*test*.py)"' },
@@ -86,14 +86,14 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     ]
   },
   {
-    name: 'Web & Network', icon: Globe, color: '#d946ef', count: 4,
+    name: 'Web & Network', icon: Globe, color: '#d946ef', count: 2,
     tools: [
       { name: 'web_search', desc: 'Search the web using the configured search engine. Returns relevant results with titles and URLs.', params: 'query: str, count?: int', example: '"Search for Python asyncio tutorial"' },
       { name: 'fetch_url', desc: 'Fetch and extract content from a URL. Returns cleaned text content.', params: 'url: str, max_length?: int', example: '"Read the documentation at https://..."' },
     ]
   },
   {
-    name: 'Code Execution', icon: Play, color: '#ff4444', count: 6,
+    name: 'Code Execution', icon: Play, color: '#ff4444', count: 5,
     tools: [
       { name: 'run_command', desc: 'Execute a shell command in the project directory. Subject to permission checks.', params: 'command: str, cwd?: str, timeout?: int', example: '"Run pytest tests/"' },
       { name: 'run_test', desc: 'Run the project test suite with the specified test runner.', params: 'path?: str, args?: str', example: '"Run all tests"' },
@@ -114,7 +114,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     ]
   },
   {
-    name: 'Session & History', icon: Clock, color: '#00ff88', count: 8,
+    name: 'Session & History', icon: Clock, color: '#00ff88', count: 5,
     tools: [
       { name: 'bookmark_session', desc: 'Bookmark the current conversation position for later reference.', params: 'label?: str', example: '"Bookmark this point in the conversation"' },
       { name: 'search_history', desc: 'Search through previous conversation history.', params: 'query: str', example: '"Find where we discussed the auth module"' },
@@ -124,7 +124,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     ]
   },
   {
-    name: 'Edit & Review', icon: Command, color: '#ffaa00', count: 6,
+    name: 'Edit & Review', icon: Command, color: '#ffaa00', count: 3,
     tools: [
       { name: 'preview_edit', desc: 'Preview what a file edit would look like before applying. Shows diff.', params: 'path: str, old_string: str, new_string: str', example: '"Preview the fix for auth.py"' },
       { name: 'apply_edit', desc: 'Apply a previously previewed edit to a file.', params: 'edit_id: str', example: '"Apply the previewed edit"' },
@@ -132,7 +132,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     ]
   },
   {
-    name: 'Analysis', icon: Activity, color: '#d946ef', count: 4,
+    name: 'Analysis', icon: Activity, color: '#d946ef', count: 3,
     tools: [
       { name: 'analyze_code', desc: 'Analyze code structure, complexity, and potential issues.', params: 'path: str', example: '"Analyze the auth module"' },
       { name: 'explain_code', desc: 'Explain what a piece of code does in plain language.', params: 'path: str, start_line?: int, end_line?: int', example: '"Explain the middleware function"' },
@@ -149,7 +149,7 @@ const TOOL_CATEGORIES: ToolCategory[] = [
     ]
   },
   {
-    name: 'Skills & Plugins', icon: Sparkles, color: '#00e5ff', count: 3,
+    name: 'Skills & Plugins', icon: Sparkles, color: '#00e5ff', count: 2,
     tools: [
       { name: 'list_skills', desc: 'List all available skills (built-in and custom).', params: 'none', example: '"Show available skills"' },
       { name: 'use_skill', desc: 'Execute a specific skill by name with the given arguments.', params: 'skill: str, args?: dict', example: '"Run the deploy skill"' },
@@ -198,9 +198,9 @@ export default function ToolsPage() {
           <div className="absolute inset-0 grid-pattern" />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 text-center">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />75+ Tools</div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />103 Tools</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">Built-in <span className="animated-gradient-text">Tools</span> Catalog</h1>
-              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Every tool at your disposal, organized by category. Tools are automatically selected by the AI based on your requests.</p>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Every tool at your disposal, organized by category. 103 built-in tools in total — the catalog below shows the most used ones. Tools are automatically selected by the AI based on your requests.</p>
             </motion.div>
           </div>
         </section>

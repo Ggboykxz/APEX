@@ -274,7 +274,7 @@ export default function ModelsPage() {
           <div className="absolute inset-0 grid-pattern" />
           <div className="relative max-w-6xl mx-auto px-4 sm:px-6 text-center">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />170+ Models</div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-apex-cyan/20 bg-apex-cyan/5 text-apex-cyan text-sm font-mono mb-6"><span className="w-1.5 h-1.5 rounded-full bg-apex-cyan pulse-dot" />201 Models</div>
               <h1 className="text-4xl md:text-5xl font-bold font-mono mb-4">Every <span className="animated-gradient-text">Model</span>, One CLI</h1>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Use any LLM from any provider. Switch models mid-session without losing context. All via litellm.</p>
               {/* Provider Logo Row */}

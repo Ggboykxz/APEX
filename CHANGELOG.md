@@ -4,6 +4,13 @@ All notable changes to APEX will be documented in this file.
 
 ## [Unreleased]
 
+### v2.5 — Code Health du CLI Python
+
+- **Découpage de `apex/main.py`** — 2 610 → ~545 lignes. Séparation en modules cohésifs : `tui_launcher.py` (démarrage/installation du frontend Ink), `cli_handlers.py` (commandes slash + `COMMAND_DISPATCH`), `cli_auth.py` (auth, clé OpenRouter, providers), `cli_sessions.py` (session/stats/export/import/db), `cli_server.py` (serve/web/mcp/plugin/gateway), `cli_maint.py` (upgrade/uninstall/init) et `cli_misc.py` (agent/run/pr/github/toggles). `apex.main` réexporte les symboles déplacés pour préserver l'API interne et les tests qui patchent `apex.main._cmd_*`.
+- **Dispatch tardif** — `_dispatch_verb` résout les handlers via `sys.modules[__name__]` et `_VERB_HANDLER_NAMES`, de sorte que les patches des tests restent effectifs après l'import.
+- **Découpes internes** — `main()`, `_dispatch`, `_dispatch_verb`, `_cmd_auth`, `_install_tui_command`, `_cmd_upgrade`, `_cmd_uninstall`, `_cmd_session`, `_cmd_stats`, `_cmd_import`, `_cmd_db`, `_cmd_mcp`, `_cmd_plugin`, `_cmd_gateway`, `_cmd_agent`, `_cmd_run`, `_cmd_key`, `_provider_config`, `_handle_memory` et les helpers TUI passent sous les seuils (complexité, nesting, nombre d'arguments).
+- **Code Health** — `apex/main.py` 2,08 → 7,77 ; les sept nouveaux modules sont à 10,00 ; `pre_commit_code_health_safeguard` passe.
+
 ### v2.5 — npm + natif uniquement
 
 - **PyPI arrêté** — `apex-ai` n'est plus publié sur PyPI (les versions existantes restent en place, aucune suppression ni yank). Le CLI/TUI Python devient une surface de développement source-only (`pip install -e ".[dev]"`), plus un canal d'installation.
