@@ -1,0 +1,34 @@
+{
+  "name": "apex-desktop",
+  "version": "0.1.0",
+  "description": "APEX desktop application (Electron) — thin client for the APEX backend",
+  "main": "src/main.ts",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "electron": "^42.11.16",
+    "electron-builder": "^26.0.0",
+    "electron-vite": "^3.0.0",
+    "vite": "^6.4.6",
+    "typescript": "^6.0.2"
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
+  },
+  "build": {
+    "appId": "dev.apex-ai.desktop",
+    "productName": "APEX",
+    "files": ["out/**", "src/**"],
+    "linux": { "target": ["AppImage", "deb", "rpm"] },
+    "mac": { "target": ["dmg"] },
+    "win": { "target": ["nsis"] }
+  }
+}

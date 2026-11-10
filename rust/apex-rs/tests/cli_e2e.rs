@@ -2183,6 +2183,57 @@ fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
 }
 
+/// Body range of the first HTTP request carried by `data`, if complete.
+fn request_body_range(data: &[u8]) -> Option<(usize, usize)> {
+    let pos = find_bytes(data, b"\r\n\r\n")?;
+    let headers = String::from_utf8_lossy(&data[..pos]).to_lowercase();
+    let body_len = headers
+        .lines()
+        .find_map(|l| l.strip_prefix("content-length:"))
+        .and_then(|v| v.trim().parse::<usize>().ok())
+        .unwrap_or(0);
+    Some((pos + 4, pos + 4 + body_len))
+}
+
+/// Serve exactly one OpenAI-shaped chat completion on `listener`.
+///
+/// The listener is bound by the caller so the port is never released between
+/// choosing it and using it. A client-side keep-alive connection closed
+/// before the request is complete is tolerated: the upstream keeps reading
+/// until it has a full request.
+fn serve_fake_upstream(listener: std::net::TcpListener) {
+    use std::io::{Read, Write};
+    let (mut stream, _) = listener.accept().unwrap();
+    let mut data: Vec<u8> = Vec::new();
+    let mut buf = [0u8; 8192];
+    loop {
+        let n = match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(_) => break,
+        };
+        data.extend_from_slice(&buf[..n]);
+        let Some((start, end)) = request_body_range(&data) else {
+            continue;
+        };
+        if data.len() < end {
+            continue;
+        }
+        let body_preview = String::from_utf8_lossy(&data[start..end]).to_string();
+        assert!(
+            body_preview.contains("free-or-qwen3-coder"),
+            "body: {body_preview}"
+        );
+        let resp = r#"{"id":"chatcmpl-e2e","object":"chat.completion","model":"free-or-qwen3-coder","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}"#;
+        let out = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{resp}",
+            resp.len()
+        );
+        stream.write_all(out.as_bytes()).unwrap();
+        return;
+    }
+}
+
 /// Full gateway lifecycle against a fake OpenRouter upstream: CLI key
 /// generation and status, the 8 HTTP routes (auth, 403 model gate,
 /// register, payload cap, proxy, usage injection, admin trio), and a
@@ -2214,47 +2265,13 @@ async fn gateway_proxy_lifecycle_is_hermetic() {
     );
 
     // ── Fake OpenRouter upstream: one request, fixed OpenAI-shaped body ──
-    let upstream_port = free_port();
-    let upstream = std::thread::spawn(move || {
-        use std::io::{Read, Write};
-        let listener = std::net::TcpListener::bind(format!("127.0.0.1:{upstream_port}")).unwrap();
-        let (mut stream, _) = listener.accept().unwrap();
-        let mut data: Vec<u8> = Vec::new();
-        let mut buf = [0u8; 8192];
-        let mut body_range: Option<(usize, usize)> = None;
-        loop {
-            let n = stream.read(&mut buf).unwrap();
-            assert!(n > 0, "upstream connection closed mid-request");
-            data.extend_from_slice(&buf[..n]);
-            if body_range.is_none() {
-                if let Some(pos) = find_bytes(&data, b"\r\n\r\n") {
-                    let headers = String::from_utf8_lossy(&data[..pos]).to_lowercase();
-                    let body_len = headers
-                        .lines()
-                        .find_map(|l| l.strip_prefix("content-length:"))
-                        .and_then(|v| v.trim().parse::<usize>().ok())
-                        .unwrap_or(0);
-                    body_range = Some((pos + 4, pos + 4 + body_len));
-                }
-            }
-            if let Some((start, end)) = body_range {
-                if data.len() >= end {
-                    let body_preview = String::from_utf8_lossy(&data[start..end]).to_string();
-                    assert!(
-                        body_preview.contains("free-or-qwen3-coder"),
-                        "body: {body_preview}"
-                    );
-                    let resp = r#"{"id":"chatcmpl-e2e","object":"chat.completion","model":"free-or-qwen3-coder","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18}}"#;
-                    let out = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{resp}",
-                        resp.len()
-                    );
-                    stream.write_all(out.as_bytes()).unwrap();
-                    return;
-                }
-            }
-        }
-    });
+    // Bind the listener here (not inside the thread) so the port is never
+    // released between picking it and using it: `free_port()` has a
+    // time-of-check/time-of-use race that makes this test flaky when the
+    // runner is loaded and another process grabs the port first.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let upstream_port = listener.local_addr().unwrap().port();
+    let upstream = std::thread::spawn(move || serve_fake_upstream(listener));
 
     // ── Gateway server pointed at the fake upstream ──
     let port = free_port();

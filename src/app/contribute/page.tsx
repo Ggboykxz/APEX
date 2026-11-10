@@ -33,36 +33,30 @@ function CodeBlock({ code, language = 'bash' }: { code: string; language?: strin
 }
 
 const PROJECT_TREE = `APEX/
-├── apex/
-│   ├── agent/            # Agent implementations
-│   │   ├── coder.py      # Coder agent (default)
-│   │   ├── architect.py   # Architect agent (read-only)
-│   │   ├── reviewer.py    # Reviewer subagent
-│   │   ├── shell.py       # Shell agent
-│   │   └── planner.py     # Planner subagent
-│   ├── tools/            # 75+ built-in tools
-│   │   ├── file_ops.py   # File operations
-│   │   ├── git_tools.py  # Git integration
-│   │   ├── search.py     # Search & navigation
-│   │   ├── lsp.py        # LSP integration
-│   │   ├── web.py        # Web search & fetch
-│   │   ├── sandbox.py    # Sandbox execution
-│   │   └── ...
-│   ├── config/           # Configuration management
-│   ├── mcp/              # MCP client support
-│   ├── security/         # Permission & rate limiting
-│   ├── plugins/          # Plugin system
-│   ├── tui/              # Textual TUI frontend
-│   ├── cli/              # CLI interface
-│   └── utils/            # Shared utilities
-├── tests/                # 2,842+ tests (0 failures)
-│   ├── test_agents/
-│   ├── test_tools/
-│   ├── test_security/
-│   └── ...
-├── docs/                 # Documentation
-├── pyproject.toml        # Project config
-└── README.md`
+├── apex/                  # Backend Python
+│   ├── agent.py           # Boucle agent, streaming, tool calls
+│   ├── agents.py          # 11 agents (build, plan, planner, shell, …)
+│   ├── tools.py           # 103 outils natifs
+│   ├── http_api.py        # 52 routes HTTP
+│   ├── core/              # Services typés (Agent, Command, Skill)
+│   ├── schema/            # Définitions typées partagées
+│   ├── plugin/            # Système de plugins
+│   ├── hooks/             # Hooks (tool, session, permission, shell)
+│   ├── gateway/           # Proxy OpenRouter + quotas
+│   └── utils/             # Utilitaires partagés
+├── tui-frontend/          # TUI Ink + React (Node ou Bun)
+├── rust/apex-rs/          # Backend natif Rust (Internal GA)
+├── integrations/
+│   ├── npm/               # Wrapper npm "apex-ai" (zéro dépendance)
+│   ├── desktop/           # Application desktop Electron
+│   └── vscode/            # Extension VS Code
+├── src/                   # Site web Next.js (apex-ai.dev)
+├── tests/                 # 3,933+ tests (0 failures)
+├── docs/                  # Documentation MkDocs + 9 ADR
+├── skills/                # Catalogue de skills
+├── scripts/               # Installateurs et outillage
+├── pyproject.toml
+└── package.json`
 
 const PR_STEPS = [
   { step: 1, title: 'Fork & Clone', desc: 'Fork the repository on GitHub and clone your fork locally.' },
@@ -198,9 +192,9 @@ export default function ContributePage() {
               {[
                 { name: 'litellm', desc: 'Unified interface for 100+ LLM providers' },
                 { name: 'prompt_toolkit', desc: 'Rich CLI input with autocomplete and history' },
-                { name: 'textual', desc: 'Full-featured TUI framework' },
+                { name: 'ink', desc: 'Ink + React TUI frontend (runs on Node or Bun)' },
                 { name: 'pydantic', desc: 'Data validation and settings management' },
-                { name: 'pytest', desc: 'Testing framework with 2,842+ tests' },
+                { name: 'pytest', desc: 'Testing framework with 3,933+ tests' },
                 { name: 'ruff', desc: 'Fast Python linter and formatter' },
                 { name: 'rich', desc: 'Beautiful terminal formatting and markdown' },
                 { name: 'click', desc: 'CLI argument parsing and commands' },
