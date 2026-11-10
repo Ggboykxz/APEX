@@ -18,6 +18,7 @@ from apex.http_api import (
     APEXHTTPServer,
     HTTPServer,
     RateLimitConfig,
+    RateLimiterOptions,
     _check_provider_configured,
     _get_configured_providers,
     _sanitize_config,
@@ -125,7 +126,7 @@ class TestSanitizeString:
     def test_exception_during_regex_is_caught(self):
         broken_pattern = MagicMock()
         broken_pattern.sub = MagicMock(side_effect=Exception("oops"))
-        with patch("apex.http_api.SENSITIVE_PATTERNS", [broken_pattern]):
+        with patch("apex.http_helpers.SENSITIVE_PATTERNS", [broken_pattern]):
             result = _sanitize_string("any value")
             assert result == "any value"
 
@@ -175,8 +176,7 @@ class TestHTTPServerInit:
             host="127.0.0.1",
             port=9999,
             require_auth=False,
-            rate_limit_config=cfg,
-            use_sqlite_storage=False,
+            rate_limiter=RateLimiterOptions(config=cfg),
         )
         assert server.host == "127.0.0.1"
         assert server.port == 9999
@@ -336,7 +336,7 @@ class TestChatStreamHandler:
     @pytest.mark.asyncio
     async def test_chat_stream_rate_limited(self):
         cfg = RateLimitConfig(requests_per_minute=1, requests_per_hour=10, requests_per_day=100)
-        server = HTTPServer(require_auth=False, rate_limit_config=cfg)
+        server = HTTPServer(require_auth=False, rate_limiter=RateLimiterOptions(config=cfg))
         for _ in range(2):
             server.rate_limiter.check_rate_limit("anonymous")
         async with TestClient(TestServer(server.app)) as client:
@@ -695,7 +695,7 @@ class TestChatHandlerNoAuth:
     async def test_chat_rate_limited(self):
         """Trigger rate limiting by exhausting the minute limit."""
         cfg = RateLimitConfig(requests_per_minute=1, requests_per_hour=10, requests_per_day=100)
-        server = HTTPServer(require_auth=False, rate_limit_config=cfg)
+        server = HTTPServer(require_auth=False, rate_limiter=RateLimiterOptions(config=cfg))
         async with TestClient(TestServer(server.app)) as client:
             for _ in range(2):
                 server.rate_limiter.check_rate_limit("anonymous")
@@ -776,7 +776,7 @@ class TestCheckRateLimitMethod:
     @pytest.mark.asyncio
     async def test_check_rate_limit_exceeded(self):
         cfg = RateLimitConfig(requests_per_minute=1, requests_per_hour=1, requests_per_day=1)
-        server = HTTPServer(require_auth=False, rate_limit_config=cfg)
+        server = HTTPServer(require_auth=False, rate_limiter=RateLimiterOptions(config=cfg))
         server.rate_limiter.check_rate_limit("anonymous")
         server.rate_limiter.check_rate_limit("anonymous")
         err, _result = await server._check_rate_limit(None)
@@ -1467,7 +1467,7 @@ class TestV1CommandsExecute:
     @pytest.mark.asyncio
     async def test_execute_rate_limited(self):
         cfg = RateLimitConfig(requests_per_minute=1, requests_per_hour=10, requests_per_day=100)
-        server = HTTPServer(require_auth=False, rate_limit_config=cfg)
+        server = HTTPServer(require_auth=False, rate_limiter=RateLimiterOptions(config=cfg))
         for _ in range(2):
             server.rate_limiter.check_rate_limit("anonymous")
         async with TestClient(TestServer(server.app)) as client:
@@ -1531,7 +1531,7 @@ class TestV1InitDetailed:
     @pytest.mark.asyncio
     async def test_init_exception(self):
         server = HTTPServer(require_auth=False)
-        with patch("apex.http_api.ProjectInitializer", side_effect=ValueError("fail")):
+        with patch("apex.http_routes_config.ProjectInitializer", side_effect=ValueError("fail")):
             async with TestClient(TestServer(server.app)) as client:
                 resp = await client.post(
                     "/api/v1/init", data=b"not json", headers={"Content-Type": "application/json"}

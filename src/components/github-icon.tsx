@@ -3,6 +3,8 @@ import React from "react";
 /**
  * GitHub SVG icon — replaces the removed lucide-react `Github` export.
  * Kept as a drop-in so every `<Github className=... />` still works.
+ *
+ * Path source: lucide-react `github` icon (official, valid SVG path).
  */
 export function Github({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
@@ -17,7 +19,7 @@ export function Github({ className, ...props }: React.SVGProps<SVGSVGElement>) {
       className={className}
       {...props}
     >
-      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.28-.5-4.72-.5-7 0-2-1.5-3-1.5-3-1.5 0-2 1.72-.28 3.5C4.27 8.02 3.92 9.25 4 10.5c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65S8.93 18.63 9 19v3" />
+      <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
       <path d="M9 18c-4.51 2-5-2-7-2" />
     </svg>
   );

@@ -94,21 +94,41 @@ def sync() -> int:
     version = read_version()
     changed = 0
 
+    changed += _sync_line_targets(version)
+    changed += _sync_npm(version)
+    changed += _sync_cargo_lock(version)
+
+    print(f"version {version}: {changed} manifest(s) updated")
+    return 0
+
+
+def _sync_line_targets(version: str) -> int:
+    """Rewrite the line-based manifests."""
+    changed = 0
     for rel, pattern in LINE_TARGETS.items():
         path = ROOT / rel
         new = pattern.sub(rf"\g<1>{version}\g<3>", path.read_text(encoding="utf-8"), count=1)
         if _rewrite(path, new):
             changed += 1
             print(f"updated {rel} -> {version}")
+    return changed
 
+
+def _sync_npm(version: str) -> int:
+    """Rewrite the npm package manifest."""
     npm_path = ROOT / NPM_PACKAGE
     npm = json.loads(npm_path.read_text(encoding="utf-8"))
-    if npm.get("version") != version:
-        npm["version"] = version
-        if _rewrite(npm_path, json.dumps(npm, indent=2) + "\n"):
-            changed += 1
-            print(f"updated {NPM_PACKAGE} -> {version}")
+    if npm.get("version") == version:
+        return 0
+    npm["version"] = version
+    if not _rewrite(npm_path, json.dumps(npm, indent=2) + "\n"):
+        return 0
+    print(f"updated {NPM_PACKAGE} -> {version}")
+    return 1
 
+
+def _sync_cargo_lock(version: str) -> int:
+    """Rewrite the cargo lock entry."""
     lock_path = ROOT / CARGO_LOCK
     lock = re.sub(
         rf'(name = "{re.escape(CARGO_PACKAGE)}"\nversion = ")[^"]+(")',
@@ -116,12 +136,10 @@ def sync() -> int:
         lock_path.read_text(encoding="utf-8"),
         count=1,
     )
-    if _rewrite(lock_path, lock):
-        changed += 1
-        print(f"updated {CARGO_LOCK} -> {version}")
-
-    print(f"version {version}: {changed} manifest(s) updated")
-    return 0
+    if not _rewrite(lock_path, lock):
+        return 0
+    print(f"updated {CARGO_LOCK} -> {version}")
+    return 1
 
 
 def main(argv: list[str]) -> int:

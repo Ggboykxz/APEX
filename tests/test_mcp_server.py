@@ -18,6 +18,7 @@ import pytest
 from apex.mcp_server import (
     MAX_REQUEST_BYTES,
     READ_ONLY_TOOLS,
+    ServerStreams,
     resolve_allow_tools,
     serve,
 )
@@ -36,7 +37,11 @@ def run_lines(
     """Feed lines through ``serve`` and return (exit_code, parsed responses)."""
     inp = io.StringIO("\n".join(input_lines) + "\n")
     out = io.StringIO()
-    rc = serve(cwd=cwd, allow_tools=allow_tools, stdin=inp, stdout=out)
+    rc = serve(
+        cwd=cwd,
+        allow_tools=allow_tools,
+        streams=ServerStreams(stdin=inp, stdout=out),
+    )
     responses = [json.loads(line) for line in out.getvalue().splitlines() if line.strip()]
     return rc, responses
 

@@ -16,6 +16,17 @@ interface StatusBarProps {
   livePromptTokens?: number
   liveCompletionTokens?: number
   thinkingMode?: "show" | "hide" | "off"
+  hint?: string
+}
+
+function StatusHint({ hint }: { hint?: string }) {
+  if (!hint) return null
+  return (
+    <>
+      <Text color={apexTheme.dimGray}> · </Text>
+      <Text color={apexTheme.dimGray}>{hint}</Text>
+    </>
+  )
 }
 
 export function StatusBar({
@@ -31,6 +42,7 @@ export function StatusBar({
   livePromptTokens,
   liveCompletionTokens,
   thinkingMode,
+  hint,
 }: StatusBarProps) {
   const agent = APEX_AGENTS.find((a) => a.id === activeAgent)
   const model = APEX_MODELS.find((m) => m.id === activeModel)
@@ -69,6 +81,7 @@ export function StatusBar({
               <Text color={apexTheme.yellow}>[think:{thinkingMode}]</Text>
             </>
           )}
+          <StatusHint hint={hint} />
         </Box>
       </Box>
     </Box>
