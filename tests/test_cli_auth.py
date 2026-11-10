@@ -157,18 +157,23 @@ def test_prompt_provider_key_empty_key():
 def test_configure_provider_existing():
     data = {"anthropic": {"api_key": "sk-ant-old"}}
     ui = MagicMock()
-    result = cli_auth._configure_provider(data, ("anthropic", "ANTHROPIC_API_KEY", "claude-sonnet"), ui)
+    result = cli_auth._configure_provider(
+        data, ("anthropic", "ANTHROPIC_API_KEY", "claude-sonnet"), ui
+    )
     assert result == {"api_key": "sk-ant-old"}
     ui.print_info.assert_called()
 
 
 def test_configure_provider_env():
     import os
+
     os.environ["ANTHROPIC_API_KEY"] = "sk-ant-env"
     try:
         data = {}
         ui = MagicMock()
-        result = cli_auth._configure_provider(data, ("anthropic", "ANTHROPIC_API_KEY", "claude-sonnet"), ui)
+        result = cli_auth._configure_provider(
+            data, ("anthropic", "ANTHROPIC_API_KEY", "claude-sonnet"), ui
+        )
         assert result == {"api_key": "sk-ant-env", "model": "claude-sonnet"}
         ui.print_success.assert_called()
     finally:
@@ -179,7 +184,9 @@ def test_configure_provider_declined():
     data = {}
     ui = MagicMock()
     ui.input.return_value = "n"
-    result = cli_auth._configure_provider(data, ("anthropic", "ANTHROPIC_API_KEY", "claude-sonnet"), ui)
+    result = cli_auth._configure_provider(
+        data, ("anthropic", "ANTHROPIC_API_KEY", "claude-sonnet"), ui
+    )
     assert result is None
 
 
@@ -263,7 +270,9 @@ def test_cmd_auth_list(tmp_path):
 
 def test_cmd_auth_logout(tmp_path):
     ui = MagicMock()
-    args = type("Args", (), {"auth_subcommand": "logout", "auth_provider": "openai", "model": None})()
+    args = type(
+        "Args", (), {"auth_subcommand": "logout", "auth_provider": "openai", "model": None}
+    )()
     cli_auth._cmd_auth(args, ui)
     # No auth file exists, so it returns without error
     ui.print_error.assert_not_called()
