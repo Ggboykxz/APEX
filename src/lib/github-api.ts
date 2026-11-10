@@ -135,27 +135,56 @@ async function fetchJSON<T>(url: string): Promise<{ data: T | null; notModified:
   }
 }
 
+/** Build the repo summary from the API payload plus the contributor count. */
+function buildRepoData(
+  repo: Record<string, unknown> | null,
+  contributorCount: number,
+  latestRelease: Record<string, unknown> | null,
+): GitHubRepoData | null {
+  if (!repo) return null
+  return {
+    stargazers_count: repo.stargazers_count as number,
+    forks_count: repo.forks_count as number,
+    open_issues_count: repo.open_issues_count as number,
+    subscribers_count: repo.subscribers_count as number,
+    contributors: contributorCount,
+    latest_release: latestRelease ? {
+      tag_name: latestRelease.tag_name as string,
+      published_at: latestRelease.published_at as string,
+    } : null,
+  }
+}
+
+/** Read the last cached payload, ignoring malformed entries. */
+function readStaleCache(): GitHubData | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    return raw ? (JSON.parse(raw) as CachedData).data : null
+  } catch {
+    return null
+  }
+}
+
 export async function fetchGitHubData(): Promise<GitHubData> {
   // Check localStorage cache first (valid for 5 minutes)
   const cached = readCache()
   if (cached) return cached
 
   try {
-    const [repoResult, issuesResult, prsResult, releasesResult] = await Promise.all([
+    const [repoResult, issuesResult, prsResult, releasesResult, contributorsResult] = await Promise.all([
       fetchJSON<Record<string, unknown>>(BASE),
       fetchJSON<Record<string, unknown>[]>(`${BASE}/issues?state=all&sort=created&direction=desc&per_page=10`),
       fetchJSON<Record<string, unknown>[]>(`${BASE}/pulls?state=all&sort=created&direction=desc&per_page=10`),
       fetchJSON<Record<string, unknown>[]>(`${BASE}/releases?per_page=5`),
+      fetchJSON<Record<string, unknown>[]>(`${BASE}/contributors?per_page=100&anon=1`),
     ])
 
+    const allNotModified =
+      repoResult.notModified && issuesResult.notModified &&
+      prsResult.notModified && releasesResult.notModified
+
     // If ALL responses are 304 (not modified), return stale cache
-    if (repoResult.notModified && issuesResult.notModified && prsResult.notModified && releasesResult.notModified) {
-      try {
-        const raw = localStorage.getItem(CACHE_KEY)
-        if (raw) return (JSON.parse(raw) as CachedData).data
-      } catch { /* ignore */ }
-      return EMPTY_DATA
-    }
+    if (allNotModified) return readStaleCache() ?? EMPTY_DATA
 
     const repo = repoResult.data
     const issues = issuesResult.data
@@ -163,29 +192,14 @@ export async function fetchGitHubData(): Promise<GitHubData> {
     const releases = releasesResult.data
 
     // If all requests failed (not 304, just null), try stale cache
-    if (!repo && !issues && !prs && !releases) {
-      try {
-        const raw = localStorage.getItem(CACHE_KEY)
-        if (raw) return (JSON.parse(raw) as CachedData).data
-      } catch { /* ignore */ }
-      return EMPTY_DATA
-    }
+    if (!repo && !issues && !prs && !releases) return readStaleCache() ?? EMPTY_DATA
 
     const pureIssues = (issues || []).filter(i => !i.pull_request)
     const latestRelease = releases && releases.length > 0 ? releases[0] : null
+    const contributorCount = (contributorsResult.data || []).length
 
     const data: GitHubData = {
-      repo: repo ? {
-        stargazers_count: repo.stargazers_count as number,
-        forks_count: repo.forks_count as number,
-        open_issues_count: repo.open_issues_count as number,
-        subscribers_count: repo.subscribers_count as number,
-        contributors: 2,
-        latest_release: latestRelease ? {
-          tag_name: latestRelease.tag_name as string,
-          published_at: latestRelease.published_at as string,
-        } : null,
-      } : null,
+      repo: buildRepoData(repo, contributorCount, latestRelease),
       issues: pureIssues.map(i => ({
         number: i.number as number,
         title: i.title as string,
