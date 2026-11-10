@@ -992,7 +992,7 @@ Precedence (later overrides earlier):
 ```python
 from apex.shell_security import shell_analyzer
 
-analysis = shell_analyzer.analyze("rm -rf /tmp/test")
+analysis = shell_analyzer.analyze("rm -rf ./temp")
 # safe: False, category: DANGEROUS
 ```
 
@@ -1116,7 +1116,7 @@ The Rust port applies the same safety policy as Python on every path that can
 execute a command:
 
 ```bash
-apex-rs security check "rm -rf /"   # JSON verdict (safe, category, warnings, allowed)
+apex-rs security check "rm -rf ./temp"   # JSON verdict (safe, category, warnings, allowed)
 apex-rs security allowed            # allow-listed commands
 ```
 
@@ -1340,7 +1340,7 @@ apex-rs workspace --json           # full context as JSON
   `Cargo.lock`, `Gemfile`) and test framework (`pytest.ini`,
   `pyproject.toml`, `jest.config.js`, `vitest.config.ts`, `go.sum`,
   `Cargo.toml`) in Python's marker order.
-- The block is appended to the system prompt of both agent entry points
+- The block is appended to the agent instructions of both agent entry points
   (`chat` and `chat_stream`), analyzed once per user turn so a ten-round
   tool loop does not respawn git ten times.
 - Divergences recorded in `PARITY.md`: no `git fetch --dry-run` network
