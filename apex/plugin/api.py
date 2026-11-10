@@ -9,12 +9,13 @@ Plugins are loaded asynchronously and never block the server.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from apex.core.service import Core
 
-__all__ = ["Plugin", "define", "PluginContext", "PluginManager"]
+__all__ = ["Plugin", "PluginContext", "PluginManager", "define"]
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +127,7 @@ class PluginManager:
 
     # -- queries ------------------------------------------------------------
 
-    def get(self, plugin_id: str) -> Optional[Plugin]:
+    def get(self, plugin_id: str) -> Plugin | None:
         return self._plugins.get(plugin_id)
 
     def list(self) -> tuple[Plugin, ...]:
@@ -163,4 +164,4 @@ class PluginManager:
         self._activated.clear()
 
 
-__all__ = ["Plugin", "define", "PluginContext", "PluginManager"]
+__all__ = ["Plugin", "PluginContext", "PluginManager", "define"]

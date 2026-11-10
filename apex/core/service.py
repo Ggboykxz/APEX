@@ -8,8 +8,6 @@ surface (CLI, TUI, HTTP server, MCP, tests).
 
 from __future__ import annotations
 
-from typing import Optional
-
 from apex.schema import (
     AgentID,
     AgentInfo,
@@ -20,7 +18,7 @@ from apex.schema import (
     SkillInfo,
 )
 
-__all__ = ["AgentService", "CommandService", "SkillService", "Core"]
+__all__ = ["AgentService", "CommandService", "Core", "SkillService"]
 
 
 # ---------------------------------------------------------------------------
@@ -49,10 +47,10 @@ class AgentService:
 
     # -- queries ------------------------------------------------------------
 
-    def get(self, agent_id: AgentID) -> Optional[AgentInfo]:
+    def get(self, agent_id: AgentID) -> AgentInfo | None:
         return self._agents.get(agent_id.value)
 
-    def resolve(self, name_or_id: str) -> Optional[AgentInfo]:
+    def resolve(self, name_or_id: str) -> AgentInfo | None:
         """Resolve an agent by id or by name."""
         if name_or_id in self._agents:
             return self._agents[name_or_id]
@@ -66,7 +64,7 @@ class AgentService:
 
     # -- permission ---------------------------------------------------------
 
-    def can_execute_tool(self, agent_id: AgentID, tool: str) -> tuple[bool, Optional[str]]:
+    def can_execute_tool(self, agent_id: AgentID, tool: str) -> tuple[bool, str | None]:
         """Return ``(allowed, reason)`` for an agent + tool.
 
         Resolution order (first match wins):
@@ -116,10 +114,10 @@ class CommandService:
     def unregister(self, command_id: CommandID) -> None:
         self._commands.pop(command_id.value, None)
 
-    def get(self, command_id: CommandID) -> Optional[CommandInfo]:
+    def get(self, command_id: CommandID) -> CommandInfo | None:
         return self._commands.get(command_id.value)
 
-    def resolve(self, name_or_id: str) -> Optional[CommandInfo]:
+    def resolve(self, name_or_id: str) -> CommandInfo | None:
         if name_or_id in self._commands:
             return self._commands[name_or_id]
         for cmd in self._commands.values():
@@ -150,10 +148,10 @@ class SkillService:
         self._skills.pop(skill_id.value, None)
         self._files.pop(skill_id.value, None)
 
-    def get(self, skill_id: SkillID) -> Optional[SkillInfo]:
+    def get(self, skill_id: SkillID) -> SkillInfo | None:
         return self._skills.get(skill_id.value)
 
-    def resolve(self, name_or_id: str) -> Optional[SkillInfo]:
+    def resolve(self, name_or_id: str) -> SkillInfo | None:
         if name_or_id in self._skills:
             return self._skills[name_or_id]
         for skill in self._skills.values():
@@ -226,4 +224,4 @@ class Core:
         )
 
 
-__all__ = ["Core", "AgentService", "CommandService", "SkillService"]
+__all__ = ["AgentService", "CommandService", "Core", "SkillService"]

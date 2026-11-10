@@ -2214,17 +2214,27 @@ async fn gateway_proxy_lifecycle_is_hermetic() {
     );
 
     // ── Fake OpenRouter upstream: one request, fixed OpenAI-shaped body ──
-    let upstream_port = free_port();
+    // Bind the listener here (not inside the thread) so the port is never
+    // released between picking it and using it: `free_port()` has a
+    // time-of-check/time-of-use race that makes this test flaky when the
+    // runner is loaded and another process grabs the port first.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let upstream_port = listener.local_addr().unwrap().port();
     let upstream = std::thread::spawn(move || {
         use std::io::{Read, Write};
-        let listener = std::net::TcpListener::bind(format!("127.0.0.1:{upstream_port}")).unwrap();
         let (mut stream, _) = listener.accept().unwrap();
         let mut data: Vec<u8> = Vec::new();
         let mut buf = [0u8; 8192];
         let mut body_range: Option<(usize, usize)> = None;
         loop {
-            let n = stream.read(&mut buf).unwrap();
-            assert!(n > 0, "upstream connection closed mid-request");
+            // A closed connection without a full request (client-side
+            // keep-alive reuse) must not abort the upstream: keep reading
+            // until the request is complete.
+            let n = match stream.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(_) => break,
+            };
             data.extend_from_slice(&buf[..n]);
             if body_range.is_none() {
                 if let Some(pos) = find_bytes(&data, b"\r\n\r\n") {
