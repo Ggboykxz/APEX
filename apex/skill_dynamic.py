@@ -44,10 +44,10 @@ SkillSource = str  # "directory" | "url" | "embedded"
 @dataclass
 class SkillSourceConfig:
     kind: SkillSource
-    path: str | None = None          # for directory
-    url: str | None = None           # for url
-    ref: str | None = None           # git ref for url
-    max_depth: int = 6                  # for directory scan
+    path: str | None = None  # for directory
+    url: str | None = None  # for url
+    ref: str | None = None  # git ref for url
+    max_depth: int = 6  # for directory scan
 
 
 # ---------------------------------------------------------------------------
@@ -75,9 +75,7 @@ def parse_skill_md(content: str, path: str) -> SkillInfo | None:
         description=metadata.get("description", ""),
         path=path,
         autoinvoke=bool(metadata.get("autoinvoke", False)),
-        disable_model_invocation=bool(
-            metadata.get("disable-model-invocation", False)
-        ),
+        disable_model_invocation=bool(metadata.get("disable-model-invocation", False)),
         metadata=metadata.get("metadata", {}) or {},
     )
 

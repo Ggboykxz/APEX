@@ -69,9 +69,7 @@ class FeatureFlags(Flags):
 
         # 1. config -> defaults
         if config_experimental:
-            self._values.update(
-                {k: v for k, v in config_experimental.items() if v is not None}
-            )
+            self._values.update({k: v for k, v in config_experimental.items() if v is not None})
 
         # 2. env -> config
         for var in ("APEX_FLAGS", "OPENCODE_FLAGS"):

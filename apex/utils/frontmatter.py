@@ -34,7 +34,7 @@ def split_frontmatter(content: str) -> tuple[str | None, str]:
     match = _FRONTMATTER_RE.match(content)
     if not match:
         return None, content
-    return match.group(1), content[match.end():]
+    return match.group(1), content[match.end() :]
 
 
 def _parse_scalar(raw: str) -> Any:
@@ -44,9 +44,7 @@ def _parse_scalar(raw: str) -> Any:
     if raw.lower() in ("true", "false"):
         return raw.lower() == "true"
     # Quoted strings
-    if (raw.startswith('"') and raw.endswith('"')) or (
-        raw.startswith("'") and raw.endswith("'")
-    ):
+    if (raw.startswith('"') and raw.endswith('"')) or (raw.startswith("'") and raw.endswith("'")):
         return raw[1:-1]
     # Inline list: [a, b, c]
     if raw.startswith("[") and raw.endswith("]"):

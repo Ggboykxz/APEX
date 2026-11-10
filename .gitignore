@@ -99,3 +99,6 @@ apex_agent.egg-info/
 test-results/
 playwright-report/
 node_modules/
+
+# Python virtualenv
+.venv/

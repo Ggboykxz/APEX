@@ -8,17 +8,14 @@ surface (CLI, TUI, HTTP server, MCP, tests).
 
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Any, Optional
+from typing import Optional
 
 from apex.schema import (
     AgentID,
     AgentInfo,
     AgentPermission,
-    AgentMode,
     CommandID,
     CommandInfo,
-    PermissionAction,
     SkillID,
     SkillInfo,
 )
@@ -69,9 +66,7 @@ class AgentService:
 
     # -- permission ---------------------------------------------------------
 
-    def can_execute_tool(
-        self, agent_id: AgentID, tool: str
-    ) -> tuple[bool, Optional[str]]:
+    def can_execute_tool(self, agent_id: AgentID, tool: str) -> tuple[bool, Optional[str]]:
         """Return ``(allowed, reason)`` for an agent + tool.
 
         Resolution order (first match wins):

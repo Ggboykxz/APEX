@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, runtime_checkable
 
 from apex.core.service import Core
-from apex.schema import AgentInfo, CommandInfo, SkillInfo
 
 __all__ = ["Plugin", "define", "PluginContext", "PluginManager"]
 

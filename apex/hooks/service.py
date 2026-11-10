@@ -16,7 +16,7 @@ it executes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 __all__ = [
@@ -92,11 +92,7 @@ class PluginHooks:
         key = (domain, name)
         if key not in self._hooks:
             return
-        self._hooks[key] = [
-            entry
-            for entry in self._hooks[key]
-            if entry.provider_id != provider_id
-        ]
+        self._hooks[key] = [entry for entry in self._hooks[key] if entry.provider_id != provider_id]
         if not self._hooks[key]:
             del self._hooks[key]
 
@@ -133,9 +129,7 @@ class PluginHooks:
 
     # -- convenience --------------------------------------------------------
 
-    def trigger_tool_before(
-        self, event: HookEvent
-    ) -> Optional[HookError]:
+    def trigger_tool_before(self, event: HookEvent) -> Optional[HookError]:
         """Run ``tool.execute.before`` hooks.
 
         Returns the first :class:`HookError` raised, or ``None`` if all hooks

@@ -55,7 +55,7 @@ def generate_client(schema: dict[str, Any], out: Path) -> Path:
         "        self.api_key = api_key",
         "",
         "    def _call(self, method: str, path: str, body: Optional[dict] = None):",
-        '        url = self.base_url + path',
+        "        url = self.base_url + path",
         "        headers = {'Content-Type': 'application/json'}",
         "        if self.api_key:",
         "            headers['Authorization'] = f'Bearer {self.api_key}'",
@@ -79,7 +79,13 @@ def generate_client(schema: dict[str, Any], out: Path) -> Path:
         lines.append(f"class {_py_name(name)}:")
         for pname, pspec in props.items():
             ptype = pspec.get("type", "Any")
-            pytype = {"string": "str", "integer": "int", "boolean": "bool", "array": "list", "object": "dict"}.get(ptype, "Any")
+            pytype = {
+                "string": "str",
+                "integer": "int",
+                "boolean": "bool",
+                "array": "list",
+                "object": "dict",
+            }.get(ptype, "Any")
             default = ""
             if ptype == "string":
                 default = ' = ""'

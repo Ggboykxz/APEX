@@ -49,6 +49,14 @@ class WorkspaceManager:
     def _get_git_context(self) -> GitContext:
         ctx = GitContext()
 
+        # Read CI PR metadata first, in its own try/except: a slow or failing
+        # network call below must never discard this information.
+        try:
+            if "GITHUB_HEAD_REF" in subprocess.os.environ:
+                ctx.pr_number = int(subprocess.os.environ.get("GITHUB_PR_NUMBER", 0))
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            ctx.pr_number = None
+
         try:
             result = subprocess.run(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
@@ -129,9 +137,6 @@ class WorkspaceManager:
             ctx.commits_behind = (
                 len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
             )
-
-            if "GITHUB_HEAD_REF" in subprocess.os.environ:
-                ctx.pr_number = int(subprocess.os.environ.get("GITHUB_PR_NUMBER", 0))
 
             result = subprocess.run(
                 ["git", "tag", "--list", "-l", "--sort=-creatordate"],

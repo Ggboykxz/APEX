@@ -95,7 +95,9 @@ class MCPConnection:
         if self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
 
-        req = request.Request(self.config.url, data=json.dumps(payload).encode(), headers=headers, method="POST")
+        req = request.Request(
+            self.config.url, data=json.dumps(payload).encode(), headers=headers, method="POST"
+        )
         try:
             with request.urlopen(req, timeout=30) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
@@ -112,10 +114,10 @@ class MCPConnection:
         """Parse the JSON or SSE response body."""
         if body.lstrip().startswith("event:"):
             # SSE stream — take the last data line
-            data_lines = [l for l in body.splitlines() if l.startswith("data:")]
+            data_lines = [line for line in body.splitlines() if line.startswith("data:")]
             if not data_lines:
                 return {}
-            body = data_lines[-1][len("data:"):].strip()
+            body = data_lines[-1][len("data:") :].strip()
         try:
             return json.loads(body)
         except json.JSONDecodeError:

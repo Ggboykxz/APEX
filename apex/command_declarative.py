@@ -133,7 +133,9 @@ class DeclarativeCommandManager:
             self.core.command.register(cmd)
             self._commands[cmd.id.value] = cmd
             self.hooks.trigger(
-                "command", "registered", {"command_id": cmd.id.value, "path": cmd.metadata.get("path")}
+                "command",
+                "registered",
+                {"command_id": cmd.id.value, "path": cmd.metadata.get("path")},
             )
         return self._commands
 

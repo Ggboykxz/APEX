@@ -25,18 +25,21 @@ PermissionAction = Literal["ALLOW", "DENY", "ASK"]
 @dataclass(frozen=True)
 class AgentID:
     """Opaque identifier for an agent."""
+
     value: str
 
 
 @dataclass(frozen=True)
 class CommandID:
     """Opaque identifier for a command."""
+
     value: str
 
 
 @dataclass(frozen=True)
 class SkillID:
     """Opaque identifier for a skill."""
+
     value: str
 
 
