@@ -81,6 +81,26 @@ def _is_path_allowed(p: Path) -> bool:
     return False
 
 
+def _replace_env(m: re.Match) -> str:
+    """The environment variable a ``{env:VAR}`` placeholder refers to."""
+    var = m.group(1).strip()
+    val = os.environ.get(var, "")
+    if not val:
+        val = os.environ.get(var.lower(), "")
+    return val
+
+
+def _replace_file(m: re.Match, seen: set) -> str:
+    """The content of the file a ``{file:path}`` placeholder refers to."""
+    p = Path(m.group(1).strip()).expanduser()
+    if p in seen:
+        return ""
+    seen.add(p)
+    if p.is_file() and _is_path_allowed(p):
+        return p.read_text(encoding="utf-8", errors="replace")
+    return ""
+
+
 def _substitute_vars(value: Any, seen: set | None = None, _depth: int = 0) -> Any:
     if _depth > 10:
         return value
@@ -88,25 +108,8 @@ def _substitute_vars(value: Any, seen: set | None = None, _depth: int = 0) -> An
         seen = set()
 
     if isinstance(value, str):
-
-        def _replace_env(m: re.Match) -> str:
-            var = m.group(1).strip()
-            val = os.environ.get(var, "")
-            if not val:
-                val = os.environ.get(var.lower(), "")
-            return val
-
-        def _replace_file(m: re.Match) -> str:
-            p = Path(m.group(1).strip()).expanduser()
-            if p in seen:
-                return ""
-            seen.add(p)
-            if p.is_file() and _is_path_allowed(p):
-                return p.read_text(encoding="utf-8", errors="replace")
-            return ""
-
         value = _ENV_VAR_RE.sub(_replace_env, value)
-        value = _FILE_VAR_RE.sub(_replace_file, value)
+        value = _FILE_VAR_RE.sub(lambda m: _replace_file(m, seen), value)
         return value
 
     if isinstance(value, dict):
@@ -267,13 +270,12 @@ def _find_global_config() -> Path | None:
     return None
 
 
+PROJECT_CONFIG_NAMES = ("apex.jsonc", "apex.json", "opencode.jsonc", "opencode.json")
+
+
 def _find_project_config(start: Path | None = None) -> Path | None:
     cwd = start or Path.cwd()
-    for name in ("apex.jsonc", "apex.json"):
-        candidate = cwd / name
-        if candidate.is_file():
-            return candidate
-    for name in ("opencode.jsonc", "opencode.json"):
+    for name in PROJECT_CONFIG_NAMES:
         candidate = cwd / name
         if candidate.is_file():
             return candidate
@@ -294,6 +296,15 @@ def _load_json(path: Path) -> dict[str, Any]:
 # ────────────────────────────────────────────────────────────
 # ApexConfig
 # ────────────────────────────────────────────────────────────
+
+
+def _is_mergeable(target: dict[str, Any], key: str, value: Any) -> bool:
+    """Whether a key of a source layer merges into the target layer."""
+    if key not in target:
+        return False
+    if not isinstance(target[key], dict):
+        return False
+    return isinstance(value, dict)
 
 
 class ApexConfig:
@@ -343,33 +354,10 @@ class ApexConfig:
 
     def _load_all(self) -> None:
         layers: list[dict[str, Any]] = []
-
-        # 1) Global
-        global_path = _find_global_config()
-        if global_path:
-            layers.append(_load_json(global_path))
-
-        # 2) Custom from env
-        custom_env = os.environ.get("APEX_CONFIG", "")
-        if custom_env:
-            custom_path = Path(custom_env).expanduser()
-            if custom_path.is_file():
-                layers.append(_load_json(custom_path))
-
-        # 3) Project
-        project_path = _find_project_config(self._project_dir)
-        if project_path:
-            layers.append(_load_json(project_path))
-
-        # 4) Inline from env
-        inline_raw = os.environ.get("APEX_CONFIG_CONTENT", "")
-        if inline_raw:
-            try:
-                inline = parse_jsonc(inline_raw)
-                if isinstance(inline, dict):
-                    layers.append(inline)
-            except (json.JSONDecodeError, ValueError):
-                pass
+        layers.extend(self._global_layer())
+        layers.extend(self._custom_layer())
+        layers.extend(self._project_layer())
+        layers.extend(self._inline_layer())
 
         # Merge layers (later overrides)
         merged: dict[str, Any] = {}
@@ -387,7 +375,7 @@ class ApexConfig:
     @staticmethod
     def _deep_merge(target: dict[str, Any], source: dict[str, Any]) -> None:
         for key, val in source.items():
-            if key in target and isinstance(target[key], dict) and isinstance(val, dict):
+            if _is_mergeable(target, key, val):
                 ApexConfig._deep_merge(target[key], val)
             else:
                 target[key] = val
@@ -399,6 +387,35 @@ class ApexConfig:
                 target[key] = val
             elif isinstance(val, dict) and isinstance(target[key], dict):
                 ApexConfig._deep_merge_defaults(target[key], val)
+
+    def _global_layer(self) -> list[dict[str, Any]]:
+        """The global configuration layer."""
+        global_path = _find_global_config()
+        return [_load_json(global_path)] if global_path else []
+
+    def _custom_layer(self) -> list[dict[str, Any]]:
+        """The layer of the configuration file named by ``APEX_CONFIG``."""
+        custom_env = os.environ.get("APEX_CONFIG", "")
+        if not custom_env:
+            return []
+        custom_path = Path(custom_env).expanduser()
+        return [_load_json(custom_path)] if custom_path.is_file() else []
+
+    def _project_layer(self) -> list[dict[str, Any]]:
+        """The project configuration layer."""
+        project_path = _find_project_config(self._project_dir)
+        return [_load_json(project_path)] if project_path else []
+
+    def _inline_layer(self) -> list[dict[str, Any]]:
+        """The layer of the configuration given inline by ``APEX_CONFIG_CONTENT``."""
+        inline_raw = os.environ.get("APEX_CONFIG_CONTENT", "")
+        if not inline_raw:
+            return []
+        try:
+            inline = parse_jsonc(inline_raw)
+        except (json.JSONDecodeError, ValueError):
+            return []
+        return [inline] if isinstance(inline, dict) else []
 
     # ── Save ─────────────────────────────────────────────────
 
@@ -799,10 +816,15 @@ class TuiConfig:
         for key, val in TUI_DEFAULTS.items():
             if key not in self._data:
                 self._data[key] = val
-            elif isinstance(val, dict) and isinstance(self._data.get(key), dict):
-                for k2, v2 in val.items():
-                    if k2 not in self._data[key]:
-                        self._data[key][k2] = v2
+                continue
+            if isinstance(val, dict) and isinstance(self._data.get(key), dict):
+                self._fill_nested_defaults(key, val)
+
+    def _fill_nested_defaults(self, key: str, defaults: dict) -> None:
+        """Fill the missing entries of one nested default block."""
+        for name, value in defaults.items():
+            if name not in self._data[key]:
+                self._data[key][name] = value
 
     def save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)

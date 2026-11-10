@@ -101,7 +101,7 @@ def test_git_create_pr(executor):
     # stays hermetic (no gh binary required on CI).
     with (
         patch("shutil.which", return_value="/usr/bin/gh"),
-        patch("apex.tools.subprocess.run", return_value=fake),
+        patch("subprocess.run", return_value=fake),
     ):
         result = executor.execute(
             "git_create_pr", {"title": "My PR", "body": "PR description", "base": "main"}
@@ -116,7 +116,7 @@ def test_git_create_pr_minimal(executor):
     )
     with (
         patch("shutil.which", return_value="/usr/bin/gh"),
-        patch("apex.tools.subprocess.run", return_value=fake),
+        patch("subprocess.run", return_value=fake),
     ):
         result = executor.execute("git_create_pr", {"title": "Minimal PR"})
     assert "Minimal PR" in result

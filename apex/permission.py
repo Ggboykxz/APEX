@@ -42,6 +42,32 @@ class PermissionRequest:
     user_id: str | None = None
 
 
+@dataclass
+class PermissionGrant:
+    """How a permission is granted."""
+
+    expires_in: int | None = None
+    remember: bool = False
+
+
+@dataclass
+class PermissionContext:
+    """Where a permission request originates."""
+
+    workspace_id: str | None = None
+    user_id: str | None = None
+
+
+@dataclass
+class _Resolution:
+    """How a permission request is being resolved."""
+
+    status: str
+    action: PermissionAction
+    remember: bool
+    expires_in: int | None
+
+
 class PermissionManager:
     def __init__(self):
         self._rules: list[PermissionRule] = []
@@ -70,13 +96,13 @@ class PermissionManager:
         pattern: str,
         action: PermissionAction,
         reason: str | None = None,
-        expires_in: int | None = None,
-        remember: bool = False,
+        grant: "PermissionGrant | None" = None,
     ) -> None:
-        expires_at = time.time() + expires_in if expires_in else None
-        rule = PermissionRule(pattern, action, reason, expires_at, remember)
-        if remember and not expires_in:
-            rule.expires_at = None
+        opts = grant or PermissionGrant()
+        expires_at = time.time() + opts.expires_in if opts.expires_in else None
+        if opts.remember and not opts.expires_in:
+            expires_at = None
+        rule = PermissionRule(pattern, action, reason, expires_at, opts.remember)
         self._rules.insert(0, rule)
         logger.debug(f"Added rule: {pattern} -> {action.value}")
 
@@ -97,22 +123,25 @@ class PermissionManager:
             if rule.is_expired():
                 continue
             if self._match_pattern(tool_name, rule.pattern):
-                if rule.action == PermissionAction.ALLOW:
-                    return (True, rule.reason or "Allowed by rule")
-                elif rule.action == PermissionAction.DENY:
-                    return (False, rule.reason or "Denied by rule")
-                else:
-                    return (False, f"Requires permission: {rule.reason or tool_name}")
+                return self._rule_verdict(rule, tool_name)
         return False, f"No rule matched '{tool_name}', defaulting to ask"
+
+    def _rule_verdict(self, rule: "PermissionRule", tool_name: str) -> tuple[bool, str]:
+        """The verdict of a matched permission rule."""
+        if rule.action == PermissionAction.ALLOW:
+            return True, rule.reason or "Allowed by rule"
+        if rule.action == PermissionAction.DENY:
+            return False, rule.reason or "Denied by rule"
+        return False, f"Requires permission: {rule.reason or tool_name}"
 
     def request_permission(
         self,
         tool_name: str,
         args: dict,
         permission: str,
-        workspace_id: str | None = None,
-        user_id: str | None = None,
+        context: "PermissionContext | None" = None,
     ) -> str:
+        where = context or PermissionContext()
         self._request_id_counter += 1
         request_id = f"req_{self._request_id_counter}_{uuid.uuid4().hex[:8]}"
         request = PermissionRequest(
@@ -120,8 +149,8 @@ class PermissionManager:
             tool_name=tool_name,
             permission=permission,
             args=args,
-            workspace_id=workspace_id,
-            user_id=user_id,
+            workspace_id=where.workspace_id,
+            user_id=where.user_id,
         )
         self._requests[request_id] = request
         logger.info(f"Permission requested: {request_id} for {tool_name}")
@@ -130,38 +159,31 @@ class PermissionManager:
     def approve_request(
         self, request_id: str, remember: bool = False, expires_in: int | None = None
     ) -> bool:
-        if request_id not in self._requests:
-            logger.warning(f"Unknown request: {request_id}")
-            return False
-        request = self._requests[request_id]
-        request.status = "approved"
-        if remember:
-            self.add_rule(
-                request.tool_name,
-                PermissionAction.ALLOW,
-                f"Approved for {request.tool_name}",
-                expires_in=expires_in,
-                remember=True,
-            )
-        del self._requests[request_id]
-        logger.info(f"Request approved: {request_id}")
-        return True
+        return self._resolve_request(
+            request_id, _Resolution("approved", PermissionAction.ALLOW, remember, expires_in)
+        )
 
     def deny_request(self, request_id: str, remember: bool = False) -> bool:
+        return self._resolve_request(
+            request_id, _Resolution("denied", PermissionAction.DENY, remember, None)
+        )
+
+    def _resolve_request(self, request_id: str, resolution: "_Resolution") -> bool:
         if request_id not in self._requests:
             logger.warning(f"Unknown request: {request_id}")
             return False
         request = self._requests[request_id]
-        request.status = "denied"
-        if remember:
+        request.status = resolution.status
+        if resolution.remember:
+            reason = f"{resolution.status.capitalize()} for {request.tool_name}"
             self.add_rule(
                 request.tool_name,
-                PermissionAction.DENY,
-                f"Denied for {request.tool_name}",
-                remember=True,
+                resolution.action,
+                reason,
+                grant=PermissionGrant(expires_in=resolution.expires_in, remember=True),
             )
         del self._requests[request_id]
-        logger.info(f"Request denied: {request_id}")
+        logger.info(f"Request {resolution.status}: {request_id}")
         return True
 
     def get_pending_requests(self) -> list[PermissionRequest]:

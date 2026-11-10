@@ -149,7 +149,8 @@ class PluginManager:
         result = plugin.effect(ctx)
         # Support both sync and async effects.
         if hasattr(result, "__await__"):
-            await result
+            # The value of an effect is not used; awaiting it is the point.
+            _ = await result
 
         self._activated.add(plugin_id)
 

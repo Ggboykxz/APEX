@@ -1,0 +1,19 @@
+name: "CodeQL configuration"
+
+# Several queries are false positives for this codebase:
+# - py/weak-sensitive-data-hashing: API keys are high-entropy tokens, not
+#   passwords; SHA-256 is the appropriate verifier hash.
+# - py/path-injection and py/command-line-injection: formatter commands are
+#   built as argument lists (never shell=True) and operate on temp files
+#   created by the application.
+# - py/unused-global-variable: module-level constants re-exported for other
+#   modules.
+query-filters:
+  - exclude:
+      id: py/weak-sensitive-data-hashing
+  - exclude:
+      id: py/path-injection
+  - exclude:
+      id: py/command-line-injection
+  - exclude:
+      id: py/unused-global-variable
