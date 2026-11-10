@@ -99,6 +99,7 @@ def test_mcp_config_pool():
     pool = MCPConnectionPool()
     pool.remove("ctx")  # no-op
 
+
 def test_feature_flags_layer():
     flags = FeatureFlags(config_experimental={"mcp_oauth": True})
     assert flags.is_enabled("mcp_oauth") is True

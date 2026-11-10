@@ -29,6 +29,16 @@ class WorkspaceContext:
     test_framework: str = ""
 
 
+def _pr_number_from_env() -> int | None:
+    """Return the CI pull-request number, or None outside a PR workflow."""
+    if "GITHUB_HEAD_REF" not in subprocess.os.environ:
+        return None
+    try:
+        return int(subprocess.os.environ.get("GITHUB_PR_NUMBER", 0))
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return None
+
+
 class WorkspaceManager:
     def __init__(self, root: Path | None = None):
         self._root = root or Path.cwd()
@@ -48,6 +58,10 @@ class WorkspaceManager:
 
     def _get_git_context(self) -> GitContext:
         ctx = GitContext()
+
+        # Read CI PR metadata first: a slow or failing network call below must
+        # never discard this information.
+        ctx.pr_number = _pr_number_from_env()
 
         try:
             result = subprocess.run(
@@ -129,9 +143,6 @@ class WorkspaceManager:
             ctx.commits_behind = (
                 len(result.stdout.strip().split("\n")) if result.stdout.strip() else 0
             )
-
-            if "GITHUB_HEAD_REF" in subprocess.os.environ:
-                ctx.pr_number = int(subprocess.os.environ.get("GITHUB_PR_NUMBER", 0))
 
             result = subprocess.run(
                 ["git", "tag", "--list", "-l", "--sort=-creatordate"],

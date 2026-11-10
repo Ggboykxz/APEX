@@ -26,8 +26,24 @@ from typing import Any
 __all__ = ["SUPPORTED_LOCALES", "LocaleRegistry", "load_locale", "t"]
 
 SUPPORTED_LOCALES = (
-    "en", "fr", "es", "de", "it", "pt", "ru", "ja", "ko",
-    "zh-CN", "zh-TW", "ar", "he", "pl", "nl", "tr", "th", "vi",
+    "en",
+    "fr",
+    "es",
+    "de",
+    "it",
+    "pt",
+    "ru",
+    "ja",
+    "ko",
+    "zh-CN",
+    "zh-TW",
+    "ar",
+    "he",
+    "pl",
+    "nl",
+    "tr",
+    "th",
+    "vi",
 )
 
 DEFAULT_LOCALE = "en"
@@ -44,9 +60,7 @@ class LocaleRegistry:
     def available(self) -> list[str]:
         if not self.dir.exists():
             return []
-        return sorted(
-            p.stem for p in self.dir.glob("*.json") if p.stem in SUPPORTED_LOCALES
-        )
+        return sorted(p.stem for p in self.dir.glob("*.json") if p.stem in SUPPORTED_LOCALES)
 
     def load(self, code: str) -> dict[str, Any]:
         code = code if code in SUPPORTED_LOCALES else DEFAULT_LOCALE
@@ -74,6 +88,7 @@ class LocaleRegistry:
             for k, v in kwargs.items():
                 template = template.replace(f"{{{k}}}", str(v))
         return template
+
 
 _registry: LocaleRegistry | None = None
 

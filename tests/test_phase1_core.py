@@ -31,6 +31,7 @@ from apex.schema import (
 # Agent service
 # ---------------------------------------------------------------------------
 
+
 def test_agent_register_and_list():
     core = Core()
     core.register_builtins()
@@ -66,6 +67,7 @@ def test_agent_resolve_by_name():
 # Command service
 # ---------------------------------------------------------------------------
 
+
 def test_command_register_resolve():
     core = Core()
     core.command.register(
@@ -86,6 +88,7 @@ def test_command_register_resolve():
 # Skill service
 # ---------------------------------------------------------------------------
 
+
 def test_skill_register_resolve():
     core = Core()
     core.skill.register(
@@ -104,6 +107,7 @@ def test_skill_register_resolve():
 # ---------------------------------------------------------------------------
 # Plugin system
 # ---------------------------------------------------------------------------
+
 
 async def test_plugin_activation_async():
     core = Core()
@@ -136,6 +140,7 @@ def test_plugin_activation():
 # Hooks
 # ---------------------------------------------------------------------------
 
+
 def test_hook_trigger():
     hooks = PluginHooks()
     seen = []
@@ -161,6 +166,7 @@ def test_hook_denial():
 # ---------------------------------------------------------------------------
 # Schema types
 # ---------------------------------------------------------------------------
+
 
 def test_agent_info_defaults():
     agent = AgentInfo(

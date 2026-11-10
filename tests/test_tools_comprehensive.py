@@ -97,7 +97,12 @@ def test_git_create_pr(executor):
     fake = subprocess.CompletedProcess(
         args=[], returncode=0, stdout="https://github.com/x/y/pull/1\nMy PR", stderr=""
     )
-    with patch("apex.tools.subprocess.run", return_value=fake):
+    # The tool prefers the gh CLI when present: stub the lookup so the test
+    # stays hermetic (no gh binary required on CI).
+    with (
+        patch("shutil.which", return_value="/usr/bin/gh"),
+        patch("apex.tools.subprocess.run", return_value=fake),
+    ):
         result = executor.execute(
             "git_create_pr", {"title": "My PR", "body": "PR description", "base": "main"}
         )
@@ -109,7 +114,10 @@ def test_git_create_pr_minimal(executor):
     fake = subprocess.CompletedProcess(
         args=[], returncode=0, stdout="https://github.com/x/y/pull/2\nMinimal PR", stderr=""
     )
-    with patch("apex.tools.subprocess.run", return_value=fake):
+    with (
+        patch("shutil.which", return_value="/usr/bin/gh"),
+        patch("apex.tools.subprocess.run", return_value=fake),
+    ):
         result = executor.execute("git_create_pr", {"title": "Minimal PR"})
     assert "Minimal PR" in result
 
