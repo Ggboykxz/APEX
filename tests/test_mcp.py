@@ -6,6 +6,7 @@ from apex.mcp import (
     MCPMessage,
     MCPResource,
     MCPServerConfig,
+    MCPServerOptions,
     MCPTool,
     load_mcp_config,
     mcp_manager,
@@ -269,7 +270,7 @@ class TestMCPManager:
 
     def test_add_server(self):
         mgr = MCPManager()
-        mgr.add_server("files", "ls", args=["-la"], env={}, enabled=True)
+        mgr.add_server("files", "ls", MCPServerOptions(args=["-la"], env={}, enabled=True))
         assert "files" in mgr._configs
         assert "files" in mgr._servers
         assert mgr._configs["files"].command == "ls"
@@ -284,8 +285,8 @@ class TestMCPManager:
 
     def test_list_servers(self):
         mgr = MCPManager()
-        mgr.add_server("srv1", "cmd1", enabled=True)
-        mgr.add_server("srv2", "cmd2", enabled=False)
+        mgr.add_server("srv1", "cmd1", MCPServerOptions(enabled=True))
+        mgr.add_server("srv2", "cmd2", MCPServerOptions(enabled=False))
         servers = mgr.list_servers()
         assert len(servers) == 2
         names = {s["name"] for s in servers}

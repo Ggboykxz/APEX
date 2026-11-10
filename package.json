@@ -7,12 +7,14 @@
     "build": "next build --webpack",
     "start": "NODE_ENV=production next start -p 3000",
     "lint": "eslint .",
+    "test": "PATH=\"$PATH:/home/user/.global_modules/bin\" && cd tui-frontend && bun test",
     "tui": "cd tui-frontend && bun run start",
     "tui:dev": "cd tui-frontend && bun run dev",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "e2e": "npx serve out -p 3001 & sleep 2 && npx playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -55,6 +57,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
+    "ecc-universal": "^2.2.3",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^13.5.0",
     "input-otp": "^1.4.2",
@@ -91,6 +94,7 @@
     }
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/postcss": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",

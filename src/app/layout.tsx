@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const META_DESC = `Every model. One terminal. ${APP_NAME} is the universal AI coding agent that runs in your terminal with ${APP_MODEL_COUNT} models, 75+ tools, and ${APP_AGENT_COUNT_TOTAL} built-in agents. Built in Africa.`;
-const META_SHORT = `Every model. One terminal. ${APP_MODEL_COUNT} models, 75+ tools, ${APP_AGENT_COUNT_TOTAL} agents.`;
+const META_DESC = `Every model. One terminal. ${APP_NAME} is the universal AI coding agent that runs in your terminal with ${APP_MODEL_COUNT} models, 103 tools, and ${APP_AGENT_COUNT_TOTAL} built-in agents. Built in Africa.`;
+const META_SHORT = `Every model. One terminal. ${APP_MODEL_COUNT} models, 103 tools, ${APP_AGENT_COUNT_TOTAL} agents.`;
 
 export const metadata: Metadata = {
   title: `${APP_NAME} — The Universal AI Coding Agent`,
