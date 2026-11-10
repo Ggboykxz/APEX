@@ -209,11 +209,13 @@ class TestNativeUpgrade:
 
         destination = im.native_upgrade(
             "2.5.0",
-            fetch=fetch,
-            env={"APEX_INSTALL_DIR": str(tmp_path / "bin")},
-            home=tmp_path,
-            sys_platform="linux",
-            machine="x86_64",
+            options=im.NativeUpgradeOptions(
+                fetch=fetch,
+                env={"APEX_INSTALL_DIR": str(tmp_path / "bin")},
+                home=tmp_path,
+                sys_platform="linux",
+                machine="x86_64",
+            ),
         )
         assert destination == tmp_path / "bin" / "apex-rs"
         assert destination.read_bytes() == b"#!/bin/sh\necho apex-rs\n"
@@ -231,11 +233,13 @@ class TestNativeUpgrade:
 
         destination = im.native_upgrade(
             None,
-            fetch=fetch,
-            env={"APEX_INSTALL_DIR": str(tmp_path / "bin")},
-            home=tmp_path,
-            sys_platform="win32",
-            machine="x86_64",
+            options=im.NativeUpgradeOptions(
+                fetch=fetch,
+                env={"APEX_INSTALL_DIR": str(tmp_path / "bin")},
+                home=tmp_path,
+                sys_platform="win32",
+                machine="x86_64",
+            ),
         )
         assert destination == tmp_path / "bin" / "apex-rs.exe"
         assert destination.read_bytes() == b"MZ fake binary"
@@ -252,11 +256,13 @@ class TestNativeUpgrade:
         with pytest.raises(im.InstallError, match="checksum"):
             im.native_upgrade(
                 "2.5.0",
-                fetch=fetch,
-                env={"APEX_INSTALL_DIR": str(tmp_path / "bin")},
-                home=tmp_path,
-                sys_platform="linux",
-                machine="x86_64",
+                options=im.NativeUpgradeOptions(
+                    fetch=fetch,
+                    env={"APEX_INSTALL_DIR": str(tmp_path / "bin")},
+                    home=tmp_path,
+                    sys_platform="linux",
+                    machine="x86_64",
+                ),
             )
         assert not (tmp_path / "bin" / asset).exists()
 
@@ -264,11 +270,13 @@ class TestNativeUpgrade:
         with pytest.raises(im.InstallError, match="no native backend"):
             im.native_upgrade(
                 "2.5.0",
-                fetch=lambda _: b"",
-                env={"APEX_INSTALL_DIR": str(tmp_path / "bin")},
-                home=tmp_path,
-                sys_platform="freebsd",
-                machine="x86_64",
+                options=im.NativeUpgradeOptions(
+                    fetch=lambda _: b"",
+                    env={"APEX_INSTALL_DIR": str(tmp_path / "bin")},
+                    home=tmp_path,
+                    sys_platform="freebsd",
+                    machine="x86_64",
+                ),
             )
 
 
@@ -303,8 +311,7 @@ class TestUninstallPlan:
         (tmp_path / ".apex").mkdir()
         plan = im.uninstall_plan(
             detection=self._detection(),
-            keep_config=True,
-            keep_data=True,
+            options=im.UninstallOptions(keep_config=True, keep_data=True),
             home=tmp_path,
             env={},
         )
@@ -336,9 +343,9 @@ class TestUninstallPlan:
         (tmp_path / ".apex" / "api_keys.json").write_text("{}")
         plan = im.uninstall_plan(
             detection=im.Detection(("source",), {}),
+            options=im.UninstallOptions(purge=True),
             home=tmp_path,
             env={},
-            purge=True,
         )
         assert tmp_path / ".apex" in plan.paths
         assert tmp_path / ".config" / "apex" in plan.paths

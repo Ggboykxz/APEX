@@ -6,8 +6,9 @@
 # Rust backend (`apex-rs`, headless). PyPI/pip/pipx/uv no longer exist.
 #
 # Usage:
-#   curl -fsSLO https://apex-ai.dev/install.sh
-#   bash install.sh [options]
+#   curl -fsSL https://apex-ai.dev/install.sh | bash
+#   # with options:
+#   curl -fsSL https://apex-ai.dev/install.sh | bash -s -- --method native
 #
 # Options:
 #   --method METHOD   auto | npm | native | docker

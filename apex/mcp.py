@@ -26,6 +26,15 @@ class MCPTool:
 
 
 @dataclass
+class MCPServerOptions:
+    """How one MCP server is started."""
+
+    args: list[str] = field(default_factory=list)
+    env: dict[str, str] = field(default_factory=dict)
+    enabled: bool = True
+
+
+@dataclass
 class MCPServerConfig:
     name: str
     command: str
@@ -110,31 +119,42 @@ class MCPClient:
                 if not char:
                     await asyncio.sleep(0.01)
                     continue
-
-                if char == "\n":
-                    if buffer.strip():
-                        await self._handle_message(buffer)
-                    buffer = ""
-                else:
-                    buffer += char
+                buffer = await self._consume_char(buffer, char)
         except Exception:  # noqa: BLE001, S110
             pass
+
+    async def _consume_char(self, buffer: str, char: str) -> str:
+        """Add one character to the buffer, handling a complete line."""
+        if char != "\n":
+            return buffer + char
+        if buffer.strip():
+            await self._handle_message(buffer)
+        return ""
+
+    async def _answer_request(self, msg: dict) -> None:
+        """Complete the pending request the message answers."""
+        msg_id = msg.get("id")
+        if not msg_id or str(msg_id) not in self._pending_requests:
+            return
+        future = self._pending_requests.pop(str(msg_id))
+        if "result" in msg:
+            future.set_result(msg["result"])
+        elif "error" in msg:
+            future.set_exception(Exception(msg["error"].get("message", "Error")))
+
+    async def _dispatch_notification(self, msg: dict) -> None:
+        """Call the handler of a server notification."""
+        method = msg.get("method")
+        if method in self._notification_handlers:
+            await self._notification_handlers[method](msg.get("params"))
 
     async def _handle_message(self, raw: str) -> None:
         try:
             msg = json.loads(raw)
-            msg_id = msg.get("id")
-
-            if msg_id and str(msg_id) in self._pending_requests:
-                future = self._pending_requests.pop(str(msg_id))
-                if "result" in msg:
-                    future.set_result(msg["result"])
-                elif "error" in msg:
-                    future.set_exception(Exception(msg["error"].get("message", "Error")))
+            if msg.get("id") is not None:
+                await self._answer_request(msg)
             elif "method" in msg:
-                method = msg["method"]
-                if method in self._notification_handlers:
-                    await self._notification_handlers[method](msg.get("params"))
+                await self._dispatch_notification(msg)
         except Exception:  # noqa: BLE001, S110
             pass
 
@@ -265,12 +285,15 @@ class MCPManager:
         self,
         name: str,
         command: str,
-        args: list[str] | None = None,
-        env: dict | None = None,
-        enabled: bool = True,
+        options: MCPServerOptions | None = None,
     ) -> None:
+        opts = options or MCPServerOptions()
         config = MCPServerConfig(
-            name=name, command=command, args=args or [], env=env or {}, enabled=enabled
+            name=name,
+            command=command,
+            args=list(opts.args),
+            env=dict(opts.env),
+            enabled=opts.enabled,
         )
         self._configs[name] = config
         self._servers[name] = MCPClient(config)
@@ -354,9 +377,11 @@ def load_mcp_config(config_path: Path) -> None:
             mcp_manager.add_server(
                 name=name,
                 command=server_config.get("command", ""),
-                args=server_config.get("args", []),
-                env=server_config.get("env", {}),
-                enabled=server_config.get("enabled", True),
+                options=MCPServerOptions(
+                    args=list(server_config.get("args", [])),
+                    env=dict(server_config.get("env", {})),
+                    enabled=server_config.get("enabled", True),
+                ),
             )
     except Exception as e:  # noqa: BLE001
         print(f"Failed to load MCP config: {e}")

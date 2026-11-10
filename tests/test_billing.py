@@ -9,11 +9,14 @@ from apex.billing import (
     BillingAccount,
     BillingManager,
     BillingPlan,
+    CacheUsage,
     CostConfig,
     InsufficientBalanceError,
     PlanType,
     QuotaExceededError,
+    TokenUsage,
     TrialExpiredError,
+    UsageContext,
     UsageRecord,
     billing_manager,
     calculate_cost,
@@ -396,7 +399,7 @@ class TestBillingManagerCalculateCost:
         assert cost == 0.0
 
     def test_with_cache_zero_tokens(self, manager):
-        cost = manager.calculate_cost("gpt-4o", 1000, 1000, use_cache=True, cache_tokens=0)
+        cost = manager.calculate_cost("gpt-4o", 1000, 1000, CacheUsage(enabled=True))
         assert cost > 0
 
     def test_unknown_model_defaults_to_sonnet(self, manager):
@@ -555,7 +558,7 @@ class TestBillingManagerRecordUsage:
 
     def test_record_usage(self, manager):
         manager.create_account("user-1")
-        record = manager.record_usage("user-1", "gpt-4o", 1000, 500)
+        record = manager.record_usage("user-1", "gpt-4o", TokenUsage(1000, 500))
         assert record.model == "gpt-4o"
         assert record.input_tokens == 1000
         assert record.output_tokens == 500
@@ -564,7 +567,7 @@ class TestBillingManagerRecordUsage:
 
     def test_record_usage_updates_account(self, manager):
         manager.create_account("user-1")
-        record = manager.record_usage("user-1", "gpt-4o", 1000, 500)
+        record = manager.record_usage("user-1", "gpt-4o", TokenUsage(1000, 500))
         account = manager.get_account("user-1")
         assert account.used_this_month == record.cost
         assert account.input_tokens_used == 1000
@@ -572,8 +575,8 @@ class TestBillingManagerRecordUsage:
 
     def test_record_usage_multiple(self, manager):
         manager.create_account("user-1")
-        r1 = manager.record_usage("user-1", "gpt-4o", 1000, 500)
-        r2 = manager.record_usage("user-1", "gpt-4o", 2000, 1000)
+        r1 = manager.record_usage("user-1", "gpt-4o", TokenUsage(1000, 500))
+        r2 = manager.record_usage("user-1", "gpt-4o", TokenUsage(2000, 1000))
         account = manager.get_account("user-1")
         assert account.used_this_month == r1.cost + r2.cost
         assert account.input_tokens_used == 3000
@@ -581,23 +584,27 @@ class TestBillingManagerRecordUsage:
 
     def test_record_usage_with_session(self, manager):
         manager.create_account("user-1")
-        record = manager.record_usage("user-1", "gpt-4o", 1000, 500, session_id="sess-1")
+        record = manager.record_usage(
+            "user-1", "gpt-4o", TokenUsage(1000, 500), UsageContext(session_id="sess-1")
+        )
         assert record.session_id == "sess-1"
 
     def test_record_usage_with_workspace(self, manager):
         manager.create_account("user-1")
-        record = manager.record_usage("user-1", "gpt-4o", 1000, 500, workspace_id="ws-1")
+        record = manager.record_usage(
+            "user-1", "gpt-4o", TokenUsage(1000, 500), UsageContext(workspace_id="ws-1")
+        )
         assert record.workspace_id == "ws-1"
 
     def test_record_usage_no_account(self, manager):
         """Recording usage without an account still works, just doesn't update account."""
-        record = manager.record_usage("no-account-user", "gpt-4o", 1000, 500)
+        record = manager.record_usage("no-account-user", "gpt-4o", TokenUsage(1000, 500))
         assert record.model == "gpt-4o"
         assert "no-account-user" in manager._usage_history
 
     def test_record_usage_creates_history_if_missing(self, manager):
         """If user has no history, it's created."""
-        manager.record_usage("new-user", "gpt-4o", 100, 50)
+        manager.record_usage("new-user", "gpt-4o", TokenUsage(100, 50))
         assert len(manager._usage_history["new-user"]) == 1
 
 
@@ -616,20 +623,20 @@ class TestBillingManagerUsageHistory:
         return m
 
     def test_get_usage_history(self, manager):
-        manager.record_usage("user-1", "gpt-4o", 1000, 500)
-        manager.record_usage("user-1", "claude-sonnet", 2000, 1000)
+        manager.record_usage("user-1", "gpt-4o", TokenUsage(1000, 500))
+        manager.record_usage("user-1", "claude-sonnet", TokenUsage(2000, 1000))
         history = manager.get_usage_history("user-1")
         assert len(history) == 2
 
     def test_get_usage_history_sorted_desc(self, manager):
-        manager.record_usage("user-1", "gpt-4o", 1000, 500)
-        manager.record_usage("user-1", "claude-sonnet", 2000, 1000)
+        manager.record_usage("user-1", "gpt-4o", TokenUsage(1000, 500))
+        manager.record_usage("user-1", "claude-sonnet", TokenUsage(2000, 1000))
         history = manager.get_usage_history("user-1")
         assert history[0].timestamp >= history[1].timestamp
 
     def test_get_usage_history_with_limit(self, manager):
         for i in range(10):
-            manager.record_usage("user-1", "gpt-4o", 100, 50)
+            manager.record_usage("user-1", "gpt-4o", TokenUsage(100, 50))
         history = manager.get_usage_history("user-1", limit=5)
         assert len(history) == 5
 
@@ -638,8 +645,8 @@ class TestBillingManagerUsageHistory:
         assert history == []
 
     def test_get_usage_summary(self, manager):
-        manager.record_usage("user-1", "gpt-4o", 1000, 500)
-        manager.record_usage("user-1", "claude-sonnet", 2000, 1000)
+        manager.record_usage("user-1", "gpt-4o", TokenUsage(1000, 500))
+        manager.record_usage("user-1", "claude-sonnet", TokenUsage(2000, 1000))
         summary = manager.get_usage_summary("user-1")
         assert summary["user_id"] == "user-1"
         assert summary["plan"] == "Free"
@@ -691,7 +698,7 @@ class TestBillingManagerPlanUpdate:
 
     def test_update_plan_preserves_usage(self, manager):
         manager.create_account("user-1", PlanType.FREE)
-        manager.record_usage("user-1", "gpt-4o", 1000, 500)
+        manager.record_usage("user-1", "gpt-4o", TokenUsage(1000, 500))
         account = manager.get_account("user-1")
         old_used = account.used_this_month
         manager.update_plan("user-1", PlanType.PRO)
@@ -713,7 +720,7 @@ class TestBillingManagerResetMonthly:
 
     def test_reset_monthly_usage(self, manager):
         manager.create_account("user-1")
-        manager.record_usage("user-1", "gpt-4o", 1000, 500)
+        manager.record_usage("user-1", "gpt-4o", TokenUsage(1000, 500))
         account = manager.get_account("user-1")
         assert account.used_this_month > 0
         assert account.input_tokens_used > 0
@@ -747,7 +754,7 @@ class TestModuleLevelCalculateCost:
         assert cost == 0.0
 
     def test_with_cache(self):
-        cost = calculate_cost("gpt-4o", 1000, 1000, use_cache=True, cache_tokens=100)
+        cost = calculate_cost("gpt-4o", 1000, 1000, CacheUsage(enabled=True, tokens=100))
         assert cost > 0
 
 
