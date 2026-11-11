@@ -1,0 +1,7 @@
+:HL["/APEX/_next/static/media/22a5144ee8d83bca-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/APEX/_next/static/media/7d4881bb7e1bf84d-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/APEX/_next/static/css/1dd340e041771dd9.css","style"]
+:HL["/APEX/_next/static/css/a1f67f721ebf3d6a.css","style"]
+2:[["children",{"s":"__PAGE__","h":160}]]
+1:[["children",{"s":"install","h":96,"c":"$Q2"}]]
+0:{"b":"mtODmBR1_pJiC9mMqiwHC","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
