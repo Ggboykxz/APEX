@@ -55,9 +55,11 @@ dev = [
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=7.1.0",
     "pytest-timeout>=2.3.0",
+<<<<<<< HEAD
     "ruff==0.17.4",
-    "mypy>=1.10.0",
+    "mypy>=2.4.1",
     "mkdocs-material>=9.8.0",
+>>>>>>> origin/main
     "mkdocs-git-revision-date-localized-plugin",
 ]
 
