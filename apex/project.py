@@ -167,18 +167,17 @@ class ProjectInitializer:
                     src_dirs.add(item.name)
                 elif "test" in lower or "spec" in lower:
                     test_dirs.add(item.name)
-            elif item.is_file():
-                if item.suffix in (
-                    ".json",
-                    ".yaml",
-                    ".yml",
-                    ".toml",
-                    ".ini",
-                    ".cfg",
-                    ".conf",
-                    ".env",
-                ):
-                    config_files.append(item.name)
+            elif item.is_file() and item.suffix in (
+                ".json",
+                ".yaml",
+                ".yml",
+                ".toml",
+                ".ini",
+                ".cfg",
+                ".conf",
+                ".env",
+            ):
+                config_files.append(item.name)
 
         result["structure"] = {
             "src_dirs": list(src_dirs),
